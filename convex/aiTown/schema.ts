@@ -22,6 +22,19 @@ export const aiTownTables = {
     engineId: v.id('engines'),
     lastViewed: v.number(),
     status: v.union(v.literal('running'), v.literal('stoppedByDeveloper'), v.literal('inactive')),
+    worldStartRealDate: v.optional(v.number()),
+    worldStartTimeZone: v.optional(v.string()),
+    worldClock: v.optional(
+      v.object({
+        hour: v.number(),
+        minute: v.optional(v.number()),
+        day: v.number(),
+        week: v.number(),
+        semester: v.number(),
+        timeSpeed: v.number(),
+        lastUpdated: v.number(),
+      }),
+    ),
   }).index('worldId', ['worldId']),
 
   // This table contains the map data for a given world. Since it's a bit larger than the player
@@ -58,7 +71,9 @@ export const aiTownTables = {
     lastMessage: serializedConversation.lastMessage,
     numMessages: serializedConversation.numMessages,
     participants: v.array(playerId),
-  }).index('worldId', ['worldId', 'id']),
+  })
+    .index('worldId', ['worldId', 'id'])
+    .index('ended', ['worldId', 'ended']),
   archivedAgents: defineTable({ worldId: v.id('worlds'), ...serializedAgent }).index('worldId', [
     'worldId',
     'id',

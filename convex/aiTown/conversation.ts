@@ -125,17 +125,18 @@ export class Conversation {
     }
     // Ensure the players still exist.
     if ([...game.world.conversations.values()].find((c) => c.participants.has(player.id))) {
-      const reason = `Player ${player.id} is already in a conversation`;
+      const reason = `Alan is already in a conversation`;
       console.log(reason);
       return { error: reason };
     }
     if ([...game.world.conversations.values()].find((c) => c.participants.has(invitee.id))) {
-      const reason = `Player ${player.id} is already in a conversation`;
+      const reason = `Target player ${invitee.id} is already in a conversation`;
       console.log(reason);
       return { error: reason };
     }
     const conversationId = game.allocId('conversations');
     console.log(`Creating conversation ${conversationId}`);
+    const inviteeStatus = invitee.human ? { kind: 'invited' as const } : { kind: 'walkingOver' as const };
     game.world.conversations.set(
       conversationId,
       new Conversation({
@@ -145,7 +146,7 @@ export class Conversation {
         numMessages: 0,
         participants: [
           { playerId: player.id, invited: now, status: { kind: 'walkingOver' } },
-          { playerId: invitee.id, invited: now, status: { kind: 'invited' } },
+          { playerId: invitee.id, invited: now, status: inviteeStatus },
         ],
       }),
     );

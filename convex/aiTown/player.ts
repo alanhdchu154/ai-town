@@ -14,6 +14,11 @@ import { Game } from './game';
 import { stopPlayer, findRoute, blocked, movePlayer } from './movement';
 import { inputHandler } from './inputHandler';
 import { characters } from '../../data/characters';
+import {
+  clampToClassroom,
+  isInsideClassroom,
+  randomClassroomTile,
+} from '../../data/classroomBounds';
 import { PlayerDescription } from './playerDescription';
 
 const pathfinding = v.object({
@@ -82,12 +87,14 @@ export class Player {
   }
 
   tick(game: Game, now: number) {
+    this.enforceClassroomBounds();
     if (this.human && this.lastInput < now - HUMAN_IDLE_TOO_LONG) {
       this.leave(game, now);
     }
   }
 
   tickPathfinding(game: Game, now: number) {
+    this.enforceClassroomBounds();
     // There's nothing to do if we're not moving.
     const { pathfinding, position } = this;
     if (!pathfinding) {
@@ -135,6 +142,7 @@ export class Player {
   }
 
   tickPosition(game: Game, now: number) {
+    this.enforceClassroomBounds();
     // There's nothing to do if we're not moving.
     if (!this.pathfinding || this.pathfinding.state.kind !== 'moving') {
       this.speed = 0;
@@ -149,6 +157,11 @@ export class Player {
       return;
     }
     const { position, facing, velocity } = candidate;
+    if (!isInsideClassroom(position)) {
+      this.position = clampToClassroom(position);
+      stopPlayer(this);
+      return;
+    }
     const collisionReason = blocked(game, now, position, this.id);
     if (collisionReason !== null) {
       const backoff = Math.random() * PATHFINDING_BACKOFF;
@@ -163,6 +176,13 @@ export class Player {
     this.position = position;
     this.facing = facing;
     this.speed = velocity;
+  }
+
+  enforceClassroomBounds() {
+    if (isInsideClassroom(this.position)) return;
+    this.position = clampToClassroom(this.position);
+    this.speed = 0;
+    delete this.pathfinding;
   }
 
   static join(
@@ -188,11 +208,8 @@ export class Player {
       }
     }
     let position;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const candidate = {
-        x: Math.floor(Math.random() * game.worldMap.width),
-        y: Math.floor(Math.random() * game.worldMap.height),
-      };
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const candidate = randomClassroomTile();
       if (blocked(game, now, candidate)) {
         continue;
       }

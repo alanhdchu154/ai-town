@@ -43,6 +43,21 @@ export interface LLMConfig {
   apiKey: string | undefined;
 }
 
+let warnedLocalOllamaUrl = false;
+
+function debugLLMLogsEnabled() {
+  return process.env.LLM_DEBUG_LOGS === 'true';
+}
+
+function warnIfLocalOllamaUrl(config: LLMConfig) {
+  if (warnedLocalOllamaUrl || config.provider !== 'ollama') return;
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/.test(config.url)) return;
+  warnedLocalOllamaUrl = true;
+  console.warn(
+    'LLM_PROVIDER=ollama is using a localhost OLLAMA_BASE_URL. This works with local/self-hosted Convex. Convex Cloud cannot reach your laptop localhost; use a public tunnel or a cloud LLM for cloud deployments.',
+  );
+}
+
 export function getLLMConfig(): LLMConfig {
   let provider = process.env.LLM_PROVIDER;
   if (provider ? provider === 'openai' : process.env.OPENAI_API_KEY) {
@@ -97,12 +112,12 @@ export function getLLMConfig(): LLMConfig {
     );
   }
   // Alternative embedding model:
-  // embeddingModel: 'llama3'
+  // embeddingModel: 'qwen3:8b'
   // const OLLAMA_EMBEDDING_DIMENSION = 4096,
   return {
     provider: 'ollama',
-    url: process.env.OLLAMA_HOST ?? 'http://127.0.0.1:11434',
-    chatModel: process.env.OLLAMA_MODEL ?? 'llama3',
+    url: process.env.OLLAMA_BASE_URL ?? process.env.OLLAMA_HOST ?? 'http://localhost:11434',
+    chatModel: process.env.OLLAMA_MODEL ?? 'qwen3:8b',
     embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL ?? 'mxbai-embed-large',
     stopWords: ['<|eot_id|>'],
     apiKey: undefined,
@@ -120,6 +135,7 @@ const AuthHeaders = (): Record<string, string> =>
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
+    timeoutMs?: number;
   } & {
     stream?: false | null | undefined;
   },
@@ -128,6 +144,7 @@ export async function chatCompletion(
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
+    timeoutMs?: number;
   } & {
     stream?: true;
   },
@@ -135,27 +152,44 @@ export async function chatCompletion(
 export async function chatCompletion(
   body: Omit<CreateChatCompletionRequest, 'model'> & {
     model?: CreateChatCompletionRequest['model'];
+    timeoutMs?: number;
   },
 ) {
   const config = getLLMConfig();
+  warnIfLocalOllamaUrl(config);
+  const { timeoutMs, ...requestBody } = body;
   body.model = body.model ?? config.chatModel;
+  requestBody.model = body.model;
   const stopWords = body.stop ? (typeof body.stop === 'string' ? [body.stop] : body.stop) : [];
   if (config.stopWords) stopWords.push(...config.stopWords);
-  console.log(body);
+  if (debugLLMLogsEnabled()) console.log(requestBody);
   const {
     result: content,
     retries,
     ms,
   } = await retryWithBackoff(async () => {
-    const result = await fetch(config.url + '/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...AuthHeaders(),
-      },
+    const controller = timeoutMs ? new AbortController() : undefined;
+    const timeout = controller
+      ? setTimeout(
+          () => controller.abort(`Chat completion timed out after ${timeoutMs}ms`),
+          timeoutMs,
+        )
+      : undefined;
+    let result: Response;
+    try {
+      result = await fetch(config.url + '/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...AuthHeaders(),
+        },
+        signal: controller?.signal,
 
-      body: JSON.stringify(body),
-    });
+        body: JSON.stringify(requestBody),
+      });
+    } finally {
+      if (timeout !== undefined) clearTimeout(timeout);
+    }
     if (!result.ok) {
       const error = await result.text();
       console.error({ error });
@@ -175,7 +209,7 @@ export async function chatCompletion(
       if (content === undefined) {
         throw new Error('Unexpected result from OpenAI: ' + JSON.stringify(json));
       }
-      console.log(content);
+      if (debugLLMLogsEnabled()) console.log(content);
       return content;
     }
   });
@@ -204,6 +238,7 @@ export async function tryPullOllama(model: string, error: string) {
 
 export async function fetchEmbeddingBatch(texts: string[]) {
   const config = getLLMConfig();
+  warnIfLocalOllamaUrl(config);
   if (config.provider === 'ollama') {
     return {
       ollama: true as const,

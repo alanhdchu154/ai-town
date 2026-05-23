@@ -116,6 +116,68 @@ export const agentInputs = {
       return null;
     },
   }),
+  agentAbortConversation: inputHandler({
+    args: {
+      agentId,
+      conversationId,
+      operationId: v.string(),
+    },
+    handler: (game, now, args) => {
+      const agentId = parseGameId('agents', args.agentId);
+      const agent = game.world.agents.get(agentId);
+      if (!agent) {
+        throw new Error(`Couldn't find agent: ${agentId}`);
+      }
+      if (
+        !agent.inProgressOperation ||
+        agent.inProgressOperation.operationId !== args.operationId
+      ) {
+        console.debug(`Agent ${agentId} wasn't aborting a conversation ${args.operationId}`);
+        return null;
+      }
+      delete agent.inProgressOperation;
+      const player = game.world.players.get(agent.playerId);
+      const conversationId = parseGameId('conversations', args.conversationId);
+      const conversation = game.world.conversations.get(conversationId);
+      if (conversation?.isTyping?.playerId === agent.playerId) {
+        delete conversation.isTyping;
+      }
+      if (conversation && player) {
+        conversation.leave(game, now, player);
+      }
+      return null;
+    },
+  }),
+  clearAgentOperation: inputHandler({
+    args: {
+      agentId,
+      operationId: v.string(),
+      conversationId: v.optional(conversationId),
+    },
+    handler: (game, now, args) => {
+      const agentId = parseGameId('agents', args.agentId);
+      const agent = game.world.agents.get(agentId);
+      if (!agent) {
+        throw new Error(`Couldn't find agent: ${agentId}`);
+      }
+      if (
+        !agent.inProgressOperation ||
+        agent.inProgressOperation.operationId !== args.operationId
+      ) {
+        console.debug(`Agent ${agentId} did not need clearing for ${args.operationId}`);
+        return null;
+      }
+      delete agent.inProgressOperation;
+      if (args.conversationId) {
+        const conversationId = parseGameId('conversations', args.conversationId);
+        const conversation = game.world.conversations.get(conversationId);
+        if (conversation?.isTyping?.playerId === agent.playerId) {
+          delete conversation.isTyping;
+        }
+      }
+      return null;
+    },
+  }),
   createAgent: inputHandler({
     args: {
       descriptionIndex: v.number(),

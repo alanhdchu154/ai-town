@@ -33,7 +33,7 @@ above) are written in Python.
 
 - Game engine, database, and vector search: [Convex](https://convex.dev/)
 - Auth (Optional): [Clerk](https://clerk.com/)
-- Default chat model is `llama3` and embeddings with `mxbai-embed-large`.
+- Default chat model is `qwen3:8b` and embeddings with `mxbai-embed-large`.
 - Local inference: [Ollama](https://github.com/jmorganca/ollama)
 - Configurable for other cloud LLMs: [Together.ai](https://together.ai/) or anything that speaks the
   [OpenAI API](https://platform.openai.com/). PRs welcome to add more cloud provider support.
@@ -155,7 +155,7 @@ To see the dashboard, visit `http://localhost:6791` and provide the admin key yo
 If you'll be using Ollama for local inference, you'll need to configure Docker to connect to it.
 
 ```sh
-npx convex env set OLLAMA_HOST http://host.docker.internal:11434
+npx convex env set OLLAMA_BASE_URL http://host.docker.internal:11434
 ```
 
 To test the connection (after you [have it running](#ollama-default)):
@@ -173,20 +173,47 @@ Note: If you want to run the backend in the cloud, you can either use a cloud-ba
 OpenAI or Together.ai or you can proxy the traffic from the cloud to your local Ollama. See
 [below](#using-local-inference-from-a-cloud-deployment) for instructions.
 
-### Ollama (default)
+### Ollama (default for GIIS Underworld)
 
-By default, the app tries to use Ollama to run it entirely locally.
+By default, GIIS Underworld uses Ollama with `qwen3:8b` for local conversation generation.
 
 1. Download and install [Ollama](https://ollama.com/).
 2. Open the app or run `ollama serve` in a terminal. `ollama serve` will warn you if the app is
    already running.
-3. Run `ollama pull llama3` to have it download `llama3`.
-4. Test it out with `ollama run llama3`.
+3. Run `ollama pull qwen3:8b` to download the default chat model.
+4. Run `ollama pull mxbai-embed-large` to download the default embedding model.
+5. Test chat locally with `ollama run qwen3:8b`.
 
 Ollama model options can be found [here](https://ollama.ai/library).
 
-If you want to customize which model to use, adjust convex/util/llm.ts or set
-`npx convex env set OLLAMA_MODEL # model`. If you want to edit the embedding model:
+For local frontend configuration, create `.env.local` from `.env.local.example`:
+
+```bash
+LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen3:8b
+OLLAMA_EMBEDDING_MODEL=mxbai-embed-large
+TIME_SPEED=60
+```
+
+Convex functions also need the same backend environment variables:
+
+```sh
+npx convex env set LLM_PROVIDER ollama
+npx convex env set OLLAMA_BASE_URL http://localhost:11434
+npx convex env set OLLAMA_MODEL qwen3:8b
+npx convex env set OLLAMA_EMBEDDING_MODEL mxbai-embed-large
+```
+
+Important: Convex Cloud cannot call `http://localhost:11434` on your laptop. If the backend is
+running in Convex Cloud and `LLM_PROVIDER=ollama`, use one of these options:
+
+A. Expose Ollama through a public tunnel and set `OLLAMA_BASE_URL` to the tunnel URL. B. Run
+self-hosted/local Convex so the backend can reach local Ollama directly. C. Temporarily use a cloud
+LLM provider such as OpenAI, Together.ai, or a custom OpenAI-compatible endpoint.
+
+If you want to customize which Ollama model to use, set `OLLAMA_MODEL`. If you want to edit the
+embedding model:
 
 1. Change the `OLLAMA_EMBEDDING_DIMENSION` in `convex/util/llm.ts` and ensure:
    `export const EMBEDDING_DIMENSION = OLLAMA_EMBEDDING_DIMENSION;`
@@ -194,6 +221,16 @@ If you want to customize which model to use, adjust convex/util/llm.ts or set
 
 Note: You might want to set `NUM_MEMORIES_TO_SEARCH` to `1` in constants.ts, to reduce the size of
 conversation prompts, if you see slowness.
+
+### GIIS school map layer
+
+GIIS Underworld keeps the original AI Town tile map, but adds a small semantic school layer in
+`data/schoolLocations.ts`. Edit that file to tune named campus areas such
+as 教室區, 午餐區, 社團活動區, 學生會角落, 行政辦公區, and 中央庭院.
+
+The school backend uses this layer to label observations, recent events, and the current schedule
+focus without redesigning the map. This is the recommended first place to adjust the school feel
+before opening the tile map editor.
 
 ### OpenAI
 
@@ -234,7 +271,7 @@ dimension must match `EMBEDDING_DIMENSION`.
 
 ### Other OpenAI-compatible API
 
-You can use any OpenAI-compatible API, such as Anthropic, Groq, or Azure.
+You can use any OpenAI-compatible API, such as Anthropic or Azure.
 
 - Change the `EMBEDDING_DIMENSION` in `convex/util/llm.ts` to match the dimension of your embedding
   model.
@@ -472,7 +509,7 @@ Steps:
 1. Set up either Tunnelmole or Ngrok.
 2. Add Ollama endpoint to Convex
    ```sh
-   npx convex env set OLLAMA_HOST # your tunnelmole/ngrok unique url from the previous step
+   npx convex env set OLLAMA_BASE_URL # your tunnelmole/ngrok unique url from the previous step
    ```
 3. Update Ollama domains Ollama has a list of accepted domains. Add the ngrok domain so it won't
    reject traffic. see [ollama.ai](https://ollama.ai) for more details.
@@ -547,10 +584,10 @@ debug:
 3. If you're running locally, you can try the following:
 
 ```sh
-npx convex env set OLLAMA_HOST http://localhost:11434
+npx convex env set OLLAMA_BASE_URL http://localhost:11434
 ```
 
-By default, the host is set to `http://127.0.0.1:11434`. Some systems prefer `localhost`
+By default, the host is set to `http://localhost:11434`. Some systems prefer `127.0.0.1`
 ¯\_(ツ)\_/¯.
 
 ### Windows Ollama connection issues
@@ -616,7 +653,7 @@ to Ollama running on the host.
 2. Then from outside of the container:
 
    ```sh
-   npx convex env set OLLAMA_HOST http://localhost:11434
+   npx convex env set OLLAMA_BASE_URL http://localhost:11434
    ```
 
 3. Test if it's working:

@@ -1,0 +1,52 @@
+[
+  {
+    "name": "umi_binds_to_caocao_door_image",
+    "mode": "world_agent_chat",
+    "speaker": "CaoCao",
+    "target": "Umi",
+    "input": "秩序不是口號，是讓站在門口的人不用猜世界會怎麼對待他。",
+    "sampleOutput": "……你說的不是規則，是那個站在門口的人。\n\n如果他每次進來前都要先猜自己會不會被排除，那秩序至少要先做到一件事：讓他知道這裡有位置。",
+    "expected": {
+      "respondsDirectlyTo": ["站在門口", "位置", "秩序"],
+      "bindsToPrevious": ["站在門口", "猜"],
+      "characterVoice": ["不是規則", "有位置"],
+      "emotionalSpecificity": ["被排除", "有位置"],
+      "sceneDetails": ["門口"],
+      "maxSceneDetails": 1,
+      "maxCharacters": 180
+    }
+  },
+  {
+    "name": "liubei_invites_one_student",
+    "mode": "world_agent_chat",
+    "speaker": "Mahiru Shiina",
+    "target": "Liu Bei",
+    "input": "今天午餐時，有個學生一直坐在旁邊，沒有加入任何人的話題。",
+    "sampleOutput": "那我明天先不開會。\n\n我去問他要不要一起坐。只是一頓午餐也可以，先讓他知道有人看見他。",
+    "expected": {
+      "respondsDirectlyTo": ["午餐", "一起坐", "看見"],
+      "bindsToPrevious": ["一起坐", "看見"],
+      "characterVoice": ["一起坐", "有人看見"],
+      "emotionalSpecificity": ["看見", "一起坐"],
+      "sceneDetails": ["午餐"],
+      "maxSceneDetails": 1,
+      "maxCharacters": 160
+    }
+  },
+  {
+    "name": "mahiru_allows_quiet_refusal",
+    "mode": "world_agent_chat",
+    "speaker": "Mai",
+    "target": "Mahiru Shiina",
+    "input": "我現在不想分析這件事。",
+    "sampleOutput": "嗯，可以。\n\n那我們先不要分析。你不用現在回答，只要先坐一下就好。",
+    "expected": {
+      "respondsDirectlyTo": ["不要分析", "不用現在回答"],
+      "bindsToPrevious": ["不要分析"],
+      "characterVoice": ["嗯", "先坐一下"],
+      "emotionalSpecificity": ["不用現在回答"],
+      "maxSceneDetails": 1,
+      "maxCharacters": 100
+    }
+  }
+]

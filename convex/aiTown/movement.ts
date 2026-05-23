@@ -1,4 +1,5 @@
 import { movementSpeed } from '../../data/characters';
+import { clampToClassroom, isInsideClassroom } from '../../data/classroomBounds';
 import { COLLISION_THRESHOLD } from '../constants';
 import { compressPath, distance, manhattanDistance, pointsEqual } from '../util/geometry';
 import { MinHeap } from '../util/minheap';
@@ -29,6 +30,7 @@ export function movePlayer(
   destination: Point,
   allowInConversation?: boolean,
 ) {
+  destination = clampToClassroom(destination);
   if (Math.floor(destination.x) !== destination.x || Math.floor(destination.y) !== destination.y) {
     throw new Error(`Non-integral destination: ${JSON.stringify(destination)}`);
   }
@@ -174,6 +176,9 @@ export function blockedWithPositions(position: Point, otherPositions: Point[], m
   }
   if (position.x < 0 || position.y < 0 || position.x >= map.width || position.y >= map.height) {
     return 'out of bounds';
+  }
+  if (!isInsideClassroom(position)) {
+    return 'outside classroom';
   }
   for (const layer of map.objectTiles) {
     if (layer[Math.floor(position.x)][Math.floor(position.y)] !== -1) {

@@ -1,5 +1,7 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
+
+const GIIS_WORLD_START_REAL_DATE = Date.UTC(2026, 4, 19, 5, 0, 0);
 import { DatabaseReader, MutationCtx, mutation } from './_generated/server';
 import { Descriptions } from '../data/characters';
 import * as map from '../data/gentle';
@@ -65,6 +67,17 @@ async function getOrCreateDefaultWorld(ctx: MutationCtx) {
     lastViewed: now,
     status: 'running',
     worldId: worldId,
+    worldStartRealDate: GIIS_WORLD_START_REAL_DATE,
+    worldStartTimeZone: 'America/Chicago',
+    worldClock: {
+      hour: 9,
+      minute: 0,
+      day: 1,
+      week: 1,
+      semester: 1,
+      timeSpeed: Number(process.env.TIME_SPEED) || 60,
+      lastUpdated: now,
+    },
   });
   worldStatus = (await ctx.db.get(worldStatusId))!;
   await ctx.db.insert('maps', {

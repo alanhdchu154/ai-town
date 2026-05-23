@@ -42,3 +42,12 @@ dist
 
 convex-local*
 convex_local*
+
+# api keys (never commit)
+key.md
+*.key
+
+# local agent state & sprite-generation artifacts
+.claude/settings.local.json
+.hatch-pet-runs/
+umi/reports/

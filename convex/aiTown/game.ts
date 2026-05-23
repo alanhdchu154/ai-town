@@ -163,6 +163,9 @@ export class Game extends AbstractGame {
   }
 
   beginStep(_now: number) {
+    for (const player of this.world.players.values()) {
+      player.enforceClassroomBounds();
+    }
     // Store the current location of all players in the history tracking buffer.
     this.historicalLocations.clear();
     for (const player of this.world.players.values()) {
@@ -262,6 +265,26 @@ export class Game extends AbstractGame {
     for (const conversation of existingWorld.conversations) {
       if (!newWorld.conversations.some((c) => c.id === conversation.id)) {
         const participants = conversation.participants.map((p) => p.playerId);
+        const failedUmiMahiruPilot =
+          participants.length === 2 &&
+          participants.includes('p:0' as GameId<'players'>) &&
+          participants.includes('p:707' as GameId<'players'>) &&
+          conversation.numMessages < 2;
+        if (conversation.numMessages === 0) {
+          continue;
+        }
+        if (failedUmiMahiruPilot) {
+          const messages = await ctx.db
+            .query('messages')
+            .withIndex('conversationId', (q) =>
+              q.eq('worldId', worldId).eq('conversationId', conversation.id),
+            )
+            .collect();
+          for (const message of messages) {
+            await ctx.db.delete(message._id);
+          }
+          continue;
+        }
         const archivedConversation = {
           worldId,
           id: conversation.id,

@@ -1,6 +1,6 @@
 import { ConvexError, v } from 'convex/values';
 import { internalMutation, mutation, query } from './_generated/server';
-import { characters } from '../data/characters';
+import { internal } from './_generated/api';
 import { insertInput } from './aiTown/insertInput';
 import {
   DEFAULT_NAME,
@@ -43,6 +43,7 @@ export const heartbeatWorld = mutation({
         lastViewed: Math.max(worldStatus.lastViewed ?? now, now),
       });
     }
+    await ctx.scheduler.runAfter(0, internal.school.syncClock, { worldId: args.worldId });
 
     // Restart inactive worlds, but leave worlds explicitly stopped by the developer alone.
     if (worldStatus.status === 'stoppedByDeveloper') {
@@ -51,6 +52,9 @@ export const heartbeatWorld = mutation({
     if (worldStatus.status === 'inactive') {
       console.log(`Restarting inactive world ${worldStatus._id}...`);
       await ctx.db.patch(worldStatus._id, { status: 'running' });
+      await ctx.scheduler.runAfter(0, internal.school.ensureWorldProfiles, {
+        worldId: worldStatus.worldId,
+      });
       await startEngine(ctx, worldStatus.worldId);
     }
   },
@@ -131,13 +135,35 @@ export const joinWorld = mutation({
     // const { tokenIdentifier } = identity;
     return await insertInput(ctx, world._id, 'join', {
       name,
-      character: characters[Math.floor(Math.random() * characters.length)].name,
-      description: `${DEFAULT_NAME} is a human player`,
+      character: 'f5',
+      description: `${DEFAULT_NAME} is the chaotic builder of GIIS Underworld: principal, student, and hands-on system designer.`,
       // description: `${identity.givenName} is a human player`,
       tokenIdentifier: DEFAULT_NAME,
     });
   },
 });
+
+const GIIS_WORLD_START_REAL_DATE = Date.UTC(2026, 4, 19, 5, 0, 0);
+
+function localClockForPresence(now: number, timeZone: string, worldStartRealDate: number, timeSpeed = 60) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  }).formatToParts(new Date(now));
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0) % 24;
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? 0);
+  return {
+    hour,
+    minute,
+    day: Math.max(1, Math.floor((now - worldStartRealDate) / 86_400_000) + 1),
+    week: 1,
+    semester: 1,
+    timeSpeed,
+    lastUpdated: now,
+  };
+}
 
 export const leaveWorld = mutation({
   args: {
@@ -157,6 +183,35 @@ export const leaveWorld = mutation({
     const existingPlayer = world.players.find((p) => p.human === DEFAULT_NAME);
     if (!existingPlayer) {
       return;
+    }
+    const worldStatus = await ctx.db
+      .query('worldStatus')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .first();
+    const now = Date.now();
+    const timeZone = worldStatus?.worldStartTimeZone ?? 'America/Chicago';
+    const worldStartRealDate = GIIS_WORLD_START_REAL_DATE;
+    const lastSeenClock = localClockForPresence(
+      now,
+      timeZone,
+      worldStartRealDate,
+      worldStatus?.worldClock?.timeSpeed,
+    );
+    const existingPresence = await ctx.db
+      .query('alanPresence')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .first();
+    const presencePatch = {
+      lastSeenAt: now,
+      lastSeenClock,
+    };
+    if (existingPresence) {
+      await ctx.db.patch(existingPresence._id, presencePatch);
+    } else {
+      await ctx.db.insert('alanPresence', {
+        worldId: args.worldId,
+        ...presencePatch,
+      });
     }
     await insertInput(ctx, world._id, 'leave', {
       playerId: existingPlayer.id,

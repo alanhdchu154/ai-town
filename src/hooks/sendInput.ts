@@ -49,3 +49,23 @@ export function useSendInput<Name extends keyof Inputs>(
     return await waitForInput(convex, inputId);
   };
 }
+
+export function useSendInputQueued<Name extends keyof Inputs>(
+  engineId: Id<'engines'>,
+  name: Name,
+): (args: InputArgs<Name>) => Promise<Id<'inputs'>> {
+  const convex = useConvex();
+  return async (args) => {
+    const start = performance.now();
+    const inputId = await convex.mutation(api.world.sendWorldInput, { engineId, name, args });
+    if (import.meta.env.DEV) {
+      console.debug('[GIIS timing]', {
+        action: name,
+        phase: 'queueInputMutation',
+        ms: Math.round(performance.now() - start),
+        inputId,
+      });
+    }
+    return inputId;
+  };
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "name": "bad_repeats_user_verbatim_and_template",
+    "mode": "companion_chat",
+    "speaker": "Alan",
+    "target": "Umi",
+    "input": "我擔心我太喜歡你",
+    "sampleOutput": "剛才 Alan 說：「我擔心我太喜歡你」這件事也不能忽略。它可能正在改變大家理解這個世界的方式。",
+    "expected": {
+      "shouldFail": true,
+      "respondsDirectlyTo": ["喜歡"],
+      "bindsToPrevious": ["喜歡"],
+      "maxCharacters": 180
+    }
+  },
+  {
+    "name": "bad_recent_event_template",
+    "mode": "world_agent_chat",
+    "speaker": "Mahiru Shiina",
+    "target": "Umi",
+    "input": "今天午休大家都很安靜。",
+    "sampleOutput": "我先不把它整理成報告。最近校園裡有些事還在發酵。Alan 又開始把所有人的不安都放進自己腦袋。",
+    "expected": {
+      "shouldFail": true,
+      "respondsDirectlyTo": ["安靜"],
+      "bindsToPrevious": ["午休", "安靜"],
+      "maxCharacters": 160
+    }
+  },
+  {
+    "name": "bad_mechanical_exit",
+    "mode": "world_agent_chat",
+    "speaker": "CaoCao",
+    "target": "Mai",
+    "input": "你是真的在保護秩序，還是在躲害怕？",
+    "sampleOutput": "我先去整理一下，麻衣，晚點再聊。",
+    "expected": {
+      "shouldFail": true,
+      "respondsDirectlyTo": ["秩序", "害怕"],
+      "bindsToPrevious": ["保護", "躲"],
+      "maxCharacters": 120
+    }
+  },
+  {
+    "name": "bad_wrong_addressee",
+    "mode": "world_agent_chat",
+    "speaker": "Mahiru Shiina",
+    "target": "CaoCao",
+    "input": "我只是覺得有些學生最近不敢說真話。",
+    "sampleOutput": "5/21 晚上10:40 真晝: 我只是覺得有些學生最近不敢說真話。\n5/21 晚上10:41 曹操: 劉備，問題不是誰願意公開討論，而是誰還有資格定義秩序。",
+    "expected": {
+      "shouldFail": true,
+      "respondsDirectlyTo": ["真話"],
+      "bindsToPrevious": ["學生", "真話"],
+      "maxCharacters": 240
+    }
+  },
+  {
+    "name": "bad_umi_npc_fallback_mid_message_wrong_addressee",
+    "mode": "world_agent_chat",
+    "speaker": "CaoCao",
+    "target": "Umi",
+    "input": "大家突然變小聲了。",
+    "sampleOutput": "……大家突然變小聲的地方。\n\nAlan，你今天看起來很累。",
+    "expected": {
+      "shouldFail": true,
+      "respondsDirectlyTo": ["變小聲"],
+      "bindsToPrevious": ["變小聲"],
+      "maxCharacters": 120
+    }
+  }
+]

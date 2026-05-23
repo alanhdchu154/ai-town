@@ -1,63 +1,65 @@
-import clsx from 'clsx';
 import { useMutation, useQuery } from 'convex/react';
-import { KeyboardEvent, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
-import { useSendInput } from '../hooks/sendInput';
+import { useSendInputQueued } from '../hooks/sendInput';
 import { Player } from '../../convex/aiTown/player';
 import { Conversation } from '../../convex/aiTown/conversation';
+import { displayAgentName } from '../../data/displayNames';
+import { toastOnError } from '../toasts';
 
 export function MessageInput({
   worldId,
   engineId,
   humanPlayer,
   conversation,
+  placeholderTargetName,
+  onOptimisticMessage,
 }: {
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
   humanPlayer: Player;
   conversation: Conversation;
+  placeholderTargetName?: string;
+  onOptimisticMessage?: (message: {
+    conversationId: string;
+    messageUuid: string;
+    author: string;
+    authorName?: string;
+    text: string;
+    createdAt: number;
+  }) => void;
 }) {
   const descriptions = useQuery(api.world.gameDescriptions, { worldId });
-  const humanName = descriptions?.playerDescriptions.find((p) => p.playerId === humanPlayer.id)
-    ?.name;
-  const inputRef = useRef<HTMLParagraphElement>(null);
+  const humanName = descriptions?.playerDescriptions.find(
+    (p: { playerId: string }) => p.playerId === humanPlayer.id,
+  )?.name;
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const inflightUuid = useRef<string | undefined>();
+  const [sending, setSending] = useState(false);
+  const [text, setText] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
   const writeMessage = useMutation(api.messages.writeMessage);
-  const startTyping = useSendInput(engineId, 'startTyping');
+  const startTyping = useSendInputQueued(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
 
-  const onKeyDown = async (e: KeyboardEvent) => {
-    e.stopPropagation();
+  useEffect(() => {
+    const handle = window.setTimeout(() => inputRef.current?.focus(), 80);
+    return () => window.clearTimeout(handle);
+  }, [conversation.id]);
 
-    // Set the typing indicator if we're not submitting.
-    if (e.key !== 'Enter') {
-      console.log(inflightUuid.current);
-      if (currentlyTyping || inflightUuid.current !== undefined) {
-        return;
-      }
-      inflightUuid.current = crypto.randomUUID();
-      try {
-        // Don't show a toast on error.
-        await startTyping({
-          playerId: humanPlayer.id,
-          conversationId: conversation.id,
-          messageUuid: inflightUuid.current,
-        });
-      } finally {
-        inflightUuid.current = undefined;
-      }
+  useEffect(() => {
+    const focusInput = () => inputRef.current?.focus();
+    window.addEventListener('giis:focus-chat-input', focusInput);
+    return () => window.removeEventListener('giis:focus-chat-input', focusInput);
+  }, []);
+
+  const sendMessage = async () => {
+    if (sending) {
       return;
     }
-
-    // Send the current message.
-    e.preventDefault();
-    if (!inputRef.current) {
-      return;
-    }
-    const text = inputRef.current.innerText;
-    inputRef.current.innerText = '';
-    if (!text) {
+    const messageText = text.trim();
+    if (!messageText) {
       return;
     }
     let messageUuid = inflightUuid.current;
@@ -65,30 +67,140 @@ export function MessageInput({
       messageUuid = currentlyTyping.messageUuid;
     }
     messageUuid = messageUuid || crypto.randomUUID();
-    await writeMessage({
-      worldId,
-      playerId: humanPlayer.id,
-      conversationId: conversation.id,
-      text,
-      messageUuid,
-    });
+    setSending(true);
+    const clickStart = performance.now();
+    if (import.meta.env.DEV) {
+      console.debug('[GIIS timing]', { action: 'sendMessage', phase: 'uiClickLatency', ms: 0 });
+    }
+    try {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      if (import.meta.env.DEV) {
+        console.debug('[GIIS timing]', {
+          action: 'sendMessage',
+          phase: 'renderUpdateQueued',
+          ms: Math.round(performance.now() - clickStart),
+        });
+      }
+      const createdAt = Date.now();
+      onOptimisticMessage?.({
+        conversationId: conversation.id,
+        messageUuid,
+        author: humanPlayer.id,
+        authorName: humanName,
+        text: messageText,
+        createdAt,
+      });
+      setText('');
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+      const mutationStart = performance.now();
+      const writePromise = writeMessage({
+        worldId,
+        playerId: humanPlayer.id,
+        conversationId: conversation.id,
+        text: messageText,
+        messageUuid,
+      });
+      window.setTimeout(() => setSending(false), 250);
+      void toastOnError(writePromise).then(() => {
+        if (import.meta.env.DEV) {
+          console.debug('[GIIS timing]', {
+            action: 'sendMessage',
+            phase: 'convexMutationTime',
+            ms: Math.round(performance.now() - mutationStart),
+          });
+        }
+      }).finally(() => {
+        setSending(false);
+        window.setTimeout(() => inputRef.current?.focus(), 0);
+      });
+      if (import.meta.env.DEV) {
+        console.debug('[GIIS timing]', {
+          action: 'sendMessage',
+          phase: 'mutationQueued',
+          ms: Math.round(performance.now() - mutationStart),
+        });
+      }
+      window.dispatchEvent(
+        new CustomEvent('giis:action-cinematic', {
+          detail: { label: `${humanName ?? 'Alan'} 說話了`, actionType: 'chat' },
+        }),
+      );
+    } finally {
+      window.setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  };
+
+  const beginTyping = async () => {
+    if (currentlyTyping || inflightUuid.current !== undefined) {
+      return;
+    }
+    inflightUuid.current = crypto.randomUUID();
+    try {
+      await startTyping({
+        playerId: humanPlayer.id,
+        conversationId: conversation.id,
+        messageUuid: inflightUuid.current,
+      });
+    } finally {
+      inflightUuid.current = undefined;
+    }
+  };
+
+  const onKeyDown = async (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      window.dispatchEvent(new CustomEvent('giis:leave-conversation'));
+      return;
+    }
+
+    if (e.key !== 'Enter') {
+      return;
+    }
+
+    if (e.shiftKey || isComposing || e.nativeEvent.isComposing) {
+      return;
+    }
+
+    e.preventDefault();
+    await sendMessage();
+  };
+
+  const onChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    setText(event.target.value);
+    void beginTyping();
+  };
+
+  const onSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    await sendMessage();
   };
   return (
-    <div className="leading-tight mb-6">
-      <div className="flex gap-4">
-        <span className="uppercase flex-grow">{humanName}</span>
-      </div>
-      <div className={clsx('bubble', 'bubble-mine')}>
-        <p
-          className="bg-white -mx-3 -my-1"
+    <form className="giis-chat-input-form" onSubmit={onSubmit}>
+      <div className="giis-chat-input-line">
+        <textarea
+          className="giis-chat-input"
           ref={inputRef}
-          contentEditable
           style={{ outline: 'none' }}
-          tabIndex={0}
-          placeholder="Type here"
+          value={text}
+          placeholder={
+            placeholderTargetName
+              ? `對 ${displayAgentName(placeholderTargetName)} 說些什麼... Enter 送出，Shift+Enter 換行`
+              : '輸入訊息，Enter 送出，Shift+Enter 換行'
+          }
           onKeyDown={(e) => onKeyDown(e)}
+          onChange={onChange}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         />
+        <button className="giis-send-button disabled:opacity-60" type="submit" disabled={sending}>
+          {sending ? '正在送出訊息' : '送出'}
+        </button>
       </div>
-    </div>
+      <p className="giis-chat-input-hint">Esc 離開對話。中文輸入法組字時不會送出。</p>
+    </form>
   );
 }
