@@ -1,6 +1,103 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-22
+Last updated: 2026-05-23
+
+## 2026-05-23 Soul Deepening v0.1k Goal + Token-Outage Fallback
+
+Pivot: cc / codex tokens are exhausted, so the v0.1k goal becomes
+**how to deepen the soul of GIIS characters without leaning on a paid
+cloud LLM during day-to-day play**. Use the remaining Qwen quota
+deliberately for soul-depth sampling, and keep daily-loop conversations
+on the local template path so nothing breaks while we iterate.
+
+Captured this session:
+- Attempted one Umi↔Mahiru cloud (Qwen) sample via
+  `npm run pilot:umi-mahiru:single-sample`. The script applied the
+  three pilot-control envs (`UMI_MAHIRU_SINGLE_SAMPLE_AFTER_MS`,
+  `UMI_MAHIRU_COLOCATION_PILOT`, `AUTONOMOUS_CONVERSATION_LLM_PAIRS`),
+  ran `testing:resume` and `school:coLocateUmiMahiruForPilot`, then
+  polled for 240s with 0 fresh archived conversations landing. Result:
+  **timed out with no fresh archived Umi/Mahiru sample**. The script's
+  `finally` block correctly removed the pilot-control envs and ran
+  `testing:stop`. Log preserved at
+  `.hatch-pet-runs/umi-mahiru-2026-05-22.log`.
+- Likely cause of the empty run (next session, debug before re-running):
+  the autonomous loop did not seem to fire a Umi-Mahiru conversation in
+  that window. Could be (a) the engine never actually picked up the
+  pair after `coLocateUmiMahiruForPilot`, (b) cooldown still active from
+  earlier same-day runs, or (c) the daily quota already drained for
+  `2026-05-23` UTC. Surface convex logs around the run timestamp before
+  the next attempt; also consider seeding via the existing
+  `eval:umi-mahiru` harness directly (skips the autonomous-loop wait).
+- Switched the day-to-day Alan↔Umi companion path back to template:
+  `COMPANION_CLOUD_LLM` removed from Convex env (`npx convex env remove
+  COMPANION_CLOUD_LLM`). Alan's private chat now falls back to the
+  template `companionFallback` path. Pilot envs (`UMI_MAHIRU_PILOT_*`)
+  stay configured so the soul loop can still be triggered manually
+  without re-pasting the API key.
+
+Soul-depth work to drive next (v0.1k):
+- Bigger sample pool: schedule `pilot:umi-mahiru:single-sample` (or the
+  `eval:umi-mahiru:soul-loop` 30-min loop) under quiet hours and archive
+  results so we have a corpus to diff prompt edits against.
+- Prompt edits should target the same five soul markers tracked by the
+  soul-depth eval (specific concrete detail, emotional honesty,
+  contradiction tolerance, callback to prior memories, refusal of
+  generic platitudes). The eval harness lives in
+  `evals/conversations/`; consult `docs/giis-soul-systems-revisit-plan.md`
+  for the deeper plan.
+- Once a prompt rev shows a clear improvement on the eval, enable the
+  cloud path for that pair only by setting
+  `AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina` (or the
+  expansion target) on Convex, not by flipping the global toggle. Keep
+  Alan's companion path off until we have a separate prompt rev for it.
+
+Operational rule: do NOT re-enable `COMPANION_CLOUD_LLM` globally
+without an explicit token-budget check. Out-of-token fallback should be
+the template path, which is now what the running backend is using.
+
+## 2026-05-23 UI Pass: 互動 to Bottom + Right Drawer Slim
+
+Driver: Alan asked to put 互動 at the bottom and keep 對話 on the right; he
+also wants less duplicated chrome and a real way to use the floating
+left panels one at a time.
+
+Done this session (UI):
+- Right drawer tab list trimmed to 對話 + 角色 (debug only with
+  `VITE_SHOW_DEBUG_UI`). Default `activeTab` is now `dialogue` so opening
+  the drawer goes straight to the conversation surface. The action /
+  schedule tabs are gone; their content lives at the bottom or in the
+  left column.
+- Bottom bar refactored from `status + tiny quick-actions` into a real
+  互動列: status chips on top, action pill row below. Scene actions
+  always visible; when a target is selected we add `聊聊 {target}`,
+  `關心近況`, `問傳聞`, `送禮`, `邀請` plus a `更多互動` link that
+  opens the drawer 角色 tab for text-input actions
+  (gift/leaveMessage/announce/createClub).
+- `actionDescriptions` now ride on each pill's `title` attribute so they
+  surface as native tooltips on hover instead of as always-on paragraphs.
+- `詳細狀態` `<details>` removed from the bottom bar; the same fields are
+  already shown by the topbar / left panels.
+- Floating left panels (海 / 校園動態 / 日程) are now mutually
+  exclusive: expanding one collapses the other two so they never stack
+  on top of each other.
+- `FirstRunGuide` (the duplicate "歡迎回來 Alan" card) finished being
+  removed; the entry-point copy lives only in 海's briefing.
+
+Carried over to next UI pass:
+- **P0** Floating action-result card. `actionSummary` / `NarrativeResult`
+  still renders inside the drawer only; lift it (or dispatch via
+  `giis:action-result`) so Alan sees his action outcome above the map
+  without opening anything.
+- **P1** `runQuickAction` opens the drawer for text-input actions. That
+  works but loses focus context; consider an inline text input on the
+  bottom action row instead of a drawer trip.
+- **P1** 角色 tab content is still dense — character roster + action
+  panel + club registry all stack. Trim or paginate once we live with
+  the new bottom interaction.
+- **P2** VN conversation overlay (`.giis-conversation-mode` /
+  `.giis-vn-panel`) hasn't been eyeballed against the new layout. Open
+  a conversation and confirm the panel still positions sanely.
 
 ## 2026-05-22 Switch-style Layout Pass (UI Fit-to-Window)
 

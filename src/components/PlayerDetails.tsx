@@ -310,7 +310,7 @@ export default function PlayerDetails({
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [activeActionLabel, setActiveActionLabel] = useState('');
   const [runningActionKeys, setRunningActionKeys] = useState<Record<string, string>>({});
-  const [activeTab, setActiveTab] = useState<PanelTab>('action');
+  const [activeTab, setActiveTab] = useState<PanelTab>('dialogue');
   const [timeAdvanceHours, setTimeAdvanceHours] =
     useState<(typeof timeAdvanceOptions)[number]['hours']>(1);
   const playerDescription = playerId && game.playerDescriptions.get(playerId);
@@ -461,14 +461,13 @@ export default function PlayerDetails({
     [liveSchoolState, campusSocialState?.emotions, visibleClock?.day, visibleClock?.hour, visibleClock?.minute],
   );
   const tabLabels: Partial<Record<PanelTab, string>> = {
-    action: '互動',
     dialogue: '對話',
     characters: '角色',
     ...(SHOW_DEBUG_UI ? { debug: '進階' as const } : {}),
   };
   const visibleTabs = Object.keys(tabLabels) as PanelTab[];
   const renderTabs = () => (
-    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+    <div className={`grid gap-1 grid-cols-${visibleTabs.length}`}>
       {visibleTabs.map((tab) => (
         <button
           key={tab}
@@ -809,7 +808,9 @@ export default function PlayerDetails({
       const detail = (event as CustomEvent<{ actionType: SchoolActionType; execute?: boolean }>).detail;
       if (!detail?.actionType) return;
       setSelectedAction(detail.actionType);
-      setActiveTab(detail.actionType === 'advanceWorldTime' ? 'action' : 'characters');
+      // 互動 tab was removed from the right drawer; advanceWorldTime now
+      // lives under 角色 (characters) alongside the other action controls.
+      setActiveTab('characters');
       if (detail.execute) {
         window.setTimeout(() => void runPlayerAction(detail.actionType), 0);
       }

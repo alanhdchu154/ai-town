@@ -440,8 +440,16 @@ export default function Game() {
     if (import.meta.env.DEV) {
       console.debug('[GIIS timing]', { action: actionType, phase: 'quickActionClick', ms: 0 });
     }
+    const needsText =
+      actionType === 'gift' ||
+      actionType === 'leaveMessage' ||
+      actionType === 'announce' ||
+      actionType === 'createClub';
+    if (needsText) {
+      setPanelCollapsed(false);
+    }
     window.dispatchEvent(
-      new CustomEvent('giis:quick-action', { detail: { actionType, execute: true } }),
+      new CustomEvent('giis:quick-action', { detail: { actionType, execute: !needsText } }),
     );
   };
   const handleWorldPanelClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -626,6 +634,8 @@ export default function Game() {
             onCollapse={() => setUmiPanelCollapsed(true)}
             onExpand={() => {
               setUmiPanelCollapsed(false);
+              setCampusFeedCollapsed(true);
+              setSchedulePanelCollapsed(true);
             }}
             onOpenDialogue={() => {
               window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
@@ -642,12 +652,18 @@ export default function Game() {
             unreadCount={unreadCampusFeedCount}
             onToggle={() =>
               setCampusFeedCollapsed((value) => {
-                if (!value) setCampusFeedFullView(false);
-                return !value;
+                if (!value) {
+                  setCampusFeedFullView(false);
+                  return true;
+                }
+                setUmiPanelCollapsed(true);
+                setSchedulePanelCollapsed(true);
+                return false;
               })
             }
             onShowAll={() => {
               setUmiPanelCollapsed(true);
+              setSchedulePanelCollapsed(true);
               setCampusFeedCollapsed(false);
               setCampusFeedFullView(true);
             }}
@@ -662,7 +678,11 @@ export default function Game() {
             entries={scheduleEntries}
             periodLabel={periodLabel}
             onCollapse={() => setSchedulePanelCollapsed(true)}
-            onExpand={() => setSchedulePanelCollapsed(false)}
+            onExpand={() => {
+              setSchedulePanelCollapsed(false);
+              setUmiPanelCollapsed(true);
+              setCampusFeedCollapsed(true);
+            }}
             onSelectCharacter={(name) =>
               window.dispatchEvent(
                 new CustomEvent('giis:navigate-character', { detail: { name } }),
@@ -742,23 +762,67 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             ) : (
               <span>校園目前很平靜。</span>
             )}
-            <details className="giis-debug-details">
-              <summary>詳細狀態</summary>
-              <div title={timeHoverLabel}>
-                Alan 所在：{alanLocation?.labelZh ?? '未同步'}｜
-                目標所在：{selectedLocation?.labelZh ?? '未選擇'}｜
-                距離：{selectedName ? targetDistanceStatus : '未選擇目標'}｜
-                現實：{realClockLabel}｜
-                世界：{worldClockLabel}
-              </div>
-            </details>
           </div>
-          <div className="giis-quick-actions">
+          <div className="giis-bottom-actions">
             {contextualActions.map((action) => (
-              <button key={action.label} onClick={() => runQuickAction(action.actionType)}>
+              <button
+                key={`scene-${action.label}`}
+                className="giis-action-pill giis-action-pill-scene"
+                title={ACTION_TOOLTIPS[action.actionType]}
+                onClick={() => runQuickAction(action.actionType)}
+              >
                 {action.label}
               </button>
             ))}
+            {selectedName && !isConversationMode ? (
+              <>
+                <span className="giis-action-divider" aria-hidden="true" />
+                <button
+                  className="giis-action-pill giis-action-pill-primary"
+                  title={ACTION_TOOLTIPS.chat}
+                  onClick={() => runQuickAction('chat')}
+                  disabled={!targetDistanceStatus || targetDistanceStatus === '不在同場景'}
+                >
+                  聊聊 {displayAgentName(selectedName)}
+                </button>
+                <button
+                  className="giis-action-pill"
+                  title={ACTION_TOOLTIPS.checkIn}
+                  onClick={() => runQuickAction('checkIn')}
+                >
+                  關心近況
+                </button>
+                <button
+                  className="giis-action-pill"
+                  title={ACTION_TOOLTIPS.askRumor}
+                  onClick={() => runQuickAction('askRumor')}
+                >
+                  問傳聞
+                </button>
+                <button
+                  className="giis-action-pill"
+                  title={ACTION_TOOLTIPS.gift}
+                  onClick={() => runQuickAction('gift')}
+                >
+                  送禮
+                </button>
+                <button
+                  className="giis-action-pill"
+                  title={ACTION_TOOLTIPS.invite}
+                  onClick={() => runQuickAction('invite')}
+                >
+                  邀請
+                </button>
+              </>
+            ) : null}
+            <span className="giis-action-divider" aria-hidden="true" />
+            <button
+              className="giis-action-pill giis-action-pill-ghost"
+              title="打開角色行動面板看完整選項與留言"
+              onClick={() => openPanelTab('characters')}
+            >
+              更多互動
+            </button>
           </div>
         </div>
 
@@ -794,7 +858,19 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
   );
 }
 
-type QuickActionType = 'observe' | 'chat' | 'gift' | 'announce' | 'createClub' | 'advanceWorldTime';
+type QuickActionType =
+  | 'observe'
+  | 'chat'
+  | 'gift'
+  | 'announce'
+  | 'createClub'
+  | 'advanceWorldTime'
+  | 'checkIn'
+  | 'leaveMessage'
+  | 'askRumor'
+  | 'invite'
+  | 'kick'
+  | 'assignRole';
 
 function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string; actionType: QuickActionType }> {
   if (sceneId === 'dormitory') {
@@ -832,6 +908,21 @@ function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string;
     { label: '公告', actionType: 'announce' },
   ];
 }
+
+const ACTION_TOOLTIPS: Record<QuickActionType, string> = {
+  observe: '讀取 Alan 周圍場景、附近角色與近期事件。',
+  chat: 'Alan 主動找選定角色開始一段對話。',
+  gift: '送出物品或心意，讓對方留下較柔軟的記憶。',
+  announce: '以 Alan 的身分發布校園公告，大家之後可引用。',
+  createClub: '建立新社團，校園出現新的討論焦點。',
+  advanceWorldTime: '不跳轉可見時鐘，只看校園接下來自然出現的新變化。',
+  checkIn: '不開大議題，只確認對方今天狀態；適合累或安靜的角色。',
+  askRumor: '詢問對方最近聽到或在意的校園傳聞。',
+  invite: '邀請對方參與 Alan 的計畫或社團。',
+  leaveMessage: 'Alan 留下一句短訊息，對方之後會把它當成一段小記憶。',
+  kick: '讓 Alan 對目標做出公開挑釁，角色會依個性解讀。',
+  assignRole: '任命目標為助理校長，寫入記憶與世界事件。',
+};
 
 function sceneBackgroundColor(sceneId: SchoolLocationId) {
   switch (sceneId) {
