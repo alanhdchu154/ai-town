@@ -167,14 +167,46 @@ export const PixiGame = (props: {
   ]);
 
   const clampBounds = useMemo(() => {
-    const pad = 0.5;
+    // Auto-fit the classroom inside the stage by stretching the clamp bounds
+    // out horizontally (or vertically, on tall windows) until the bounds
+    // aspect matches the stage aspect. PIXI's clamp + minScale then makes the
+    // room fill the entire visible area instead of leaving a strip of
+    // scene-toned padding next to it. We cap the padding so very wide or
+    // very tall windows don't push the room into a tiny inset.
+    const minPad = 0.5;
+    const maxHorizontalPad = 10; // tiles; classroom-half-widths worth of breathing room
+    const maxVerticalPad = 6;
+    const roomWidthTiles = ClassroomBounds.maxX - ClassroomBounds.minX + 1; // 10
+    const roomHeightTiles = ClassroomBounds.maxY - ClassroomBounds.minY + 1; // 9
+    const stageWidth = props.width || roomWidthTiles * tileDim;
+    const stageHeight = props.height || roomHeightTiles * tileDim;
+    const stageAspect = stageWidth / stageHeight;
+    let padX = minPad;
+    let padY = minPad;
+    const baseBoundsAspect =
+      (roomWidthTiles + 2 * minPad) / (roomHeightTiles + 2 * minPad);
+    if (stageAspect > baseBoundsAspect) {
+      // Stage is wider than the room — add horizontal padding so bounds
+      // aspect matches the stage. The room then visually fills the stage
+      // width at minScale.
+      const targetWidthTiles = (roomHeightTiles + 2 * minPad) * stageAspect;
+      padX = Math.min(maxHorizontalPad, Math.max(minPad, (targetWidthTiles - roomWidthTiles) / 2));
+    } else {
+      const targetHeightTiles = (roomWidthTiles + 2 * minPad) / stageAspect;
+      padY = Math.min(maxVerticalPad, Math.max(minPad, (targetHeightTiles - roomHeightTiles) / 2));
+    }
+    // Push the extra horizontal padding onto the right side so the room
+    // hugs the left edge of the stage — exactly where we want it for the
+    // right drawer to overlay empty scene-toned space instead of the room.
+    const leftPad = minPad;
+    const rightPad = Math.max(minPad, 2 * padX - minPad);
     return {
-      left: (ClassroomBounds.minX - pad) * tileDim,
-      top: (ClassroomBounds.minY - pad) * tileDim,
-      right: (ClassroomBounds.maxX + 1 + pad) * tileDim,
-      bottom: (ClassroomBounds.maxY + 1 + pad) * tileDim,
+      left: (ClassroomBounds.minX - leftPad) * tileDim,
+      top: (ClassroomBounds.minY - padY) * tileDim,
+      right: (ClassroomBounds.maxX + 1 + rightPad) * tileDim,
+      bottom: (ClassroomBounds.maxY + 1 + padY) * tileDim,
     };
-  }, [tileDim]);
+  }, [tileDim, props.width, props.height]);
 
   return (
     <PixiViewport

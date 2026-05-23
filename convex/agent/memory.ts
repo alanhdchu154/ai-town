@@ -12,6 +12,7 @@ import {
   reflectionLlmEnabled,
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
+import { conversationEligibleForLLM } from './conversation';
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
@@ -179,6 +180,21 @@ export async function rememberConversation(
   const { player, otherPlayer } = data;
   const messages = await ctx.runQuery(selfInternal.loadMessages, { worldId, conversationId });
   if (!messages.length) {
+    return;
+  }
+  // Only LLM-eligible conversations (Alan ↔ anyone, or an explicitly enabled
+  // autonomous LLM pair) carry enough soul/specificity to be worth a memory.
+  // Pure-template NPC↔NPC small talk would otherwise pollute memory with
+  // generic lines that the character never "really" said.
+  const humanInConversation = Boolean(player.human || otherPlayer.human);
+  if (!conversationEligibleForLLM(player.name, otherPlayer.name, humanInConversation)) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipFallbackOnlyConversation',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+      conversationId,
+    });
     return;
   }
   if (isDegeneratePilotExitMemory(player, otherPlayer, messages)) {

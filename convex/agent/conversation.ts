@@ -86,6 +86,15 @@ function normalizedPilotName(name: string) {
   return name.toLowerCase().replace(/\s+/g, '');
 }
 
+export function conversationEligibleForLLM(
+  playerName: string,
+  otherPlayerName: string,
+  humanInConversation: boolean,
+) {
+  if (humanInConversation) return true;
+  return autonomousConversationLLMEnabledFor(playerName, otherPlayerName);
+}
+
 function autonomousConversationLLMEnabledFor(playerName: string, otherPlayerName: string) {
   if (autonomousConversationLLMEnabled()) return true;
   const pairConfig =

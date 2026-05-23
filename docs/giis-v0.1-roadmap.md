@@ -1,6 +1,102 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-23
+Last updated: 2026-05-23 (late)
+
+## 2026-05-24 → 05-30 Plan (next-week work)
+
+Goal: lock down the routing + memory gating we just changed, get a real
+soul-depth corpus, and ship the carry-over UI polish so playtests stop
+tripping on chrome. Tests pass (55/55) and the working tree is green
+heading into the week.
+
+### Monday 2026-05-24 — verify and sample
+- Reload the live app, walk through Alan ↔ Umi / CaoCao / Asuna to
+  confirm each round goes through LLM, and check Convex logs for
+  `skipFallbackOnlyConversation` lines after autonomous NPC↔NPC chats
+  end (those should be the ones we now skip writing to memory).
+- Re-run `npm run pilot:umi-mahiru:single-sample` once during quiet
+  hours; if the autonomous loop still doesn't seed a conversation in
+  240s, try `npm run eval:umi-mahiru` directly (which calls the LLM
+  without waiting on the agent tick) and archive whatever sample lands.
+- Save one Alan ↔ Umi sample for diffing against the NPC ↔ NPC sample;
+  this is the corpus pair we will tune prompts against.
+
+### Tuesday–Wednesday 2026-05-25/26 — soul-depth prompt rev
+- Run `evals/conversations/runUmiMahiruEval.ts` over the archived
+  samples and read the five soul markers
+  (`docs/giis-soul-systems-revisit-plan.md`: concrete detail,
+  emotional honesty, contradiction tolerance, memory callback, refusal
+  of platitudes). Note where each character is weak.
+- Make one prompt edit in `convex/agent/conversation.ts`
+  (`richUmiMahiruPrompt` for the pilot pair; `companionChatPrompt` if
+  Alan ↔ Umi is the weak spot). One change at a time, re-sample, diff
+  against the previous corpus. Stop when one marker moves cleanly up.
+- DO NOT re-enable `COMPANION_CLOUD_LLM` globally during this loop;
+  set `AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina` per-run via
+  the existing pilot script if more samples are needed against quota.
+
+### Thursday 2026-05-27 — UI follow-ups
+- Build the floating action-result card. `actionSummary` /
+  `NarrativeResult` still only renders inside the right drawer.
+  Either lift it to `Game.tsx` or dispatch a `giis:action-result`
+  custom event so the card slides in above the bottom bar for ~6s
+  after Alan acts, without forcing the drawer open.
+- Inline text input on the bottom action row. Today, text-input
+  actions (gift / leaveMessage / announce / createClub) bounce the
+  player into the 角色 tab. Add a one-line input that surfaces only
+  when one of those is selected, so we keep the bottom flow intact.
+
+### Friday 2026-05-28 — drawer + conversation overlay
+- Trim 角色 tab density: the roster + action panel + club registry
+  all stack and overflow. Cut what now lives in the bottom bar; the
+  drawer should mostly be the roster + "find/travel" controls.
+- Open one real conversation and re-check the VN overlay
+  (`.giis-conversation-mode` / `.giis-vn-panel`). Confirm it still
+  anchors sanely now that the world panel grid is single-column.
+- Captures a fresh playtest note (handwritten in `WORKLOG.md`) for
+  the next pass.
+
+### Stretch (only if Mon-Fri ran ahead of plan)
+- Schedule the 30-min `eval:umi-mahiru:soul-loop` once on Saturday
+  under quiet hours to build out the corpus without using daytime
+  Qwen quota.
+- Audit `convex/agent/memory.ts` `rememberConversation` to see if the
+  importance/retention call still makes sense now that we drop
+  fallback memories on the floor — possibly tighten the
+  `classifyMemoryRetention` thresholds.
+
+### Out of scope (do NOT pick up next week)
+- New characters, factions, or scenes.
+- Re-enabling cloud LLM globally without an explicit token-budget OK.
+- Rewriting the memory architecture (`docs/giis-memory-architecture.md`
+  remains the design note; migration not on this sprint).
+- Mobile / tablet breakpoint cleanup — user has explicitly said this
+  is off the table for the v0.1k window.
+
+## 2026-05-23 Session Tail: Memory Gate + Classroom Auto-Fit + Routing Audit
+
+Done this session:
+- Audited conversation routing in `convex/agent/conversation.ts`. Current
+  state: Alan ↔ any NPC → LLM (local Ollama; cloud only kicks in if
+  `COMPANION_CLOUD_LLM=true`, which is OFF). NPC ↔ NPC → template
+  fallback unless `AUTONOMOUS_CONVERSATION_LLM_PAIRS` enables that pair.
+  This already matches Alan's "Alan↔ LLM, others fallback" ask, so no
+  code change was needed there.
+- Added `conversationEligibleForLLM()` helper in `agent/conversation.ts`
+  and gated `agent/memory.ts:rememberConversation` on it. NPC↔NPC
+  fallback-only conversations are now dropped at the top of the memory
+  pipeline with a `skipFallbackOnlyConversation` timing log; they no
+  longer pollute character memory with template lines the character
+  never "really" said.
+- Made `PixiGame.tsx:clampBounds` dynamic. The clamp region now stretches
+  horizontally (or vertically) until its aspect matches the stage, so
+  the classroom auto-fits the available space at `minScale`. Extra
+  padding is pushed onto the right side so the room hugs the left edge
+  (drawer overlays scene-toned space, not the room). Caps at 10 tiles
+  horizontal / 6 vertical so very wide/tall windows don't inset the
+  room into a tiny strip.
+- 55/55 unit tests still pass. `npx tsc --noEmit` and `npx vite build`
+  both green.
 
 ## 2026-05-23 Soul Deepening v0.1k Goal + Token-Outage Fallback
 
