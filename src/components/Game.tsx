@@ -578,47 +578,7 @@ export default function Game() {
           </div>
         </div>
 
-        <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
-          <div className="absolute inset-0">
-            <div className="h-full w-full">
-              <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
-                {/* Re-propagate context because contexts are not shared between renderers.
-https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
-                <ConvexProvider client={convex}>
-                  <PixiGame
-                    game={game}
-                    worldId={worldId}
-                    engineId={engineId}
-                    width={width}
-                    height={height}
-                    sceneId={currentScene.id}
-                    visiblePlayerIds={scenePlayers.map((player) => player.id)}
-                    historicalTime={historicalTime}
-                    focusRequest={focusRequest}
-                    selectedPlayerId={selectedPlayer?.id}
-                    setSelectedElement={setSelectedElement}
-                  />
-                </ConvexProvider>
-              </Stage>
-            </div>
-          </div>
-          <div className="giis-camera-dock">
-            <button className="giis-mini-button" onClick={focusAlan}>
-              聚焦 Alan
-            </button>
-            <button className="giis-mini-button" onClick={focusSelectedTarget}>
-              聚焦選定角色
-            </button>
-            <button className="giis-mini-button" onClick={focusSceneCharacters}>
-              顯示本場景角色
-            </button>
-          </div>
-          <div className="giis-move-hint">
-            {alanMovementHint}
-          </div>
-          {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
-
-          <div className="giis-left-column">
+        <div className="giis-left-column">
           <LeftUmiPanel
             collapsed={umiPanelCollapsed}
             tasks={umiSuggestions}
@@ -659,7 +619,47 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
             onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
           />
+        </div>
+
+        <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
+          <div className="absolute inset-0">
+            <div className="h-full w-full">
+              <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
+                {/* Re-propagate context because contexts are not shared between renderers.
+https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
+                <ConvexProvider client={convex}>
+                  <PixiGame
+                    game={game}
+                    worldId={worldId}
+                    engineId={engineId}
+                    width={width}
+                    height={height}
+                    sceneId={currentScene.id}
+                    visiblePlayerIds={scenePlayers.map((player) => player.id)}
+                    historicalTime={historicalTime}
+                    focusRequest={focusRequest}
+                    selectedPlayerId={selectedPlayer?.id}
+                    setSelectedElement={setSelectedElement}
+                  />
+                </ConvexProvider>
+              </Stage>
+            </div>
           </div>
+          <div className="giis-camera-dock">
+            <button className="giis-mini-button" onClick={focusAlan}>
+              聚焦 Alan
+            </button>
+            <button className="giis-mini-button" onClick={focusSelectedTarget}>
+              聚焦選定角色
+            </button>
+            <button className="giis-mini-button" onClick={focusSceneCharacters}>
+              顯示本場景角色
+            </button>
+          </div>
+          <div className="giis-move-hint">
+            {alanMovementHint}
+          </div>
+          {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
 
           {selectedName ? (
             <div className="giis-focus-card">

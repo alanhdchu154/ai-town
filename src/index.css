@@ -81,13 +81,24 @@ body {
     0 24px 70px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
   grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "topbar topbar topbar"
+    "left   world  right"
+    "bottom bottom bottom";
   height: min(88vh, 920px);
   min-height: 680px;
   overflow: hidden;
   position: relative;
   width: min(100%, 1680px);
 }
+
+.giis-switch-shell > .giis-topbar { grid-area: topbar; }
+.giis-switch-shell > .giis-bottom-bar { grid-area: bottom; }
+.giis-switch-shell > .giis-world-panel { grid-area: world; min-width: 0; }
+.giis-switch-shell > .giis-left-column { grid-area: left; }
+.giis-switch-shell > .giis-utility-panel { grid-area: right; }
 
 .giis-topbar,
 .giis-bottom-bar,
@@ -407,24 +418,24 @@ body {
   bottom: 5.8rem;
 }
 
-/* Option A: unified fixed left column — 海的簡報 (top) + 校園動態 (below, scrolls).
-   Children stop free-floating and flow vertically, so the panel never spreads into
-   the centre map. Empty column area passes clicks through to the map. */
+/* Docked left column: sits in its own grid cell, never overlaps the map.
+   Width is driven by content (buttons when collapsed, panels when expanded). */
 .giis-left-column {
-  position: absolute;
-  left: 1rem;
-  top: 5.2rem;
-  bottom: 5.5rem;
-  width: min(23rem, calc(100% - 2rem));
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  padding: 0.85rem 0.4rem 0.85rem 0.85rem;
   z-index: 4;
-  pointer-events: none;
+  width: 22rem;
+  max-width: 24vw;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.giis-left-column > * {
-  pointer-events: auto;
+.giis-switch-shell:has(.giis-left-umi-button):has(.giis-campus-feed-button) > .giis-left-column {
+  width: auto;
 }
 
 .giis-left-column .giis-left-umi-panel,
@@ -745,39 +756,26 @@ body {
 }
 
 .giis-utility-panel {
-  bottom: 5.5rem;
+  align-self: stretch;
   max-width: min(32rem, calc(100vw - 2rem));
   overflow-y: auto;
   padding: 0.85rem;
-  position: absolute;
-  right: 1rem;
-  top: 5rem;
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease,
-    width 0.16s ease;
-  opacity: 0.82;
+  position: relative;
+  transition: width 0.16s ease;
   width: 28rem;
   z-index: 5;
-}
-
-.giis-utility-panel:hover,
-.giis-utility-panel:focus-within {
-  opacity: 1;
+  min-height: 0;
 }
 
 .giis-conversation-active .giis-utility-panel {
-  opacity: 1;
   width: min(34rem, calc(100vw - 2rem));
 }
 
 .giis-utility-panel-collapsed {
-  bottom: auto;
+  align-self: center;
   max-height: none;
   overflow: hidden;
   padding: 0.45rem;
-  top: 50%;
-  transform: translateY(-50%);
   width: 3.4rem;
 }
 
@@ -802,6 +800,16 @@ body {
     border-radius: 0;
     height: auto;
     min-height: 100vh;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "topbar"
+      "world"
+      "bottom";
+  }
+
+  .giis-switch-shell > .giis-left-column,
+  .giis-switch-shell > .giis-utility-panel {
+    grid-area: unset;
   }
 
   .giis-bottom-bar {
@@ -822,42 +830,28 @@ body {
     top: 0.75rem;
   }
 
+  .giis-left-column {
+    position: absolute;
+    left: 0;
+    top: 4.6rem;
+    bottom: 7.2rem;
+    width: min(22rem, calc(100% - 1.5rem));
+    max-width: none;
+    padding: 0.6rem 0.4rem 0.6rem 0.75rem;
+    z-index: 6;
+  }
+
   .giis-left-umi-panel,
   .giis-campus-notifications {
-    left: 0.75rem;
-    max-width: calc(100% - 1.5rem);
-  }
-
-  .giis-left-umi-panel {
-    top: 4.6rem;
+    max-width: 100%;
   }
 
   .giis-campus-notifications {
-    bottom: 7.2rem;
     max-height: 30vh;
   }
 
-  .giis-left-umi-panel + .giis-campus-notifications {
-    bottom: 7.2rem;
-    left: 0.75rem;
-    max-height: 30vh;
-    top: auto;
-  }
-
-  .giis-campus-notifications-full,
-  .giis-left-umi-panel + .giis-campus-notifications-full {
+  .giis-campus-notifications-full {
     max-height: none;
-    top: 4.6rem;
-  }
-
-  .giis-left-umi-button {
-    left: 0.75rem;
-    top: 4.6rem;
-  }
-
-  .giis-campus-feed-button {
-    bottom: 7.2rem;
-    left: 0.75rem;
   }
 
   .giis-camera-dock .giis-mini-button {
@@ -866,11 +860,14 @@ body {
   }
 
   .giis-utility-panel {
+    position: absolute;
     bottom: 7.5rem;
     left: 1rem;
+    right: 1rem;
     max-width: none;
     top: auto;
     width: auto;
+    align-self: auto;
   }
 
   .giis-utility-panel-collapsed {
@@ -878,8 +875,8 @@ body {
     left: auto;
     right: 0.75rem;
     top: auto;
-    transform: none;
     width: 3.25rem;
+    align-self: auto;
   }
 
   .giis-focus-card {
