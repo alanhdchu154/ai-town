@@ -32,14 +32,16 @@ function applyClamp(viewport: Viewport, props: ViewportProps) {
   if (clampBounds && screenWidth > 0 && screenHeight > 0) {
     const boundsWidth = clampBounds.right - clampBounds.left;
     const boundsHeight = clampBounds.bottom - clampBounds.top;
-    // At minScale, the bounded region must fill the screen in both dimensions
-    // so no out-of-bounds background can show on either axis.
-    const minScale = Math.max(screenWidth / boundsWidth, screenHeight / boundsHeight);
-    const maxScale = Math.max(3.5, minScale + 0.8);
+    // At minScale, the bounded region fits in the smaller dimension so the
+    // whole scene is visible without any panning. The larger dimension keeps
+    // some scene-toned padding (the canvas backgroundColor) on the right side,
+    // which is exactly where the right drawer expands from.
+    const minScale = Math.min(screenWidth / boundsWidth, screenHeight / boundsHeight);
+    const maxScale = Math.max(3.5, minScale * 2.2);
     viewport
       .clamp({
         direction: 'all',
-        underflow: 'center',
+        underflow: 'left',
         left: clampBounds.left,
         right: clampBounds.right,
         top: clampBounds.top,

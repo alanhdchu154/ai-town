@@ -1,6 +1,66 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-21
+Last updated: 2026-05-22
+
+## 2026-05-22 Switch-style Layout Pass (UI Fit-to-Window)
+
+Driver: Alan reported the UI was hard to use — square map in the middle,
+right panel too dense, dark margins around the room from PIXI viewport
+panning, no obvious left/center/right separation.
+
+Done this session:
+- Shell grid collapsed from `left | world | right` to a single `world`
+  column. Right `PlayerDetails` is now an absolutely-positioned drawer
+  (collapsed by default, expands as overlay) instead of stealing 28rem of
+  width. The 海 / 校園動態 / 日程 buttons float over the left edge of the
+  shell instead of occupying a fixed grid column.
+  (`src/index.css` `.giis-switch-shell` / `.giis-left-column` /
+  `.giis-utility-panel`.)
+- PIXI stage no longer fixed to room aspect. It fills the entire world
+  panel; the room is anchored to the left via pixi-viewport
+  `underflow: 'left'` and clamped to `ClassroomBounds` ± 0.5 tile, so the
+  scene-toned `backgroundColor` fills the right-side breathing room which
+  is exactly where the right drawer opens into. `minScale` is recomputed
+  so the room fits entirely without panning; `maxScale` allows ~2.2× zoom
+  for close-ups. (`PixiViewport.tsx`, `PixiGame.tsx`, `Game.tsx`.)
+- Replaced the bright blue Stage `backgroundColor` (`0x7ab5ff`) with a
+  per-scene tone matching `ClassroomMap.sceneToneFor`, so the canvas no
+  longer flashes blue around the room.
+- 日程 moved out of the right tab list into a collapsible left-column
+  panel (`LeftSchedulePanel` in `Game.tsx`); shows each non-Alan character
+  with live location and pathfinding status; clicking a row dispatches
+  `giis:navigate-character` to focus the map there.
+- Right panel tab list trimmed: `日程` removed (now in left col), `進階`
+  hidden unless `VITE_SHOW_DEBUG_UI` is set. `PlayerDetails.tsx`.
+- `FirstRunGuide` removed from the right panel — its "歡迎回來 Alan" line
+  duplicated 海's briefing on the left.
+- Font sizes bumped across topbar / bottom-status / left panels for
+  readability (~0.82rem → 0.88-0.92rem on body copy; topbar title to
+  1.15rem). Button hit areas slightly larger.
+
+Remaining UI gaps (next pass, in priority order):
+- **P0** Right drawer content is still dense. The 互動 tab opens with a
+  long character overview + grid; `actionDescriptions` should become hover
+  tooltips, not always-on paragraphs.
+- **P0** Action result narration (when Alan acts) currently dumps as a
+  toast + log. Consider a Switch-style "action result card" anchored over
+  the map for ~3s instead of the toast pile.
+- **P1** Bottom bar has `.giis-bottom-status` with 3-4 chips + a
+  `<details>` for "詳細狀態". Either fold detail into the topbar or drop
+  it (most fields already shown elsewhere).
+- **P1** Floating left buttons (海/校園動態/日程) currently stack
+  vertically at top-left. When 海 is expanded it covers the other two
+  buttons; consider letting them slide right or shrink to icons when one
+  expands.
+- **P2** Right drawer doesn't push the map — it overlays. Decide if we
+  want a "split mode" (map shrinks left) for users who want both visible
+  while reading dialogue history.
+- **P2** Conversation overlay (`.giis-conversation-mode` /
+  `.giis-vn-panel`) hasn't been re-checked against the new layout; verify
+  the VN panel still positions sanely when the right drawer is also open.
+- **P2** Mobile breakpoint (`@media (max-width: 900px)`): the rules still
+  reference the old 3-column grid in some places. Audit + simplify now
+  that the shell is single-column at all sizes.
 
 ## Current State
 

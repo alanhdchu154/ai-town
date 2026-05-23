@@ -672,44 +672,33 @@ export default function Game() {
         </div>
 
         <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
-          {(() => {
-            if (!width || !height) return null;
-            const panelAspect = width / height;
-            const stageWidth =
-              panelAspect > ROOM_VIEW_ASPECT ? Math.round(height * ROOM_VIEW_ASPECT) : width;
-            const stageHeight =
-              panelAspect > ROOM_VIEW_ASPECT ? height : Math.round(width / ROOM_VIEW_ASPECT);
-            return (
-              <div
-                className="giis-stage-wrapper"
-                style={{ width: stageWidth, height: stageHeight }}
+          {width && height ? (
+            <div className="giis-stage-wrapper" style={{ width, height }}>
+              <Stage
+                width={width}
+                height={height}
+                options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
               >
-                <Stage
-                  width={stageWidth}
-                  height={stageHeight}
-                  options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
-                >
-                  {/* Re-propagate context because contexts are not shared between renderers.
+                {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
-                  <ConvexProvider client={convex}>
-                    <PixiGame
-                      game={game}
-                      worldId={worldId}
-                      engineId={engineId}
-                      width={stageWidth}
-                      height={stageHeight}
-                      sceneId={currentScene.id}
-                      visiblePlayerIds={scenePlayers.map((player) => player.id)}
-                      historicalTime={historicalTime}
-                      focusRequest={focusRequest}
-                      selectedPlayerId={selectedPlayer?.id}
-                      setSelectedElement={setSelectedElement}
-                    />
-                  </ConvexProvider>
-                </Stage>
-              </div>
-            );
-          })()}
+                <ConvexProvider client={convex}>
+                  <PixiGame
+                    game={game}
+                    worldId={worldId}
+                    engineId={engineId}
+                    width={width}
+                    height={height}
+                    sceneId={currentScene.id}
+                    visiblePlayerIds={scenePlayers.map((player) => player.id)}
+                    historicalTime={historicalTime}
+                    focusRequest={focusRequest}
+                    selectedPlayerId={selectedPlayer?.id}
+                    setSelectedElement={setSelectedElement}
+                  />
+                </ConvexProvider>
+              </Stage>
+            </div>
+          ) : null}
           <div className="giis-camera-dock">
             <button className="giis-mini-button" onClick={focusAlan}>
               聚焦 Alan
