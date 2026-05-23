@@ -166,6 +166,16 @@ export const PixiGame = (props: {
     humanPlayerForMap?.pathfinding?.destination.y,
   ]);
 
+  const clampBounds = useMemo(() => {
+    const pad = 0.5;
+    return {
+      left: (ClassroomBounds.minX - pad) * tileDim,
+      top: (ClassroomBounds.minY - pad) * tileDim,
+      right: (ClassroomBounds.maxX + 1 + pad) * tileDim,
+      bottom: (ClassroomBounds.maxY + 1 + pad) * tileDim,
+    };
+  }, [tileDim]);
+
   return (
     <PixiViewport
       app={pixiApp}
@@ -173,6 +183,7 @@ export const PixiGame = (props: {
       screenHeight={props.height}
       worldWidth={width * tileDim}
       worldHeight={height * tileDim}
+      clampBounds={clampBounds}
       viewportRef={viewportRef}
     >
       <PixiStaticMap map={props.game.worldMap} />

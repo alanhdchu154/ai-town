@@ -13,6 +13,7 @@ import { ServerGame } from '../hooks/serverGame';
 import { CharacterPortrait } from './CharacterPortrait';
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames';
 import { SchoolLocation, nearestSchoolLocation } from '../../data/schoolLocations';
+import { SHOW_DEBUG_UI } from './Game';
 
 type SchoolActionType =
   | 'observe'
@@ -310,9 +311,6 @@ export default function PlayerDetails({
   const [activeActionLabel, setActiveActionLabel] = useState('');
   const [runningActionKeys, setRunningActionKeys] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<PanelTab>('action');
-  const [showFirstRunGuide, setShowFirstRunGuide] = useState(
-    () => globalThis.localStorage?.getItem('giis:onboarding-dismissed') !== '1',
-  );
   const [timeAdvanceHours, setTimeAdvanceHours] =
     useState<(typeof timeAdvanceOptions)[number]['hours']>(1);
   const playerDescription = playerId && game.playerDescriptions.get(playerId);
@@ -462,16 +460,16 @@ export default function PlayerDetails({
         }),
     [liveSchoolState, campusSocialState?.emotions, visibleClock?.day, visibleClock?.hour, visibleClock?.minute],
   );
-  const tabLabels: Record<PanelTab, string> = {
+  const tabLabels: Partial<Record<PanelTab, string>> = {
     action: '互動',
     dialogue: '對話',
     characters: '角色',
-    schedule: '日程',
-    debug: '進階',
+    ...(SHOW_DEBUG_UI ? { debug: '進階' as const } : {}),
   };
+  const visibleTabs = Object.keys(tabLabels) as PanelTab[];
   const renderTabs = () => (
-    <div className="grid grid-cols-3 gap-1 sm:grid-cols-5">
-      {(Object.keys(tabLabels) as PanelTab[]).map((tab) => (
+    <div className="grid grid-cols-3 gap-1 sm:grid-cols-4">
+      {visibleTabs.map((tab) => (
         <button
           key={tab}
           className={`panel-tab ${activeTab === tab ? 'panel-tab-active' : ''}`}
@@ -482,11 +480,6 @@ export default function PlayerDetails({
       ))}
     </div>
   );
-
-  const dismissFirstRunGuide = () => {
-    globalThis.localStorage?.setItem('giis:onboarding-dismissed', '1');
-    setShowFirstRunGuide(false);
-  };
 
   useEffect(() => {
     const onOpenPanelTab = (event: Event) => {
@@ -829,7 +822,6 @@ export default function PlayerDetails({
     return (
       <div className="h-full text-base flex flex-col p-2 gap-3">
         {renderTabs()}
-        {showFirstRunGuide ? <FirstRunGuide onDismiss={dismissFirstRunGuide} /> : null}
         {activeTab === 'action' ? (
           <>
             <PlayerOverviewCard
@@ -1051,7 +1043,6 @@ export default function PlayerDetails({
         </a>
       </div>
       <div className="mt-3">{renderTabs()}</div>
-      {showFirstRunGuide ? <FirstRunGuide onDismiss={dismissFirstRunGuide} /> : null}
       {activeTab === 'action' ? (
         <>
           <PlayerOverviewCard
@@ -2351,31 +2342,6 @@ function BriefingSection({
           <li key={`${title}-${index}`}>{displayTextWithNames(item)}</li>
         ))}
       </ul>
-    </section>
-  );
-}
-
-function FirstRunGuide({ onDismiss }: { onDismiss: () => void }) {
-  const [showHelp, setShowHelp] = useState(false);
-  return (
-    <section className="giis-first-run">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <b>歡迎回來，Alan。</b>
-          <p className="mt-1">先看看海的簡報，或選一位角色開始互動。</p>
-        </div>
-        <button className="action-pill" onClick={() => setShowHelp((open) => !open)} title="查看玩法提示">
-          ?
-        </button>
-      </div>
-      {showHelp ? (
-        <ul className="mt-2">
-          <li>海會整理校園狀況與下一步。</li>
-          <li>選角色可以聊天；校園動態會記住世界發生的事。</li>
-          <li>日程表會告訴你大家現在應該在哪、在做什麼。</li>
-        </ul>
-      ) : null}
-      <button className="action-pill mt-2" onClick={onDismiss}>知道了</button>
     </section>
   );
 }

@@ -20,7 +20,14 @@ import {
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import InteractButton from './buttons/InteractButton.tsx';
-import { ClassroomWalkBounds } from '../../data/classroomBounds.ts';
+import { ClassroomBounds, ClassroomWalkBounds } from '../../data/classroomBounds.ts';
+
+const ROOM_PADDING_TILES = 0.5;
+const ROOM_VIEW_WIDTH_TILES =
+  ClassroomBounds.maxX - ClassroomBounds.minX + 1 + 2 * ROOM_PADDING_TILES;
+const ROOM_VIEW_HEIGHT_TILES =
+  ClassroomBounds.maxY - ClassroomBounds.minY + 1 + 2 * ROOM_PADDING_TILES;
+const ROOM_VIEW_ASPECT = ROOM_VIEW_WIDTH_TILES / ROOM_VIEW_HEIGHT_TILES;
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
@@ -42,7 +49,7 @@ export default function Game() {
     kind: 'player';
     id: GameId<'players'>;
   }>();
-  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [panelCollapsed, setPanelCollapsed] = useState(true);
   const [selectedSceneId, setSelectedSceneId] = useState<SchoolLocationId>('classroom');
   const [sceneMessage, setSceneMessage] = useState('');
   const [umiPanelCollapsed, setUmiPanelCollapsed] = useState(
@@ -50,6 +57,9 @@ export default function Game() {
   );
   const [campusFeedCollapsed, setCampusFeedCollapsed] = useState(true);
   const [campusFeedFullView, setCampusFeedFullView] = useState(false);
+  const [schedulePanelCollapsed, setSchedulePanelCollapsed] = useState(
+    () => globalThis.localStorage?.getItem('giis:schedule-panel-collapsed') !== '0',
+  );
   const [campusFeedFilter, setCampusFeedFilter] = useState<CampusFeedFilter>('全部');
   const [readCampusFeedIds, setReadCampusFeedIds] = useState<Set<string>>(() => {
     try {
@@ -117,6 +127,13 @@ export default function Game() {
   useEffect(() => {
     globalThis.localStorage?.setItem('giis:umi-panel-collapsed', umiPanelCollapsed ? '1' : '0');
   }, [umiPanelCollapsed]);
+
+  useEffect(() => {
+    globalThis.localStorage?.setItem(
+      'giis:schedule-panel-collapsed',
+      schedulePanelCollapsed ? '1' : '0',
+    );
+  }, [schedulePanelCollapsed]);
 
   useEffect(() => {
     globalThis.localStorage?.setItem(
@@ -270,6 +287,26 @@ export default function Game() {
   });
   const scenePlayers =
     sceneGroups.find((group) => group.location.id === currentScene.id)?.occupants ?? [];
+  const scheduleEntries = players
+    .map((player) => {
+      const name = game.playerDescriptions.get(player.id)?.name;
+      if (!name || name === 'Alan') return null;
+      const location = nearestSchoolLocation(player.position);
+      const destination = player.pathfinding?.destination
+        ? nearestSchoolLocation(player.pathfinding.destination)
+        : undefined;
+      return {
+        id: player.id,
+        name,
+        displayName: displayAgentName(name),
+        locationZh: location?.labelZh ?? '位置調整中',
+        statusZh: player.pathfinding
+          ? `正在前往 ${destination?.labelZh ?? '目的地'}`
+          : '停留中',
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => !!entry)
+    .sort((a, b) => a.displayName.localeCompare(b.displayName, 'zh-Hant'));
   const alanPlayer = players.find((player) => game.playerDescriptions.get(player.id)?.name === 'Alan');
   const conversationPlayerIds = humanConversation
     ? [...humanConversation.participants.keys()].filter((participantId) => participantId !== humanPlayer?.id)
@@ -619,32 +656,60 @@ export default function Game() {
             onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
             onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
           />
+
+          <LeftSchedulePanel
+            collapsed={schedulePanelCollapsed}
+            entries={scheduleEntries}
+            periodLabel={periodLabel}
+            onCollapse={() => setSchedulePanelCollapsed(true)}
+            onExpand={() => setSchedulePanelCollapsed(false)}
+            onSelectCharacter={(name) =>
+              window.dispatchEvent(
+                new CustomEvent('giis:navigate-character', { detail: { name } }),
+              )
+            }
+          />
         </div>
 
         <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
-          <div className="absolute inset-0">
-            <div className="h-full w-full">
-              <Stage width={width} height={height} options={{ backgroundColor: 0x7ab5ff }}>
-                {/* Re-propagate context because contexts are not shared between renderers.
+          {(() => {
+            if (!width || !height) return null;
+            const panelAspect = width / height;
+            const stageWidth =
+              panelAspect > ROOM_VIEW_ASPECT ? Math.round(height * ROOM_VIEW_ASPECT) : width;
+            const stageHeight =
+              panelAspect > ROOM_VIEW_ASPECT ? height : Math.round(width / ROOM_VIEW_ASPECT);
+            return (
+              <div
+                className="giis-stage-wrapper"
+                style={{ width: stageWidth, height: stageHeight }}
+              >
+                <Stage
+                  width={stageWidth}
+                  height={stageHeight}
+                  options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
+                >
+                  {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
-                <ConvexProvider client={convex}>
-                  <PixiGame
-                    game={game}
-                    worldId={worldId}
-                    engineId={engineId}
-                    width={width}
-                    height={height}
-                    sceneId={currentScene.id}
-                    visiblePlayerIds={scenePlayers.map((player) => player.id)}
-                    historicalTime={historicalTime}
-                    focusRequest={focusRequest}
-                    selectedPlayerId={selectedPlayer?.id}
-                    setSelectedElement={setSelectedElement}
-                  />
-                </ConvexProvider>
-              </Stage>
-            </div>
-          </div>
+                  <ConvexProvider client={convex}>
+                    <PixiGame
+                      game={game}
+                      worldId={worldId}
+                      engineId={engineId}
+                      width={stageWidth}
+                      height={stageHeight}
+                      sceneId={currentScene.id}
+                      visiblePlayerIds={scenePlayers.map((player) => player.id)}
+                      historicalTime={historicalTime}
+                      focusRequest={focusRequest}
+                      selectedPlayerId={selectedPlayer?.id}
+                      setSelectedElement={setSelectedElement}
+                    />
+                  </ConvexProvider>
+                </Stage>
+              </div>
+            );
+          })()}
           <div className="giis-camera-dock">
             <button className="giis-mini-button" onClick={focusAlan}>
               聚焦 Alan
@@ -779,6 +844,22 @@ function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string;
   ];
 }
 
+function sceneBackgroundColor(sceneId: SchoolLocationId) {
+  switch (sceneId) {
+    case 'courtyard':
+      return 0x10251f;
+    case 'aiClubRoom':
+      return 0x071923;
+    case 'studentCouncilRoom':
+      return 0x160d16;
+    case 'dormitory':
+      return 0x171326;
+    case 'classroom':
+    default:
+      return 0x111827;
+  }
+}
+
 function topbarLifeStatus(scene: SchoolLocation, schedule?: string) {
   if (schedule && !schedule.includes('/')) return schedule;
   if (scene.id === 'aiClubRoom') return 'AI 社團室：適合實驗、討論規則與整理想法。';
@@ -786,6 +867,70 @@ function topbarLifeStatus(scene: SchoolLocation, schedule?: string) {
   if (scene.id === 'dormitory') return '宿舍：適合安靜休息、私人對話與情緒整理。';
   if (scene.id === 'courtyard') return '中央庭院：適合閒聊、傳聞與公開觀察。';
   return '教室：適合課堂、公告與正式討論。';
+}
+
+function LeftSchedulePanel({
+  collapsed,
+  entries,
+  periodLabel,
+  onCollapse,
+  onExpand,
+  onSelectCharacter,
+}: {
+  collapsed: boolean;
+  entries: Array<{
+    id: string;
+    name: string;
+    displayName: string;
+    locationZh: string;
+    statusZh: string;
+  }>;
+  periodLabel: string;
+  onCollapse: () => void;
+  onExpand: () => void;
+  onSelectCharacter: (name: string) => void;
+}) {
+  if (collapsed) {
+    return (
+      <button className="giis-left-schedule-button" onClick={onExpand}>
+        日程
+        {entries.length ? <span className="giis-schedule-count">{entries.length}</span> : null}
+      </button>
+    );
+  }
+  return (
+    <aside className="giis-left-schedule-panel">
+      <div className="giis-left-panel-header">
+        <div>
+          <span className="giis-kicker">校園日程</span>
+          <h3>{periodLabel}｜大家在哪</h3>
+        </div>
+        <button className="giis-icon-button" onClick={onCollapse} aria-label="收合日程">
+          ×
+        </button>
+      </div>
+      <div className="giis-schedule-list">
+        {entries.length ? (
+          entries.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              className="giis-schedule-row"
+              onClick={() => onSelectCharacter(entry.name)}
+            >
+              <div className="giis-schedule-row-head">
+                <b>{entry.displayName}</b>
+                <span>{entry.locationZh}</span>
+              </div>
+              <small>{entry.statusZh}</small>
+            </button>
+          ))
+        ) : (
+          <p>校園日程整理中。</p>
+        )}
+      </div>
+    </aside>
+  );
 }
 
 function LeftUmiPanel({
