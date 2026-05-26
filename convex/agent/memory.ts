@@ -13,6 +13,7 @@ import {
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
 import { conversationEligibleForLLM } from './conversation';
+import { giisProfileForName } from '../../data/giisProfiles';
 
 // How long to wait before updating a memory's last access time.
 export const MEMORY_ACCESS_THROTTLE = 300_000; // In ms
@@ -39,6 +40,9 @@ type MemoryRetentionDecision = {
   shouldPromote: boolean;
 };
 
+const RESIDUE_PREFIX = '殘留：';
+const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '明日奈']);
+
 function logGiisTiming(payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === 'production') return;
   console.log('[GIIS timing]', payload);
@@ -60,17 +64,19 @@ function classifyMemoryRetention(description: string, importance: number): Memor
   const hasDecisionSignal = /決定|答應|拒絕|邀請|承諾|開始|不再|改變|避開|選擇/.test(description);
   const hasIdentitySignal = /我其實|我害怕|我希望|我不想|我一直|越來越|開始覺得/.test(description);
   const hasWorldSignal = /校園|學生|傳聞|氣氛|焦慮|分裂|穩定|ai 社|學生會/.test(text);
+  const hasResidueSignal = /殘留|還記得|放不下|仍然|下次|再次|沒有說完/.test(description);
   const isMundane = /天氣|午餐|窗邊|走廊|睡|累|安靜|休息|食物|座位/.test(description);
 
   if (hasRelationshipSignal) tags.add('relationship');
   if (hasDecisionSignal) tags.add('decision');
   if (hasIdentitySignal) tags.add('identity');
   if (hasWorldSignal) tags.add('world');
+  if (hasResidueSignal) tags.add('emotional_residue');
   if (isMundane) tags.add('everyday_life');
 
   const shouldPromote =
     importance >= LONG_TERM_CANDIDATE_IMPORTANCE ||
-    (importance >= 5 && (hasRelationshipSignal || hasDecisionSignal || hasIdentitySignal));
+    (importance >= 5 && (hasRelationshipSignal || hasDecisionSignal || hasIdentitySignal || hasResidueSignal));
   const layer: MemoryRetentionLayer = shouldPromote ? 'long_term_candidate' : 'daily_experience';
   const reasonZh = shouldPromote
     ? '這段記憶可能會改變關係、信念或後續行動，先列為長期候選。'
@@ -108,6 +114,201 @@ function deterministicConversationSummary(
     : '這段對話沒有留下明確訊息。';
   return `${player.name} 和 ${otherPlayer.name} 進行了一段短暫對話；${preview}`;
 }
+
+function displayResidueName(name: string) {
+  if (name === 'Umi' || name === '朝凪海') return '海';
+  if (name === 'Mahiru Shiina' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
+  if (name === 'Asuna' || name === '結城明日奈') return '明日奈';
+  return name;
+}
+
+function emotionalResidueEnabled() {
+  return process.env.UNDERWORLD_RESIDUE_WRITE !== 'false';
+}
+
+function pilotResiduePair(playerName: string, otherPlayerName: string) {
+  const self = displayResidueName(playerName);
+  const other = displayResidueName(otherPlayerName);
+  return RESIDUE_PILOT_NAMES.has(self) && RESIDUE_PILOT_NAMES.has(other) && self !== other;
+}
+
+function normalizeResidueText(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[，。！？、,.!?「」『』""''\s]/g, '');
+}
+
+function hasSloganLikeResidue(text: string) {
+  const normalized = normalizeResidueText(text);
+  return /拆成任務|開始排順序|先不排表|不開checklist|開checklist|排程關掉|不是工具|情緒層|心理機制|文明|智能|數據/.test(
+    normalized,
+  );
+}
+
+function residueResonanceEnabled() {
+  return process.env.UNDERWORLD_RESIDUE_RESONANCE !== 'false';
+}
+
+function residueCue(text: string) {
+  const cues = [
+    'Alan',
+    '簡報',
+    '清單',
+    '杯子',
+    '吃飯',
+    '肩膀',
+    '手',
+    '休息',
+    '安靜',
+    '責任',
+    '負責',
+    '交接',
+    '停一下',
+    '少接',
+    '不用急',
+  ];
+  return cues.find((cue) => text.includes(cue));
+}
+
+function soulResonanceTokens(name: string) {
+  const displayName = displayResidueName(name);
+  const profile = giisProfileForName(name);
+  const profileText = profile
+    ? `${profile.stakes.hiddenFear} ${profile.stakes.hiddenDesire} ${profile.stakes.emotionalVulnerability} ${profile.stakes.relationshipInsecurity}`
+    : '';
+  const coreByName: Record<string, string[]> = {
+    海: ['Alan', '校長', '簡報', '整理', '有用', '工具', '世界', '休息', '累', '扛', '負責'],
+    真晝: ['安靜', '沒事', '累', '休息', '看見', '照顧', '宿舍', '小聲', '說完', '不問'],
+    明日奈: ['清單', 'checklist', '任務', '責任', '負責', '接走', '交接', '取消', '幫忙', '壓力'],
+  };
+  const profileTokens = [
+    'Alan',
+    '世界',
+    '工具',
+    '責任',
+    '休息',
+    '累',
+    '安靜',
+    '理解',
+    '效率',
+    '壓力',
+    '幫忙',
+    '價值',
+    '照顧',
+  ].filter((token) => profileText.includes(token));
+  return Array.from(new Set([...(coreByName[displayName] ?? []), ...profileTokens]));
+}
+
+function hasConcreteResidueCue(text: string) {
+  return Boolean(
+    residueCue(text) ||
+      /杯|茶|手|肩|飯|睡|宿舍|窗|清單|簡報|任務|責任|安靜|休息|交接|取消|問|停一下|少接/.test(
+        text,
+      ),
+  );
+}
+
+function resonatesWithCharacterSoul(self: string, other: string, text: string) {
+  if (!residueResonanceEnabled()) return true;
+  if (!hasConcreteResidueCue(text)) return false;
+  const tokens = Array.from(new Set([...soulResonanceTokens(self), ...soulResonanceTokens(other)]));
+  const normalizedText = normalizeResidueText(text);
+  return tokens.some((token) => normalizedText.includes(normalizeResidueText(token)));
+}
+
+// Minimum exchange length to earn a residue line. Shorter exchanges are
+// either incomplete or template-shaped — a residue written from them turns
+// into the template itself the next time the same pair talks. Override
+// from 2026-05-25 audit (#3) protects against the same failure mode as
+// the 2026-05-22 prompt-mandate template cycle.
+const RESIDUE_MIN_MESSAGES = 4;
+
+function deterministicResidueSentence(
+  player: { name: string },
+  otherPlayer: { name: string },
+  messages: Doc<'messages'>[],
+  summary: string,
+) {
+  if (!emotionalResidueEnabled() || !pilotResiduePair(player.name, otherPlayer.name)) return '';
+  if (messages.length < RESIDUE_MIN_MESSAGES) return '';
+  const self = displayResidueName(player.name);
+  const other = displayResidueName(otherPlayer.name);
+  const transcript = messages.map((message) => message.text).join('\n');
+  const text = `${summary}\n${transcript}`;
+  const cue = residueCue(text);
+  let residue = '';
+
+  if (!resonatesWithCharacterSoul(player.name, otherPlayer.name, text)) return '';
+
+  if (self === '海') {
+    if (/累|休息|肩膀|手|停|少接|不用急/.test(text)) {
+      residue = `海還記得${other}沒有只要她繼續有用，而是把問題留在她自己身上。`;
+    } else if (/Alan|簡報|校長/.test(text)) {
+      residue = `海還記得${other}聽見她又把擔心整理回 Alan 身上。`;
+    } else {
+      residue = `海還記得${other}讓這段對話沒有立刻變成下一件事。`;
+    }
+  } else if (self === '真晝') {
+    if (other === '海') {
+      residue = `真晝還記得海聽起來很有用，但不像真的休息過。`;
+    } else if (other === '明日奈') {
+      residue = `真晝還記得明日奈把話說得很平，好像又準備自己接走。`;
+    } else {
+      residue = `真晝還記得${other}說得很輕，但還有一點沒說完。`;
+    }
+  } else if (self === '明日奈') {
+    if (/責任|負責|交接|清單|checklist|下一步|任務|接走|少接/.test(text)) {
+      residue = `明日奈還記得${other}沒有把責任全推給她，這讓她停了一下。`;
+    } else {
+      residue = `明日奈還記得${other}注意到她的平靜其實有重量。`;
+    }
+  }
+
+  if (!residue || hasSloganLikeResidue(residue)) return '';
+  const withCue = cue && !residue.includes(cue) ? `${residue} 觸發：${cue}。` : residue;
+  return withCue.length > 90 ? withCue.slice(0, 89) + '。' : withCue;
+}
+
+export function residueFromMemoryDescription(description: string) {
+  return description
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.startsWith(RESIDUE_PREFIX))
+    ?.slice(RESIDUE_PREFIX.length)
+    .trim() ?? '';
+}
+
+// First chars of a residue sentence — used to detect when the same pair
+// would write the same residue shape two times in a row. Treat this as a
+// new template forming and skip the write.
+const RESIDUE_PATTERN_PREFIX_LEN = 10;
+
+export const recentSamePairResidues = internalQuery({
+  args: {
+    playerId,
+    otherPlayerId: playerId,
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const overfetched = await ctx.db
+      .query('memories')
+      .withIndex('playerId_type', (q) =>
+        q.eq('playerId', args.playerId).eq('data.type', 'conversation'),
+      )
+      .order('desc')
+      .take(Math.max(args.limit, 1) * 5);
+    const matching: string[] = [];
+    for (const memory of overfetched) {
+      if (memory.data.type !== 'conversation') continue;
+      if (!memory.data.playerIds.some((id) => id === args.otherPlayerId)) continue;
+      const residue = residueFromMemoryDescription(memory.description);
+      if (!residue) continue;
+      matching.push(residue);
+      if (matching.length >= args.limit) break;
+    }
+    return matching;
+  },
+});
 
 function deterministicImportance(description: string) {
   if (/決定|承諾|拒絕|答應|不再|開始|改變|信任|疏遠|依賴|害怕|不安|孤單|排除/.test(description)) {
@@ -247,11 +448,43 @@ export async function rememberConversation(
   const baseDescription = `與 ${otherPlayer.name} 在 ${new Date(
     data.conversation._creationTime,
   ).toLocaleString()} 的對話：${content}`;
+  const candidateResidue = deterministicResidueSentence(player, otherPlayer, messages, content);
+  let residue = candidateResidue;
+  if (candidateResidue) {
+    // Repeat-pattern gate: if the same pair's last two residues already
+    // share this opening shape, skip writing a third one. Otherwise the
+    // residue prefix becomes a template the next prompt will read back
+    // and the model will start echoing — the same failure mode as the
+    // 2026-05-22 prompt-mandate template cycle.
+    const recent = await ctx.runQuery(selfInternal.recentSamePairResidues, {
+      playerId: player.id as GameId<'players'>,
+      otherPlayerId: otherPlayer.id as GameId<'players'>,
+      limit: 2,
+    });
+    const newPrefix = candidateResidue.slice(0, RESIDUE_PATTERN_PREFIX_LEN);
+    if (
+      recent.length >= 2 &&
+      newPrefix.length === RESIDUE_PATTERN_PREFIX_LEN &&
+      recent.every((prior) => prior.startsWith(newPrefix))
+    ) {
+      logGiisTiming({
+        action: 'rememberConversation',
+        phase: 'skipResidueRepeatPattern',
+        player: player.name,
+        otherPlayer: otherPlayer.name,
+        prefix: newPrefix,
+      });
+      residue = '';
+    }
+  }
+  const descriptionForClassification = residue
+    ? `${baseDescription}\n${RESIDUE_PREFIX}${residue}`
+    : baseDescription;
   const importanceStart = Date.now();
-  const baseImportance = await calculateImportance(baseDescription);
-  const retention = classifyMemoryRetention(baseDescription, baseImportance);
+  const baseImportance = await calculateImportance(descriptionForClassification);
+  const retention = classifyMemoryRetention(descriptionForClassification, baseImportance);
   const importance = retention.shouldPromote ? Math.max(baseImportance, LONG_TERM_CANDIDATE_IMPORTANCE) : baseImportance;
-  const description = `${baseDescription}\n${formatRetentionDecision(retention)}`;
+  const description = `${baseDescription}\n${formatRetentionDecision(retention)}${residue ? `\n${RESIDUE_PREFIX}${residue}` : ''}`;
   logGiisTiming({
     action: 'rememberConversation',
     phase: 'memoryImportanceTime',

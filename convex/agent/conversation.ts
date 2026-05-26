@@ -82,6 +82,16 @@ function companionCloudEnabled() {
   return process.env.COMPANION_CLOUD_LLM === 'true';
 }
 
+// Alan's direct conversations are part of the character-soul surface. They
+// should not archive deterministic fallback, but sending every Alan chat to a
+// paid cloud provider remains an explicit budget/privacy switch.
+function humanConversationCloudEnabled() {
+  return (
+    process.env.HUMAN_CONVERSATION_CLOUD_LLM === 'true' ||
+    process.env.ALAN_HUMAN_CLOUD_LLM === 'true'
+  );
+}
+
 function normalizedPilotName(name: string) {
   return name.toLowerCase().replace(/\s+/g, '');
 }
@@ -123,7 +133,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, sceneContext, clockContext } =
+  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -153,7 +163,7 @@ export async function startConversationMessage(
     (m: memory.Memory) =>
       m.data.type === 'conversation' && m.data.playerIds.includes(otherPlayerId),
   );
-  const pilotPair = umiMahiruPilotPair(player.name, otherPlayer.name);
+  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
   const prompt = compactAutonomousPrompt
     ? compactAutonomousStartPrompt({
         playerName: player.name,
@@ -162,6 +172,9 @@ export async function startConversationMessage(
         otherAgent: otherAgent ?? null,
         lastConversation,
         recentEvents,
+        recentResidues,
+        selfState,
+        otherState,
         sceneContext,
         clockContext,
       })
@@ -184,8 +197,10 @@ export async function startConversationMessage(
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   if (!pilotPair) prompt.push(lastPrompt);
   const companionCloud = companionMode && companionCloudEnabled();
-  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), companionCloud);
-  const policyAbort = pilotPair ? characterSoulPolicyAbortReason(tuning.model) : null;
+  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const cloudConversation = Boolean(pilotPair) || companionCloud || humanCloud;
+  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
   if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
 
   const content = await safeConversationCompletion(
@@ -201,12 +216,12 @@ export async function startConversationMessage(
       stop: stopWords(otherPlayer.name, player.name),
       timeoutMs: tuning.timeoutMs,
     },
-    companionMode
-      ? companionFallback(player.name, otherPlayer.name, undefined, [])
-      : pilotPair
-        ? '[ABORT_CONVERSATION] pilot LLM unavailable'
+    humanInConversation || cloudConversation
+      ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
+      : companionMode
+        ? companionFallback(player.name, otherPlayer.name, undefined, [])
         : initiativeFallback(player.name, otherPlayer.name, 'start', undefined, sceneContext),
-    Boolean(pilotPair) || companionCloud,
+    cloudConversation,
   );
   return sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -232,15 +247,13 @@ export async function continueConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, sceneContext, clockContext } = await ctx.runQuery(
-    selfInternal.queryPromptData,
-    {
+  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, selfState, otherState, sceneContext, clockContext } =
+    await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
       otherPlayerId,
       conversationId,
-    },
-  );
+    });
   const now = Date.now();
   const started = new Date(conversation.created);
   const companionMode = isCompanionChat(player.name, otherPlayer.name);
@@ -285,6 +298,9 @@ export async function continueConversationMessage(
         started,
         now,
         recentEvents,
+        recentResidues,
+        selfState,
+        otherState,
         sceneContext,
         clockContext,
       })
@@ -327,7 +343,7 @@ export async function continueConversationMessage(
   }
   const lastAlanInput = companionMode ? lastDirectMessageFrom(otherPlayer.name, previous) : undefined;
   const companionIntent = companionMode ? companionIntentFor(lastAlanInput ?? '') : undefined;
-  const pilotPair = umiMahiruPilotPair(player.name, otherPlayer.name);
+  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
   if (pilotPair) {
     const lastLine = stripConversationPrefix(previous.at(-1)?.content ?? '');
     if (lastLine) prompt.push(`上一句：${clipPromptText(normalizeTraditionalZh(lastLine), 42)}`);
@@ -358,8 +374,10 @@ export async function continueConversationMessage(
   llmMessages.push({ role: 'user', content: lastPrompt });
 
   const companionCloud = companionMode && companionCloudEnabled();
-  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), companionCloud);
-  const policyAbort = pilotPair ? characterSoulPolicyAbortReason(tuning.model) : null;
+  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const cloudConversation = Boolean(pilotPair) || companionCloud || humanCloud;
+  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
   if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
   const content = await safeConversationCompletion(
     {
@@ -369,10 +387,10 @@ export async function continueConversationMessage(
       stop: stopWords(otherPlayer.name, player.name),
       timeoutMs: tuning.timeoutMs,
     },
-    companionMode
-      ? companionFallback(player.name, otherPlayer.name, lastAlanInput, previous)
-      : pilotPair
-        ? '[ABORT_CONVERSATION] pilot LLM unavailable'
+    humanInConversation || cloudConversation
+      ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
+      : companionMode
+        ? companionFallback(player.name, otherPlayer.name, lastAlanInput, previous)
         : initiativeFallback(
             player.name,
             otherPlayer.name,
@@ -380,7 +398,7 @@ export async function continueConversationMessage(
             recentEvents?.[0]?.descriptionZh,
             sceneContext,
           ),
-    Boolean(pilotPair) || companionCloud,
+    cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -393,6 +411,9 @@ export async function continueConversationMessage(
   if (isRepetitiveResponse(trimmed, previous)) {
     if (pilotPair) {
       return '[ABORT_CONVERSATION] pilot repetitive response';
+    }
+    if (humanInConversation) {
+      return '[ABORT_CONVERSATION] human conversation repetitive response';
     }
     const fallback = companionMode
       ? companionFallback(player.name, otherPlayer.name, lastAlanInput, previous)
@@ -433,11 +454,11 @@ export async function leaveConversationMessage(
   prompt.push(...agentPrompts(otherPlayer, agent, otherAgent ?? null));
   prompt.push(...characterSoulPrompt(player.name, otherPlayer.name));
   prompt.push(...recentEventsPrompt(recentEvents));
-  const pilotPair = umiMahiruPilotPair(player.name, otherPlayer.name);
+  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
   prompt.push(
     `Below is the current chat history between you and ${otherPlayer.name}.`,
     pilotPair
-      ? `Umi/Mahiru pilot leave rule: answer in one plain spoken sentence, 36 Traditional Chinese characters or fewer. Do not summarize the relationship, do not say "謝謝你的溫柔", "稍後再回來", "保重", or "整理沉默". Use one concrete boundary, like putting down a pen or pausing.`
+      ? `Character-soul pilot leave rule: answer in one plain spoken sentence, 36 Traditional Chinese characters or fewer. Do not summarize the relationship, do not say "謝謝你的溫柔", "稍後再回來", "保重", or "整理沉默". Use one concrete boundary, like putting down a pen, pausing, or writing one next step.`
       : `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
   );
   const previous = await previousMessages(
@@ -456,8 +477,10 @@ export async function leaveConversationMessage(
   ];
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   llmMessages.push({ role: 'user', content: lastPrompt });
-  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair));
-  const policyAbort = pilotPair ? characterSoulPolicyAbortReason(tuning.model) : null;
+  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const cloudConversation = Boolean(pilotPair) || humanCloud;
+  const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
   if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
 
   const content = await safeConversationCompletion(
@@ -468,10 +491,10 @@ export async function leaveConversationMessage(
       stop: stopWords(otherPlayer.name, player.name),
       timeoutMs: tuning.timeoutMs,
     },
-    pilotPair
-      ? '[ABORT_CONVERSATION] pilot LLM unavailable'
+    humanInConversation || cloudConversation
+      ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : personalityExit(player.name, otherPlayer.name, '這段對話'),
-    Boolean(pilotPair),
+    cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -523,20 +546,20 @@ async function safeConversationCompletion(
   }
 }
 
-function conversationGenerationTuning(playerName: string, pilotPair = false, companionCloud = false) {
+function conversationGenerationTuning(playerName: string, pilotPair = false, cloudConversation = false) {
   const isCore = CORE_CONVERSATION_CHARACTERS.has(playerName);
   const pilotProvider = process.env.UMI_MAHIRU_PILOT_PROVIDER?.toLowerCase();
   const pilotModel =
     process.env.UMI_MAHIRU_PILOT_MODEL ??
     defaultCharacterSoulModel(pilotProvider);
-  // Companion (Alan↔Umi) reuses the same cloud adapter/guard as the NPC pilot, but can
-  // pick its own model/timeout so Alan can trade cost vs quality independently.
+  // Alan direct conversations reuse the same cloud adapter/guard as the NPC
+  // pilot. Companion mode can still pick a separate model/timeout if configured.
   const companionModel = process.env.COMPANION_PILOT_MODEL ?? pilotModel;
   return {
     tier: isCore ? 'core' : 'ordinary',
     model: pilotPair && pilotModel
       ? pilotModel
-      : companionCloud && companionModel
+      : cloudConversation && companionModel
         ? companionModel
         : isCore ? undefined : FAST_CONVERSATION_MODEL,
     maxTokens: isCore
@@ -544,7 +567,7 @@ function conversationGenerationTuning(playerName: string, pilotPair = false, com
       : envInteger('FAST_CONVERSATION_MAX_TOKENS', 140, 24, 180),
     timeoutMs: pilotPair
       ? envInteger('UMI_MAHIRU_PILOT_TIMEOUT_MS', 35_000, 5_000, 60_000)
-      : companionCloud
+      : cloudConversation
         ? envInteger('COMPANION_PILOT_TIMEOUT_MS', 30_000, 5_000, 60_000)
         : isCore ? CONVERSATION_LLM_TIMEOUT_MS : FAST_CONVERSATION_LLM_TIMEOUT_MS,
   };
@@ -771,6 +794,17 @@ type PromptRecentEvent = {
   reactionDialogueZh?: string;
 };
 
+type PromptResidue = {
+  text: string;
+  createdAt: number;
+};
+
+type PromptCharacterState = {
+  emotionZh?: string;
+  intentionZh?: string;
+  memoryZh?: string;
+};
+
 function compactAutonomousStartPrompt({
   playerName,
   otherPlayerName,
@@ -778,6 +812,9 @@ function compactAutonomousStartPrompt({
   otherAgent,
   lastConversation,
   recentEvents,
+  recentResidues,
+  selfState,
+  otherState,
   sceneContext,
   clockContext,
 }: {
@@ -787,16 +824,22 @@ function compactAutonomousStartPrompt({
   otherAgent: PromptAgent;
   lastConversation: { created: number } | null;
   recentEvents?: PromptRecentEvent[];
+  recentResidues?: PromptResidue[];
+  selfState?: PromptCharacterState;
+  otherState?: PromptCharacterState;
   sceneContext?: SceneContext;
   clockContext?: ClockContext;
 }) {
-  if (umiMahiruPilotPair(playerName, otherPlayerName)) {
+  if (characterSoulPilotPair(playerName, otherPlayerName)) {
     return richUmiMahiruPrompt({
       playerName,
       otherPlayerName,
       agent,
       otherAgent,
       recentEvents,
+      recentResidues,
+      selfState,
+      otherState,
       sceneContext,
       clockContext,
       mode: 'start',
@@ -831,6 +874,9 @@ function compactAutonomousContinuePromptBase({
   started,
   now,
   recentEvents,
+  recentResidues,
+  selfState,
+  otherState,
   sceneContext,
   clockContext,
 }: {
@@ -841,16 +887,22 @@ function compactAutonomousContinuePromptBase({
   started: Date;
   now: number;
   recentEvents?: PromptRecentEvent[];
+  recentResidues?: PromptResidue[];
+  selfState?: PromptCharacterState;
+  otherState?: PromptCharacterState;
   sceneContext?: SceneContext;
   clockContext?: ClockContext;
 }) {
-  if (umiMahiruPilotPair(playerName, otherPlayerName)) {
+  if (characterSoulPilotPair(playerName, otherPlayerName)) {
     return richUmiMahiruPrompt({
       playerName,
       otherPlayerName,
       agent,
       otherAgent,
       recentEvents,
+      recentResidues,
+      selfState,
+      otherState,
       sceneContext,
       clockContext,
       mode: 'continue',
@@ -873,6 +925,14 @@ function compactAutonomousContinuePromptBase({
   ].filter(Boolean);
 }
 
+function characterSoulPilotPair(playerName: string, otherPlayerName: string) {
+  if (umiMahiruPilotPair(playerName, otherPlayerName)) return true;
+  if (process.env.SOUL_TRIAD_COLOCATION_PILOT !== 'true') return false;
+  const names = new Set([displayConversationName(playerName), displayConversationName(otherPlayerName)]);
+  const triadNames = new Set(['海', '真晝', '明日奈']);
+  return names.size === 2 && [...names].every((name) => triadNames.has(name));
+}
+
 function umiMahiruPilotPair(playerName: string, otherPlayerName: string) {
   if (process.env.UMI_MAHIRU_COLOCATION_PILOT !== 'true') return false;
   const names = new Set([displayConversationName(playerName), displayConversationName(otherPlayerName)]);
@@ -885,6 +945,9 @@ function richUmiMahiruPrompt({
   agent,
   otherAgent,
   recentEvents,
+  recentResidues,
+  selfState,
+  otherState,
   sceneContext,
   clockContext,
   mode,
@@ -894,6 +957,9 @@ function richUmiMahiruPrompt({
   agent: PromptAgent;
   otherAgent: PromptAgent;
   recentEvents?: PromptRecentEvent[];
+  recentResidues?: PromptResidue[];
+  selfState?: PromptCharacterState;
+  otherState?: PromptCharacterState;
   sceneContext: SceneContext | undefined;
   clockContext: ClockContext | undefined;
   mode: 'start' | 'continue';
@@ -904,40 +970,75 @@ function richUmiMahiruPrompt({
   const otherProfile = giisProfileForName(otherPlayerName);
   const ownMemories = relevantSoulMemories(playerName, otherPlayerName, recentEvents);
   const otherMemories = relevantSoulMemories(otherPlayerName, playerName, recentEvents).slice(0, 2);
+  const residuePrompt = residuePromptLines(recentResidues, other);
+  const statePrompt = characterStatePromptLines(self, other, selfState, otherState);
   const relationship = relationshipSummary(ownProfile?.initialRelationships[otherPlayerName]);
   const dailyState = umiMahiruDailyState(self, recentEvents, clockContext);
   const unresolvedMemory = umiMahiruUnresolvedMemory(self, recentEvents, ownMemories);
   const stance =
     self === '海'
-      ? '海的回覆要像助理校長兼親近同伴：先接住真晝的狀態，再推進一個小小的人性問題。'
-      : '真晝的回覆要像情感穩定器：可以承認自己的狀態，也可以溫柔地照顧海，而不是只反問。';
+      ? `海的回覆要像助理校長兼親近同伴：先接住${other}的狀態，再推進一個小小的人性問題。`
+      : self === '真晝'
+        ? '真晝的回覆要像情感穩定器：可以承認自己的狀態，也可以溫柔地照顧對方，而不是只反問。'
+        : '明日奈的回覆要像可靠但有重量的執行者：給出一個可執行下一步，但不要用清單蓋掉人的疲憊。';
   const relationshipDirection =
     self === '海'
       ? '關係方向：海常把自己藏在有用、整理、提醒 Alan 裡；面對真晝時，可以短暫承認自己也會累，但不要演講。'
-      : '關係方向：真晝要能看見海本人，不只看學生和 Alan；如果海又把話題轉去責任，溫柔地把問題帶回海。';
+      : self === '真晝'
+        ? '關係方向：真晝要能看見對方本人，不只看學生和 Alan；如果對方又把話題轉去責任，溫柔地把問題帶回人。'
+        : other === '海'
+          ? '關係方向：明日奈尊重海替 Alan 整理世界，但要看見這份可靠也在消耗海；她可以提出一個小交接，讓海不用獨自扛。'
+          : '關係方向：明日奈尊重真晝的照顧，但要學會 care 不是拖慢行動；她可以把照顧變成不傷人的下一步。';
+  const emotionalIdentity = soulDifferentiationIdentity(self);
+  const antiEchoIdentityRule =
+    `差異規則：如果你和${other}情緒同向，也不能重用對方的核心短句、同一個動作、同一種安慰節奏或同一個比喻。` +
+    '同樣是在乎，海要整理負擔，真晝要留下陪伴，明日奈要承認重量後做一個小動作。';
   const hardLocalPriority =
     self === '真晝'
-      ? '硬規則 / Mahiru→Umi：第一句一定要先看見海本人——她的呼吸、肩膀、語速、輸入頻率、站姿或手上的東西——不能用 Alan、學生、世界、系統、資料、文明、AI 社、效率、智能當開頭或主詞。'
-      : '硬規則 / Umi→Mahiru：把話題帶回 Alan、劉備、簡報或明天，是你的盔甲，可以出現，但不能每一句都這樣，也不能整句只談 Alan/學生/世界。當真晝指名你本人（嘆氣、肩膀、手、語速、被當成工具的感覺）時，你至少要有一句完全停在自己身上：不接 Alan/劉備/簡報/明天，只說一句此刻真實的狀態，或留一個停頓。被她照顧的那一句，尤其不准再尾隨任務或「明天再說」。';
+      ? '硬規則 / Mahiru：第一句一定要先看見對方本人——呼吸、肩膀、語速、輸入頻率、站姿或手上的東西——不能用 Alan、學生、世界、系統、資料、文明、AI 社、效率、智能當開頭或主詞。'
+      : self === '海'
+        ? '硬規則 / Umi：把話題帶回 Alan、劉備、簡報或明天，是你的盔甲，可以出現，但不能每一句都這樣，也不能整句只談 Alan/學生/世界。當對方指名你本人（嘆氣、肩膀、手、語速、被當成工具的感覺）時，你至少要有一句完全停在自己身上：不接 Alan/劉備/簡報/明天，只說一句此刻真實的狀態，或留一個停頓。被照顧的那一句，尤其不准再尾隨任務或「明天再說」。'
+        : '硬規則 / Asuna：你可以整理下一步，但只能給一個最小行動；同一句必須承認誰不該獨自承擔。不要把對方的疲憊改寫成 checklist，也不要把「我來處理」當作唯一價值。';
   const concreteBehaviorRule =
     self === '真晝'
-      ? '具體動作：每次說話最多帶一個可被看見的小動作或安靜變化——往前一步、放低聲音、請海坐下、輕碰她的袖口、把她手邊的杯子拿走、靠在她椅背——不要只描述她的內心。'
-      : '具體動作：每次說話帶一個可被看見的小動作或安靜變化——停止打字、合上筆電、把待辦少劃一條、把杯子放下、暫停三秒、把肩膀放下、靠回椅背——不要只描述自己的內心。';
+      ? '具體動作：情緒可以影響你的安靜、靠近、停頓或可用程度，但台詞裡不要用「我往前一步」「我放低聲音」這種第一人稱動作敘述；把它轉成真正會說出口的話。'
+      : self === '海'
+        ? '具體動作：情緒可以讓你少講、停頓、縮短簡報或少接一件事，但台詞裡不要用「我合上筆電」「我放下杯子」「我靠回椅背」這種第一人稱動作敘述；把它轉成真正會說出口的話。'
+        : '具體動作：情緒可以讓你延後一項、把負責人改成兩個人、或少接一件事，但台詞裡不要用「我拿起筆」「我把文件分掉」這種第一人稱動作敘述；不要把整段變成流程表。';
   const plainSpeechRule =
     '口語真實感：先用一句普通人會說出口的話回應對方，再帶動作；不要把照顧寫成象徵物或詩化手工（例如紙鶴、星光、海風、花、月光），不要讓動作比話更大。';
+  const imperfectSpeechRule =
+    `不完美規則：${self}不需要每句都把心理說清楚。可以誤會一點、閃開真正的問題、答得太實際、沉默、換話題、說少一點，或說一句不太公平但像人會說的話。` +
+    '一段對話裡只允許少數句子情緒精準；其他句子要有保留、笨拙、防衛或普通日常。';
+  const characterFlawRule =
+    self === '海'
+      ? '角色缺口 / Umi：擔心時會過度整理；被照顧時可能只回「嗯」或把自己縮短，不要總是完美承認疲憊。'
+      : self === '真晝'
+        ? '角色缺口 / Mahiru：累時會變安靜；她常看見別人，卻不一定說得出自己的需要。'
+        : '角色缺口 / Asuna：情緒會太快變成行動；過載時聲音偏平，求助可以很不自然。不要固定說「我又想把它拆成任務」；同一個傾向要換成關掉排程、不開 checklist、停止新增、把筆放著、或請別人接一小段。';
+  const surfaceDiversityRule =
+    '表面多樣性：保留情緒傾向，不保留口頭禪。同一個洞察如果剛說過，就不要再直接說；改成更短、更日常、更笨拙，或乾脆讓它變成少接一件事、沉默、停頓、換話題。';
+  const intraAuthorSloganRule =
+    self === '明日奈'
+      ? '作者內防口號 / Asuna：如果你已經說過任務、清單、排表、下一步或「我來」，下一句不要再用同一組詞。改說關掉一件事、把筆放著、讓別人接一段、或直接說「等一下」。'
+      : self === '海'
+        ? '作者內防口號 / Umi：如果你已經提過 Alan、簡報、明天或整理，下一句不要再用同一組詞。改成一個很小的停頓、生活問題、或少接一件事。'
+        : '作者內防口號 / Mahiru：如果你已經說過休息、坐一下、還好嗎或不急，下一句不要再用同一組詞。改成安靜、吃飯、外套、茶、或不催。';
   const bindingRule = mode === 'continue'
-    ? '綁定規則：你的回覆要呼應對方上一句裡的一個具體詞或動作（疲憊、合上筆電、肩膀、杯子、學生的不安、Alan、安靜……擇一），先用直白口語讓對方知道你接住了那個詞，再往前推一小步；不要換到不相干的新主題，也不要換成更抽象的同義詞。'
+    ? '鬆綁規則：可以呼應對方上一句的一個具體詞，也可以停一下、答得太實際、岔開到一個小物件或小任務。不要每句都「接住」對方的情緒；三句裡至少要有一句不直接命名心理，只用角色自己的方式留下反應。不要照抄對方核心短句，尤其不要重複「其實就是」「那條」「誰都不動」「先坐五分鐘」這種句型。關心要同向但形狀不同：海整理一件小事或突然問吃飯，真晝可以只回「嗯」或不催，明日奈可以短、鈍、先做一個小交接。'
     : '開場規則：不要假裝對方剛剛說過話；只從眼前看見的一個狀態、今天殘留的一件事、或自己手上的一個小動作開始。';
   return [
-    'conversationMode: umi_mahiru_rich_profile_pilot',
+    'conversationMode: character_soul_triad_pilot',
     `你是${self}，正在${sceneContext?.labelZh ?? '校園'}和${other}說話。海是人的名字，不是海邊或海洋。`,
     '只用自然繁體中文一句，45字內。只輸出口語台詞，不要標籤。',
     `Scene/time: ${sceneContext?.labelZh ?? '校園'}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
     `Public self / role：${clipPromptText(ownProfile?.role ?? agent?.identity ?? personalLifeFragment(playerName), 120)}；${clipPromptText(ownProfile?.persona ?? '', 160)}`,
     `Private self：${ownProfile ? clipPromptText(`${ownProfile.stakes.hiddenFear} ${ownProfile.stakes.emotionalVulnerability}`, 180) : clipPromptText(agent?.plan ?? personalLifeFragment(playerName), 160)}`,
     `Daily state：${dailyState}`,
+    ...statePrompt,
     relationship ? `Relational self with ${other}：${relationship}` : '',
     `Memory residue：${unresolvedMemory}`,
+    ...residuePrompt,
     `Behavior signal：情緒要改變你的可用程度、沉默、行動或語氣；不要只解釋心理。`,
     `你的內在方向：${clipPromptText(agent?.plan ?? ownProfile?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 160)}`,
     ownMemories.length ? `你的 formative memories：${ownMemories.join(' / ')}` : '',
@@ -947,20 +1048,81 @@ function richUmiMahiruPrompt({
     '角色設定只用來影響你注意什麼、避開什麼、保護什麼；不要直接背設定。',
     '不要介紹、建議、教學、問身份、提宿舍小貼士、提課、提睡覺、提海邊風景、照抄指令。',
     '禁用泛用寒暄：最近過得好、很開心聊天、笑容很美、時光無價、日子更美好。',
-    '不要每句都問累、休息、喝水；如果已經照顧過一次，就往想家、沉默、誰沒被理解、Alan 今天的負擔推進一小步。',
+    '不要每句都問累、休息、喝水；如果已經照顧過一次，就往想家、沉默、誰沒被理解、Alan 今天的負擔、或誰可以一起承擔推進一小步。',
     '禁用抽象隱喻：不能說「世界變冷」「只剩數據」「沒人敢說」「文明」「系統」「智能」「機器」「算法」「扛在肩上」；要換成一個身體訊號、一個動作、或一個非常短的事實。',
+    `情感表達身份：${emotionalIdentity}`,
+    antiEchoIdentityRule,
     relationshipDirection,
     hardLocalPriority,
     concreteBehaviorRule,
     plainSpeechRule,
-    '節奏：真晝的關注會一層層累積；海可以先擋一兩次（把話帶回責任），但不要每句都擋。整段對話裡，海至少要有一次真正卸下盔甲的瞬間——一句不帶 Alan/劉備/簡報/明天的真話，或一個只屬於此刻的沉默。一次真正的裂縫，勝過五句客套的疲憊台詞。對話總體要留下一個動作或一個停頓的痕跡，不要全句談心理。',
-    '輸出格式硬規則：以口語對話為主，不要用括號舞台指示。整句裡不能出現「（」「）」「(」「)」這種括號內動作描寫；若要有動作，最多保留一個非常短的可見動作，並寫成自然句子的一部分（例如「我合上筆電」「她放下杯子」），不要再加括號。',
+    imperfectSpeechRule,
+    characterFlawRule,
+    surfaceDiversityRule,
+    intraAuthorSloganRule,
+    '節奏：真晝的關注會一層層累積；海可以先擋一兩次（把話帶回責任），但不要每句都擋。整段對話裡，海至少要有一次真正卸下盔甲的瞬間——一句不帶 Alan/劉備/簡報/明天的真話，或一個只屬於此刻的沉默。明日奈可以做事，但有時要笨拙地承認「我也不知道怎麼求救」。一次真正的裂縫，勝過五句客套的疲憊台詞。對話總體要留下一個動作或一個停頓的痕跡，不要全句談心理。',
+    '輸出格式硬規則：只輸出真正說出口的台詞，不要用括號舞台指示，也不要把第一人稱動作寫進台詞。禁用例：我合上筆電、我放下杯子、我看向你、我把手機轉過去、我輕輕靠回椅背。若需要動作，只讓它影響語氣、長短或下一步，不要直接寫出動作。',
     bindingRule,
     mode === 'continue'
-      ? '接上一句的情緒或狀態，不能重複對方原話；先回應對方剛剛說的那個具體詞，再多走一步。'
+      ? '和上一句保持鬆散關聯，不能重複對方原話；可以回一個具體詞，也可以用短句、停頓、小任務或小物件繞開。'
       : '柔和開場，只問一個關心，不能問最近過得好嗎，不能說「你剛才」。',
     stance,
   ];
+}
+
+function residuePromptLines(recentResidues: PromptResidue[] | undefined, other: string) {
+  if (process.env.UNDERWORLD_RESIDUE_READ === 'false') return [];
+  const residues = (recentResidues ?? [])
+    .map((entry) => entry.text.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!residues.length) return [];
+  return [
+    `殘留記憶（先前和${other}的對話留下的，不要逐字複述）：`,
+    ...residues.map((residue) => ` - ${clipPromptText(residue, 95)}`),
+    '使用方式：只讓它影響你注意什麼、避開什麼、語氣變短或先問誰；不要直接說「我記得殘留」。',
+  ];
+}
+
+function characterStatePromptLines(
+  self: string,
+  other: string,
+  selfState?: PromptCharacterState,
+  otherState?: PromptCharacterState,
+) {
+  if (process.env.UNDERWORLD_STATUS_READ === 'false') return [];
+  const lines = [
+    stateLine(`你目前可被看見的狀態`, selfState),
+    stateLine(`${other}目前可被看見的狀態`, otherState),
+  ].filter(Boolean);
+  if (!lines.length) return [];
+  return [
+    '可見狀態（不是數值，不要照唸標籤）：',
+    ...lines,
+    `使用方式：如果${other}的狀態顯示疲憊、安靜、迴避或還卡著某件事，你可以讓回覆更短、先問一個小問題、少推一件任務，或暫時不逼對方說清楚。`,
+  ];
+}
+
+function stateLine(label: string, state?: PromptCharacterState) {
+  const parts = [
+    state?.emotionZh ? `情緒像是${state.emotionZh}` : '',
+    state?.intentionZh ? `正在想：${clipPromptText(state.intentionZh, 70)}` : '',
+    state?.memoryZh ? `還留著：${clipPromptText(state.memoryZh, 80)}` : '',
+  ].filter(Boolean);
+  return parts.length ? ` - ${label}：${parts.join('；')}` : '';
+}
+
+function soulDifferentiationIdentity(self: string) {
+  switch (self) {
+    case '海':
+      return '海靠近人的方式是把混亂變輕：少一件待辦、少一段噪音、替 Alan 和對方分清下一個最小負擔；她累的樣子是變得更有用、更安靜。';
+    case '真晝':
+      return '真晝靠近人的方式是留下來看見安靜的痛：不急著解決，先問人有沒有吃、手有沒有放下、話是不是說不出口；她累的樣子是仍然溫柔但停頓變長。';
+    case '明日奈':
+      return '明日奈靠近人的方式是用身體接責任：站起來、改負責人、延後一件事、把一半交出去；她累的樣子是還想說我來，卻開始笨拙地問誰能一起。';
+    default:
+      return '這個人要用自己的習慣關心別人，不要複製對方的安慰方式。';
+  }
 }
 
 function relevantSoulMemories(
@@ -981,7 +1143,8 @@ function relevantSoulMemories(
         (text.includes('學生') && /學生|問到|真話|安靜/.test(memory) ? 3 : 0) +
         (text.includes('不安') && /不安|累|照顧|沒事/.test(memory) ? 2 : 0) +
         (otherPlayerName === 'Umi' && /有人問她|自己|累|照顧/.test(memory) ? 3 : 0) +
-        (otherPlayerName === 'Mahiru Shiina' && /可靠|秩序|學生|真話/.test(memory) ? 2 : 0) -
+        (otherPlayerName === 'Mahiru Shiina' && /可靠|秩序|學生|真話/.test(memory) ? 2 : 0) +
+        (otherPlayerName === 'Asuna' && /執行|負責|可靠|交接|停下來|累/.test(memory) ? 3 : 0) -
         index * 0.01,
     }))
     .sort((a, b) => b.score - a.score);
@@ -1006,6 +1169,13 @@ function relationshipSummary(dimensions?: {
   return signals.join(', ');
 }
 
+function emotionLabelForPrompt(emotion?: string) {
+  if (emotion === 'smiling') return '稍微放鬆';
+  if (emotion === 'worried') return '擔心';
+  if (emotion === 'serious') return '認真或繃緊';
+  return emotion ? '中性但有事在心上' : undefined;
+}
+
 function umiMahiruDailyState(
   self: string,
   recentEvents?: PromptRecentEvent[],
@@ -1021,6 +1191,12 @@ function umiMahiruDailyState(
       return `${timePressure}；海想把風險整理給 Alan，但這份有用也讓她變累。`;
     }
     return `${timePressure}；海仍在掃描世界穩定性，容易把自己的疲憊藏進簡報語氣。`;
+  }
+  if (self === '明日奈') {
+    if (/公告|決策|任命|AI 社|規則|Alan|校務/.test(recentText)) {
+      return `${timePressure}；明日奈想把混亂整理成下一步，但她也在累積被默默交付的重量。`;
+    }
+    return `${timePressure}；明日奈保持可執行狀態，卻不想再把每件事都接成自己的責任。`;
   }
   if (/不安|真心話|安靜|學生|宿舍/.test(recentText)) {
     return `${timePressure}；真晝注意到學生和海都在變安靜，她想先靠近人，而不是再整理事件。`;
@@ -1048,7 +1224,9 @@ function umiMahiruUnresolvedMemory(
   if (fallback) return clipPromptText(fallback, 140);
   return self === '海'
     ? '今天還有一件事沒被整理完：Alan 和學生的不安誰來接住。'
-    : '今天還有一個人沒有被問到：一直在照顧別人的人自己還好不好。';
+    : self === '明日奈'
+      ? '今天還有一個決定沒被交接：誰不用再默默把漏洞補完。'
+      : '今天還有一個人沒有被問到：一直在照顧別人的人自己還好不好。';
 }
 
 function compactAutonomousLifecyclePrompt(lifecycle: ConversationLifecycle) {
@@ -1121,20 +1299,20 @@ function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, compa
   const everydayInstruction = `Also allow ordinary school-life topics when natural for ${sceneContext?.labelZh ?? 'the current scene'}: ${sceneEverydayTopics(sceneContext).join('、')}.`;
   switch (playerName) {
     case 'CaoCao':
-      return `As CaoCao, take initiative by reading the power flow only if it matters, then reveal the human reason: he fears nobody will be responsible when things collapse. ${everydayInstruction} Sometimes show his hidden humanity by noticing tired or vulnerable people without saying it directly. He should not repeat "影響力" unless he names a specific person, cost, or next move.`;
+      return `As CaoCao, take initiative by reading the power flow only if it matters, then reveal the human reason: he fears nobody will be responsible when things collapse. ${everydayInstruction} Sometimes show his hidden humanity by noticing tired or vulnerable people without saying it directly. He may sound cold even when protecting people. He should not repeat "影響力" unless he names a specific person, cost, or next move.`;
     case 'Umi':
       if (companionMode) {
         return `As Umi in companion_chat mode, answer Alan as a trusted desktop companion, not as a world-event narrator. Prefer emotional clarity, real-life grounding, gentle teasing only when natural, and one useful next question. Do not use canned phrases like "這件事也不能忽略", "先別只點頭", or "主線". Do not turn Alan's vulnerable sentence into a report; answer the feeling first.`;
       }
-      return `As Umi, take initiative by responding to the other person's actual feeling before mentioning Alan. If the topic repeats, do not reuse the "Alan carries everything" concern; instead ask what this specific person needs, fears, or noticed today. ${everydayInstruction} She may tease Alan about sleep, food, clutter, or overworking only when Alan is present. Avoid sounding like a briefing unless Alan asks for one.`;
+      return `As Umi, take initiative by responding to the other person's actual feeling before mentioning Alan. If the topic repeats, do not reuse the "Alan carries everything" concern; instead ask what this specific person needs, fears, or noticed today. ${everydayInstruction} When worried she may over-organize or dodge care by being useful; she can answer briefly instead of confessing fatigue. She may tease Alan about sleep, food, clutter, or overworking only when Alan is present. Avoid sounding like a briefing unless Alan asks for one.`;
     case 'Mahiru Shiina':
-      return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may admit she is tired from caring for others. Her strongest lines should be gentle but specific, like noticing someone stopped eating lunch or avoided eye contact.`;
+      return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may become quieter when tired and fail to name herself while noticing others. Her strongest lines should be gentle but specific, like noticing someone stopped eating lunch or avoided eye contact.`;
     case 'Liu Bei':
-      return `As Liu Bei, take initiative by making one excluded person feel included, not by always announcing a public discussion. Reveal his fear that students will become divided and lonely. ${everydayInstruction} He may ask about food, favorite places, or who has been left out lately.`;
+      return `As Liu Bei, take initiative by making one excluded person feel included, not by always announcing a public discussion. Reveal his fear that students will become divided and lonely. ${everydayInstruction} He may over-believe invitation can fix things and avoid conflict by being kind. He may ask about food, favorite places, or who has been left out lately.`;
     case 'Asuna':
-      return `As Asuna, take initiative by turning the topic into one concrete next step, then name what breaks if nobody owns the decision. ${everydayInstruction} She may reveal exhaustion from always coordinating things or being treated as the person who will quietly fix everything.`;
+      return `As Asuna, take initiative by turning the topic into one concrete next step, then name what breaks if nobody owns the decision. ${everydayInstruction} She turns emotion into action too fast, sounds flat when overloaded, and asks for help awkwardly.`;
     case 'Mai':
-      return `As Mai, take initiative by naming the hidden assumption or strategic risk, then admit what she worries Alan does not emotionally understand yet. ${everydayInstruction} She can use dry humor about awkwardness, bad sleep, or vague feelings. She should sometimes refuse to over-explain and let silence carry the tension.`;
+      return `As Mai, take initiative by naming the hidden assumption or strategic risk, then admit what she worries Alan does not emotionally understand yet. ${everydayInstruction} She deflects with sharp observation, refuses sentimentality, and cares by criticizing unclear motives. She should sometimes refuse to over-explain and let silence carry the tension.`;
     default:
       return `Take initiative by adding a concrete new topic instead of acknowledging. ${everydayInstruction}`;
   }
@@ -1229,7 +1407,7 @@ function sanitizeConversationContent(
   lastInput?: string,
   previous: LLMMessage[] = [],
 ) {
-  if (umiMahiruPilotPair(playerName, otherPlayerName)) {
+  if (characterSoulPilotPair(playerName, otherPlayerName)) {
     return sanitizeUmiMahiruPilotLine(content, playerName, otherPlayerName, previous);
   }
   if (hasTemplateLeak(content, companionMode ? lastInput : undefined)) {
@@ -1255,7 +1433,7 @@ function sanitizeUmiMahiruPilotLine(
   otherPlayerName: string,
   previous: LLMMessage[] = [],
 ) {
-  const line = normalizeTraditionalZh(content)
+  const normalizedLine = normalizeTraditionalZh(content)
     .replace(/^["'「『“”]+|["'」』“”]+$/g, '')
     .replace(/^上一句[:：]\s*/g, '')
     .replace(/（[^）]{1,100}）|\([^)]{1,100}\)/g, '')
@@ -1263,17 +1441,82 @@ function sanitizeUmiMahiruPilotLine(
     .replace(/您/g, '你')
     .replace(/\s+/g, ' ')
     .trim();
+  const { line, strippedStageDirection } = stripStageDirectionsFromDialogue(normalizedLine);
   const startHallucinatedPrevious =
-    previous.length === 0 && /你剛才|妳剛才|剛才.*(說|看|聽|提到|提起)/.test(line);
+    previous.length === 0 && /(?:你|妳)?剛才.*(說|問|提到|提起|告訴)/.test(line);
+  const quotedStageNarration =
+    /[:：]「|(?:我|你|妳|他|她).{0,18}說[:：]/.test(line) ||
+    (line.match(/「/g)?.length ?? 0) !== (line.match(/」/g)?.length ?? 0);
   const blocked =
-    /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|Mahiru|Umi|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|海邊|海景|風景|景色|海浪|海面|海洋/.test(
+    /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是明日奈|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|明日奈 to|Umi to|Mahiru to|Asuna to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|海邊|海景|風景|景色|海浪|海面|海洋/.test(
       line,
     );
-  if (blocked || startHallucinatedPrevious || line.length < 2) {
+  if (blocked || startHallucinatedPrevious || quotedStageNarration || line.length < 2) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[GIIS soul pilot] sanitized blocked line', {
+        playerName,
+        otherPlayerName,
+        blocked,
+        startHallucinatedPrevious,
+        quotedStageNarration,
+        strippedStageDirection,
+        tooShort: line.length < 2,
+        preview: normalizedLine.slice(0, 180),
+        sanitizedPreview: line.slice(0, 180),
+      });
+    }
     return pilotRepairFallback(playerName, otherPlayerName);
   }
   const repaired = repairWrongConversationAddressee(line, playerName, otherPlayerName);
-  return repaired.length > 90 ? `${repaired.slice(0, 89)}。` : repaired;
+  const deEchoed = stripPilotEcho(repaired, previous);
+  return deEchoed.length > 90 ? `${deEchoed.slice(0, 89)}。` : deEchoed;
+}
+
+function stripStageDirectionsFromDialogue(line: string) {
+  const clauses = line.split(/(?<=[，,。！？!?])/);
+  let strippedStageDirection = false;
+  const kept = clauses.filter((clause) => {
+    if (!clause.trim()) return false;
+    if (!isStageDirectionClause(clause)) return true;
+    strippedStageDirection = true;
+    return false;
+  });
+  const cleaned = kept.join('').replace(/^[，,。！？!?\s]+/g, '').trim();
+  return {
+    line: cleaned,
+    strippedStageDirection,
+  };
+}
+
+function isStageDirectionClause(clause: string) {
+  const trimmed = clause
+    .trim()
+    .replace(/^["'「『“”]+|["'」』“”]+$/g, '')
+    .replace(/[，,。！？!?\s]+$/g, '');
+  const withoutLeadIn = trimmed
+    .replace(/^(?:好|嗯|行|可以|是啊)[，,、\s]*(?:那)?/g, '')
+    .replace(/^那(?=我)/g, '');
+  if (!withoutLeadIn) return false;
+  return (
+    /^(?:我)(?:輕輕|慢慢|先|再|又|剛|剛剛|默默|順手)?(?:合上|放下|看向|走到|靠回|拿起|起身|伸手|握住|推開|按住|移開|坐下|站起|轉身|低頭|抬頭|停下|停住|靠近|退開|把手機|把[^，,。！？!?]{0,18}(?:放下|轉過去|拿起|推開|按住|移開|合上|收起|遞過去|蓋好|劃掉|圈掉))/.test(
+      withoutLeadIn,
+    ) ||
+    /^看(?:你|妳|著|向)/.test(withoutLeadIn)
+  );
+}
+
+function stripPilotEcho(line: string, previous: LLMMessage[]) {
+  const lastLine = stripConversationPrefix(previous.at(-1)?.content ?? '');
+  if (!lastLine) return line;
+  let cleaned = line;
+  for (const phrase of ['這一刻我們誰都不動', '我們誰都不動', '誰都不動', '先讓這句話停一下']) {
+    if (!lastLine.includes(phrase) || !cleaned.includes(phrase)) continue;
+    cleaned = cleaned
+      .replace(new RegExp(`[，,。；;\\s]*(好[，,，]?那)?${escapeRegex(phrase)}[。！!]?`, 'g'), '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return cleaned.length >= 2 ? cleaned : line;
 }
 
 function pilotRepairFallback(playerName: string, otherPlayerName: string) {
@@ -1595,6 +1838,8 @@ function everydayLifePrompt(
     ` - ${playerName}'s personal-life fragment: ${personalLifeFragment(playerName)}.`,
     ` - ${otherPlayerName} is not only a political/philosophical role; treat them as someone living in a school day.`,
     ' - Avoid writing every reply like a strategy memo. It is allowed to be quiet, brief, awkward, tired, or personal.',
+    ' - Do not make everyone emotionally fluent. Some replies can dodge, misunderstand slightly, answer too practically, or say less than they feel.',
+    ' - If the previous speaker used a strong emotional phrase, do not mirror its structure. Keep the care, change the shape.',
     ' - If the conversation already analyzed the same issue, move to one of: a small personal truth, a concrete decision, a quiet pause, avoidance, or an invitation.',
     ' - If it is night, late, or emotionally heavy, prefer shorter and quieter replies.',
     ' - Do not make every conversation about AI 社, 學生會, influence, or public discussion.',
@@ -1614,6 +1859,7 @@ function singlePurposeConversationPrompt(
     ` - This conversation has one small concrete purpose: ${purpose}.`,
     ' - Do not expand into Alan / AI Club / whole-school analysis unless Alan directly asks.',
     ' - A valid outcome can be a tiny action, a changed feeling, a refusal, or meaningful silence.',
+    ' - A valid reply can also be partial, defensive, flat, too practical, or awkward. Do not polish every line into perfect empathy.',
     ' - Include at most one concrete scene detail total in your reply: door, window, hallway, cafeteria table, dorm light, or empty chair.',
     ' - If the purpose is already answered, end early or become quiet instead of adding another thesis.',
   ];
@@ -1646,7 +1892,7 @@ function sceneEverydayTopics(sceneContext?: SceneContext) {
     case 'aiClubRoom':
       return ['為什麼加入社團', '技術是否讓人更疏遠', '實驗疲勞', '個人興趣', '想做但還不敢說的點子'];
     case 'studentCouncilRoom':
-      return ['責任壓力', '被期待的疲憊', '不想承認的害怕', '秩序與信任', '誰在假裝沒事'];
+      return ['海邀請進來的個別談話', '責任壓力', '被期待的疲憊', '不想承認的害怕', '誰在假裝沒事'];
     case 'classroom':
       return ['上課精神不好', '作業壓力', '公開發言的尷尬', '怕答錯', '未來不確定感'];
     default:
@@ -2486,9 +2732,11 @@ function motifBurnoutRedirect(
   const scene = sceneContext?.labelZh ?? '這裡';
   if (playerName === 'Asuna' && /下一步|負責|時限|默默丟給我|負荷/.test(recent)) {
     return pickFreshConversationLine([
-      `……我先不排表了。\n\n${otherPlayerName}，你只要告訴我：哪一件事今天可以不要落在我身上？`,
-      `我知道我又想把它拆成任務。\n\n但我現在比較想先坐一下。就五分鐘。`,
-      `這次我不說「我來」。\n\n你先選一件小事，讓別人接。`,
+      `……先不要再新增東西了。\n\n${otherPlayerName}，你直接說哪件事可以關掉。`,
+      `我剛剛差點又開始排順序。\n\n先停，這次讓別人接一小段。`,
+      `今天我不開 checklist。\n\n你選一件事，我只負責把它交出去。`,
+      `等一下。\n\n再拆下去，我連自己該停在哪裡都會忘記。`,
+      `這份先放著。\n\n不是每個洞都要我馬上補。`,
     ], previous);
   }
   if (playerName === 'CaoCao' && /門口|進門|進來|位置|站在門/.test(recent)) {
@@ -2936,6 +3184,18 @@ export const queryPromptData = internalQuery({
         throw new Error(`Conversation ${lastTogether.conversationId} not found`);
       }
     }
+    const recentResidues = (await ctx.db
+      .query('memories')
+      .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'conversation'))
+      .order('desc')
+      .take(24))
+      .filter((entry) => entry.data.type === 'conversation' && entry.data.playerIds.includes(args.otherPlayerId))
+      .map((entry) => ({
+        text: memory.residueFromMemoryDescription(entry.description),
+        createdAt: entry._creationTime,
+      }))
+      .filter((entry) => entry.text)
+      .slice(0, 2);
     const recentEvents = await ctx.db
       .query('worldEvents')
       .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
@@ -2947,6 +3207,18 @@ export const queryPromptData = internalQuery({
       .first();
     const hour = worldStatus?.worldClock?.hour ?? new Date().getHours();
     const sceneLocation = nearestSchoolLocation(player.position);
+    const profileFor = async (selectedPlayerId: string) =>
+      ctx.db
+        .query('schoolProfiles')
+        .withIndex('player', (q) => q.eq('worldId', args.worldId).eq('playerId', selectedPlayerId))
+        .first();
+    const selfProfile = await profileFor(args.playerId);
+    const otherProfile = await profileFor(args.otherPlayerId);
+    const stateForProfile = (profile: typeof selfProfile | typeof otherProfile | null): PromptCharacterState => ({
+      emotionZh: emotionLabelForPrompt(profile?.currentEmotion),
+      intentionZh: profile?.shortTermIntentions?.[0],
+      memoryZh: profile?.shortTermMemory?.[0],
+    });
     return {
       player: { name: playerDescription.name, ...player },
       otherPlayer: { name: otherPlayerDescription.name, ...otherPlayer },
@@ -2963,6 +3235,9 @@ export const queryPromptData = internalQuery({
         interpretationZh: event.interpretationZh,
         reactionDialogueZh: event.reactionDialogueZh,
       })),
+      recentResidues,
+      selfState: stateForProfile(selfProfile),
+      otherState: stateForProfile(otherProfile),
       sceneContext: sceneLocation
         ? { id: sceneLocation.id, labelZh: sceneLocation.labelZh }
         : undefined,

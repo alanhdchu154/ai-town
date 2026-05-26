@@ -1,6 +1,537 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-23 (late)
+Last updated: 2026-05-25 (post-review hardening pass)
+
+## 2026-05-25 Post-Review Hardening Pass
+
+Driver: Two parallel agents reviewed the just-shipped Phase 1 residue
+loop and the working-tree health. They surfaced one critical eval
+self-fulfilling bug, one defensive abort-marker coverage gap, and one
+structural "residue becomes new template" risk that matches the
+2026-05-22 prompt-mandate failure mode. Alan approved a 🟢 + #3
+override scope tonight (override = explicitly allow a memory-behavior
+change despite the fresh-sample rule, on the grounds that this is a
+preventive structural gate, not a tuning attempt toward observed
+samples).
+
+Done this session:
+
+1. **Eval self-fulfill fix.** [evals/conversations/runSoulTriadEval.ts](../evals/conversations/runSoulTriadEval.ts)
+   `applyMemoryContinuityScores()` no longer rewards cue-hits alone.
+   Continuity now requires BOTH a temporal callback marker (`還記得`,
+   `上次`, `那次`, ...) AND ≥1 concrete cue hit. Cue-only matches
+   default to neutral 0.5 (vocabulary reuse, not continuity). A new
+   anti-parrot rule penalizes residue templates (`(?:海|真晝|明日奈)還記得`)
+   appearing verbatim in conversation text, since that means the model
+   is reading residue as a script instead of as pressure. Without this
+   fix, the residue we wrote yesterday was what made today score
+   high — the metric was measuring its own input.
+
+2. **Fresh-sample rule moved into the runtime.** Same file now ends
+   with `warnIfBelowFreshSampleFloor()` that prints a large warning
+   block when triad sample count < 3, restating the rule. The rule
+   used to live only in the roadmap as human discipline.
+
+3. **Defensive abort-marker coverage.** [convex/modelPolicy.ts](../convex/modelPolicy.ts)
+   `isGeneratedFallbackText()` now uses `.includes()` instead of
+   `.startsWith()` for `[ABORT_CONVERSATION]`, adds `[LEAVE]`, and adds
+   `pilot LLM unavailable` / `pilot repair fallback` substrings. Belt
+   and suspenders — `shouldPersistCharacterSoulTranscript()` was
+   already gating, but mid-text leakage would have slipped past.
+
+4. **Residue repeat-pattern gate (#3 override).** [convex/agent/memory.ts](../convex/agent/memory.ts)
+   - `deterministicResidueSentence()` now requires `messages.length ≥ 4`
+     before writing residue (`RESIDUE_MIN_MESSAGES`). Short exchanges
+     don't earn a trace.
+   - New `recentSamePairResidues` internalQuery fetches the last 2
+     residues for the same pair.
+   - `rememberConversation()` now compares the new residue's
+     first-10-char prefix against the last 2 same-pair residues and
+     skips the write if all three would share the same opening shape —
+     stops the residue line from becoming the next template.
+
+5. **SOUL_TRIAD env knobs documented.** [convex/aiTown/agent.ts](../convex/aiTown/agent.ts)
+   gained a 20-line comment block listing every pilot env knob and
+   what it gates. [.env.local.example](../.env.local.example) gained a
+   commented-out block for the pilot + residue env vars so a new
+   developer can discover them.
+
+6. **Command surface consolidated.** New [umi/COMMAND_REFERENCE.md](../umi/COMMAND_REFERENCE.md)
+   maps every npm script / shell wrapper / direct convex command to
+   what it does and when to use it. Marks the legacy `umi/*_loop.sh`
+   wrappers as deprecated candidates.
+
+7. **Documentation index added.** New [docs/INDEX.md](INDEX.md) names
+   the authoritative documents and the "where does X go?" rule, so
+   the three doc hierarchies (`docs/soul/`, `evals/.../reports/`,
+   `umi/proposals/`) stop drifting.
+
+Verification:
+
+- `npx tsc --noEmit --pretty false` PASS (clean).
+- `npm test` PASS, 55/55. The existing modelPolicy test
+  "blocks generated fallback text from Umi/Mahiru persistence" still
+  passes after the `.includes()` / `[LEAVE]` widening.
+- Eval and runtime changes are behavior-additive on the safe side:
+  every change either tightens a gate, hardens a defensive check, or
+  surfaces a warning. Nothing relaxes an existing constraint.
+
+Not done tonight (deliberately deferred):
+
+- **Working-tree split into 3 coherent commits.** Too risky to do
+  late-night without per-commit supervision; tomorrow.
+- **ConversationWall unit tests.** Lower priority than the eval fix;
+  the component is read-only.
+- **Residue integration test.** Needs a Convex test-infra decision;
+  not a half-asleep choice.
+
+Open questions for the next session:
+
+- After 3+ fresh post-fix triad samples land: does `Memory continuity`
+  now move with the conversation's actual feel, or is the anti-parrot
+  penalty too aggressive?
+- Did the `RESIDUE_MIN_MESSAGES = 4` gate over-filter? Watch
+  `evals/conversations/reports/soul-triad-latest.md` for warning-class
+  conversations where a short exchange genuinely earned residue.
+- Should the repeat-pattern prefix length stay at 10 chars? Too short
+  could over-trigger (every Umi line starts `海還記得真晝...`); too long
+  could under-trigger (small wording variation slips through).
+
+## 2026-05-26 Emotional Expression MVP
+
+Status: accepted as the current emotion design rule.
+
+Emotion must not become RPG stats, visible meters, or a dashboard. The player
+should infer emotion from:
+
+- behavior: shorter replies, staying nearby, avoiding a room, delaying tasks;
+- tone: clipped answers, hesitation, softer wording, silence;
+- attention: what each character notices or misses;
+- relationship tendency: who they approach, avoid, check on, or become more
+  honest with.
+
+UI contract:
+
+- Umi briefing is interpretation: who changed today, how, and why.
+- Campus dynamics is evidence: what happened today that supports that reading.
+- Schedule is availability/context: where people are, whether they can be
+  approached, and why that location matters.
+
+Do not make all three surfaces equal dashboards. Umi is the front door; campus
+dynamics and schedule are supporting lenses.
+
+Implementation notes:
+
+- Internal `currentEmotion` may still drive portraits and lightweight runtime
+  behavior, but player-facing copy should say what changed in behavior, tone,
+  attention, or relationship tendency.
+- Notifications should avoid direct labels such as `變得擔心`; prefer lines like
+  `真晝開始注意誰沒有把話說完`.
+- Eval should check `emotion_behavior_link`, `emotion_tone_link`,
+  `attention_shift`, `relationship_residue`, and `over_labeling_penalty`.
+
+## 2026-05-26 Life-Emotion Pivot
+
+Status: implemented as a small foregrounding change, not a new system.
+
+Alan reset the product surface again: v0.1 should not foreground politics,
+factions, civilization growth, or broad social systems. The current visible loop
+should feel like school life:
+
+```text
+daily campus moment
+-> someone changes emotionally
+-> Umi explains who changed, how, and why
+-> memory/residue can carry that into tomorrow
+```
+
+Implementation notes:
+
+- Existing physical scene IDs stay the same to avoid map/pathfinding churn.
+- `aiClubRoom` is displayed as `餐廳`; `studentCouncilRoom` is displayed as
+  `校長室`.
+- `校長室` is Umi's authority space: Umi may work there and invite pilot
+  characters there for a private talk, but other characters should not be
+  scheduled there alone.
+- Each scene now has a small `moodEvents` palette, such as bad exams, cheating
+  being discovered, overheard secrets, lunch embarrassment, quiet apologies, or
+  dorm lights staying on too late.
+- Campus dynamics should show today's items only.
+- Umi briefing copy should prioritize emotional changes, not political risk.
+- Low-value camera buttons were removed except `聚焦 Alan`, which remains as a
+  useful navigation anchor.
+
+Do not add a mood-event engine yet. Scene mood events are a bounded string
+library for the existing briefing/feed path.
+
+## 2026-05-26 Phase 1 Implementation: Residue Write / Read / Eval
+
+Status: implemented as the first runnable slice of the v0.1 emotional
+continuity loop.
+
+Scope:
+
+- Pilot only: Umi / Mahiru / Asuna.
+- No schema migration.
+- No numeric emotion meters.
+- No behavior drift engine yet.
+- No all-character rollout.
+
+Runtime contract:
+
+1. Conversation -> emotional residue
+   - `convex/agent/memory.ts` now appends at most one short `殘留：...` line
+     to qualified pilot conversation memories.
+   - Existing LLM eligibility, fallback, sanitizer, and degenerate transcript
+     guards still run before memory is written.
+   - Residue write can be disabled with `UNDERWORLD_RESIDUE_WRITE=false`.
+
+2. Emotional residue -> prompt memory continuity
+   - `convex/agent/conversation.ts` now fetches up to 2 recent same-pair
+     residue memories for the current speaker.
+   - The pilot prompt receives them as emotional pressure, not as text to quote.
+   - Residue read can be disabled with `UNDERWORLD_RESIDUE_READ=false`.
+
+3. Evaluation
+   - `eval:soul-triad` now reports `Memory continuity` across recent same-pair
+     samples.
+   - `eval:conversation:recent` now includes guardrails for memory continuity
+     cues and rejects raw numeric emotion-meter language.
+
+### Memory Residual Definition
+
+For v0.1, a memory residual is not an eval label and not a UI interpretation.
+It is one short Traditional Chinese line stored in `memories.description` after
+the literal prefix `殘留：`.
+
+A conversation may create memory residual only when all of these are true:
+
+- the conversation is LLM-eligible: Alan is involved, or the pair is explicitly
+  enabled as a cloud-LLM pilot pair;
+- the transcript is not fallback, provider-error, timeout, smoke-test,
+  deterministic-only, or degenerate pilot exit output;
+- the residue writer is enabled with `UNDERWORLD_RESIDUE_WRITE` not set to
+  `false`;
+- the pair is within the current pilot scope: Umi / Mahiru / Asuna;
+- the residue line is short, non-slogan-like, and grounded in the conversation.
+- the conversation has enough semantic resonance with the characters: at least
+  one concrete life cue plus one character-soul cue from Umi / Mahiru / Asuna.
+  This is a deterministic gate, not another LLM judge.
+
+Why not an LLM judge in the residue write path yet:
+
+- residue is persistence, not display. If the judge is slow, expensive, down, or
+  inconsistent, it can contaminate tomorrow's prompts;
+- the same cloud quota is needed for actual character speech, so judging every
+  archive would reduce fresh sample collection;
+- LLM semantic review is better used in eval/offline reports until fresh
+  samples prove the deterministic gate is too weak.
+
+If a conversation does not write a `殘留：...` line or a conversation memory
+summary, it has no residual. `outcomeQuality` is only an eval/read-model
+classifier. It must not be displayed as emotional residue, and it must not be
+allowed to make fallback or deterministic dialogue look like memory.
+
+How residual affects memory:
+
+- it is appended to the remembered conversation, so future retrieval can find
+  that emotional trace;
+- same-pair prompts may read up to two recent residue memories as emotional
+  pressure;
+- it should influence attention, tone, availability, and small behavior, not
+  become a numeric emotion score.
+
+UI rule:
+
+- `ConversationWall` may show actual memory traces and current status updates
+  together, separated by filters;
+- character-side history stays a clean transcript viewer and should not display
+  per-role residue blocks;
+- no emotion dashboard, no `sad +3`, no invented residue from eval outcome.
+
+Night / companion rule:
+
+- ordinary students should not be woken casually at night;
+- Alan may still talk to Umi because Umi is the school coordinator and is often
+  `secretly_awake`;
+- Alan-involved conversations must not archive deterministic fallback. If the
+  LLM path fails, the generation aborts instead of saving a fake character
+  reply;
+- cloud for every Alan conversation is explicit: set
+  `HUMAN_CONVERSATION_CLOUD_LLM=true` or `ALAN_HUMAN_CLOUD_LLM=true`. Without
+  that switch, Alan chats may use local LLM, but still should not persist
+  fallback as character dialogue.
+
+Rollback:
+
+- Set `UNDERWORLD_RESIDUE_WRITE=false` and/or `UNDERWORLD_RESIDUE_READ=false`.
+- No data migration is needed because residue is a bounded line in
+  `memories.description`.
+
+Next evidence needed:
+
+- Generate fresh post-change Umi/Mahiru/Asuna conversations.
+- Check whether later conversations naturally reference prior residue without
+  repeating it as a slogan.
+- If fresh samples are fewer than 3, do not tune prompt or memory behavior
+  further.
+
+## 2026-05-25 v0.1 Scope Reset: Smallest Emotional Continuity Loop
+
+Alan's current goal is to reduce scope and focus on the smallest emotional loop
+that can make Underworld feel alive.
+
+Do not build large civilization systems yet. Do not build giant relationship
+graphs. Do not optimize for more dialogue.
+
+v0.1 should focus on:
+
+```text
+conversation
+-> emotional residue
+-> memory continuity
+-> small behavioral consequence
+-> tomorrow feels different
+```
+
+### Active v0.1 Scope
+
+Only discuss and optimize these three systems:
+
+1. Character soul expression
+   - Does the character say things that fit their soul?
+   - Does Umi sound like Alan's world coordinator and emotional load reducer?
+   - Does Mahiru notice quiet pain without becoming a generic comfort bot?
+   - Does Asuna carry responsibility without collapsing into checklist slogans?
+
+2. Conversation -> emotional residue
+   - A conversation can leave a small emotional trace.
+   - Do not model this primarily as numbers such as sadness +3 or anger +5.
+   - Store human residue such as:
+     - "Mahiru still remembers Umi sounded tired."
+     - "Asuna is still bothered by being treated as the default burden carrier."
+     - "Umi keeps thinking about Alan carrying too much alone."
+   - Residue should persist, fade, and resurface when triggered.
+
+3. Emotional residue -> memory continuity
+   - Characters should remember meaningful conversations.
+   - They should reference unresolved concerns and what others said before.
+   - Memories should resurface when the same person, same emotional context,
+     same location, or unresolved issue appears again.
+
+Small behavioral change remains important, but only as an output of residue and
+memory. Do not build a separate behavior engine yet.
+
+Examples of allowed small behavioral consequences:
+
+- shorter replies;
+- delayed task-taking;
+- quieter behavior;
+- checking on someone;
+- avoiding a room;
+- staying nearby longer;
+- taking initiative once because of a remembered concern.
+
+### Explicitly Deferred
+
+Archive or put aside for now:
+
+- large civilization systems;
+- giant relationship graphs;
+- global all-character soul systems;
+- new factions, lore, scenes, or characters;
+- high-frequency emotion writes;
+- numerical emotion dashboards;
+- large memory schema migrations;
+- fine-tuning;
+- full all-NPC LLM;
+- major UI redesigns.
+
+UI polish, relationship drift, behavior drift, and broader world systems may
+remain useful later, but they should not drive v0.1 discussion unless they
+directly support the three active systems above.
+
+### v0.1 Priority Characters
+
+Focus only on:
+
+- Umi / 海
+- Mahiru / 真晝
+- Asuna / 明日奈
+
+Optional secondary observation only:
+
+- CaoCao
+- Mai
+
+Do not expand full runtime soul work to everyone yet.
+
+### Eval Direction
+
+Eval should measure:
+
+- Character authenticity: does the character sound like themselves?
+- Emotional continuity: did yesterday affect today?
+- Memory continuity: did the character remember meaningful past interactions?
+- Behavioral consequence: did emotion slightly change action, silence,
+  availability, initiative, or avoidance?
+- Human naturalness: does dialogue feel like real people, not AI essays?
+- Emotional uniqueness: do different characters care differently?
+- Day/world awareness: does the character know today, the date, and what they
+  are doing today when relevant?
+
+Eval should not reward:
+
+- perfect therapy-speak;
+- emotional slogans;
+- generic empathy;
+- more dialogue for its own sake;
+- raw labels such as "private self" appearing in speech.
+
+### Research Inspiration
+
+Do not copy academic frameworks directly. Use them as inspiration only:
+
+- Generative Agents: memory, reflection, planning.
+- Attachment theory: different ways people seek, avoid, or offer care.
+- Narrative psychology: identity as remembered stories.
+- Persona / social-link game design: small repeated emotional moments.
+- Relational psychology and Internal Family Systems: inner conflict and
+  relational parts, without turning dialogue into therapy labels.
+
+The goal is not academic completeness. The goal is characters slowly feeling
+more human over time.
+
+### v0.1 Success Definition
+
+Success is not "the AI said something deep."
+
+Success is:
+
+- yesterday emotionally mattered;
+- characters remember each other;
+- behavior changes slightly over time;
+- the player notices emotional continuity;
+- the world feels lived-in;
+- the player wants to return tomorrow.
+
+### Codex Working Rule
+
+When working on v0.1, Codex should ask:
+
+1. Does this change improve character-soul authenticity?
+2. Does this change create or preserve emotional residue?
+3. Does this change improve memory continuity without memory spam?
+
+If the answer is no, the change is likely out of scope for v0.1.
+
+Fresh-sample rule remains active:
+
+- If fresh pilot samples are fewer than 3, do not modify conversation or memory
+  behavior unless there is a runtime/hygiene bug.
+- Fallback, deterministic template, timeout, sanitizer-aborted, or provider
+  error output must not become archived dialogue, memory, reflection, profile
+  residue, notification, or world event.
+
+## Archived / Deferred 2026-05-25 Ship Polish Lane
+
+This lane is still useful for external sharing, but it is no longer the main
+v0.1 soul scope.
+
+Previously planned ship-polish items:
+
+- Trim `角色` tab density.
+- Add inline bottom-bar input for short text actions.
+- Float the action result card above the map.
+- Re-check conversation wall / VN overlay.
+- Capture screenshots for `docs/screens/`.
+
+Keep these as UI support tasks only. Do not let them pull focus away from the
+conversation -> emotional residue -> memory continuity loop.
+
+## 2026-05-25 Soul Differentiation Pass
+
+Goal: move the triad from "emotionally aligned" to emotionally distinct.
+The new target is not prettier dialogue; it is making Alan feel that each
+person loves, worries, avoids, and carries responsibility differently.
+
+Current diagnosis:
+- `conversation-c:38831` showed real Qwen and real care, but Umi and Asuna
+  repeated the same quiet phrase. That means the system has emotional
+  alignment, but not enough differentiated emotional expression.
+- The next small fix should not add lore, all-character prompts, or more
+  verbosity. It should make the same emotional direction come out through
+  different care styles.
+
+Implementation:
+- `richUmiMahiruPrompt()` now includes a small emotional-expression identity
+  for the pilot triad:
+  - Umi reduces overload by organizing burden and protecting Alan's attention.
+  - Mahiru cares through presence, quiet noticing, and emotional safety.
+  - Asuna carries responsibility physically and asks for help awkwardly.
+- The prompt now explicitly bans same-phrase / same-action emotional echo:
+  if two characters align emotionally, they must still respond in their own
+  care language.
+- `eval:soul-triad` now adds:
+  - `emotional_expression_uniqueness`
+  - `comfort_style_uniqueness`
+  - `burden_response_uniqueness`
+  - `echo_similarity_penalty`
+  - `human_aftertaste_score`
+
+Success rule:
+- A good sample is not longer or more poetic. A good sample makes the reader
+  feel: Umi protects by reducing load, Mahiru protects by staying near, and
+  Asuna protects by sharing the next concrete burden.
+
+## 2026-05-25 Umi / Mahiru / Asuna Soul Triad Pilot
+
+Goal: keep the v0.1 soul loop small, but open one more character brain with
+cloud Qwen so Umi and Mahiru are not the only source of civilization growth.
+
+Chosen third brain: Asuna. She adds execution pressure and responsibility
+without adding new lore, factions, scenes, or a new system. Umi remains centered
+on Alan / school coordination, but Asuna gives the pilot a second kind of
+fatigue: reliable people being treated as the default person who will quietly
+fix things.
+
+Runtime policy:
+- `qwen3-max` remains the only confirmed working Qwen model on the current
+  OpenAI-compatible proxy. A `qwen-turbo` smoke was attempted and rejected by
+  the proxy with `model_not_found`, so do not switch hourly eval to it unless
+  the provider channel changes.
+- `qwen2.5:1.5b` stays smoke/harness-only.
+- Character-soul conversations stay cloud-only, gated, and sample-scoped.
+- If a Qwen call errors, times out, is fallback, or is sanitizer-aborted, the
+  transcript must not become archived dialogue, memory, reflection, profile
+  residue, notification, or world event.
+- Memory summarization / reflection stay deterministic or disabled.
+
+Implementation plan now in repo:
+- `pilot:soul-triad:single-sample` temporarily opens
+  `SOUL_TRIAD_COLOCATION_PILOT`, co-locates Umi / Mahiru / Asuna, collects one
+  archived sample, runs `eval:soul-triad`, then removes the temporary envs and
+  stops the engine.
+- `eval:soul-triad` scores other-awareness, private self, memory residue,
+  behavior signal, Asuna action, Umi Alan anchor, role escape, system/template
+  leakage, and echoing the previous line.
+- `eval:soul-triad:hourly` is the intended daytime loop until sleep time. It
+  should be allowed to collect evidence, not trigger new prompt edits every run.
+
+Current evidence:
+- `conversation-c:38819`: first Umi / Asuna sample archived; real Qwen,
+  fallback-free, but FAIL after echo penalty because Asuna mirrored Umi's first
+  sentence too closely.
+- `conversation-c:38831`: stronger sample, WARN 0.76. Umi notices Asuna's
+  burden, Asuna names a handoff to Liu Bei / Alan, memory and behavior scores
+  are high, but repeated quiet phrases remain a quality issue.
+
+Next rule:
+- Do not keep chasing PASS by adding more prompt clauses today. Let the hourly
+  harness gather 2-3 more samples. Only make one more targeted fix if fresh
+  samples repeat the same failure class.
+- If Convex concurrent write contention causes a no-sample run, treat it as
+  runtime contention, not dialogue quality.
 
 ## 2026-05-24 → 05-30 Plan (next-week work)
 
@@ -679,7 +1210,9 @@ Result:
 - `currentScheduleContext` is now character-aware when called by autonomous agents.
 - Shared `scheduledLocationForName` now drives repair, time movement, and autonomous schedule movement.
 - Repair/debug check showed 7 players and no duplicate Alan.
-- Current afternoon distribution after repair: AI 社團室 4, 學生會室 1, 宿舍 1, 中央庭院 1.
+- Current afternoon distribution after repair: cafeteria / courtyard /
+  dormitory for ordinary characters, with `校長室` reserved for Umi or an
+  explicit Umi invitation.
 
 Remaining:
 - Need browser/playtest verification that autonomous movement remains visible over time, not only after repair.

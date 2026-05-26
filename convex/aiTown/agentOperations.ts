@@ -458,13 +458,13 @@ function schoolActivity(scheduleContext?: ScheduleContext) {
       };
     case 'aiClubRoom':
       return {
-        description: `在${scheduleContext.location.labelZh}討論 Alan 的實驗`,
-        emoji: '🧪',
+        description: `在${scheduleContext.location.labelZh}吃飯或整理午間小事`,
+        emoji: '🍱',
         duration: daytimeActivityDuration(7),
       };
     case 'studentCouncilRoom':
       return {
-        description: `在${scheduleContext.location.labelZh}討論校園影響力`,
+        description: `在${scheduleContext.location.labelZh}整理 Alan 的短簡報`,
         emoji: '🏫',
         duration: daytimeActivityDuration(7),
       };
@@ -484,6 +484,13 @@ function schoolActivity(scheduleContext?: ScheduleContext) {
 }
 
 function autonomousConversationChance(scheduleContext?: ScheduleContext) {
+  if (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true') {
+    return scheduleContext?.characterName === 'Umi' ||
+      scheduleContext?.characterName === 'Mahiru Shiina' ||
+      scheduleContext?.characterName === 'Asuna'
+      ? 1
+      : 0;
+  }
   if (process.env.UMI_MAHIRU_COLOCATION_PILOT === 'true') {
     return scheduleContext?.characterName === 'Umi' || scheduleContext?.characterName === 'Mahiru Shiina'
       ? 1

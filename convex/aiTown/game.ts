@@ -256,6 +256,11 @@ export class Game extends AbstractGame {
       throw new Error(`No world found with id ${worldId}`);
     }
     const newWorld = diff.world;
+    const descriptions = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', worldId))
+      .collect();
+    const playerNames = new Map(descriptions.map((description) => [description.playerId, description.name]));
     // Archive newly deleted players, conversations, and agents.
     for (const player of existingWorld.players) {
       if (!newWorld.players.some((p) => p.id === player.id)) {
@@ -264,16 +269,13 @@ export class Game extends AbstractGame {
     }
     for (const conversation of existingWorld.conversations) {
       if (!newWorld.conversations.some((c) => c.id === conversation.id)) {
-        const participants = conversation.participants.map((p) => p.playerId);
-        const failedUmiMahiruPilot =
-          participants.length === 2 &&
-          participants.includes('p:0' as GameId<'players'>) &&
-          participants.includes('p:707' as GameId<'players'>) &&
-          conversation.numMessages < 2;
+        const participants = conversation.participants.map((p) => p.playerId as GameId<'players'>);
+        const failedCharacterSoulPilot =
+          conversation.numMessages < 2 && isFailedCharacterSoulPilot(participants, playerNames);
         if (conversation.numMessages === 0) {
           continue;
         }
-        if (failedUmiMahiruPilot) {
+        if (failedCharacterSoulPilot) {
           const messages = await ctx.db
             .query('messages')
             .withIndex('conversationId', (q) =>
@@ -368,6 +370,18 @@ export class Game extends AbstractGame {
       await runAgentOperation(ctx, operation.name, operation.args);
     }
   }
+}
+
+function isFailedCharacterSoulPilot(
+  participants: GameId<'players'>[],
+  playerNames: Map<string, string>,
+) {
+  if (participants.length !== 2) return false;
+  const names = new Set(participants.map((playerId) => playerNames.get(playerId)));
+  if (names.has('Umi') && names.has('Mahiru Shiina')) return true;
+  if (process.env.SOUL_TRIAD_COLOCATION_PILOT !== 'true') return false;
+  const triadNames = new Set(['Umi', 'Mahiru Shiina', 'Asuna']);
+  return [...names].every((name) => typeof name === 'string' && triadNames.has(name));
 }
 
 export const loadWorld = internalQuery({

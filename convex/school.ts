@@ -271,7 +271,7 @@ function nightActivityForName(name: string, clock: Clock) {
     }
     if (name === 'CaoCao') {
       return {
-        description: '深夜未眠，仍在思考學生會布局',
+        description: '深夜未眠，仍在思考明天誰需要被安排到安靜的位置',
         emoji: '🕯️',
         until: Date.now() + 12 * 60_000,
       };
@@ -319,12 +319,12 @@ function availabilityForCharacter(
 }
 
 function availabilityLabelZh(state: AvailabilityState) {
-  if (state === 'busy') return '有事在忙';
+  if (state === 'busy') return '暫時被事情留住';
   if (state === 'resting') return '正在休息';
   if (state === 'sleeping') return '睡眠中';
-  if (state === 'avoiding') return '暫時避開對話';
-  if (state === 'in_conversation') return '正在對話';
-  return '可以互動';
+  if (state === 'avoiding') return '暫時停在別處';
+  if (state === 'in_conversation') return '正和別人說話';
+  return '可以靠近';
 }
 
 function quietStateForCharacter(
@@ -349,24 +349,24 @@ function quietLineForCharacter(name: string, quietState: QuietState, locationId?
   if (quietState === 'resting') {
     if (name === 'Mahiru Shiina') return '真晝似乎有點累，但還是留意著誰沒有說話。';
     if (name === 'Umi') return '海暫時放慢節奏，像是在等 Alan 也喘一口氣。';
-    return `${displayNameZh(name)}正在休息，今天不一定想被打擾。`;
+    return `${displayNameZh(name)}把東西先放在一旁，沒有急著接下一件事。`;
   }
   if (quietState === 'silent') {
     if (name === 'Mai') return '麻衣安靜地看著窗外，像是在等問題自己露出形狀。';
-    return `${displayNameZh(name)}暫時保持沉默。`;
+    return `${displayNameZh(name)}停在${place ?? '原地'}，暫時沒有接話。`;
   }
   if (quietState === 'observing') {
-    if (name === 'CaoCao') return '曹操沒有說話，但正在觀察誰先改變立場。';
+    if (name === 'CaoCao') return '曹操沒有說話，只看著誰站在門口還沒進來。';
     if (name === 'Liu Bei') return '劉備站在人群邊緣，確認沒有人被落下。';
-    return `${displayNameZh(name)}正在觀察${place ? ` ${place} ` : '周圍'}的氣氛。`;
+    return `${displayNameZh(name)}看著${place ?? '周圍'}的人流，還沒有走近。`;
   }
   if (quietState === 'thinking') {
     if (name === 'Umi') return '海正在整理給 Alan 的簡報。';
     if (name === 'Asuna') return '明日奈正在把混亂整理成下一步。';
     if (name === 'Mai') return '麻衣沒有急著開口，像是在檢查哪裡還沒被說清楚。';
-    return `${displayNameZh(name)}正在想事情。`;
+    return `${displayNameZh(name)}把手邊的事放慢了一點。`;
   }
-  return `${displayNameZh(name)}安靜地待在${place ?? '校園'}。`;
+  return `${displayNameZh(name)}留在${place ?? '校園'}，沒有急著換地方。`;
 }
 
 function eventId(type: string) {
@@ -696,12 +696,33 @@ async function updateEmotionByName(
     worldId,
     notificationId: eventId('emotion_changed'),
     type: 'emotion_changed',
-    titleZh: '角色情緒變化',
-    contentZh: `${displayNameZh(name)} 變得${emotionZh(emotion)}：${reasonZh}`,
+    titleZh: '狀態變化',
+    contentZh: behaviorSignalForEmotion(name, emotion, reasonZh),
     relatedCharacterName: name,
     createdAt: metadata.createdAtUnix,
     ...metadata,
   });
+}
+
+function behaviorSignalForEmotion(name: string, emotion: PortraitEmotion, reasonZh: string) {
+  const displayName = displayNameZh(name);
+  if (emotion === 'worried') {
+    if (name === 'Mahiru Shiina') return `${displayName}開始注意誰沒有把話說完：${reasonZh}`;
+    if (name === 'Umi') return `${displayName}把簡報縮短了一點，先看人的狀態：${reasonZh}`;
+    if (name === 'Asuna') return `${displayName}沒有立刻接下新事情，先停了一下：${reasonZh}`;
+    return `${displayName}說話變得更小心：${reasonZh}`;
+  }
+  if (emotion === 'serious') {
+    if (name === 'Umi') return `${displayName}先收斂成幾個可處理的重點：${reasonZh}`;
+    if (name === 'Asuna') return `${displayName}把下一步說得更短，也更實際：${reasonZh}`;
+    if (name === 'Mai') return `${displayName}開始挑出那句太快說出口的「沒事」：${reasonZh}`;
+    if (name === 'CaoCao') return `${displayName}開始整理房間裡的位置和秩序：${reasonZh}`;
+    return `${displayName}開始放慢語氣，先確認狀況：${reasonZh}`;
+  }
+  if (emotion === 'smiling') {
+    return `${displayName}比較願意留在附近多說兩句：${reasonZh}`;
+  }
+  return `${displayName}今天的語氣留下一點變化：${reasonZh}`;
 }
 
 async function updateSocialLayerForEvent(
@@ -798,11 +819,11 @@ async function updateSocialLayerForEvent(
     await updateEmotionByName(ctx, worldId, descriptions, 'Mahiru Shiina', 'worried', '學生情緒出現壓力訊號', event.clock);
   }
   if (text.includes('曹操') || text.includes('學生會')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'CaoCao', 'serious', '學生會影響力正在變成校園焦點', event.clock);
+    await updateEmotionByName(ctx, worldId, descriptions, 'CaoCao', 'serious', '有人需要秩序才能把話說出口', event.clock);
   }
   if (text.includes('AI 社') || text.includes('規格') || text.includes('風險')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Mai', 'serious', 'AI 社需要更清楚的規格和邊界', event.clock);
-    await updateEmotionByName(ctx, worldId, descriptions, 'Umi', 'serious', 'Alan 需要先處理風險再繼續擴建', event.clock);
+    await updateEmotionByName(ctx, worldId, descriptions, 'Mai', 'serious', '模糊的話需要被講清楚', event.clock);
+    await updateEmotionByName(ctx, worldId, descriptions, 'Umi', 'serious', 'Alan 需要先看見人的狀態再推進', event.clock);
   }
   if (text.includes('排除') || text.includes('操控')) {
     await updateEmotionByName(ctx, worldId, descriptions, 'Liu Bei', 'worried', '學生可能被排除在討論之外', event.clock);
@@ -817,7 +838,7 @@ function rumorFromEvent(event: { type: string; descriptionZh: string; actorName?
   if (event.type === 'kick' && event.targetName) return `聽說 Alan 校長當眾踹了 ${displayNameZh(event.targetName)}。`;
   if (event.descriptionZh.includes('學生會')) return `校園傳聞：${event.descriptionZh}`;
   if (event.descriptionZh.includes('AI 社') && (event.type === 'announce' || event.type === 'createClub')) {
-    return `校園傳聞：Alan 又把 AI 社推進了一步，大家開始猜它會不會變成新的權力中心。`;
+    return `校園傳聞：Alan 又把事情往前推了一步，大家開始猜他會不會注意到學生的狀態。`;
   }
   return undefined;
 }
@@ -832,6 +853,32 @@ function displayNameZh(name: string) {
   if (name === 'Cao Cao') return '曹操';
   if (name === 'Liu Bei' || name === 'LiuBei') return '劉備';
   return name;
+}
+
+function residueFromMemoryDescription(description: string) {
+  return description
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line.startsWith('殘留：'))
+    ?.slice('殘留：'.length)
+    .trim() ?? '';
+}
+
+function memoryTraceFromDescription(description: string) {
+  const line = description
+    .split('\n')
+    .map((item) => item.trim())
+    .find(
+      (item) =>
+        item &&
+        !item.startsWith('記憶層級：') &&
+        !item.startsWith('殘留：') &&
+        !item.startsWith('Retention') &&
+        !item.startsWith('Tags:'),
+    );
+  if (!line) return '';
+  const naturalized = naturalizeSchoolText(line) ?? displayTextZh(line);
+  return trimZhSentence(naturalized).slice(0, 120);
 }
 
 function displayTextZh(text: string) {
@@ -1092,7 +1139,7 @@ async function maybeAddAwayAlanDrift(
     profile.strongestTrait === 'emotionally_supportive'
       ? SchoolLocations.find((item) => item.id === 'dormitory')!
       : profile.strongestTrait === 'strategic'
-        ? SchoolLocations.find((item) => item.id === 'studentCouncilRoom')!
+        ? SchoolLocations.find((item) => item.id === 'courtyard')!
         : profile.strongestTrait === 'analytical'
           ? SchoolLocations.find((item) => item.id === 'aiClubRoom')!
           : SchoolLocations.find((item) => item.id === 'courtyard')!;
@@ -1155,8 +1202,8 @@ function moodFromPressure(pressure: Omit<WorldPressure, 'mood'>): SchoolMood {
 function moodZh(mood: SchoolMood) {
   if (mood === 'hopeful') return '有希望';
   if (mood === 'anxious') return '焦慮';
-  if (mood === 'divided') return '分裂';
-  if (mood === 'politically_tense') return '政治緊繃';
+  if (mood === 'divided') return '疏離';
+  if (mood === 'politically_tense') return '人際緊繃';
   if (mood === 'emotionally_exhausted') return '情緒疲憊';
   return '平靜';
 }
@@ -1164,10 +1211,10 @@ function moodZh(mood: SchoolMood) {
 function worldMoodDescriptionZh(pressure: WorldPressure) {
   const mood = moodZh(pressure.mood);
   if (pressure.mood === 'politically_tense') {
-    return `${mood}：AI 社、學生會與傳聞正在互相牽動，學生開始觀察誰站在哪邊。`;
+    return `${mood}：傳聞和沉默正在互相牽動，學生開始小心觀察誰可以說真話。`;
   }
   if (pressure.mood === 'divided') {
-    return `${mood}：校園開始形成不同立場，劉備與真晝會更想把人拉回能說真話的地方。`;
+    return `${mood}：有些學生開始自己待著，劉備與真晝會更想把人拉回能說真話的地方。`;
   }
   if (pressure.mood === 'anxious') {
     return `${mood}：學生還沒有崩潰，但真晝會開始注意誰不敢開口。`;
@@ -1176,9 +1223,9 @@ function worldMoodDescriptionZh(pressure: WorldPressure) {
     return `${mood}：世界推進得太快，海會要求 Alan 先穩住人，而不是再加新功能。`;
   }
   if (pressure.mood === 'hopeful') {
-    return `${mood}：大家仍願意相信 Alan 的方向，只需要更清楚的規則。`;
+    return `${mood}：大家仍願意相信 Alan 的方向，只需要更能讓人安心的節奏。`;
   }
-  return `${mood}：校園目前還能呼吸，但小變化正在累積成長期文化。`;
+  return `${mood}：校園目前還能呼吸，但小變化正在累積成明天的心情。`;
 }
 
 function dailyCampusFocusItems(
@@ -1196,14 +1243,22 @@ function dailyCampusFocusItems(
     items.push('校園表面平靜，但有些學生開始注意身邊的人是不是變安靜了。');
   }
   if (text.includes('曹操') || pressure.socialDivision >= 50) {
-    items.push('曹操今天異常安靜，像是在等某個規則被正式說出口。');
+    items.push('曹操今天異常安靜，像是在確認房間裡有沒有位置留給不敢開口的人。');
   } else if (text.includes('劉備')) {
     items.push('劉備想確認安靜的學生沒有被討論排除在外。');
   } else {
     items.push('庭院裡的閒聊比平常少了一點，空氣有點微妙。');
   }
-  if (pressure.trustInLeadership <= 55 || text.includes('規格') || text.includes('AI 社')) {
-    items.push('海建議 Alan 先把 AI 社規則說清楚，再繼續推進想法。');
+  if (clock) {
+    const location = schoolLocationForClock(clock);
+    const eventIndex = Math.max(0, (clock.day + clock.hour) % Math.max(1, location.moodEvents.length));
+    const moodEvent = location.moodEvents[eventIndex];
+    if (moodEvent) {
+      items.push(`${location.labelZh}今天可能出現「${moodEvent.titleZh}」：${moodEvent.emotionHintZh}`);
+    }
+  }
+  if (pressure.trustInLeadership <= 55 || text.includes('考') || text.includes('作業') || text.includes('沒事')) {
+    items.push('海建議 Alan 先問清楚今天誰變安靜、為什麼，不要急著開新支線。');
   } else {
     items.push('海建議 Alan 先選一個人好好聊，不要一次處理整個宇宙。');
   }
@@ -1981,8 +2036,10 @@ function replaceLegacyStudentA(text: string) {
 function normalizeLegacyLocationText(text: string) {
   return text
     .replace(/午餐區/g, '中央庭院')
-    .replace(/社團活動區/g, 'AI 社團室')
-    .replace(/學生會角落/g, '學生會室')
+    .replace(/社團活動區/g, '餐廳')
+    .replace(/學生會角落/g, '校長室')
+    .replace(/AI 社團室/g, '餐廳')
+    .replace(/學生會室/g, '校長室')
     .replace(/自由活動區/g, '宿舍')
     .replace(/教室主區/g, '教室')
     .replace(/教室區/g, '教室');
@@ -1990,6 +2047,9 @@ function normalizeLegacyLocationText(text: string) {
 
 function normalizeDebugEventText(text: string) {
   return text
+    .replace(/談到 AI 社時，幾個人會先停一下，像是在確認自己能不能說真話。/g, '有人說「沒事」時，會先停一下，像是在確認自己能不能說真話。')
+    .replace(/確認誰因 AI 社、傳聞或派系壓力而不敢說真心話/g, '確認誰因傳聞、壓力或太快說沒事而不敢說真心話')
+    .replace(/海會建議 Alan 先關心學生狀態，麻衣會把問題連到規則不清，曹操會看見秩序空缺，劉備會想聽見安靜學生的聲音。/g, '海會建議 Alan 先關心學生狀態，麻衣會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。')
     .replace(
       /(.+?) 結束與 (.+?) 的對話後，形成意圖：「(.+?)」。/g,
       (_match, actor, _target, intention) => `${displayNameZh(actor)}把一段對話收斂成下一步：${intention}。`,
@@ -2063,7 +2123,7 @@ function compactBriefingRisk(text?: string) {
   const cleaned = trimZhSentence(naturalizeBriefingRisk(text) ?? '');
   if (!cleaned) return cleaned;
   if (cleaned.includes('真晝注意到學生最近說話變得比較小心')) {
-    return '學生變安靜，AI 社邊界和校園分裂感可能會在明天浮上來';
+    return '學生變安靜，明天可能還需要有人先把話放慢一點';
   }
   if (cleaned.length <= 80) return cleaned;
   return `${cleaned.slice(0, 78)}…`;
@@ -2075,7 +2135,7 @@ function naturalizeBriefingRisk(text?: string) {
     cleaned.includes('海會建議 Alan 先關心學生狀態') &&
     cleaned.includes('劉備會想聽見安靜學生的聲音')
   ) {
-    return '學生的安靜可能正在變成壓力；我想先讓你看見這點，麻衣會追問規則，曹操會注意秩序空缺，劉備則會在意那些不敢開口的人';
+    return '學生的安靜可能正在變成壓力；我想先讓你看見這點，麻衣會戳破太快說出口的沒事，曹操會注意房間裡的位置，劉備則會在意那些不敢開口的人';
   }
   return cleaned;
 }
@@ -2358,7 +2418,10 @@ async function ensureAlanPlayer(
 }
 
 function targetLocationForRepairedPlayer(name: string, clock: Clock, index: number) {
-  return scheduledLocationForName(name, clock) ?? SchoolLocations[index % SchoolLocations.length].id;
+  const scheduledLocation = scheduledLocationForName(name, clock);
+  if (scheduledLocation) return scheduledLocation;
+  const fallbackLocations = SchoolLocations.filter((location) => location.id !== 'studentCouncilRoom');
+  return fallbackLocations[index % fallbackLocations.length].id;
 }
 
 function scheduledLocationForName(name: string, clock: Clock): Parameters<typeof sceneSpawnPoint>[0] {
@@ -2375,14 +2438,16 @@ function scheduledLocationForName(name: string, clock: Clock): Parameters<typeof
   if (clock.hour >= 9 && clock.hour < 12) return 'classroom';
   if (clock.hour === 12 || (clock.hour === 13 && (clock.minute ?? 0) < 30)) return 'courtyard';
   if (clock.hour >= 13 && clock.hour < 17) {
-    if (name === 'CaoCao') return 'studentCouncilRoom';
-    if (name === 'Mai' || name === 'Umi' || name === 'Asuna') return 'aiClubRoom';
+    if (name === 'Umi') return 'studentCouncilRoom';
+    if (name === 'Mai' || name === 'Asuna') return 'aiClubRoom';
+    if (name === 'CaoCao') return 'courtyard';
     if (name === 'Liu Bei') return 'courtyard';
     if (name === 'Mahiru Shiina') return 'dormitory';
     return defaultLocation;
   }
   if (rhythmName(clock.hour) === '晚上') {
-    if (name === 'CaoCao') return 'studentCouncilRoom';
+    if (name === 'Umi') return 'studentCouncilRoom';
+    if (name === 'CaoCao') return 'courtyard';
     if (name === 'Mahiru Shiina') return 'dormitory';
     return 'courtyard';
   }
@@ -3005,7 +3070,7 @@ async function ensureDailyOpeningEvent(
       ctx,
       world._id,
       mahiru.id,
-      '真晝注意到幾位學生今天比平常安靜；不是恐慌，只是大家在談到 AI 社時會先看別人的表情。',
+      '真晝注意到幾位學生今天比平常安靜；不是恐慌，只是有人說沒事時會先看別人的表情。',
       '有些不安不是大聲說出來的，而是出現在突然安靜的瞬間。',
     );
   }
@@ -3014,7 +3079,7 @@ async function ensureDailyOpeningEvent(
       ctx,
       world._id,
       umi.id,
-      '海把今天的校園焦點整理成一句話：先確認學生是不是安心，再討論 AI 社要往哪裡走。',
+      '海把今天的校園焦點整理成一句話：先確認學生是不是安心，再決定今天要處理哪一件小事。',
     );
   }
   await appendRecentEvent(ctx, world._id, {
@@ -3026,13 +3091,13 @@ async function ensureDailyOpeningEvent(
     source: 'world_simulation_event',
     happenedDuringAlanPresence: 'online',
     observerPlayerIds,
-    descriptionZh: '真晝注意到學生今天比平常安靜；談到 AI 社時，幾個人會先停一下，像是在確認自己能不能說真話。',
-    descriptionEn: 'Mahiru noticed students becoming quieter when AI Club came up.',
+    descriptionZh: '真晝注意到學生今天比平常安靜；有人說「沒事」時，會先停一下，像是在確認自己能不能說真話。',
+    descriptionEn: 'Mahiru noticed students becoming quieter when they said they were fine.',
     locationId: location.id,
     locationZh: location.labelZh,
     interpretationZh: '這不是危機，但它是今天的情緒起點：校園開始需要安全感，而不只是更多功能。',
     reactionDialogueZh: '我有點在意……大家不是反對，只是好像變得比較小心了。',
-    futureImplicationsZh: '海會建議 Alan 先關心學生狀態，麻衣會把問題連到規則不清，曹操會看見秩序空缺，劉備會想聽見安靜學生的聲音。',
+    futureImplicationsZh: '海會建議 Alan 先關心學生狀態，麻衣會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。',
     importance: 8,
     clock,
   });
@@ -3047,7 +3112,6 @@ export const gatherInClassroom = mutation({
       'classroom',
       'courtyard',
       'aiClubRoom',
-      'studentCouncilRoom',
       'dormitory',
       'courtyard',
       'aiClubRoom',
@@ -3065,10 +3129,11 @@ export const gatherInClassroom = mutation({
       }),
       players: world.players.map((player, index) => {
         const { pathfinding: _pathfinding, ...rest } = player;
-        const locationId = sceneOrder[index % sceneOrder.length];
+        const name = descriptions.get(player.id)?.name ?? '';
+        const locationId = name === 'Umi' ? 'studentCouncilRoom' : sceneOrder[index % sceneOrder.length];
         return {
           ...rest,
-          position: clampToClassroom(sceneSpawnPointWithPresence(locationId, index, descriptions.get(player.id)?.name ?? '')),
+          position: clampToClassroom(sceneSpawnPointWithPresence(locationId, index, name)),
           speed: 0,
         };
       }),
@@ -3088,19 +3153,20 @@ export const spreadAcrossSchoolScenes = mutation({
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const locationByName = new Map<string, Parameters<typeof sceneSpawnPoint>[0]>([
       ['Alan', 'classroom'],
-      ['Umi', 'courtyard'],
+      ['Umi', 'studentCouncilRoom'],
       ['Asuna', 'aiClubRoom'],
       ['Mai', 'aiClubRoom'],
-      ['CaoCao', 'studentCouncilRoom'],
+      ['CaoCao', 'courtyard'],
       ['Liu Bei', 'courtyard'],
       ['Mahiru Shiina', 'dormitory'],
     ]);
+    const fallbackLocations = SchoolLocations.filter((location) => location.id !== 'studentCouncilRoom');
     const locationCounters = new Map<string, number>();
     await ctx.db.patch(world._id, {
       players: world.players.map((player, index) => {
         const { pathfinding: _pathfinding, ...rest } = player;
         const name = descriptions.get(player.id)?.name ?? '';
-        const locationId = locationByName.get(name) ?? SchoolLocations[index % SchoolLocations.length].id;
+        const locationId = locationByName.get(name) ?? fallbackLocations[index % fallbackLocations.length].id;
         const count = locationCounters.get(locationId) ?? 0;
         locationCounters.set(locationId, count + 1);
         return {
@@ -3111,7 +3177,7 @@ export const spreadAcrossSchoolScenes = mutation({
       }),
     });
     return {
-      descriptionZh: '已依照教室、中央庭院、AI 社團室、學生會室、宿舍重新分配角色位置。',
+      descriptionZh: '已依照教室、中央庭院、餐廳、校長室、宿舍重新分配角色位置；校長室保留給海。',
     };
   },
 });
@@ -3181,6 +3247,79 @@ export const coLocateUmiMahiruForPilot = mutation({
       pairs: [
         { name: 'Umi', playerId: umi.id, position: pilotPositions.get(umi.id) },
         { name: 'Mahiru Shiina', playerId: mahiru.id, position: pilotPositions.get(mahiru.id) },
+      ],
+    };
+  },
+});
+
+export const coLocateSoulTriadForPilot = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const umi = findPlayerByName(world.players, descriptions, 'Umi');
+    const mahiru = findPlayerByName(world.players, descriptions, 'Mahiru Shiina');
+    const asuna = findPlayerByName(world.players, descriptions, 'Asuna');
+    if (!umi || !mahiru || !asuna) {
+      throw new Error('Could not find Umi, Mahiru Shiina, and Asuna for the soul triad pilot co-location.');
+    }
+    const pilotPlayerIds = new Set([umi.id, mahiru.id, asuna.id]);
+    const pilotLocationId = 'studentCouncilRoom' as const;
+    const pilotPositions = new Map([
+      [umi.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 0, 'Umi'))],
+      [mahiru.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 1, 'Mahiru Shiina'))],
+      [asuna.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 2, 'Asuna'))],
+    ]);
+    const engineBeforePatch = await ctx.db.get(worldStatus.engineId);
+    if (engineBeforePatch?.running) {
+      await ctx.db.patch(engineBeforePatch._id, {
+        running: false,
+        generationNumber: engineBeforePatch.generationNumber + 1,
+      });
+    }
+
+    await ctx.db.patch(world._id, {
+      conversations: world.conversations.filter(
+        (conversation) =>
+          !conversation.participants.some((participant) => pilotPlayerIds.has(participant.playerId)),
+      ),
+      agents: world.agents.map((agent) => {
+        if (!pilotPlayerIds.has(agent.playerId)) return agent;
+        const {
+          inProgressOperation: _inProgressOperation,
+          lastInviteAttempt: _lastInviteAttempt,
+          lastConversation: _lastConversation,
+          ...rest
+        } = agent;
+        return rest;
+      }),
+      players: world.players.map((player) => {
+        const pilotPosition = pilotPositions.get(player.id);
+        if (!pilotPosition) return player;
+        const { pathfinding: _pathfinding, activity: _activity, ...rest } = player;
+        return {
+          ...rest,
+          position: pilotPosition,
+          speed: 0,
+        };
+      }),
+    });
+    const engineAfterPatch = await ctx.db.get(worldStatus.engineId);
+    if (engineAfterPatch) {
+      if (!engineAfterPatch.running) {
+        await startEngine(ctx, world._id);
+      } else {
+        await kickEngine(ctx, world._id);
+      }
+    }
+
+    return {
+      descriptionZh: '海已邀請真晝與明日奈進校長室做一段安靜談話，作為 character-soul triad Qwen pilot 的 co-location 壓力測試。',
+      locationId: pilotLocationId,
+      pairs: [
+        { name: 'Umi', playerId: umi.id, position: pilotPositions.get(umi.id) },
+        { name: 'Mahiru Shiina', playerId: mahiru.id, position: pilotPositions.get(mahiru.id) },
+        { name: 'Asuna', playerId: asuna.id, position: pilotPositions.get(asuna.id) },
       ],
     };
   },
@@ -3805,6 +3944,10 @@ export const umiBriefing = query({
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const presence = alanPresence(world, descriptions);
     const clock = currentClockForStatus(worldStatus, timeZone);
+    const worldStartRealDate = giisWorldStartRealDate(worldStatus.worldStartRealDate);
+    const isTodayEvent = (event: { clock?: Clock; createdAt?: number }) =>
+      (event.clock?.day ?? (event.createdAt ? clockAt(event.createdAt, timeZone, worldStartRealDate).day : clock.day)) ===
+      clock.day;
     const savedPresence = await ctx.db
       .query('alanPresence')
       .withIndex('worldId', (q) => q.eq('worldId', world._id))
@@ -3830,7 +3973,8 @@ export const umiBriefing = query({
         .take(1)
     )
       .filter((event) => event.outcomeQuality !== 'repeated_noise')
-      .map(displayWorldEvent);
+      .map(displayWorldEvent)
+      .filter(isTodayEvent);
     const events = [
       ...latestDailyOpening,
       ...recentBriefingEvents.filter(
@@ -3872,15 +4016,23 @@ export const umiBriefing = query({
     );
     const worldPressure = await currentWorldPressure(ctx, world._id);
     const pressureInsight = worldMoodDescriptionZh(worldPressure);
-    const riskCandidates = events
+    const emotionChangeCandidates = events
       .filter((event) => {
         const text = event.descriptionZh + (event.futureImplicationsZh ?? '');
         return (
-          text.includes('曹操') ||
-          text.includes('學生會') ||
-          text.includes('AI 社') ||
+          text.includes('真晝') ||
+          text.includes('海') ||
+          text.includes('明日奈') ||
+          text.includes('安靜') ||
+          text.includes('疲憊') ||
+          text.includes('睡') ||
+          text.includes('午餐') ||
+          text.includes('作業') ||
+          text.includes('小考') ||
+          text.includes('不敢') ||
+          text.includes('硬撐') ||
           text.includes('壓力') ||
-          text.includes('派系')
+          text.includes('焦慮')
         );
       })
       .map((event) => {
@@ -3891,15 +4043,15 @@ export const umiBriefing = query({
         return naturalizeBriefingRisk(candidate);
       })
       .slice(0, 3);
-    const risks = riskCandidates.length
+    const risks = emotionChangeCandidates.length
       ? [
           ...new Set(
-            riskCandidates.map((risk) =>
+            emotionChangeCandidates.map((risk) =>
               risk.includes('這段對話不只被記住') ? pressureInsight : risk,
             ),
           ),
         ].map(compactBriefingRisk).slice(0, 3)
-      : ['目前風險不算爆炸，但 AI 社、學生會與學生情緒仍需要你盯一下。'];
+      : ['今天先看誰變安靜、誰在硬撐、誰還記得昨天那句話。'];
     const dailyFocus = dailyCampusFocusItems(events, worldPressure, clock);
     const suggestedActions = suggestedNextActions(events, worldPressure);
     const principalTasks = principalTasksFromEvents(events, worldPressure);
@@ -3921,13 +4073,13 @@ export const umiBriefing = query({
     const biggestRisk = naturalizeBriefingRisk(risks[0] ?? pressureInsight);
     const personToTalk =
       principalTasks.find((task) => task.targetCharacter)?.targetCharacter ??
-      (worldPressure.studentAnxiety >= 50 ? 'Mahiru Shiina' : worldPressure.socialDivision >= 50 ? 'CaoCao' : 'Umi');
-    const oneThing = principalTasks[0]?.title ?? suggestedActions[0] ?? '先觀察周圍，找海聽取世界脈絡';
+      (worldPressure.studentAnxiety >= 50 ? 'Mahiru Shiina' : 'Umi');
+    const oneThing = principalTasks[0]?.title ?? suggestedActions[0] ?? '先觀察今天誰的心情變了，找海聽一段生活簡報';
     const umiCoreBriefing = `海：「校長，昨天留下來的是：${trimZhSentence(
       mostImportant,
-    )}。現在最大的風險是：${trimZhSentence(biggestRisk)}。你先找 ${displayNameZh(
+    )}。今天最該注意的是：${trimZhSentence(biggestRisk)}。你先找 ${displayNameZh(
       personToTalk,
-    )}。今天只做一件事：${oneThing}。嗯，先不要同時開十條支線。」`;
+    )}。今天只做一件事：${oneThing}。嗯，先看人，不要先開十條支線。」`;
     const briefingZh =
       presence.status === 'online'
         ? umiCoreBriefing
@@ -3968,7 +4120,7 @@ export const umiBriefing = query({
         suggestions: suggestedActions,
         principalTasks,
         helperZh:
-          '這是海根據目前世界狀態、關係張力與長期模式提出的建議，你可以採納、忽略，或追問細節。',
+          '這是海根據今天的生活事件、情緒殘留與記憶連續性提出的建議，你可以採納、忽略，或追問細節。',
       },
       importantEvents,
       newMajorAlerts,
@@ -4014,59 +4166,50 @@ function suggestedNextActions(events: Array<{ descriptionZh: string; type: strin
         event.descriptionZh.includes('能不能說真話'),
     )
   ) {
-    return ['先找真晝談談，聽聽學生為什麼變安靜', '請海把 AI 社規則和學生情緒整理成今日重點'];
+    return ['先找真晝談談，聽聽學生為什麼變安靜', '請海把今天誰的情緒變了整理成短簡報'];
   }
   if (pressure?.studentAnxiety && pressure.studentAnxiety >= 55) {
-    return ['先去找真晝確認學生情緒，她看到的通常比傳聞更早', '請海協助把 AI 社節奏降到學生能理解的速度'];
+    return ['先去找真晝確認學生情緒，她看到的通常比傳聞更早', '請海協助把今天節奏降到學生能消化的速度'];
   }
   if (pressure?.socialDivision && pressure.socialDivision >= 55) {
-    return ['找劉備一起關心被排除的學生，先從一頓午餐或一次散步開始', '找曹操談秩序，不要讓學生會只靠傳聞擴張'];
+    return ['找劉備一起關心被落下的學生，先從一頓午餐或一次散步開始', '找曹操談談誰在混亂裡不敢坐下來'];
   }
   if (pressure?.trustInLeadership && pressure.trustInLeadership <= 45) {
-    return ['正式公告 AI 社規則，先修復大家對 Alan 節奏的信任', '請海把目前風險整理成校長簡報'];
+    return ['先用一段短話修復大家對 Alan 節奏的信任', '請海把目前最需要被看見的人整理成校長簡報'];
   }
-  if (
-    events.some((event) => event.descriptionZh.includes('曹操') || event.type === 'studentCouncil')
-  ) {
-    return [
-      '先找曹操談談，他可能不是反對 AI 社，而是在測試誰會站在哪邊',
-      '公告學生會與 AI 社的邊界，避免世界開始用傳聞替你定義規則',
-    ];
+  if (events.some((event) => event.descriptionZh.includes('曹操'))) {
+    return ['先找曹操談談，他可能是在用秩序保護不敢開口的人', '請海判斷要不要安排一段校長室個別談話'];
   }
-  if (
-    events.some(
-      (event) => event.descriptionZh.includes('AI 社') || event.type === 'aiClubRiskReview',
-    )
-  ) {
-    return ['正式公告 AI 社規則', '請麻衣檢查規格與權力風險'];
+  if (events.some((event) => event.descriptionZh.includes('麻衣') || event.descriptionZh.includes('Mai'))) {
+    return ['找麻衣確認她到底在刺哪個假答案', '請麻衣把今天最不自然的地方講清楚'];
   }
   if (
     events.some(
       (event) => event.descriptionZh.includes('焦慮') || event.descriptionZh.includes('Mahiru'),
     )
   ) {
-    return ['去找真晝了解學生壓力', '讓海協助整理情緒與制度之間的矛盾'];
+    return ['去找真晝了解學生壓力', '讓海協助整理今天誰被哪句話影響'];
   }
-  return ['觀察周圍，看校園文化正在往哪裡長', '找海聽取世界脈絡'];
+  return ['觀察周圍，看誰的語氣跟昨天不一樣', '找海聽今天的生活簡報'];
 }
 
 function umiWorldPatternInsights(events: Array<{ descriptionZh: string; type: string; futureImplicationsZh?: string }>) {
   const text = events.map((event) => `${event.descriptionZh} ${event.futureImplicationsZh ?? ''}`).join('；');
   const insights: string[] = [];
-  if (text.includes('AI 社')) {
-    insights.push('AI 社已經不只是社團功能，它正在變成學生投射期待、焦慮與權力立場的地方。');
+  if (text.includes('小考') || text.includes('作業') || text.includes('午餐')) {
+    insights.push('今天的生活事件正在影響角色心情；小事如果被記住，明天就不會從零開始。');
   }
-  if (text.includes('曹操') || text.includes('學生會')) {
-    insights.push('曹操現在真正測試的不是 AI 社本身，而是誰會因為 AI 社改變立場。');
+  if (text.includes('曹操')) {
+    insights.push('曹操現在真正測試的不是權力，而是混亂裡誰需要一個可以坐下來的地方。');
   }
   if (text.includes('焦慮') || text.includes('壓力') || text.includes('真晝') || text.includes('Mahiru')) {
     insights.push('真晝持續處理學生焦慮，這代表世界節奏可能比學生能消化的速度更快。');
   }
   if (text.includes('傳聞')) {
-    insights.push('傳聞正在變成校園的第二層記憶；如果不處理，它會替 Alan 解釋世界。');
+    insights.push('傳聞正在變成校園的第二層記憶；如果不處理，它會替角色解釋彼此。');
   }
   if (!insights.length) {
-    insights.push('目前世界還沒有爆點，但角色的關係、傳聞和場景習慣正在安靜累積成文化。');
+    insights.push('目前沒有爆點，但角色的語氣、沉默和小習慣正在安靜累積成明天的狀態。');
   }
   return insights.slice(0, 4);
 }
@@ -4090,7 +4233,7 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
   ) {
     tasks.push({
       title: '找真晝聊學生為什麼變安靜',
-      reason: '這不是危機，但是真晝已經注意到學生談到 AI 社時會先停一下；先聽她說，比立刻開會更有用。',
+      reason: '這不是危機，但是真晝已經注意到有人今天變得比較安靜；先聽她說，比立刻開會更有用。',
       targetCharacter: 'Mahiru Shiina',
       targetScene: '宿舍',
       urgency: 'high',
@@ -4100,7 +4243,7 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
   if (pressure && pressure.studentAnxiety >= 55) {
     tasks.push({
       title: '去找真晝確認學生情緒',
-      reason: `學生焦慮已升到 ${pressure.studentAnxiety}；如果不處理，傳聞會開始替 Alan 解釋 AI 社。`,
+      reason: `學生焦慮已升到 ${pressure.studentAnxiety}；如果不處理，傳聞會開始替角色解釋彼此。`,
       targetCharacter: 'Mahiru Shiina',
       targetScene: '宿舍',
       urgency: 'high',
@@ -4119,19 +4262,20 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
   }
   if (pressure && pressure.trustInLeadership <= 45) {
     tasks.push({
-      title: '修復大家對 Alan 的信任',
+      title: '請海安排一段安靜說明',
       reason: `領導信任降到 ${pressure.trustInLeadership}；需要一個清楚、有人味的公告。`,
-      targetScene: 'AI 社團室',
+      targetCharacter: 'Umi',
+      targetScene: '校長室',
       urgency: 'high',
       suggestedActionType: 'announce',
     });
   }
-  if (events.some((event) => event.descriptionZh.includes('曹操') || event.descriptionZh.includes('學生會'))) {
+  if (events.some((event) => event.descriptionZh.includes('曹操'))) {
     tasks.push({
-      title: '找曹操談 AI 社規則',
-      reason: '曹操不一定是在反對 AI 社，他更可能是在測試誰會因為 AI 社開始改變立場。',
+      title: '找曹操談混亂裡誰被丟下',
+      reason: '曹操不一定是在爭權，他更可能是在確認混亂裡誰需要一個可以坐下來的位置。',
       targetCharacter: 'CaoCao',
-      targetScene: '學生會室',
+      targetScene: '中央庭院',
       urgency: 'high',
       suggestedActionType: 'chat',
     });
@@ -4139,20 +4283,21 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
   if (events.some((event) => event.descriptionZh.includes('焦慮') || event.descriptionZh.includes('Mahiru'))) {
     tasks.push({
       title: '去宿舍看看學生狀況',
-      reason: '真晝注意到學生對 AI 社或校園混亂感到焦慮；這可能代表世界節奏太快。',
+      reason: '真晝注意到學生對今天的校園節奏感到焦慮；這可能代表大家需要慢一點。',
       targetCharacter: 'Mahiru Shiina',
       targetScene: '宿舍',
       urgency: 'medium',
       suggestedActionType: 'observe',
     });
   }
-  if (events.some((event) => event.descriptionZh.includes('AI 社') || event.descriptionZh.includes('規格'))) {
+  if (events.some((event) => event.descriptionZh.includes('作業') || event.descriptionZh.includes('小考'))) {
     tasks.push({
-      title: '正式公告 AI 社規則',
-      reason: 'AI 社規則不清，容易變成派系鬥爭或傳聞中心。',
-      targetScene: 'AI 社團室',
-      urgency: 'high',
-      suggestedActionType: 'announce',
+      title: '問明日奈今天是不是又接太多',
+      reason: '課堂與作業壓力容易默默落在最可靠的人身上。',
+      targetCharacter: 'Asuna',
+      targetScene: '教室',
+      urgency: 'medium',
+      suggestedActionType: 'chat',
     });
   }
   if (tasks.length === 0) {
@@ -4164,8 +4309,8 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
         suggestedActionType: 'observe',
       },
       {
-        title: '詢問海世界脈絡',
-        reason: '海會把混亂整理成 Alan 可以理解的情緒、權力與長期趨勢。',
+        title: '詢問海今天誰變了',
+        reason: '海會把今天的生活事件整理成 Alan 可以理解的情緒、記憶與下一步。',
         targetCharacter: 'Umi',
         urgency: 'medium',
         suggestedActionType: 'chat',
@@ -4659,7 +4804,7 @@ async function simulateAutonomousSchoolLife(
           `麻衣在${location.labelZh}窗邊待了很久，沒有主動說話；她只是看著外面，像是在避開某個還沒準備好回答的問題。`,
           '沉默不是空白，它可能代表疲憊、距離，或一個人還不想被分析。',
           '有些事不是不說，是現在說了也沒人接得住。',
-          'Alan 如果找麻衣談，可以先問她今天累不累，而不是直接問 AI 社風險。',
+          'Alan 如果找麻衣談，可以先問她今天累不累，而不是直接問她在反對什麼。',
           5,
           '麻衣有時候會用沉默保護自己，不是每次都想立刻分析世界。',
         );
@@ -4683,7 +4828,7 @@ async function simulateAutonomousSchoolLife(
           'Umi',
           `海在${location.labelZh}停下來看了一下天氣，順手提醒幾個學生先去吃飯，不要把疲憊都包裝成理性討論。`,
           '她把日常照顧看成治理的一部分：人如果沒吃飯，任何制度都會變得很尖銳。',
-          '先吃飯。欸，文明也需要血糖。',
+          '先吃飯。欸，世界也需要血糖。',
           'Alan 可能會發現，海的簡報不只是策略，也是在保護大家不要被過度思考耗乾。',
           5,
           '日常照顧會讓世界比較不容易被大議題吞掉。',
@@ -4717,48 +4862,61 @@ async function simulateAutonomousSchoolLife(
     } else if (location.id === 'aiClubRoom') {
       await addActivity(
         mai,
-        'everydayAiClubAwkwardness',
+        'everydayCafeteriaAwkwardness',
         'Mai',
-        `麻衣在${location.labelZh}看著桌上沒收好的線材，淡淡吐槽：如果連線都整理不好，談文明會不會太早。`,
+        `麻衣在${location.labelZh}看著一桌沒收好的餐盤，淡淡吐槽：連午餐都吃得像會議，難怪大家累。`,
         '她把過大的議題拉回普通細節，提醒大家世界是由日常維護撐起來的。',
-        'Alan，先整理桌面。不是每個問題都需要哲學，有些只需要收線。',
-        'AI 社如果能照顧普通秩序，學生會更容易相信它不是只會製造壓力。',
+        'Alan，先把飯吃完。不是每個問題都需要結論。',
+        '如果 Alan 明天找麻衣談，可以從她到底在刺哪個假裝沒事的人開始。',
         6,
-        '小混亂會累積成文化；整理桌面也是整理世界的一部分。',
+        '小混亂會累積成文化；好好吃飯也是讓世界不要失控的一部分。',
       );
       if (activities.length < targetCount) {
         await addActivity(
           umi,
-          'everydayAiClubOverwork',
+          'everydayCafeteriaOverwork',
           'Umi',
-          `海發現 AI 社團室的燈亮得太久，便把幾個還想繼續討論的人趕去休息。`,
-          '過度投入不一定是熱情，也可能是大家不知道該怎麼停下來。',
-          '今天到這裡。再討論下去，你們只是在用偉大的理由熬夜。',
+          `海在${location.labelZh}發現明日奈又一邊吃飯一邊改清單，便把她的筆收走了一分鐘。`,
+          '過度負責不一定是可靠，也可能是大家不知道該怎麼讓她停下來。',
+          '先吃飯。清單不會因為你咬一口飯就逃走。',
           'Alan 如果明天回來，海可能會先問他是不是也忘了休息。',
           5,
-          'AI 社需要界線；休息也是界線的一部分。',
+          '休息也是界線的一部分，不是所有責任都要在午餐時間完成。',
         );
       }
     } else if (location.id === 'studentCouncilRoom') {
       await addActivity(
-        caoCao,
-        'everydayCouncilQuiet',
-        'CaoCao',
-        `曹操在${location.labelZh}沒有開會，只是把幾張椅子排整齊；他注意到整齊會讓焦躁的人比較容易坐下來。`,
-        '他對秩序的在意不只來自權力，也來自一種不願看見人被混亂吞沒的保護慾。',
-        '有些人以為秩序是口號。其實有時候，它只是讓人有地方坐。',
-        'Alan 可能會發現曹操的日常行為裡藏著比政治更深的保護本能。',
+        umi,
+        'everydayPrincipalOfficeQuiet',
+        'Umi',
+        `海在${location.labelZh}沒有開會，只是把椅子往外挪開一點，讓被邀請進來的人不會覺得自己正在被審問。`,
+        '校長室是她替 Alan 守住節奏的地方；正式空間需要先被調成能說真話的空間。',
+        '先坐旁邊就好，不用一進來就回答問題。',
+        'Alan 可能會發現海不是只整理任務，她也在整理一個人能不能安心開口的距離。',
         6,
-        '秩序不一定從權力開始，也可能從一張被擺好的椅子開始。',
+        '正式空間如果太像審問，真正需要求助的人反而會退回去。',
       );
       if (activities.length < targetCount) {
         await addActivity(
+          mahiru,
+          'everydayPrincipalOfficeInvitation',
+          'Mahiru Shiina',
+          `真晝被海請進${location.labelZh}後，先沒有問原因，只問對方今天有沒有吃午餐。`,
+          '被邀請進正式空間的人不一定需要立刻解釋，也可能只需要先被放鬆下來。',
+          '嗯……那我們先不要把它說成問題。',
+          'Alan 可以把校長室當成海安排的一對一談話，不是任何人都能自行占用的會議室。',
+          5,
+          '關心如果太正式，會讓人更不敢承認自己需要幫忙。',
+        );
+      }
+      if (activities.length < targetCount) {
+        await addActivity(
           asuna,
-          'everydayCouncilResponsibility',
+          'everydayPrincipalOfficeResponsibility',
           'Asuna',
-          `明日奈在${location.labelZh}把沒人認領的雜事收進自己的清單，寫到一半才發現她已經很久沒問自己想不想做了。`,
+          `明日奈被海叫進${location.labelZh}後，沒有馬上接下新事，只把筆放在桌邊，等別人先說完。`,
           '可靠的人最容易被默默加上更多責任，而不被任何人注意。',
-          '我可以做。但下次，最好不要等到沒人接才丟給我。',
+          '我可以聽。但先不要把下一件事丟給我。',
           'Alan 可以找明日奈談談執行負擔，而不是只看事情有沒有完成。',
           5,
           '責任如果總是落在同一個人身上，信任也會慢慢變形。',
@@ -4785,10 +4943,10 @@ async function simulateAutonomousSchoolLife(
       umi,
       'announcementReview',
       'Umi',
-      `海在${location.labelZh}檢查公告語氣，避免 Alan 的實驗說明把學生推進不安裡。`,
-      '她把制度語言、學生情緒和 Alan 的創造衝動放在同一張圖上看。',
+      `海在${location.labelZh}檢查今天的提醒語氣，避免 Alan 把學生推進新的不安裡。`,
+      '她把日常語言、學生情緒和 Alan 的創造衝動放在同一張圖上看。',
       '校長又想把世界推快一點了吧？我先把語氣調到人類能安心的速度。',
-      'Alan 可以請海協助公告 AI 社規則，讓世界先有溫度再有速度。',
+      'Alan 可以請海協助把今天最需要被看見的人整理出來，讓世界先有溫度再有速度。',
       7,
     );
   } else if (location.id === 'courtyard') {
@@ -4796,10 +4954,10 @@ async function simulateAutonomousSchoolLife(
       liuBei,
       'courtyardAlliance',
       'Liu Bei',
-      `劉備在${location.labelZh}安撫學生，試著把 AI 社的討論拉回公開合作。`,
-      '他不反對權力，但更重視信任和共同體。',
+      `劉備在${location.labelZh}安撫學生，試著把變小聲的話拉回能一起坐下來談的地方。`,
+      '他不反對安排，但更重視信任和共同體。',
       '大家先坐下來談，沒有人需要被排除在外。',
-      '劉備可能自然吸引一群不喜歡權力政治的學生。',
+      '劉備可能更早發現那些不喜歡把小事變成大會議的學生。',
       7,
     );
     await addActivity(
@@ -4809,62 +4967,62 @@ async function simulateAutonomousSchoolLife(
       `真晝在${location.labelZh}注意到幾個學生聊天變得更小心，先安撫情緒，再記下誰不敢說真心話。`,
       '她把學生情緒視為校園穩定的早期訊號，也把沉默視為需要照顧的壓力。',
       '沒關係，先慢慢說。你們擔心的是規則，還是害怕說錯話？',
-      'Alan 回來後應該先說明 AI 社不是效率測試，也不會強迫任何人參與。',
+      'Alan 回來後應該先說明今天不是效率測試，也不用強迫任何人立刻回答。',
       7,
-      '學生對 AI 社有期待，也有焦慮；安全感需要被正式處理。',
+      '學生對明天有期待，也有焦慮；安全感需要被正式處理。',
     );
   } else if (location.id === 'aiClubRoom') {
     await addActivity(
       mai,
-      'aiClubRiskReview',
+      'cafeteriaAwkwardTruth',
       'Mai',
-      `麻衣在${location.labelZh}質疑 AI 社規格太鬆散，要求 Alan 先定義目的和邊界。`,
-      '她不反對實驗，但會拆掉模糊需求。',
-      '這不是創意不足，是需求太飄。',
-      'Alan 應該先公告 AI 社規則，否則每個角色會自行解讀。',
+      `麻衣在${location.labelZh}聽見有人把「沒考好」講得太輕鬆，忍不住提醒對方不要把難過包成玩笑。`,
+      '她不反對玩笑，但會拆掉用來躲避真心話的假輕鬆。',
+      '你可以說沒考好，不用急著把它講成段子。',
+      'Alan 可以把這當成今天的情緒線索：有人在用玩笑躲難過。',
       8,
-      'AI 社如果沒有邊界，會被不同勢力拿去投射自己的目的。',
+      '難過如果一直被包成玩笑，明天會變成更難被接住的沉默。',
     );
     await addActivity(
       umi,
-      'overbuildGuard',
+      'cafeteriaPaceGuard',
       'Umi',
-      `海在${location.labelZh}擋下幾個過度建設點子，先保留最小可行版本。`,
-      '她不是反對 Alan 的創造力，而是擔心世界長太快時，關係會來不及跟上。',
-      '先不要把學校改成太空站，校長。至少等學生知道門在哪裡。',
-      '下一步可以讓 Alan 選一條 AI 社主線，讓校園文化有時間理解它。',
+      `海在${location.labelZh}把今天的討論縮成三句話：誰沒吃飯、誰變安靜、誰把「我沒事」說得太快。`,
+      '她不是只整理任務，而是在把日常裡的情緒變化留給 Alan 看見。',
+      '校長，今天先不要開大議題。先確認大家有沒有好好吃飯。',
+      '下一步可以讓 Alan 先找一個變安靜的人聊，而不是處理整個校園。',
       7,
     );
   } else if (location.id === 'studentCouncilRoom') {
     await addActivity(
-      caoCao,
-      'studentCouncil',
-      'CaoCao',
-      `曹操在${location.labelZh}試探支持者，觀察誰已經因 AI 社改變立場，並主張學生會需要建立可持續秩序。`,
-      '他把校園不確定性視為秩序問題，而不只是權力機會。',
-      '真正危險的不是 AI 社，而是沒有人知道 AI 社最後會變成什麼。',
-      '曹操正在從政治玩家走向秩序設計者，Alan 最好直接找他談。',
+      umi,
+      'principalOfficeInvitation',
+      'Umi',
+      `海在${location.labelZh}把幾張椅子排開一點，提醒自己這裡不是審問室，而是她替 Alan 安排個別談話的地方。`,
+      '她把正式空間翻成能安全開口的距離；校長室不是誰都能單獨使用的會議室。',
+      '等一下再問原因。先讓他坐下來。',
+      'Alan 最好先聽海說明，她會判斷誰需要被邀請進來，而不是讓所有人自行闖進校長室。',
       8,
-      '學生會可以成為我取得校內影響力的基礎。',
+      '正式空間需要海先降溫，才不會把求助變成壓力。',
     );
-    if (caoCao && alan) {
+    if (umi && alan) {
       await shiftRelationshipNarrative(
         ctx,
         world._id,
-        caoCao.id,
+        umi.id,
         alan.id,
-        '曹操尊重 Alan 的創造力，但更懷疑 Alan 是否願意接受學生會制衡。',
+        '海尊重 Alan 的創造力，但也會替他守住校長室的節奏，避免正式空間壓過真正想說話的人。',
         clock,
       );
     }
     await addActivity(
-      liuBei,
-      'counterAlliance',
-      'Liu Bei',
-      `劉備沒有敵視曹操，但在${location.labelZh}提醒大家不要把互助變成操控。`,
-      '他用關係和公平自然形成曹操的價值對照。',
-      '影響力如果不能保護人，就只是另一種壓力。',
-      '劉備可能先邀請 Alan 一起找被排除的學生吃午餐，而不是馬上把事情變成正式會議。',
+      mahiru,
+      'principalOfficeCare',
+      'Mahiru Shiina',
+      `真晝被海邀請進${location.labelZh}，沒有急著分析，只把聲音放低，確認對方是不是被正式感嚇到了。`,
+      '她讓校長室裡的關心變得比較像人，而不是流程。',
+      '不用現在說完。先喝口水也可以。',
+      '真晝會提醒 Alan：越正式的地方，越要注意對方是不是更沉默。',
       7,
     );
   } else {
@@ -4922,9 +5080,9 @@ async function simulateAutonomousSchoolLife(
       'leadershipTrustRepair',
       'Umi',
       `海發現學生對 Alan 節奏的信任正在下滑，整理出一份「先穩住人，再推進世界」的校長建議。`,
-      '她把信任下滑視為文明治理問題，不只是 Alan 的 UI 提示。',
+      '她把信任下滑視為生活節奏問題，不只是 Alan 的 UI 提示。',
       '校長，你不是不能繼續建，只是現在需要先讓大家知道你會負責。',
-      'Alan 需要用公告、對話或具體規則修復信任，否則角色會各自替世界找領導方式。',
+      'Alan 需要用一段具體對話修復信任，否則角色會各自把沉默解釋成別的意思。',
       9,
       'Alan 的出現會改變世界；他的沉默也會。',
     );
@@ -4932,14 +5090,14 @@ async function simulateAutonomousSchoolLife(
   if (startingPressure.rumorIntensity >= 55 || startingPressure.aiClubInfluence >= 65) {
     await addActivity(
       mai,
-      'rumorBoundaryReview',
+      'rumorPlainTruthReview',
       'Mai',
-      `麻衣把 AI 社傳聞與規格問題整理成風險清單，提醒大家不能讓謠言替制度寫規則。`,
-      '她把模糊需求視為社會風險：沒定義的東西，會被每個勢力拿去重寫。',
-      'Alan，你這不是缺想像力，是缺邊界。',
-      '正式規則會降低傳聞，也會逼曹操與劉備各自表態。',
+      `麻衣把今天的傳聞拆成兩句白話：有人怕被責怪，有人怕自己其實沒有被需要。`,
+      '她把模糊傳聞拆回普通害怕，避免大家用大話遮住真正的情緒。',
+      'Alan，你這不是缺想像力，是有人話沒說完。',
+      '一段清楚的道歉或確認，會比開大會更快降低傳聞。',
       8,
-      'AI 社不是只需要功能，它需要可被信任的邊界。',
+      '傳聞不一定需要被壓下去，有時需要被翻成能好好回答的話。',
     );
   }
 
@@ -5046,7 +5204,7 @@ async function simulateNightRest(
     umi,
     'nightBriefingPrep',
     'Umi',
-    '海深夜未眠，安靜整理明天給 Alan 的校長簡報，把 AI 社規則、學生焦慮與學生會動向排成三個重點。',
+    '海深夜未眠，安靜整理明天給 Alan 的校長簡報，把誰變安靜、誰太快說沒事、誰可能沒休息排成三個重點。',
     '她沒有讓校園更吵，而是把今天的混亂整理成明天可以處理的順序。',
     '校長睡醒之前，我先把世界整理到不會一打開就爆炸的程度。',
     '明天早上，Alan 應該先聽海簡報，再決定要找曹操、真晝或麻衣談。',
@@ -5058,10 +5216,10 @@ async function simulateNightRest(
       caoCao,
       'lateNightStrategy',
       'CaoCao',
-      '曹操沒有公開行動，但他在深夜重新整理學生會布局，思考如何讓 AI 社不再只靠 Alan 的直覺運轉。',
-      '這是少量秘密事件，不是公開會議；他的秩序觀正在變得更具體。',
+      '曹操沒有公開行動，只是在庭院邊重新想過明天的座位安排，避免求助的人一進正式空間就像被審問。',
+      '這是少量秘密事件，不是公開會議；他的秩序觀正在變得更具體，但他不會單獨使用校長室。',
       '混亂不會因為大家睡著就消失。',
-      '明天學生會室可能會成為 AI 社邊界討論的焦點。',
+      '明天如果需要校長室，應該由海安排誰被邀請進去。',
       7,
     );
   } else if (pressure.studentAnxiety >= 45) {
@@ -5077,7 +5235,7 @@ async function simulateNightRest(
     );
   }
 
-  const nextMorning = '明天早上，AI 社規則是否需要正式公告，會成為校園最清楚的焦點。';
+  const nextMorning = '明天早上，誰的沉默還留著，會成為校園最清楚的焦點。';
   activities.push(nextMorning);
   implications.push('海會建議 Alan：先聽簡報，再選一件事處理，不要半夜把所有人叫起來開會。');
 
@@ -5109,10 +5267,10 @@ function nightStoryDigest(activities: string[], pressure: WorldPressure): StoryD
       suggestedActionZh: '先查看海簡報，再決定要找曹操、真晝或麻衣談。',
     },
     {
-      happenedZh: '明天早上，AI 社規則是否需要正式公告，會成為校園最清楚的焦點。',
-      changedZh: `AI 社 ${pressure.aiClubInfluence}、焦慮 ${pressure.studentAnxiety}、分裂 ${pressure.socialDivision}、傳聞 ${pressure.rumorIntensity}。`,
+      happenedZh: '明天早上，誰的沉默還留著，會成為校園最清楚的焦點。',
+      changedZh: `焦慮 ${pressure.studentAnxiety}、疏離 ${pressure.socialDivision}、傳聞 ${pressure.rumorIntensity}。`,
       whyItMattersZh: '世界沒有跳時間，但關係和壓力已經留下明天的伏筆。',
-      suggestedActionZh: '正式公告 AI 社目的、邊界與參與規則。',
+      suggestedActionZh: '先找海聽短簡報，再找一位昨天變安靜的人聊。',
     },
   ];
 }
@@ -5322,7 +5480,7 @@ function conversationMemorySummary(previewZh: string) {
     return '他們談到校園裡變小聲的地方，以及誰需要被溫柔地看見。';
   }
   if (text.includes('AI 社') || text.includes('規則') || text.includes('邊界') || text.includes('風險')) {
-    return '他們談到 AI 社邊界與 Alan 推進速度帶來的壓力。';
+    return '他們談到 Alan 推進速度帶來的壓力，以及有人還沒把話說清楚。';
   }
   if (text.includes('休息') || text.includes('睡') || text.includes('累')) {
     return '他們談到疲憊、休息，以及不要把所有事情都變成下一步。';
@@ -5367,7 +5525,7 @@ function buildTomorrowHooks(events: Doc<'worldEvents'>[], pressure: WorldPressur
   const hooks = new Set<string>(focus);
   if (pressure.studentAnxiety >= 45) hooks.add('明天先找真晝確認學生是不是只是表面沒事。');
   if (pressure.socialDivision >= 45) hooks.add('明天找劉備或曹操確認分裂感是不是正在成形。');
-  if (pressure.rumorIntensity >= 45 || pressure.aiClubInfluence >= 55) hooks.add('明天把 AI 社目的與邊界說清楚。');
+  if (pressure.rumorIntensity >= 45 || pressure.aiClubInfluence >= 55) hooks.add('明天把今天沒說完的話翻成可以好好回答的問題。');
   hooks.add('海明天早上會把今天的記憶整理成短簡報，不讓 Alan 從零開始。');
   return [...hooks].slice(0, 5);
 }
@@ -5449,48 +5607,48 @@ async function executeQueuedIntentions(
 function actionFromIntention(name: string, intention: string, locationZh: string) {
   if (name === 'CaoCao') {
     return {
-      type: 'intentionAlliance',
-      descriptionZh: `曹操在${locationZh}約了兩位學生會成員，詢問他們是否願意支持一份 AI 社邊界草案；他沒有急著拉票，而是在測試誰害怕混亂、誰願意承擔秩序。`,
-      interpretationZh: '他把對話結論轉化成秩序設計，而不只是政治資本。',
-      reactionDialogueZh: '影響力不是口號，是誰願意在混亂開始前承擔方向。',
-      futureImplicationsZh: '曹操的學生會網絡可能成為校園秩序核心，也可能被視為控制風險。',
+      type: 'intentionRoomOrder',
+      descriptionZh: `曹操在${locationZh}把幾張椅子重新排開，準備讓明天要道歉或求助的人不用像被審問。`,
+      interpretationZh: '他把對話結論轉化成空間秩序，而不只是立場設計。',
+      reactionDialogueZh: '位置不對，話就說不出來。',
+      futureImplicationsZh: '曹操的秩序感可能成為校園裡讓人敢開口的保護，也可能被誤會成冷淡。',
       importance: 8,
     };
   }
   if (name === 'Liu Bei') {
     return {
       type: 'intentionInvitation',
-      descriptionZh: `劉備在${locationZh}決定明天午餐邀請真晝和麻衣一起聽學生意見；他擔心沉默的學生正在被派系氣氛推到邊緣。`,
+      descriptionZh: `劉備在${locationZh}決定明天午餐邀請真晝和麻衣一起坐一下；他擔心沉默的學生正在被大家的忙碌推到邊緣。`,
       interpretationZh: '他用關係與公平降低排除感。',
       reactionDialogueZh: '大家一起談，才不會有人被推到角落。',
-      futureImplicationsZh: '劉備可能形成與曹操不同的自然聯盟。',
+      futureImplicationsZh: '劉備可能更早發現誰需要被邀請，而不是等事情變成問題。',
       importance: 7,
     };
   }
   if (name === 'Mai') {
     return {
-      type: 'intentionRiskReview',
-      descriptionZh: `麻衣在${locationZh}寫下三條 AI 社風險：目的不明、權責不清、Alan 推進速度太快；她不反對夢想，但不想看見世界被模糊需求拖著走。`,
-      interpretationZh: '她把抽象擔憂轉成可討論的風險項。',
-      reactionDialogueZh: '先把問題講清楚，再談願景。',
-      futureImplicationsZh: 'Alan 可以用這份清單整理 AI 社規格。',
+      type: 'intentionPlainTruth',
+      descriptionZh: `麻衣在${locationZh}寫下三句今天最不自然的話：太快說沒事、太快說可以、太快把難過講成玩笑。`,
+      interpretationZh: '她把抽象擔憂轉成可被看見的生活細節。',
+      reactionDialogueZh: '先把話講清楚，再談怎麼辦。',
+      futureImplicationsZh: 'Alan 可以用這份清單找出今天真正需要被關心的人。',
       importance: 7,
     };
   }
   if (name === 'Umi') {
     return {
       type: 'intentionTaskPlan',
-      descriptionZh: `海在${locationZh}整理校長簡報，把學生焦慮、學生會動向與 AI 社邊界放到同一張圖上，準備提醒 Alan：先穩住人，再推進世界。`,
-      interpretationZh: '她把混亂討論轉成情緒、權力與長期趨勢的地圖。',
-      reactionDialogueZh: '校長回來就不用再從零開始亂衝了。我會先把世界怎麼變講清楚。',
-      futureImplicationsZh: 'Alan 可以依照簡報理解校園張力，再選擇要安撫、公告或談判。',
+      descriptionZh: `海在${locationZh}整理校長簡報，把誰變安靜、誰沒吃飯、誰又說自己沒事放到同一張短表上。`,
+      interpretationZh: '她把混亂討論轉成情緒、記憶與下一步的生活地圖。',
+      reactionDialogueZh: '校長回來就不用再從零開始亂衝了。我會先把今天誰變了講清楚。',
+      futureImplicationsZh: 'Alan 可以依照簡報理解今天的情緒變化，再選擇要關心、道歉或安靜陪一下。',
       importance: 8,
     };
   }
   if (name === 'Mahiru Shiina') {
     return {
       type: 'intentionCare',
-      descriptionZh: `真晝在${locationZh}沒有直接追問，而是陪幾位學生坐了一會兒；她注意到有人談到 AI 社時突然安靜，於是記下這不是害羞，是壓力。`,
+      descriptionZh: `真晝在${locationZh}沒有直接追問，而是陪幾位學生坐了一會兒；她注意到有人說「沒事」時突然低頭，於是記下這不是害羞，是壓力。`,
       interpretationZh: '她把對話後的細微情緒訊號轉成照護行動，也提醒世界不要只剩效率。',
       reactionDialogueZh: '先不用急著回答。你可以慢慢說，這裡不是測試。',
       futureImplicationsZh: '學生壓力與 social exclusion 會更早被看見，真晝也可能開始主動影響世界節奏。',
@@ -5610,6 +5768,12 @@ export const campusSocialState = query({
     const timeZone = args.timeZone || 'America/Chicago';
     const { worldStatus, world } = await defaultWorld(ctx);
     const socialClock = currentClockForStatus(worldStatus, timeZone);
+    const worldStartRealDate = giisWorldStartRealDate(worldStatus.worldStartRealDate);
+    const isTodayCreatedAt = (createdAt?: number) =>
+      !createdAt || clockAt(createdAt, timeZone, worldStartRealDate).day === socialClock.day;
+    const isTodayEvent = (event: { clock?: Clock; createdAt?: number }) =>
+      (event.clock?.day ?? (event.createdAt ? clockAt(event.createdAt, timeZone, worldStartRealDate).day : socialClock.day)) ===
+      socialClock.day;
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const profiles = await ctx.db
       .query('schoolProfiles')
@@ -5621,14 +5785,14 @@ export const campusSocialState = query({
         .withIndex('worldId', (q) => q.eq('worldId', world._id))
         .order('desc')
         .take(8)
-    ).map(displayWorldEvent);
+    ).map(displayWorldEvent).filter(isTodayEvent);
     const latestDailyOpening = (
       await ctx.db
         .query('worldEvents')
         .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'dailyOpeningFocus'))
         .order('desc')
         .take(1)
-    ).map(displayWorldEvent);
+    ).map(displayWorldEvent).filter(isTodayEvent);
     const events = [
       ...latestDailyOpening,
       ...recentEvents.filter(
@@ -5636,37 +5800,41 @@ export const campusSocialState = query({
       ),
     ];
     const displayStoredWorldLabel = (createdAt: number, _fallback?: string) =>
-      worldTimeLabelZh(clockAt(createdAt, timeZone, giisWorldStartRealDate(worldStatus.worldStartRealDate)));
+      worldTimeLabelZh(clockAt(createdAt, timeZone, worldStartRealDate));
     const notifications = (
       await ctx.db
         .query('schoolNotifications')
         .withIndex('worldId', (q) => q.eq('worldId', world._id))
         .order('desc')
         .take(10)
-    ).map((item) => ({
-      ...item,
-      contentZh: naturalizeSchoolText(item.contentZh) ?? item.contentZh,
-      worldTimeLabelZh: displayStoredWorldLabel(item.createdAt, item.worldTimeLabelZh),
-      timestampLabelZh: `${displayTimeLabel(item.createdAt, timeZone)}｜${displayStoredWorldLabel(
-        item.createdAt,
-        item.worldTimeLabelZh,
-      )}`,
-    }));
+    )
+      .filter((item) => isTodayCreatedAt(item.createdAt))
+      .map((item) => ({
+        ...item,
+        contentZh: naturalizeSchoolText(item.contentZh) ?? item.contentZh,
+        worldTimeLabelZh: displayStoredWorldLabel(item.createdAt, item.worldTimeLabelZh),
+        timestampLabelZh: `${displayTimeLabel(item.createdAt, timeZone)}｜${displayStoredWorldLabel(
+          item.createdAt,
+          item.worldTimeLabelZh,
+        )}`,
+      }));
     const rumors = (
       await ctx.db
         .query('schoolRumors')
         .withIndex('worldId', (q) => q.eq('worldId', world._id))
         .order('desc')
         .take(5)
-    ).map((item) => ({
-      ...item,
-      contentZh: naturalizeSchoolText(item.contentZh) ?? item.contentZh,
-      worldTimeLabelZh: displayStoredWorldLabel(item.createdAt, item.worldTimeLabelZh),
-      timestampLabelZh: `${displayTimeLabel(item.createdAt, timeZone)}｜${displayStoredWorldLabel(
-        item.createdAt,
-        item.worldTimeLabelZh,
-      )}`,
-    }));
+    )
+      .filter((item) => isTodayCreatedAt(item.createdAt))
+      .map((item) => ({
+        ...item,
+        contentZh: naturalizeSchoolText(item.contentZh) ?? item.contentZh,
+        worldTimeLabelZh: displayStoredWorldLabel(item.createdAt, item.worldTimeLabelZh),
+        timestampLabelZh: `${displayTimeLabel(item.createdAt, timeZone)}｜${displayStoredWorldLabel(
+          item.createdAt,
+          item.worldTimeLabelZh,
+        )}`,
+      }));
     const clubs = (
       await ctx.db
         .query('schoolClubs')
@@ -5726,6 +5894,45 @@ export const campusSocialState = query({
           })
           .filter((item) => item.signalZh)
       : [];
+    const residuePilotNames = new Set(['海', '真晝', '明日奈']);
+    const latestResiduesByPlayerId = new Map<string, { lineZh: string; timestampLabelZh: string }>();
+    for (const profile of profiles.filter((item) => activePlayerIds.has(item.playerId))) {
+      const name = displayNameZh(descriptions.get(profile.playerId)?.name ?? profile.playerId);
+      if (!residuePilotNames.has(name)) continue;
+      const recentMemories = await ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', profile.playerId).eq('data.type', 'conversation'),
+        )
+        .order('desc')
+        .take(8);
+      const residueMemory = recentMemories
+        .map((memory) => ({
+          lineZh: residueFromMemoryDescription(memory.description),
+          createdAt: memory._creationTime,
+        }))
+        .find((entry) => entry.lineZh);
+      if (residueMemory) {
+        latestResiduesByPlayerId.set(profile.playerId, {
+          lineZh: naturalizeSchoolText(residueMemory.lineZh) ?? residueMemory.lineZh,
+          timestampLabelZh: displayTimeLabel(residueMemory.createdAt, timeZone),
+        });
+      }
+    }
+    const recentKickSignalsByPlayerId = new Map<string, { lineZh: string; timestampLabelZh: string }>();
+    const recentKickEvents = await ctx.db
+      .query('worldEvents')
+      .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'kick'))
+      .order('desc')
+      .take(20);
+    for (const event of recentKickEvents.filter(isTodayEvent)) {
+      if (!event.targetPlayerId || recentKickSignalsByPlayerId.has(event.targetPlayerId)) continue;
+      const targetName = displayNameZh(event.targetName ?? descriptions.get(event.targetPlayerId)?.name ?? event.targetPlayerId);
+      recentKickSignalsByPlayerId.set(event.targetPlayerId, {
+        lineZh: `${targetName}剛被 Alan 當眾踢了一腳，暫時不太想靠近人群。`,
+        timestampLabelZh: displayTimeLabel(event.createdAt, timeZone),
+      });
+    }
     return {
       timeZone,
       worldPressure,
@@ -5749,14 +5956,18 @@ export const campusSocialState = query({
           const name = descriptions.get(profile.playerId)?.name ?? profile.playerId;
           const player = playersById.get(profile.playerId);
           const location = player ? nearestSchoolLocation(player.position) : undefined;
-          const availability = availabilityForCharacter(
+          const kickSignal = recentKickSignalsByPlayerId.get(profile.playerId);
+          const availability = kickSignal ? 'avoiding' : availabilityForCharacter(
             name,
             socialClock,
             worldPressure,
             activeConversationPlayerIds.has(profile.playerId),
           );
-          const quietState = quietStateForCharacter(name, availability, worldPressure, location?.id);
+          const quietState = kickSignal
+            ? 'silent'
+            : quietStateForCharacter(name, availability, worldPressure, location?.id);
           const sleepState = sleepStateForName(name, socialClock);
+          const residue = latestResiduesByPlayerId.get(profile.playerId);
           return {
             playerId: profile.playerId,
             name,
@@ -5766,7 +5977,11 @@ export const campusSocialState = query({
             availability,
             availabilityZh: availabilityLabelZh(availability),
             quietState,
-            quietLineZh: quietLineForCharacter(name, quietState, location?.id),
+            quietLineZh: kickSignal?.lineZh ?? quietLineForCharacter(name, quietState, location?.id),
+            recentImpactZh: kickSignal?.lineZh,
+            recentImpactTimestampLabelZh: kickSignal?.timestampLabelZh,
+            residueLineZh: residue?.lineZh,
+            residueTimestampLabelZh: residue?.timestampLabelZh,
           };
         }),
       principalTasks: principalTasksFromEvents(events, worldPressure),
@@ -5848,7 +6063,6 @@ export const campusTimeline = query({
         .order('desc')
         .take(20)
     );
-
     const conversationEntries = [];
     const characterConversations = [];
     for (const conversation of archivedConversations) {
@@ -6057,6 +6271,53 @@ export const recentConversationEvalData = query({
       .order('desc')
       .take(args.sinceCreatedAt ? Math.max(limit * 4, 50) : limit);
 
+    const memoryCacheByPlayerId = new Map<
+      string,
+      Map<
+        string,
+        {
+          memoryLineZh?: string;
+          residueLineZh?: string;
+          memoryTimestampLabelZh?: string;
+        }
+      >
+    >();
+    const conversationMemoryTraceFor = async (participantId: string, conversationId: string) => {
+      if (!memoryCacheByPlayerId.has(participantId)) {
+        const recentMemories = await ctx.db
+          .query('memories')
+          .withIndex('playerId_type', (q) =>
+            q.eq('playerId', participantId).eq('data.type', 'conversation'),
+          )
+          .order('desc')
+          .take(40);
+        const memoryByConversationId = new Map<
+          string,
+          {
+            memoryLineZh?: string;
+            residueLineZh?: string;
+            memoryTimestampLabelZh?: string;
+          }
+        >();
+        for (const memory of recentMemories) {
+          if (memory.data.type !== 'conversation') continue;
+          const conversationId = String(memory.data.conversationId);
+          if (memoryByConversationId.has(conversationId)) continue;
+          const residueLine = residueFromMemoryDescription(memory.description);
+          const memoryLine = memoryTraceFromDescription(memory.description);
+          if (!residueLine && !memoryLine) continue;
+          memoryByConversationId.set(conversationId, {
+            memoryLineZh: memoryLine || undefined,
+            residueLineZh: residueLine
+              ? naturalizeSchoolText(residueLine) ?? displayTextZh(residueLine)
+              : undefined,
+            memoryTimestampLabelZh: displayTimeLabel(memory._creationTime, timeZone),
+          });
+        }
+        memoryCacheByPlayerId.set(participantId, memoryByConversationId);
+      }
+      return memoryCacheByPlayerId.get(participantId)?.get(conversationId);
+    };
     const conversations = [];
     for (const conversation of archivedConversations) {
       if (args.sinceCreatedAt && conversation.ended < args.sinceCreatedAt) continue;
@@ -6069,19 +6330,46 @@ export const recentConversationEvalData = query({
       if (!messages.length) continue;
 
       const participants = conversation.participants.map(nameByPlayerId);
-      const transcriptSource = messagesPerConversation
-        ? messages.slice(-messagesPerConversation)
-        : messages;
-      const transcriptMessages = transcriptSource.map((message) => ({
+      const participantSet = new Set(participants);
+      const hasAlanParticipant = participantSet.has(DEFAULT_NAME);
+      const messageEntries = messages.map((message) => ({
         author: nameByPlayerId(message.author),
         text: naturalizeSchoolText(message.text) ?? message.text,
         timestampLabelZh: displayTimeLabel(message._creationTime, timeZone),
+        createdAt: message._creationTime,
+      }));
+      const transcriptEntries = messageEntries.sort(
+        (a, b) => a.createdAt - b.createdAt,
+      );
+      const transcriptSource = messagesPerConversation && !hasAlanParticipant
+        ? transcriptEntries.slice(-messagesPerConversation)
+        : transcriptEntries;
+      const transcriptMessages = transcriptSource.map((message) => ({
+        author: message.author,
+        text: message.text,
+        timestampLabelZh: message.timestampLabelZh,
       }));
       const previewMessages = transcriptMessages.slice(-3);
       const lastText = transcriptMessages.at(-1)?.text ?? '';
       const summaryZh = `${participants.join('、')} 結束了一段對話：「${lastText.slice(0, 48)}${
         lastText.length > 48 ? '...' : ''
       }」`;
+      const memoryTraces = (
+        await Promise.all(
+          conversation.participants.map(async (participant) => {
+            const trace = await conversationMemoryTraceFor(participant, String(conversation.id));
+            if (!trace?.memoryLineZh && !trace?.residueLineZh) return undefined;
+            return {
+              characterName: nameByPlayerId(participant),
+              ...trace,
+            };
+          }),
+        )
+      ).filter(Boolean);
+      const outcomeQuality = conversationOutcomeQualityFor(
+        transcriptMessages.map((message) => message.text).join('\n'),
+        summaryZh,
+      );
 
       conversations.push(args.compact ? {
         id: `conversation-${conversation.id}`,
@@ -6089,7 +6377,9 @@ export const recentConversationEvalData = query({
         createdAt: conversation.ended,
         involvedCharacters: participants,
         transcriptMessages,
-        messageCount: messages.length,
+        messageCount: transcriptEntries.length,
+        memoryTraces,
+        outcomeQuality,
       } : {
         id: `conversation-${conversation.id}`,
         kind: 'conversation',
@@ -6099,7 +6389,9 @@ export const recentConversationEvalData = query({
         summaryZh,
         previewMessages,
         transcriptMessages,
-        messageCount: messages.length,
+        messageCount: transcriptEntries.length,
+        memoryTraces,
+        outcomeQuality,
       });
       if (conversations.length >= limit) break;
     }

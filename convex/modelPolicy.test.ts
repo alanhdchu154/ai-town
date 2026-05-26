@@ -52,10 +52,15 @@ describe('model policy', () => {
     ).toBe(true);
   });
 
-  test('does not classify ordinary text from other pairs as Umi/Mahiru soul persistence', () => {
+  test('blocks generated fallback text from all persistence but allows ordinary other-pair text', () => {
     expect(
       shouldPersistCharacterSoulTranscript(['Umi', 'CaoCao'], [
         '這段先停在這裡。我會提醒 Alan 先看見學生的不安，再談下一個功能。',
+      ]),
+    ).toBe(false);
+    expect(
+      shouldPersistCharacterSoulTranscript(['Umi', 'CaoCao'], [
+        '曹操，這件事我會先看清楚再告訴 Alan。',
       ]),
     ).toBe(true);
     expect(isGeneratedFallbackText('[ABORT_CONVERSATION] anything')).toBe(true);

@@ -223,26 +223,26 @@ async function fetchRecentConversationsFromSqlite(limit: number): Promise<Recent
   ]);
   const [conversationRows, messageRows, descriptionRows] = await Promise.all([
     sqliteJsonRows(
-      `select json_value from documents where table_id=x'${conversationTableId}' and deleted=0 order by ts desc limit ${Math.max(
+      currentDocumentsSql(conversationTableId, Math.max(
         limit * 4,
         60,
-      )}`,
+      )),
     ),
     sqliteJsonRows(
-      `select json_value from documents where table_id=x'${messageTableId}' and deleted=0 order by ts desc limit ${Math.max(
+      currentDocumentsSql(messageTableId, Math.max(
         limit * 80,
         1200,
-      )}`,
+      )),
     ),
     sqliteJsonRows(
-      `select json_value from documents where table_id=x'${playerDescriptionTableId}' and deleted=0 order by ts desc limit 200`,
+      currentDocumentsSql(playerDescriptionTableId, 200),
     ),
   ]);
-  const descriptions = new Map(
-    descriptionRows
-      .filter((row) => typeof row.playerId === 'string' && typeof row.name === 'string')
-      .map((row) => [row.playerId as string, displayNameZh(row.name as string)]),
-  );
+  const descriptions = new Map<string, string>();
+  for (const row of descriptionRows) {
+    if (typeof row.playerId !== 'string' || typeof row.name !== 'string') continue;
+    descriptions.set(row.playerId, displayNameZh(row.name));
+  }
   const messagesByConversation = new Map<string, TimelineMessage[]>();
   for (const message of messageRows) {
     if (!message.conversationId || !message.author || typeof message.text !== 'string') continue;
@@ -288,6 +288,22 @@ async function fetchRecentConversationsFromSqlite(limit: number): Promise<Recent
   return {
     conversations,
   };
+}
+
+function currentDocumentsSql(tableId: string, limit: number) {
+  return `
+    select d.json_value
+    from documents d
+    join (
+      select table_id, id, max(ts) as ts
+      from documents
+      where table_id=x'${tableId}'
+      group by table_id, id
+    ) latest on d.table_id=latest.table_id and d.id=latest.id and d.ts=latest.ts
+    where d.table_id=x'${tableId}' and d.deleted=0
+    order by d.ts desc
+    limit ${limit}
+  `;
 }
 
 async function resolveTableIdBySample(...needles: string[]) {

@@ -82,8 +82,36 @@ function conversationSingleFlightEnabled() {
   return process.env.CONVERSATION_SINGLE_FLIGHT !== 'false';
 }
 
+// --------------------------------------------------------------------
+// Soul-triad / Umi-Mahiru pilot env knobs (off by default).
+//
+// These open temporary collection windows for the Umi / Mahiru / Asuna
+// pilot. They never affect the live autonomous world unless explicitly
+// set, and the pilot scripts in scripts/run-*-single-sample.mjs remove
+// them in their `finally` blocks. Do not turn them on in production
+// without an explicit token-budget check.
+//
+//   UMI_MAHIRU_COLOCATION_PILOT       'true' to enable Umi↔Mahiru pilot
+//   SOUL_TRIAD_COLOCATION_PILOT       'true' to enable Umi/Mahiru/Asuna trio
+//   UMI_MAHIRU_SINGLE_SAMPLE_AFTER_MS ms before single-sample window ends
+//   SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS ms before triad single-sample window ends
+//   SOUL_TRIAD_FOCUS_PAIR             "NameA:NameB" to force one dyad this run
+//
+// Residue read/write knobs live in convex/agent/memory.ts and
+// convex/agent/conversation.ts:
+//   UNDERWORLD_RESIDUE_WRITE          'false' disables residue line writes
+//   UNDERWORLD_RESIDUE_READ           'false' disables residue prompt injection
+//   UNDERWORLD_RESIDUE_RESONANCE      'false' disables soul-resonance gating
+//
+// See .env.local.example and docs/giis-v0.1-roadmap.md (fresh-sample
+// rule) for when to use these.
+// --------------------------------------------------------------------
 function umiMahiruPilotEnabled() {
   return process.env.UMI_MAHIRU_COLOCATION_PILOT === 'true';
+}
+
+function soulTriadPilotEnabled() {
+  return process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true';
 }
 
 function umiMahiruSingleSampleAfterMs(): number | undefined {
@@ -94,10 +122,39 @@ function umiMahiruSingleSampleAfterMs(): number | undefined {
   return value;
 }
 
+function soulTriadSingleSampleAfterMs(): number | undefined {
+  const raw = process.env.SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS;
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return undefined;
+  return value;
+}
+
+// Optional collection knob: when set to a single "Name:Name" dyad (e.g.
+// "Mahiru Shiina:Asuna"), the soul-triad pilot only lets that specific pair seek
+// each other this run. Lets the QA/observe loops rotate coverage so Mahiru is not
+// starved by the Umi<->Asuna mutual-first-choice attractor. Unset == current
+// behavior. Pilot-gated only; never affects the live autonomous world.
+function soulTriadFocusPairNames(): string[] | undefined {
+  const raw = process.env.SOUL_TRIAD_FOCUS_PAIR;
+  if (raw === undefined || raw.trim() === '') return undefined;
+  const names = raw
+    .split(':')
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .filter((name) => isSoulTriadName(name));
+  if (names.length !== 2 || names[0] === names[1]) return undefined;
+  return names;
+}
+
 function isUmiMahiruPilotConversation(leftPlayerId: GameId<'players'>, rightPlayerId: GameId<'players'>) {
   if (!umiMahiruPilotEnabled()) return false;
   const ids = new Set([leftPlayerId, rightPlayerId]);
   return ids.has('p:0' as GameId<'players'>) && ids.has('p:707' as GameId<'players'>);
+}
+
+function isSoulTriadName(name?: string) {
+  return name === 'Umi' || name === 'Mahiru Shiina' || name === 'Asuna';
 }
 
 function agentActionSingleFlightEnabled() {
@@ -684,6 +741,65 @@ export const findConversationCandidate = internalQuery({
   },
   handler: async (ctx, { now, worldId, player, otherFreePlayers }) => {
     const { position } = player;
+    if (soulTriadPilotEnabled()) {
+      const descriptions = await ctx.db
+        .query('playerDescriptions')
+        .withIndex('worldId', (q) => q.eq('worldId', worldId))
+        .collect();
+      const names = new Map(descriptions.map((description) => [description.playerId, description.name]));
+      const playerName = names.get(player.id);
+      if (!isSoulTriadName(playerName)) return undefined;
+      const triadIds = new Set(
+        descriptions
+          .filter((description) => isSoulTriadName(description.name))
+          .map((description) => description.playerId),
+      );
+      const singleSampleAfter = soulTriadSingleSampleAfterMs();
+      if (singleSampleAfter !== undefined) {
+        for (const triadId of triadIds) {
+          const recentEdges = await ctx.db
+            .query('participatedTogether')
+            .withIndex('playerHistory', (q) =>
+              q.eq('worldId', worldId).eq('player1', triadId as GameId<'players'>),
+            )
+            .order('desc')
+            .take(8);
+          const alreadySampled = recentEdges.some(
+            (edge) => edge.ended >= singleSampleAfter && triadIds.has(edge.player2),
+          );
+          if (alreadySampled) return undefined;
+        }
+      }
+      const focusPair = soulTriadFocusPairNames();
+      if (focusPair && !(playerName && focusPair.includes(playerName))) {
+        // A specific dyad is being collected this run; players outside it stay idle
+        // so the rotation can guarantee coverage (e.g. Mahiru<->Asuna).
+        return undefined;
+      }
+      const preferredTargets = focusPair
+        ? focusPair.filter((name) => name !== playerName)
+        : playerName === 'Umi'
+          ? ['Asuna', 'Mahiru Shiina']
+          : playerName === 'Mahiru Shiina'
+            ? ['Asuna', 'Umi']
+            : ['Umi', 'Mahiru Shiina'];
+      for (const targetName of preferredTargets) {
+        const target = otherFreePlayers.find(
+          (otherPlayer) => names.get(otherPlayer.id) === targetName && triadIds.has(otherPlayer.id),
+        );
+        if (!target) continue;
+        const lastMember = await ctx.db
+          .query('participatedTogether')
+          .withIndex('edge', (q) =>
+            q.eq('worldId', worldId).eq('player1', player.id).eq('player2', target.id),
+          )
+          .order('desc')
+          .first();
+        if (lastMember && now < lastMember.ended + playerConversationCooldownMs()) continue;
+        return target.id;
+      }
+      return undefined;
+    }
     if (umiMahiruPilotEnabled()) {
       if (player.id !== 'p:0' && player.id !== 'p:707') return undefined;
       const targetPlayerId = player.id === 'p:0' ? 'p:707' : 'p:0';

@@ -172,7 +172,14 @@ export function reflectionLlmEnabled(env: ModelPolicyEnv = process.env) {
 
 export function isGeneratedFallbackText(text: string) {
   return (
-    text.startsWith('[ABORT_CONVERSATION]') ||
+    // Defensive: catch abort/leave markers anywhere in the text, not just
+    // as the line prefix. The pilot fallback path emits
+    // `[ABORT_CONVERSATION] pilot repair fallback`, but mid-text leakage
+    // from a model that quotes the marker would slip past startsWith.
+    text.includes('[ABORT_CONVERSATION]') ||
+    text.includes('[LEAVE]') ||
+    text.includes('pilot LLM unavailable') ||
+    text.includes('pilot repair fallback') ||
     text.includes('這段先停在這裡') ||
     text.includes('先看見學生的不安，再談下一個功能') ||
     text.includes('我想去看看今天一直安靜的學生') ||
@@ -188,8 +195,12 @@ export function isGeneratedFallbackText(text: string) {
 
 export function shouldPersistCharacterSoulTranscript(participantNames: string[], messages: string[]) {
   const names = new Set(participantNames);
-  const isPilotPair = names.has('Umi') && names.has('Mahiru Shiina');
+  const isPilotPair =
+    (names.has('Umi') && names.has('Mahiru Shiina')) ||
+    (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true' &&
+      ['Umi', 'Mahiru Shiina', 'Asuna'].filter((name) => names.has(name)).length >= 2);
+  if (messages.some(isGeneratedFallbackText)) return false;
   if (!isPilotPair) return true;
   if (messages.length === 0) return false;
-  return !messages.some(isGeneratedFallbackText);
+  return true;
 }
