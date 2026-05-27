@@ -43,15 +43,15 @@ export default function InteractButton({ className = '' }: { className?: string 
   // }
   return (
     <button
-      className={`giis-presence-button ${className}`}
+      className={`giis-presence-button ${isPlaying ? 'giis-presence-button-playing' : ''} ${className}`}
       onClick={joinOrLeaveGame}
       title={
         isPlaying
-          ? '讓 Alan 暫時離校，預設他去處理其他公司與現實工作。'
-          : '讓 Alan 回到校園，玩家行動會以 Alan 的身分發生。'
+          ? '放開 Alan：他離開校園，世界繼續，但你不再以他的身分行動。'
+          : '接手 Alan：他回到校園，你的點地形 / 說話會以 Alan 身分發生。'
       }
     >
-      {isPlaying ? '暫離校園' : '進入校園'}
+      {isPlaying ? '放開 Alan' : '接手 Alan'}
     </button>
   );
 }

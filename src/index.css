@@ -384,6 +384,15 @@ body {
   min-width: 6rem;
 }
 
+/* When the player is currently controlling Alan, the button shows
+   "放開 Alan" — flip its visual state so the player can tell at a
+   glance whether they are in control. Filled accent vs outline. */
+.giis-presence-button-playing {
+  background: color-mix(in srgb, var(--scene-accent, #22d3ee) 22%, rgba(15, 23, 42, 0.78));
+  border-color: var(--scene-accent, #22d3ee);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--scene-accent, #22d3ee) 28%, transparent);
+}
+
 .giis-focus-card {
   border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 45%, transparent);
   border-radius: 18px;

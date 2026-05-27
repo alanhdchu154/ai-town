@@ -906,9 +906,14 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             ))}
           </div>
           <div className="giis-bottom-status">
-            <span className="giis-main-presence" title={timeHoverLabel}>
-              Alan｜{alanPlaceLabel}｜{hudTimeLabel}
-            </span>
+            {/* Top bar already shows {scene}｜{period} and Alan｜{clock}.
+                Bottom only surfaces Alan's place when it differs from the
+                current view (so the player notices when Alan is elsewhere). */}
+            {alanPlaceLabel && alanPlaceLabel !== currentScene.labelZh ? (
+              <span className="giis-main-presence" title={timeHoverLabel}>
+                Alan 目前在：{alanPlaceLabel}
+              </span>
+            ) : null}
             {selectedName ? (
               <span>
                 {isConversationMode ? '對話中' : '目標'}：{displayAgentName(selectedName)}
