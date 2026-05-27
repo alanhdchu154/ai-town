@@ -14,12 +14,18 @@ export type CharacterVisual = {
   palette: Record<string, number>;
 };
 
+// Vite is configured with `base: '/ai-town'` (see vite.config.ts), so any
+// absolute asset URL referenced from React must include that prefix or it
+// will 404 in both dev and production. This is the same pattern used by
+// data/characters.ts for sprite textures.
+const PORTRAIT_BASE = '/ai-town/portraits';
+
 function portraitSet(slug: string): Record<PortraitEmotion, string> {
   return {
-    neutral: `/portraits/${slug}.png`,
-    smiling: `/portraits/${slug}-smiling.png`,
-    worried: `/portraits/${slug}-worried.png`,
-    serious: `/portraits/${slug}-serious.png`,
+    neutral: `${PORTRAIT_BASE}/${slug}.png`,
+    smiling: `${PORTRAIT_BASE}/${slug}-smiling.png`,
+    worried: `${PORTRAIT_BASE}/${slug}-worried.png`,
+    serious: `${PORTRAIT_BASE}/${slug}-serious.png`,
   };
 }
 
@@ -28,7 +34,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0xf5d06a,
     accent: 0xffd15c,
     label: 'Alan',
-    portraitPath: '/portraits/alan.png',
+    portraitPath: `${PORTRAIT_BASE}/alan.png`,
     portraitPaths: portraitSet('alan'),
     spritePath: '/sprites/alan.png',
     archetypeZh: '混亂但冷靜的科技校長',
@@ -42,7 +48,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0x8fd3ff,
     accent: 0x4aa3ff,
     label: '海',
-    portraitPath: '/portraits/umi.png',
+    portraitPath: `${PORTRAIT_BASE}/umi.png`,
     portraitPaths: portraitSet('umi'),
     spritePath: '/sprites/umi.png',
     archetypeZh: '聰明吐槽系助理校長',
@@ -56,7 +62,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0xffb48a,
     accent: 0xf06d4f,
     label: '明日奈',
-    portraitPath: '/portraits/asuna.png',
+    portraitPath: `${PORTRAIT_BASE}/asuna.png`,
     portraitPaths: portraitSet('asuna'),
     spritePath: '/sprites/asuna.png',
     archetypeZh: '紀律明快的執行助理',
@@ -70,7 +76,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0xd8a7ff,
     accent: 0x9d6adf,
     label: '麻衣',
-    portraitPath: '/portraits/mai.png',
+    portraitPath: `${PORTRAIT_BASE}/mai.png`,
     portraitPaths: portraitSet('mai'),
     spritePath: '/sprites/mai.png',
     archetypeZh: '冷靜成熟的策略顧問',
@@ -84,7 +90,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0xff8f8f,
     accent: 0xd04444,
     label: '曹操',
-    portraitPath: '/portraits/caocao.png',
+    portraitPath: `${PORTRAIT_BASE}/caocao.png`,
     portraitPaths: portraitSet('caocao'),
     spritePath: '/sprites/caocao.png',
     archetypeZh: '自信野心派學生政治家',
@@ -106,7 +112,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0x9fe6a0,
     accent: 0x49b96a,
     label: '劉備',
-    portraitPath: '/portraits/liubei.png',
+    portraitPath: `${PORTRAIT_BASE}/liubei.png`,
     portraitPaths: portraitSet('liubei'),
     spritePath: '/sprites/liubei.png',
     archetypeZh: '溫暖凝聚型學生盟友',
@@ -120,7 +126,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     tint: 0xffd6ec,
     accent: 0xf28abd,
     label: '真晝',
-    portraitPath: '/portraits/mahiru.png',
+    portraitPath: `${PORTRAIT_BASE}/mahiru.png`,
     portraitPaths: portraitSet('mahiru'),
     spritePath: '/sprites/mahiru.png',
     archetypeZh: '溫柔治癒系學生事務助理',
