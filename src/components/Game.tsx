@@ -388,6 +388,21 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       ? '對話中：先離開對話才能移動'
       : '點地板移動 Alan';
   const periodLabel = clockState?.periodLabelZh ?? '讀取中';
+  // Visual cue for time of day. Scene tone already shifts with period,
+  // but a glyph in the topbar lets the player read it without parsing
+  // the Chinese label.
+  const periodGlyph =
+    periodLabel === '深夜'
+      ? '🌙'
+      : periodLabel === '晚上'
+        ? '🌆'
+        : periodLabel === '早晨'
+          ? '🌅'
+          : periodLabel === '下午'
+            ? '☀️'
+            : periodLabel === '中午'
+              ? '🌞'
+              : '◐';
   const realClockLabel = clockState?.realTimeLabelZh ?? '讀取中';
   const worldClockLabel = clockState?.worldTimeLabelZh ?? '讀取中';
   const hudTimeLabel = clockState?.dayClockLabelZh ?? worldClockLabel;
@@ -667,7 +682,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         <div className="giis-topbar">
           <div className="giis-topbar-title">
             <span className="giis-kicker">GIIS Underworld</span>
-            <b>{currentScene.labelZh}｜{periodLabel}</b>
+            <b>
+              <span className="giis-period-glyph" aria-hidden="true">
+                {periodGlyph}
+              </span>
+              {currentScene.labelZh}｜{periodLabel}
+            </b>
             <p className="giis-topbar-line" title={timeHoverLabel}>
               Alan｜{hudTimeLabel}
             </p>
@@ -692,13 +712,13 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               </button>
             </div>
           ) : null}
-          <label className="giis-scene-select">
-            前往場景：
+          <label className="giis-scene-select" title={isConversationMode ? '正在對話中，先離開對話才能切換場景。' : '切換到其他場景'}>
+            <span className="giis-scene-select-glyph" aria-hidden="true">→</span>
             <select
               className="giis-select"
               value={selectedSceneId}
               disabled={isConversationMode}
-              title={isConversationMode ? '正在對話中，先離開對話才能切換場景。' : undefined}
+              aria-label="切換場景"
               onChange={(event) => switchScene(event.target.value as SchoolLocationId)}
             >
               {sceneGroups.map(({ location, occupants }) => (

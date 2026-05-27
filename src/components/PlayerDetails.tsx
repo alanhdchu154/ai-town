@@ -1,5 +1,5 @@
 import { useAction, useConvex, useMutation, useQuery } from 'convex/react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
 import { Id } from '../../convex/_generated/dataModel';
 import closeImg from '../../assets/close.svg';
@@ -165,8 +165,8 @@ function currentTimeBlock(clock?: { hour: number }) {
   }
   if (hour >= 13.5 && hour < 17) {
     return {
-      title: '下午社團 / 學生會',
-      description: 'AI 社、學生會與策略討論會比較活躍。',
+      title: '下午課後整理',
+      description: '補作業、個別談話、午餐後的小情緒比較容易浮出來。',
     };
   }
   if (hour >= 17 && hour < 21) {
@@ -191,7 +191,7 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
   const hour = clock?.hour ?? new Date().getHours();
   if (hour >= 23 || hour < 6) {
     if (name === 'Umi') return '在宿舍或辦公角落整理明早簡報';
-    if (name === 'CaoCao') return '可能短暫未眠，整理學生會想法';
+    if (name === 'CaoCao') return '可能短暫未眠，整理明天要怎麼讓大家坐下來談';
     return '休息中，不應該被普通校務打擾';
   }
   if (hour >= 21) {
@@ -200,16 +200,17 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
     return '準備回宿舍，對話應該變安靜';
   }
   if (hour >= 17) {
-    if (name === 'CaoCao') return '在學生會室或庭院觀察派系動向';
+    if (name === 'CaoCao') return '在庭院觀察誰不願意開口';
     if (name === 'Liu Bei') return '在庭院維持學生之間的連結';
     if (name === 'Mahiru Shiina') return '在宿舍或庭院照顧學生狀態';
-    return '自由時間，可能移動到庭院或社團室';
+    if (name === 'Umi') return '在校長室整理給 Alan 的短簡報';
+    return '自由時間，可能移動到庭院、餐廳或宿舍';
   }
   if (hour >= 13.5) {
-    if (name === 'Mai') return '在 AI 社團室或庭院評估風險';
-    if (name === 'CaoCao') return '在學生會室建立秩序與影響力';
-    if (name === 'Umi') return '把 Alan 的想法整理成可執行事項';
-    return '參與社團、學生會或校園討論';
+    if (name === 'Mai') return '在餐廳或庭院挑出大家不想承認的尷尬點';
+    if (name === 'CaoCao') return '在庭院確認混亂是不是有人被丟下';
+    if (name === 'Umi') return '在校長室把 Alan 的想法整理成可執行事項';
+    return '補作業、整理課後情緒，或進行小組討論';
   }
   if (hour >= 12) {
     if (name === 'Liu Bei') return '在中央庭院拉近學生關係';
@@ -780,11 +781,11 @@ export default function PlayerDetails({
   const onPlayerAction = async () => runPlayerAction(selectedAction);
   const onExecuteSuggestedTask = async (task: SuggestedTask) => {
     const actionType = task.suggestedActionType;
-    const taskText =
-      actionType === 'announce'
-        ? 'AI 社規則需要公開、透明，任何學生都可以提出疑問。'
+  const taskText =
+    actionType === 'announce'
+        ? '今天先看誰變安靜，誰需要被慢慢聽完。'
         : actionType === 'createClub'
-          ? 'AI 社'
+          ? '午餐讀書會'
           : undefined;
     if (task.targetCharacter) setTargetName(task.targetCharacter);
     if (taskText) setActionText(taskText);
@@ -804,15 +805,25 @@ export default function PlayerDetails({
   };
 
   useEffect(() => {
+    if (!actionSummary) return;
+    window.dispatchEvent(new CustomEvent('giis:action-result', { detail: actionSummary }));
+  }, [actionSummary]);
+
+  useEffect(() => {
     const onQuickAction = (event: Event) => {
-      const detail = (event as CustomEvent<{ actionType: SchoolActionType; execute?: boolean }>).detail;
+      const detail = (
+        event as CustomEvent<{ actionType: SchoolActionType; execute?: boolean; text?: string }>
+      ).detail;
       if (!detail?.actionType) return;
       setSelectedAction(detail.actionType);
       // 互動 tab was removed from the right drawer; advanceWorldTime now
       // lives under 角色 (characters) alongside the other action controls.
       setActiveTab('characters');
       if (detail.execute) {
-        window.setTimeout(() => void runPlayerAction(detail.actionType), 0);
+        window.setTimeout(
+          () => void runPlayerAction(detail.actionType, { text: detail.text }),
+          0,
+        );
       }
     };
     window.addEventListener('giis:quick-action', onQuickAction);
@@ -878,19 +889,28 @@ export default function PlayerDetails({
             <CharacterActionPanel
               targetName={targetName}
               targetProfile={targetProfile}
-              selectedAction={selectedAction}
-              setSelectedAction={setSelectedAction}
-              actionText={actionText}
-              setActionText={setActionText}
               runningActionKeys={runningActionKeys}
               playerIdentity={playerIdentity}
               canStartSelectedChat={!!canStartSelectedChat}
               onTravelToTarget={() => targetName && navigateToCharacter(targetName, true)}
               onStartConversation={() => void onStartSelectedConversation()}
               onOpenDialogue={() => setActiveTab('dialogue')}
-              onPlayerAction={onPlayerAction}
+              onKick={() => void onKick()}
+              onAssign={() => void onAssignAssistantPrincipal()}
               clubs={campusSocialState?.clubs ?? []}
+              onCreateClub={() =>
+                window.dispatchEvent(
+                  new CustomEvent('giis:quick-action', { detail: { actionType: 'createClub', execute: false } }),
+                )
+              }
+            onPrepareAiClubRules={() => {
+                setActionText('今天先看誰變安靜，誰需要被慢慢聽完。');
+                window.dispatchEvent(
+                  new CustomEvent('giis:quick-action', { detail: { actionType: 'announce', execute: false } }),
+                );
+              }}
             />
+            {actionSummary ? <NarrativeResult summary={actionSummary} /> : null}
           </>
         ) : null}
         {activeTab === 'schedule' ? (
@@ -910,6 +930,7 @@ export default function PlayerDetails({
             humanConversation={humanConversation}
             targetName={targetName}
             targetPlayer={targetPlayer}
+            targetProfile={targetProfile}
             targetEmotion={emotionFor(targetName)}
             targetPresence={socialPresenceFor(targetName)}
             previousConversation={previousConversation}
@@ -1201,19 +1222,28 @@ export default function PlayerDetails({
           <CharacterActionPanel
             targetName={targetName}
             targetProfile={targetProfile}
-            selectedAction={selectedAction}
-            setSelectedAction={setSelectedAction}
-            actionText={actionText}
-            setActionText={setActionText}
             runningActionKeys={runningActionKeys}
             playerIdentity={playerIdentity}
             canStartSelectedChat={!!canStartSelectedChat}
             onTravelToTarget={() => targetName && navigateToCharacter(targetName, true)}
             onStartConversation={() => void onStartSelectedConversation()}
             onOpenDialogue={() => setActiveTab('dialogue')}
-            onPlayerAction={onPlayerAction}
+            onKick={() => void onKick()}
+            onAssign={() => void onAssignAssistantPrincipal()}
             clubs={campusSocialState?.clubs ?? []}
+            onCreateClub={() =>
+              window.dispatchEvent(
+                new CustomEvent('giis:quick-action', { detail: { actionType: 'createClub', execute: false } }),
+              )
+            }
+            onPrepareAiClubRules={() => {
+              setActionText('今天先看誰變安靜，誰需要被慢慢聽完。');
+              window.dispatchEvent(
+                new CustomEvent('giis:quick-action', { detail: { actionType: 'announce', execute: false } }),
+              );
+            }}
           />
+          {actionSummary ? <NarrativeResult summary={actionSummary} /> : null}
         </>
       ) : null}
       {activeTab === 'schedule' ? (
@@ -1233,6 +1263,7 @@ export default function PlayerDetails({
           humanConversation={humanConversation}
           targetName={playerDescription?.name ?? targetName}
           targetPlayer={player}
+          targetProfile={schoolProfile}
           targetEmotion={emotionFor(playerDescription?.name)}
           targetPresence={socialPresenceFor(playerDescription?.name)}
           previousConversation={previousConversation}
@@ -1278,6 +1309,7 @@ function ConversationPanel({
   humanConversation,
   targetName,
   targetPlayer,
+  targetProfile,
   targetEmotion,
   targetPresence,
   previousConversation,
@@ -1299,8 +1331,15 @@ function ConversationPanel({
   humanConversation: any;
   targetName?: string;
   targetPlayer?: Player;
+  targetProfile?: any;
   targetEmotion?: any;
-  targetPresence?: { availability?: string; availabilityZh?: string; quietLineZh?: string };
+  targetPresence?: {
+    availability?: string;
+    availabilityZh?: string;
+    quietLineZh?: string;
+    residueLineZh?: string;
+    residueTimestampLabelZh?: string;
+  };
   previousConversation: any;
   timelineState?: any;
   scrollViewRef: React.RefObject<HTMLDivElement>;
@@ -1314,10 +1353,25 @@ function ConversationPanel({
   isLateNight?: boolean;
   conversationLoadingLabel?: string;
 }) {
-  const [conversationTab, setConversationTab] = useState<'current' | 'history' | 'profile'>('current');
-  const [historyFilter, setHistoryFilter] = useState<'全部' | '與 Alan' | '與其他角色' | '今天' | '重要'>('全部');
+  // Smart default: when the drawer first opens with no active conversation,
+  // 目前對話 is empty — land on 歷史對話 so there is actual content. When
+  // a new conversation starts later, useEffect below promotes to 目前對話.
+  const [conversationTab, setConversationTab] = useState<'current' | 'history' | 'profile'>(
+    () => (humanConversation ? 'current' : 'history'),
+  );
+  const [historyFilter, setHistoryFilter] = useState<'今天' | '全部' | '與 Alan' | '與其他角色'>('今天');
   const [selectedHistoryThreadId, setSelectedHistoryThreadId] = useState<string>();
   const [showWakePrompt, setShowWakePrompt] = useState(false);
+  // Auto-switch to 目前對話 only when a conversation transitions from
+  // absent to present. Subsequent re-renders keep the user's manual tab.
+  const hadActiveConversationRef = useRef(!!humanConversation);
+  useEffect(() => {
+    const hasNow = !!humanConversation;
+    if (hasNow && !hadActiveConversationRef.current) {
+      setConversationTab('current');
+    }
+    hadActiveConversationRef.current = hasNow;
+  }, [humanConversation]);
   const selectedCharacterHistory = targetName ? timelineState?.characterHistory : undefined;
   const scopedConversationThreads = useMemo(
     () =>
@@ -1350,6 +1404,7 @@ function ConversationPanel({
   }, [onLeaveConversation]);
   const activeConversation = humanConversation ?? (targetPlayer ? undefined : undefined);
   const targetDisplayName = displayAgentName(targetName) || '選定角色';
+  const canWakeAtNight = targetDisplayName === '海';
   const availabilityHint =
     targetPresence?.availability === 'busy'
       ? `${targetDisplayName} 現在有點忙，可能只會簡短回應。`
@@ -1412,6 +1467,9 @@ function ConversationPanel({
           onClick={() => setConversationTab('current')}
         >
           目前對話
+          {activeConversation && conversationTab !== 'current' ? (
+            <span className="giis-tab-dot" aria-label="有進行中的對話" />
+          ) : null}
         </button>
         <button
           className={conversationTab === 'history' ? 'active' : ''}
@@ -1466,7 +1524,7 @@ function ConversationPanel({
             <div className="giis-character-history-head">
               <b>{targetDisplayName}｜歷史對話</b>
               <div className="giis-history-filters">
-                {(['全部', '與 Alan', '與其他角色', '今天', '重要'] as const).map((filter) => (
+                {(['今天', '全部', '與 Alan', '與其他角色'] as const).map((filter) => (
                   <button
                     key={filter}
                     className={historyFilter === filter ? 'active' : ''}
@@ -1482,7 +1540,6 @@ function ConversationPanel({
             <div className="giis-message-history-layout">
               <div className="giis-thread-list" aria-label={`${targetDisplayName} 的歷史對話列表`}>
                 {conversationThreads.map((entry: any) => {
-                  const lastMessage = entry.previewMessages?.at?.(-1);
                   const isExpanded = selectedHistoryThread?.id === entry.id;
                   const transcriptMessages = entry.transcriptMessages?.length
                     ? entry.transcriptMessages
@@ -1501,9 +1558,11 @@ function ConversationPanel({
                           <span>{entry.timestampLabelZh}</span>
                         </div>
                         <p>{conversationSummaryLine(entry)}</p>
+                        {/* Footer just shows turn count; speaker/last-line
+                            already live in the summary above to keep the
+                            card scannable. */}
                         <small>
-                          {entry.messageCount ?? entry.transcriptMessages?.length ?? entry.previewMessages?.length ?? 0} 則訊息
-                          {lastMessage ? `｜最後：${displayAgentName(lastMessage.author)}` : ''}
+                          {entry.messageCount ?? entry.transcriptMessages?.length ?? entry.previewMessages?.length ?? 0} 則
                         </small>
                       </button>
                       {isExpanded ? (
@@ -1561,6 +1620,10 @@ function ConversationPanel({
                 name={targetName}
                 locationZh={(targetPlayer as any)?.locationZh}
                 statusZh={inConversationWithMe ? '正在和 Alan 對話' : statusText}
+                emotion={targetEmotion}
+                presence={targetPresence}
+                profile={targetProfile}
+                history={selectedCharacterHistory}
               />
               <CharacterHistoryPanel timelineState={timelineState} targetName={targetName} compact />
             </>
@@ -1580,19 +1643,21 @@ function ConversationPanel({
             disabled={!!conversationLoadingLabel}
             onClick={() => setShowWakePrompt(true)}
           >
-            {conversationLoadingLabel ? '正在前往...' : '開始說話'}
+            {canWakeAtNight ? (conversationLoadingLabel ? '正在前往...' : '開始說話') : '夜間互動'}
           </button>
         ) : null}
         {canStart && isLateNight && showWakePrompt ? (
           <div className="giis-night-prompt">
-            <b>現在已經很晚了。要叫醒對方嗎？</b>
-            <button
-              className="action-pill action-pill-active"
-              disabled={!!conversationLoadingLabel}
-              onClick={() => void onStartConversation()}
-            >
-              {conversationLoadingLabel ? '正在前往...' : '輕聲叫醒'}
-            </button>
+            <b>{canWakeAtNight ? '現在已經很晚了。要叫醒海嗎？' : '現在已經很晚了。先不要叫醒學生。'}</b>
+            {canWakeAtNight ? (
+              <button
+                className="action-pill action-pill-active"
+                disabled={!!conversationLoadingLabel}
+                onClick={() => void onStartConversation()}
+              >
+                {conversationLoadingLabel ? '正在前往...' : '輕聲叫醒'}
+              </button>
+            ) : null}
             <button className="action-pill" onClick={() => setShowWakePrompt(false)}>
               明天再談
             </button>
@@ -1618,16 +1683,54 @@ function ConversationPanel({
 function CharacterProfileCard({
   name,
   statusZh,
+  emotion,
+  presence,
+  profile,
+  history,
 }: {
   name: string;
   locationZh?: string;
   statusZh?: string;
+  emotion?: string;
+  presence?: {
+    availabilityZh?: string;
+    quietLineZh?: string;
+  };
+  profile?: any;
+  history?: any;
 }) {
   const displayName = displayAgentName(name);
   const isUmi = displayName === '海';
+  const latestThought = history?.recentThoughts?.[0] ?? profile?.shortTermIntentions?.[0];
+  const latestMemory = history?.recentMemories?.[0] ?? profile?.shortTermMemory?.[0];
   return (
-    <details className="giis-character-profile-card">
-      <summary>角色資料</summary>
+    <section className="giis-character-profile-card">
+      <div className="giis-character-status-card">
+        <div>
+          <span className="giis-kicker">目前狀態</span>
+          <h4>{displayName}</h4>
+        </div>
+        <dl>
+          <div>
+            <dt>外顯狀態</dt>
+            <dd>{displayTextWithNames(presence?.quietLineZh ?? behaviorHintFromEmotion(name, emotion))}</dd>
+          </div>
+          <div>
+            <dt>可用狀態</dt>
+            <dd>{presence?.availabilityZh ?? statusZh ?? '可以互動'}</dd>
+          </div>
+          <div>
+            <dt>最近想法</dt>
+            <dd>{displayTextWithNames(latestThought ?? '還沒有新的想法紀錄。')}</dd>
+          </div>
+          <div>
+            <dt>最近記憶</dt>
+            <dd>{displayTextWithNames(latestMemory ?? '還沒有新的記憶。')}</dd>
+          </div>
+        </dl>
+      </div>
+      <details>
+        <summary>角色資料</summary>
       {isUmi ? (
         <dl>
           <div>
@@ -1668,10 +1771,19 @@ function CharacterProfileCard({
         </dl>
       )}
     </details>
+    </section>
   );
 }
 
-function filterCharacterConversationThreads(entries: any[], filter: '全部' | '與 Alan' | '與其他角色' | '今天' | '重要') {
+function behaviorHintFromEmotion(name: string, emotion?: string) {
+  const displayName = displayAgentName(name);
+  if (emotion === 'smiling') return `${displayName}今天比較願意留在附近多說兩句。`;
+  if (emotion === 'worried') return `${displayName}今天會更注意沒有說完的話。`;
+  if (emotion === 'serious') return `${displayName}今天說話可能更短、更實際。`;
+  return `${displayName}今天還沒有明顯的行為變化。`;
+}
+
+function filterCharacterConversationThreads(entries: any[], filter: '今天' | '全部' | '與 Alan' | '與其他角色') {
   const today = new Date().toLocaleDateString('en-CA');
   return entries.filter((entry) => {
     const participants = entry.involvedCharacters ?? [];
@@ -1681,24 +1793,18 @@ function filterCharacterConversationThreads(entries: any[], filter: '全部' | '
       const createdAt = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-CA') : '';
       return createdAt === today || String(entry.timestampLabelZh ?? '').includes('/');
     }
-    if (filter === '重要') {
-      const text = `${entry.summaryZh ?? ''} ${(entry.previewMessages ?? [])
-        .map((message: any) => message.text)
-        .join(' ')}`;
-      return (
-        (entry.messageCount ?? 0) >= 4 ||
-        /決定|擔心|信任|衝突|規則|秘密|重要|壓力|排除|關係/.test(text)
-      );
-    }
     return true;
   });
 }
 
 function conversationSummaryLine(entry: any) {
-  const participants = (entry.involvedCharacters ?? []).map(displayAgentName).filter(Boolean);
+  // Title above already shows participants — summary just surfaces the
+  // last spoken line so the card stays scannable.
   const last = entry.previewMessages?.[entry.previewMessages.length - 1];
-  if (participants.length && last?.text) {
-    return `${participants.join('、')} 的對話。最後提到：${naturalizeWorldText(last.text)}`;
+  if (last?.text) {
+    const speaker = displayAgentName(last.author);
+    const text = naturalizeWorldText(last.text);
+    return speaker ? `${speaker}：${text}` : text;
   }
   return naturalizeWorldText(entry.summaryZh ?? '這是一段校園對話。');
 }
@@ -1726,15 +1832,13 @@ function CharacterRosterPanel({
   onSelect?: (name: string) => void;
 }) {
   return (
-    <section className="space-y-3">
-      <div className="bg-brown-700 border border-brown-500 p-3 text-sm">
+    <section className="giis-roster-section">
+      <div className="giis-roster-brief">
         <span className="giis-kicker">角色</span>
-        <h3 className="text-lg font-bold">找人與角色互動</h3>
-        <p className="mt-1 text-brown-200">
-          選一位角色，確認他在哪裡，然後前往、開始說話或採取行動。
-        </p>
+        <h3>找人與角色互動</h3>
+        <p>選一位角色，再前往、開始說話或採取行動。</p>
       </div>
-      <div className="space-y-2">
+      <div className="giis-roster-list">
         {names.map((name) => {
           const profile = schoolState?.find((item: any) => item.name === name);
           const presence = campusSocialState?.emotions?.find((item: any) => item.name === name);
@@ -1750,10 +1854,12 @@ function CharacterRosterPanel({
                 emotion={emotionFor(name)}
                 concern={characterConcern(name, campusSocialState, schoolState)}
                 presence={presence}
+                compact
               />
               <div className="giis-roster-meta">
-                <span>{profile?.locationZh ?? '位置更新中'}</span>
-                <span>{profile?.statusZh ?? '狀態更新中'}</span>
+                <span title={profile?.locationZh ?? '位置更新中'}>
+                  {profile?.locationZh ?? '位置更新中'}
+                </span>
               </div>
             </button>
           );
@@ -1766,33 +1872,31 @@ function CharacterRosterPanel({
 function CharacterActionPanel({
   targetName,
   targetProfile,
-  selectedAction,
-  setSelectedAction,
-  actionText,
-  setActionText,
   runningActionKeys,
   playerIdentity,
   canStartSelectedChat,
   onTravelToTarget,
   onStartConversation,
   onOpenDialogue,
-  onPlayerAction,
+  onKick,
+  onAssign,
   clubs,
+  onCreateClub,
+  onPrepareAiClubRules,
 }: {
   targetName?: string;
   targetProfile?: any;
-  selectedAction: SchoolActionType;
-  setSelectedAction: (action: SchoolActionType) => void;
-  actionText: string;
-  setActionText: (text: string) => void;
   runningActionKeys: Record<string, string | undefined>;
   playerIdentity?: { status?: string };
   canStartSelectedChat: boolean;
   onTravelToTarget: () => void;
   onStartConversation: () => void;
   onOpenDialogue: () => void;
-  onPlayerAction: () => void;
+  onKick: () => void;
+  onAssign: () => void;
   clubs: any[];
+  onCreateClub: () => void;
+  onPrepareAiClubRules: () => void;
 }) {
   const targetDisplayName = displayAgentName(targetName) || '尚未選擇';
   const targetLocation =
@@ -1802,182 +1906,82 @@ function CharacterActionPanel({
     '位置更新中';
   const targetStatus = targetProfile?.statusZh ?? targetProfile?.activityZh ?? '正在觀察校園';
   const targetFocus = targetName ? characterConcern(targetName, undefined, targetProfile ? [targetProfile] : []) : '';
-  const preparedActionText = targetName
-    ? (
-        <>
-          目前準備：<b> Alan</b> 對 <b>{targetDisplayName}</b> 執行 <b>{actionLabels[selectedAction]}</b>
-        </>
-      )
-    : selectedAction === 'createClub'
-      ? (
-          <>
-            目前準備：<b> Alan</b> 建立一個新的校園社團
-          </>
-        )
-      : selectedAction === 'announce'
-        ? (
-            <>
-              目前準備：<b> Alan</b> 向校園發布公告
-            </>
-          )
-        : (
-            <>
-              目前準備：<b> Alan</b> 觀察目前場景
-            </>
-          );
-  const needsInput =
-    selectedAction === 'gift' ||
-    selectedAction === 'leaveMessage' ||
-    selectedAction === 'announce' ||
-    selectedAction === 'createClub';
+  const offline = playerIdentity?.status !== 'online';
   return (
     <section className="giis-character-actions">
       <div className="giis-character-actions-header">
         <div>
-          <span className="giis-kicker">角色行動</span>
+          <span className="giis-kicker">角色焦點</span>
           <h3>{targetName ? targetDisplayName : '選一位角色開始互動'}</h3>
           <p>
             {targetName
               ? `${targetDisplayName} 目前在：${targetLocation}`
-              : '先從上方角色卡選人。角色頁負責找人、前往、說話和角色相關行動。'}
+              : '從上方角色卡選一位。常用互動（聊天 / 關心 / 送禮…）在底部互動列。'}
           </p>
         </div>
       </div>
       {targetName ? (
         <>
-        <div className="giis-selected-character-brief">
-          <div>
-            <b>所在場景</b>
-            <span>{targetLocation}</span>
+          <div className="giis-selected-character-brief">
+            <div>
+              <b>所在場景</b>
+              <span>{targetLocation}</span>
+            </div>
+            <div>
+              <b>現在狀態</b>
+              <span>{displayTextWithNames(targetStatus)}</span>
+            </div>
+            <p>「{displayTextWithNames(targetFocus || defaultConcern(targetName))}」</p>
           </div>
-          <div>
-            <b>現在狀態</b>
-            <span>{displayTextWithNames(targetStatus)}</span>
+          <p className="giis-character-actions-hint">
+            常用互動（聊天 / 關心 / 問傳聞 / 送禮 / 留訊息 / 邀請）已搬到底部互動列。
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button className="action-pill action-pill-active" onClick={onTravelToTarget}>
+              前往所在地
+            </button>
+            <button
+              className="action-pill action-pill-active"
+              disabled={!canStartSelectedChat || !!runningActionKeys['conversation:start']}
+              onClick={onStartConversation}
+            >
+              {runningActionKeys['conversation:start'] ? '正在前往...' : '開始說話'}
+            </button>
+            <button className="action-pill" onClick={onOpenDialogue}>
+              看對話紀錄
+            </button>
+            <button
+              className="action-pill"
+              onClick={() => window.dispatchEvent(new CustomEvent('giis:quick-action', { detail: { actionType: 'observe', execute: true } }))}
+            >
+              觀察對方
+            </button>
           </div>
-          <p>「{displayTextWithNames(targetFocus || defaultConcern(targetName))}」</p>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button className="action-pill action-pill-active" onClick={onTravelToTarget}>
-            前往所在地
-          </button>
-          <button
-            className="action-pill action-pill-active"
-            disabled={!canStartSelectedChat || !!runningActionKeys['conversation:start']}
-            onClick={onStartConversation}
-          >
-            {runningActionKeys['conversation:start'] ? '正在前往...' : '開始說話'}
-          </button>
-          <button className="action-pill" onClick={onOpenDialogue}>
-            看對話紀錄
-          </button>
-          <button className="action-pill" onClick={() => setSelectedAction('observe')}>
-            觀察對方
-          </button>
-        </div>
         </>
       ) : null}
-      <div className="mt-4 rounded-sm border border-brown-500 bg-brown-700/80 p-3 text-sm leading-relaxed">
-        <div className="text-brown-100">{preparedActionText}</div>
-        <div className="mt-1 text-brown-200">{actionDescriptions[selectedAction]}</div>
-      </div>
-      <label className="block mt-4 text-sm">常用角色行動</label>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {(targetName ? primaryActions : (['observe', 'announce'] as SchoolActionType[])).map((action) => (
-          <button
-            key={action}
-            className={`action-pill ${selectedAction === action ? 'action-pill-active' : ''}`}
-            onClick={() => setSelectedAction(action)}
-          >
-            {actionLabels[action]}
-          </button>
-        ))}
-      </div>
-      <ClubRegistryPanel
-        clubs={clubs}
-        selectedAction={selectedAction}
-        onCreateClub={() => setSelectedAction('createClub')}
-        onPrepareAiClubRules={() => {
-          setSelectedAction('announce');
-          setActionText('AI 社今天先公開三件事：目的、參與方式，以及不會拿學生資料做什麼。');
-        }}
-      />
-      <details className="mt-4">
-        <summary className="cursor-pointer text-sm">
-          {targetName ? '更多角色互動' : '選定角色後可使用更多互動'}
-        </summary>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {targetActions.map((action) => (
-            <button
-              key={action}
-              className={`action-pill ${selectedAction === action ? 'action-pill-active' : ''}`}
-              disabled={!targetName && action !== 'createClub'}
-              onClick={() => setSelectedAction(action)}
-            >
-              {actionLabels[action]}
-            </button>
-          ))}
-        </div>
-      </details>
       {targetName ? (
-        <details className="mt-3 opacity-80">
-          <summary className="cursor-pointer text-sm">進階 / 玩具行動</summary>
+        <details className="giis-advanced-actions">
+          <summary className="cursor-pointer text-sm">進階 / 玩具行動（會被記錄為事件）</summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {advancedTargetActions.map((action) => (
-              <button
-                key={action}
-                className={`action-pill ${selectedAction === action ? 'action-pill-active' : ''}`}
-                onClick={() => setSelectedAction(action)}
-              >
-                {actionLabels[action]}
-              </button>
-            ))}
+            <button
+              className="action-pill"
+              disabled={offline || !!runningActionKeys.kick}
+              onClick={onKick}
+              title={actionDescriptions.kick}
+            >
+              {runningActionKeys.kick ? '處理中...' : actionLabels.kick}
+            </button>
+            <button
+              className="action-pill"
+              disabled={offline || !!runningActionKeys.assignRole}
+              onClick={onAssign}
+              title={actionDescriptions.assignRole}
+            >
+              {runningActionKeys.assignRole ? '處理中...' : actionLabels.assignRole}
+            </button>
           </div>
         </details>
       ) : null}
-      {needsInput ? (
-        <label className="block mt-4 text-sm">
-          {selectedAction === 'gift'
-            ? '禮物'
-            : selectedAction === 'leaveMessage'
-              ? '留言內容'
-              : selectedAction === 'announce'
-                ? '公告內容'
-                : '社團名稱'}
-          <input
-            className="mt-2 w-full bg-brown-700 text-brown-100 border border-brown-500 p-2"
-            value={actionText}
-            onChange={(event) => setActionText(event.target.value)}
-            placeholder={
-              selectedAction === 'gift'
-                ? '例如：熱可可'
-                : selectedAction === 'leaveMessage'
-                  ? '例如：今天看起來有點累，明天再聊也沒關係。'
-                  : selectedAction === 'announce'
-                    ? '例如：今天放學後開學生會旁聽'
-                    : '例如：AI 世界研究社'
-            }
-          />
-        </label>
-      ) : null}
-      <button
-        className="mt-5 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto w-full disabled:opacity-60"
-        onClick={onPlayerAction}
-        disabled={
-          !!runningActionKeys[selectedAction] ||
-          playerIdentity?.status !== 'online' ||
-          (!targetName && selectedAction !== 'observe' && selectedAction !== 'announce' && selectedAction !== 'createClub')
-        }
-      >
-        <div className="h-full bg-clay-700 text-center">
-          <span>
-            {playerIdentity?.status !== 'online'
-              ? '請先讓 Alan 加入'
-              : runningActionKeys[selectedAction]
-                ? '處理中...'
-                : `執行：${actionLabels[selectedAction]}`}
-          </span>
-        </div>
-      </button>
     </section>
   );
 }
@@ -2016,7 +2020,7 @@ function ClubRegistryPanel({
       </p>
       {String(club.nameZh ?? '').includes('AI') ? (
         <button className="action-pill mt-2 w-full" onClick={onPrepareAiClubRules}>
-          準備公告 AI 社邊界
+          準備今日關心提醒
         </button>
       ) : null}
     </article>
@@ -2064,7 +2068,10 @@ function SocialCharacterCard({
   name: string;
   emotion?: any;
   concern?: string;
-  presence?: { availabilityZh?: string; quietLineZh?: string };
+  presence?: {
+    availabilityZh?: string;
+    quietLineZh?: string;
+  };
   compact?: boolean;
 }) {
   const visibleConcern = presence?.quietLineZh ?? concern ?? defaultConcern(name);
@@ -2075,20 +2082,10 @@ function SocialCharacterCard({
         <span className="giis-availability-pill">{presence.availabilityZh}</span>
       ) : null}
       <div className="social-character-card-line">
-        <span className="social-mood" aria-hidden="true">
-          {moodIcon(emotion)}
-        </span>
         <span>「{displayTextWithNames(visibleConcern)}」</span>
       </div>
     </div>
   );
-}
-
-function moodIcon(emotion?: string) {
-  if (emotion === 'smiling') return '🙂';
-  if (emotion === 'worried') return '😟';
-  if (emotion === 'serious') return '😐';
-  return '•';
 }
 
 function characterConcern(name: string, socialState: any, schoolState: any[]) {
@@ -2105,7 +2102,7 @@ function characterConcern(name: string, socialState: any, schoolState: any[]) {
       return '深夜未眠，正在整理校長簡報。';
     }
     if (displayName === '曹操' && emotionState.statusZh === '深夜未眠') {
-      return '可能仍在思考學生會布局。';
+      return '可能仍在思考明天誰需要一個能坐下來說話的位置。';
     }
     return emotionState.statusZh;
   }
@@ -2189,7 +2186,7 @@ function UmiBriefingCard({
           <div className="min-w-0 flex-1">
             <b>海的校長簡報</b>
             <p className="mt-1 text-brown-200">
-              {displayTextWithNames(briefing?.majorAlerts?.[0] ?? '目前沒有新的重大事件。')}
+              {displayTextWithNames(briefing?.majorAlerts?.[0] ?? '目前沒有新的今日焦點。')}
             </p>
           </div>
         </div>
@@ -2229,16 +2226,16 @@ function UmiBriefingCard({
         fallback="你不在時沒有明顯的自主事件。"
       />
       <BriefingSection
-        title="重大提醒"
+        title="今日提醒"
         items={briefing?.majorAlerts}
-        fallback="目前沒有新的重大事件。"
+        fallback="目前沒有新的今日焦點。"
       />
       <BriefingSection
-        title="世界脈絡"
+        title="關係脈絡"
         items={briefing?.worldPatternInsights}
         fallback="目前世界還在累積早期模式。"
       />
-      <BriefingSection title="目前風險" items={briefing?.risks} fallback="目前沒有需要立刻處理的風險。" />
+      <BriefingSection title="今天留下的痕跡" items={briefing?.risks} fallback="目前沒有需要立刻處理的痕跡。" />
       <BriefingSection title="海的建議" items={briefing?.suggestions} fallback="先觀察，再決定下一步。" />
       <UmiSuggestedActions
         tasks={suggestedTasks}
@@ -2720,7 +2717,7 @@ function DebugPanel({
             目前：{alanBehaviorProfile?.freeDevelopmentMode ? '自由發展模式開啟' : '自由發展模式關閉'}
           </p>
           <p className="text-brown-200">
-            關閉時，Away Alan 只會留下低風險的觀察與習慣回聲，不會替你公告、創社、建立派系或做不可逆決策。
+            關閉時，Away Alan 只會留下低風險的觀察與習慣回聲，不會替你公告、創社、建立大型關係線或做不可逆決策。
           </p>
           <p className="text-brown-200">
             開啟後，Alan 將開始以這個世界學到的人格自由發展；世界可能會開始改變你未預料到的事情。
