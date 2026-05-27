@@ -1,6 +1,138 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-26 (Asuna golden-line allowlist + audit follow-ups)
+Last updated: 2026-05-26 (UI pass + portrait fix + backend audit follow-ups)
+
+## 2026-05-26 UI Pass + Portrait Fix + Backend Audit Follow-Ups
+
+Long session. Three streams of work, four UI commits, one portrait
+regression fix, two backend hardening fixes pulled from a fresh audit.
+
+### UI work (player walkthrough → ship)
+
+Goal: cut visible friction for players who pick up the project without
+context. Findings came from a deliberate "play as Alan, what feels
+broken?" review.
+
+Done:
+
+- [10ffb58] **Left column 海 / 今日 / 日程 in one pill row.**
+  Used to stack vertically and eat vertical space; now a horizontal
+  `.giis-left-pill-row` with the expanded panel rendering below.
+  Also dropped the "聚焦 Alan" mini-button (the camera already
+  auto-follows Alan on every position change, so it was redundant).
+
+- [727e575] **Sharper presence button + bottom-bar de-duplication.**
+  `進入校園 / 暫離校園` reframed as `接手 Alan / 放開 Alan` — the
+  button is about player control, not Alan's geography (he is
+  visible in the world either way). Filled-accent style when the
+  player is in control so the toggle state is visible at a glance.
+  Bottom-bar status no longer repeats the topbar's time + view scene;
+  it now only surfaces "Alan 目前在：X" when Alan's location differs
+  from the current view.
+
+- [ec47ce2] **Character pills 6 → 3 + focus card popup.**
+  Trimmed the bottom character row from
+  `聊聊 / 關心 / 問傳聞 / 送禮 / 留訊息 / 邀請` to the three highest-
+  traffic actions (`聊聊 / 關心 / 邀請`); the other three moved under
+  the existing 更多互動 ghost button. The `.giis-focus-card` that
+  appears in the bottom-right on character selection now carries
+  action buttons (`說話 / 看資料`, or `前往 X / 看資料` when the
+  target is in a different scene) plus a close button, collapsing
+  the prior 3-click "select → drawer → 角色 tab → 開始說話" trap.
+
+- [5800bb9] **Period glyph + scene-switch as action + smart dialogue
+  tab + denser thread cards.**
+  Topbar shows a day/night glyph (🌅 / ☀️ / 🌆 / 🌙). Scene dropdown
+  reframed with an `→` arrow so it stops competing with the bold
+  title for the same scene name. Right-drawer dialogue tab now lands
+  on `歷史對話` when there is no active conversation (so the user sees
+  content, not empty state) and auto-promotes to `目前對話` only on
+  the transition from absent → present; orange dot badge on
+  `目前對話` when an active conversation exists but the user is on a
+  different tab. Thread cards in history lost two lines of redundant
+  text (summary no longer repeats participants, footer collapsed to
+  turn count).
+
+### Portrait regression fix
+
+- [7d1a733] **portrait paths now include `/ai-town` base prefix.**
+  Root cause: `vite.config.ts` sets `base: '/ai-town'`, so any
+  absolute asset URL referenced from React must include that
+  prefix. `data/characters.ts` already does this for sprites
+  (`/ai-town/assets/...`), but `data/characterVisuals.ts` was
+  emitting `/portraits/<slug>.png` — Vite returns 404 → the
+  CharacterPortrait component walks portraitPaths candidates,
+  every one fails, falls back to the silhouette/eye/mouth SVG.
+  Looked like "characters broken." Extracted `PORTRAIT_BASE`
+  constant + comment so the next portrait add does not regress
+  again.
+
+### Backend audit follow-ups (this commit)
+
+A parallel agent audit flagged three critical concerns. Two were
+already addressed by tonight's earlier hardening; one was not:
+
+- **`memoryContinuityScore` in `conversation_metrics.ts:403` had the
+  same self-fulfilling pattern** I fixed in `runSoulTriadEval` last
+  commit. The metric was crediting `concreteHits >= 2` on its own
+  (0.68), but those concrete cues (Alan / 簡報 / 杯子 / 清單 / ...)
+  are exactly the vocabulary the residue writer plants in memory.
+  Updated to require both a temporal callback marker AND a concrete
+  cue, plus the `(?:海|真晝|明日奈)還記得` residue-template parrot
+  penalty (0.3).
+
+- **`getReflectionMemories` now bounded.** `args.numberOfItems` was
+  passed directly to `.take(...)` without a cap. Real caller passes
+  100; clamped to `[1, 200]` defensively.
+
+### Backend audit findings deferred to follow-up
+
+Not done tonight; tracking here so they do not get lost:
+
+1. **Pilot-pair detection should live in a single registry.**
+   `convex/aiTown/agent.ts` hardcodes Umi/Mahiru as `p:0`/`p:707`,
+   while `convex/agent/conversation.ts` uses display names and env
+   flags. If the world is reseeded or player IDs shift, hardcoded
+   IDs break silently and conversations route as non-pilot
+   (triggering lifecycle exits instead of cloud generation). Fix:
+   one `convex/agent/pilotRegistry.ts` exporting the canonical
+   pair list, consumed by both callers.
+
+2. **`isGeneratedFallbackText` should split into two functions.**
+   Currently mixes system abort markers (`[ABORT_CONVERSATION]`,
+   `[LEAVE]`, `pilot LLM unavailable`) with deterministic-template
+   Chinese phrases (`但這次我想先說清楚`, etc.). The contract is
+   muddled. Cleanest: `isSystemAbortMarker(text)` for markers and
+   `isDeterministicTemplatePhrase(text)` for content. Pilot abort
+   guard would call both explicitly. The Asuna golden-line
+   allowlist (commit 90bb19d) is a stop-gap; a clean split would
+   make the contract unambiguous.
+
+3. **`recentConversationEvalData` (school.ts:6287+) has an N+1
+   pattern.** Per participant, fetches 40 recent memories to build
+   a map. For 100 recent conversations that is 4000 memory reads.
+   Add a memoryCacheByPlayerId map at the function scope so each
+   participant is fetched once per call.
+
+4. **Residue write guards lack symmetry.** `RESIDUE_PILOT_NAMES` in
+   `memory.ts` and `characterSoulPilotPair` checks in
+   `conversation.ts` could drift. Pilot registry (#1) would
+   subsume this.
+
+5. **`memoryInfluenceScore` separate from `memoryContinuityScore`.**
+   Today's metric measures memory-awareness framing (do they say
+   "上次"?), not memory-driven behavior (did Mahiru linger because
+   she remembered Umi sounded tired?). The latter is what we
+   actually care about. Designing this metric needs sample data,
+   so defer until 3+ fresh post-fix samples exist.
+
+### Fresh-sample rule reminder
+
+Still in force. No prompt or memory behavior tuning until at least
+3 fresh post-fix triad samples exist. The deferred items above are
+infrastructure / contract fixes, not tuning — those can proceed once
+prioritized. The `eval:soul-triad` runner now prints a warning when
+sample count < 3 to keep this rule visible.
 
 ## 2026-05-26 Asuna Golden-Line Allowlist + Audit Follow-Ups
 

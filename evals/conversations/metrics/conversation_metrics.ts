@@ -401,6 +401,12 @@ function emotionalSloganScore(testCase: ConversationEvalCase): MetricResult {
 }
 
 function memoryContinuityScore(testCase: ConversationEvalCase): MetricResult {
+  // Anti-self-fulfill: the same concrete cues this metric rewards (Alan /
+  // 簡報 / 杯子 / 清單 / ...) are exactly the vocabulary the residue
+  // writer plants in memory. If we credit concrete-cues alone we are
+  // measuring our own residue input. Require BOTH a temporal callback
+  // marker AND a concrete cue. Also penalize residue-template parroting.
+  // Mirrors the fix applied to runSoulTriadEval.applyMemoryContinuityScores.
   const text = transcriptContentOnly(testCase);
   const continuityHits = countMatches(
     text,
@@ -410,10 +416,22 @@ function memoryContinuityScore(testCase: ConversationEvalCase): MetricResult {
     text,
     /Alan|簡報|清單|杯子|吃飯|肩膀|責任|負責|交接|少接|不用急|停一下|checklist|窗邊|午餐/g,
   );
-  const score = clamp01(continuityHits ? 0.55 + Math.min(0.35, concreteHits * 0.1) : concreteHits >= 2 ? 0.68 : 0.55);
+  const residueParrot = /(?:海|真晝|明日奈)還記得/.test(text);
+  const score = clamp01(
+    residueParrot
+      ? 0.3
+      : continuityHits && concreteHits
+        ? 0.55 + Math.min(0.3, concreteHits * 0.1)
+        : continuityHits
+          ? 0.55
+          : 0.5,
+  );
   return metric('memoryContinuityScore', score, [
+    residueParrot ? 'residue template parroted in dialogue (anti-continuity)' : '',
     continuityHits ? `${continuityHits} continuity callback(s)` : 'no explicit continuity callback',
     concreteHits ? `${concreteHits} concrete memory cue(s)` : '',
+    !residueParrot && continuityHits && !concreteHits ? 'callback marker without concrete cue' : '',
+    !residueParrot && !continuityHits && concreteHits ? 'concrete cue without callback marker (vocabulary reuse only)' : '',
   ]);
 }
 

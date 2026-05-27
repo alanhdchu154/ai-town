@@ -950,11 +950,13 @@ export const getReflectionMemories = internalQuery({
     if (!playerDescription) {
       throw new Error(`Player description for ${args.playerId} not found`);
     }
+    // Bounded take so a misconfigured caller cannot fetch the whole
+    // memory table for a player. Real caller passes 100; cap defensively.
     const memories = await ctx.db
       .query('memories')
       .withIndex('playerId', (q) => q.eq('playerId', player.id))
       .order('desc')
-      .take(args.numberOfItems);
+      .take(Math.min(Math.max(args.numberOfItems, 1), 200));
 
     const lastReflection = await ctx.db
       .query('memories')
