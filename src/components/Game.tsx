@@ -884,8 +884,57 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
 
           {selectedName ? (
             <div className="giis-focus-card">
-              <CharacterPortrait name={selectedName} size="lg" />
-              <p className="mt-2 text-sm text-slate-200">「{selectedStatus}。」</p>
+              <button
+                className="giis-focus-card-close"
+                onClick={() => setSelectedElement(undefined)}
+                aria-label="取消選擇"
+                title="取消選擇"
+              >
+                ×
+              </button>
+              <div className="giis-focus-card-head">
+                <CharacterPortrait name={selectedName} size="lg" />
+                <div className="giis-focus-card-meta">
+                  <b>{displayAgentName(selectedName)}</b>
+                  {selectedLocation?.labelZh ? (
+                    <small>
+                      在 {selectedLocation.labelZh}
+                      {targetDistanceStatus === '附近'
+                        ? '・附近'
+                        : targetDistanceStatus === '不在同場景'
+                          ? '・不在同場景'
+                          : ''}
+                    </small>
+                  ) : null}
+                </div>
+              </div>
+              <p className="giis-focus-card-status">「{selectedStatus}。」</p>
+              <div className="giis-focus-card-actions">
+                {targetDistanceStatus === '不在同場景' ? (
+                  <button
+                    className="giis-action-pill giis-action-pill-primary"
+                    title={`前往 ${displayAgentName(selectedName)} 所在的場景`}
+                    onClick={focusSelectedTarget}
+                  >
+                    前往 {displayAgentName(selectedName)}
+                  </button>
+                ) : (
+                  <button
+                    className="giis-action-pill giis-action-pill-primary"
+                    title={ACTION_TOOLTIPS.chat}
+                    onClick={() => runQuickAction('chat')}
+                  >
+                    說話
+                  </button>
+                )}
+                <button
+                  className="giis-action-pill"
+                  title="打開角色資料 / 完整互動選項"
+                  onClick={() => openPanelTab('characters')}
+                >
+                  看資料
+                </button>
+              </div>
             </div>
           ) : null}
           {floatingActionSummary && panelCollapsed && !isConversationMode ? (
@@ -960,32 +1009,13 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                 </button>
                 <button
                   className="giis-action-pill"
-                  title={ACTION_TOOLTIPS.askRumor}
-                  onClick={() => runQuickAction('askRumor')}
-                >
-                  問傳聞
-                </button>
-                <button
-                  className="giis-action-pill"
-                  title={ACTION_TOOLTIPS.gift}
-                  onClick={() => runQuickAction('gift')}
-                >
-                  送禮
-                </button>
-                <button
-                  className="giis-action-pill"
-                  title={ACTION_TOOLTIPS.leaveMessage}
-                  onClick={() => runQuickAction('leaveMessage')}
-                >
-                  留訊息
-                </button>
-                <button
-                  className="giis-action-pill"
                   title={ACTION_TOOLTIPS.invite}
                   onClick={() => runQuickAction('invite')}
                 >
                   邀請
                 </button>
+                {/* 問傳聞 / 送禮 / 留訊息 live under 更多互動 to keep the
+                    primary action row scannable. */}
               </>
             ) : null}
             <span className="giis-action-divider" aria-hidden="true" />

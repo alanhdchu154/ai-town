@@ -397,11 +397,68 @@ body {
   border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 45%, transparent);
   border-radius: 18px;
   bottom: 1.25rem;
-  max-width: min(24rem, calc(100% - 2rem));
-  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(22rem, calc(100% - 2rem));
+  min-width: 14rem;
+  padding: 0.7rem 0.8rem 0.65rem;
   position: absolute;
   right: 1rem;
   z-index: 3;
+}
+
+.giis-focus-card-close {
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 0.2rem;
+  position: absolute;
+  right: 0.4rem;
+  top: 0.4rem;
+}
+
+.giis-focus-card-close:hover {
+  color: #f8fafc;
+}
+
+.giis-focus-card-head {
+  align-items: center;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.giis-focus-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.giis-focus-card-meta b {
+  color: #f8fafc;
+  font-size: 0.98rem;
+}
+
+.giis-focus-card-meta small {
+  color: #bae6fd;
+  font-size: 0.76rem;
+}
+
+.giis-focus-card-status {
+  color: #e0f2fe;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.giis-focus-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .giis-panel-is-collapsed .giis-focus-card {
