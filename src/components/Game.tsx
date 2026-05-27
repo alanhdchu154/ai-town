@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, KeyboardEvent } from 'react';
 import PixiGame from './PixiGame.tsx';
 
 import { useElementSize } from 'usehooks-ts';
@@ -32,7 +33,7 @@ const ROOM_VIEW_ASPECT = ROOM_VIEW_WIDTH_TILES / ROOM_VIEW_HEIGHT_TILES;
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
 type RightPanelTab = 'action' | 'dialogue' | 'characters' | 'schedule' | 'debug';
-type CampusFeedFilter = '全部' | '未讀' | '重大事件' | '傳聞' | '關係變化' | '對話' | '場景事件';
+type CampusFeedFilter = '全部' | '未讀' | '今日焦點' | '傳聞' | '關係事件' | '對話' | '場景事件';
 type CampusNotificationItem = {
   id: string;
   text: string;
@@ -42,8 +43,26 @@ type CampusNotificationItem = {
   timestamp?: string;
   priority: number;
 };
+type FloatingActionSummary = {
+  yourAction: string;
+  characterReactions: string;
+  worldChanges: string;
+  futureImplications: string;
+  sourceLabel?: string;
+  storyDigest?: Array<{
+    happenedZh: string;
+    changedZh: string;
+    whyItMattersZh: string;
+    suggestedActionZh: string;
+  }>;
+};
 
-export default function Game() {
+type GameProps = {
+  view?: 'world' | 'conversations';
+  onChangeView?: (next: 'world' | 'conversations') => void;
+};
+
+export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const convex = useConvex();
   const [selectedElement, setSelectedElement] = useState<{
     kind: 'player';
@@ -57,6 +76,9 @@ export default function Game() {
   );
   const [campusFeedCollapsed, setCampusFeedCollapsed] = useState(true);
   const [campusFeedFullView, setCampusFeedFullView] = useState(false);
+  const [quickTextAction, setQuickTextAction] = useState<QuickActionType>();
+  const [quickText, setQuickText] = useState('');
+  const [floatingActionSummary, setFloatingActionSummary] = useState<FloatingActionSummary>();
   const [schedulePanelCollapsed, setSchedulePanelCollapsed] = useState(
     () => globalThis.localStorage?.getItem('giis:schedule-panel-collapsed') !== '0',
   );
@@ -149,6 +171,12 @@ export default function Game() {
   }, [sceneMessage]);
 
   useEffect(() => {
+    if (!floatingActionSummary) return;
+    const timeout = window.setTimeout(() => setFloatingActionSummary(undefined), 6500);
+    return () => window.clearTimeout(timeout);
+  }, [floatingActionSummary]);
+
+  useEffect(() => {
     const openUmiPanel = () => {
       setCampusFeedCollapsed(true);
       setCampusFeedFullView(false);
@@ -192,11 +220,17 @@ export default function Game() {
       const detail = (event as CustomEvent<{ message?: string }>).detail;
       if (detail?.message) setSceneMessage(detail.message);
     };
+    const onActionResult = (event: Event) => {
+      const detail = (event as CustomEvent<FloatingActionSummary>).detail;
+      if (detail?.yourAction) setFloatingActionSummary(detail);
+    };
     window.addEventListener('giis:action-cinematic', onActionCinematic);
     window.addEventListener('giis:scene-message', onSceneMessage);
+    window.addEventListener('giis:action-result', onActionResult);
     return () => {
       window.removeEventListener('giis:action-cinematic', onActionCinematic);
       window.removeEventListener('giis:scene-message', onSceneMessage);
+      window.removeEventListener('giis:action-result', onActionResult);
     };
   }, [alanPlayerForFocus?.position?.x, alanPlayerForFocus?.position?.y]);
 
@@ -291,6 +325,7 @@ export default function Game() {
     .map((player) => {
       const name = game.playerDescriptions.get(player.id)?.name;
       if (!name || name === 'Alan') return null;
+      const presence = campusSocialState?.emotions?.find((item: any) => item.name === name);
       const location = nearestSchoolLocation(player.position);
       const destination = player.pathfinding?.destination
         ? nearestSchoolLocation(player.pathfinding.destination)
@@ -302,7 +337,8 @@ export default function Game() {
         locationZh: location?.labelZh ?? '位置調整中',
         statusZh: player.pathfinding
           ? `正在前往 ${destination?.labelZh ?? '目的地'}`
-          : '停留中',
+          : presence?.availabilityZh ?? '停留中',
+        quietLineZh: presence?.quietLineZh,
       };
     })
     .filter((entry): entry is NonNullable<typeof entry> => !!entry)
@@ -342,7 +378,7 @@ export default function Game() {
     : undefined;
   const selectedStatus = selectedPlayer?.pathfinding
     ? `正在前往${selectedDestination?.labelZh ?? '目的地'}`
-    : selectedPlayer?.activity?.description ?? '正在觀察校園局勢';
+    : selectedPlayer?.activity?.description ?? '正在觀察今天的校園心情';
   const alanDestination = alanPlayer?.pathfinding?.destination
     ? nearestSchoolLocation(alanPlayer.pathfinding.destination)
     : undefined;
@@ -363,7 +399,7 @@ export default function Game() {
     .filter(Boolean);
   const campusFeedItems: CampusNotificationItem[] = [
     ...(campusSocialState?.dailyFocus ?? []).map((item: any, index: number) => ({
-      id: `daily-focus-${index}`,
+      id: feedItemId('daily-focus', item, clockState?.clock?.day ?? 'unknown-day', index),
       text: typeof item === 'string' ? item : item.summaryZh ?? item.descriptionZh ?? item.titleZh,
       detail:
         typeof item === 'string'
@@ -373,7 +409,7 @@ export default function Game() {
             item.reasonZh ??
             item.needsAlanActionZh ??
             '今天值得 Alan 先留意的校園焦點。',
-      category: '重大事件' as const,
+      category: '今日焦點' as const,
       createdAt: feedCreatedAt(item, Date.now() - index),
       timestamp: clockState?.combinedLabelZh ?? clockState?.realTimeLabelZh,
       priority: 100 - index,
@@ -382,11 +418,13 @@ export default function Game() {
       id: String(event.eventId ?? event._id ?? `event-${event.descriptionZh}`),
       text: event.descriptionZh,
       detail:
-        event.whyItMattersZh ??
-        event.futureImplicationsZh ??
-        event.reactionDialogueZh ??
-        event.outcomeZh ??
-        event.resultZh,
+        event.type === 'chatMessage'
+          ? event.interpretationZh ?? 'Alan 親自說了一句話；這只是今日紀錄，不等於角色已寫入情緒殘留。'
+          : event.whyItMattersZh ??
+            event.futureImplicationsZh ??
+            event.reactionDialogueZh ??
+            event.outcomeZh ??
+            event.resultZh,
       category: eventCategory(event),
       createdAt: feedCreatedAt(event),
       timestamp: event.timestampLabelZh ?? event.createdAtLabelZh ?? event.createdAtRealLabelZh,
@@ -440,17 +478,41 @@ export default function Game() {
     if (import.meta.env.DEV) {
       console.debug('[GIIS timing]', { action: actionType, phase: 'quickActionClick', ms: 0 });
     }
-    const needsText =
-      actionType === 'gift' ||
-      actionType === 'leaveMessage' ||
-      actionType === 'announce' ||
-      actionType === 'createClub';
+    const needsText = QUICK_TEXT_ACTIONS.has(actionType);
     if (needsText) {
-      setPanelCollapsed(false);
+      const needsTarget = QUICK_TARGET_TEXT_ACTIONS.has(actionType);
+      if (needsTarget && !selectedName) {
+        setSceneMessage('先選一位角色，再留下這個小行動。');
+        return;
+      }
+      setQuickTextAction(actionType);
+      setQuickText('');
+      window.dispatchEvent(
+        new CustomEvent('giis:quick-action', { detail: { actionType, execute: false } }),
+      );
+      return;
+    }
+    setQuickTextAction(undefined);
+    setQuickText('');
+    window.dispatchEvent(
+      new CustomEvent('giis:quick-action', { detail: { actionType, execute: true } }),
+    );
+  };
+  const submitQuickTextAction = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!quickTextAction) return;
+    const text = quickText.trim();
+    if (!text) {
+      setSceneMessage(`${QUICK_ACTION_LABELS[quickTextAction]}需要一句短內容。`);
+      return;
     }
     window.dispatchEvent(
-      new CustomEvent('giis:quick-action', { detail: { actionType, execute: !needsText } }),
+      new CustomEvent('giis:quick-action', {
+        detail: { actionType: quickTextAction, execute: true, text },
+      }),
     );
+    setQuickTextAction(undefined);
+    setQuickText('');
   };
   const handleWorldPanelClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!(event.target instanceof HTMLCanvasElement)) return;
@@ -529,8 +591,6 @@ export default function Game() {
       });
     }
   };
-  const focusAlan = () =>
-    switchSceneAndFocus(alanLocation, alanPlayer?.position, '已聚焦 Alan', 2.08);
   const focusSelectedTarget = () => {
     if (!selectedPlayer) {
       setSceneMessage('請先選擇角色');
@@ -570,6 +630,21 @@ export default function Game() {
           : periodLabel === '下午'
             ? 'period-afternoon'
             : 'period-day';
+  const playFlowSteps = [
+    { label: '進入', state: humanPlayer ? 'done' : 'active' },
+    { label: '選人', state: selectedName ? 'done' : humanPlayer ? 'active' : 'pending' },
+    {
+      label: '靠近',
+      state:
+        !selectedName
+          ? 'pending'
+          : targetDistanceStatus === '附近' || isConversationMode
+            ? 'done'
+            : 'active',
+    },
+    { label: '對話', state: isConversationMode ? 'active' : selectedName ? 'pending' : 'pending' },
+    { label: '回顧', state: !isConversationMode && selectedName ? 'active' : 'pending' },
+  ] as const;
 
   return (
     <>
@@ -590,13 +665,33 @@ export default function Game() {
         }`}
       >
         <div className="giis-topbar">
-          <div>
+          <div className="giis-topbar-title">
             <span className="giis-kicker">GIIS Underworld</span>
             <b>{currentScene.labelZh}｜{periodLabel}</b>
             <p className="giis-topbar-line" title={timeHoverLabel}>
               Alan｜{hudTimeLabel}
             </p>
           </div>
+          {onChangeView ? (
+            <div className="giis-view-switch" role="tablist" aria-label="切換視圖">
+              <button
+                role="tab"
+                aria-selected={view === 'world'}
+                className={view === 'world' ? 'active' : ''}
+                onClick={() => onChangeView('world')}
+              >
+                世界
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === 'conversations'}
+                className={view === 'conversations' ? 'active' : ''}
+                onClick={() => onChangeView('conversations')}
+              >
+                對話
+              </button>
+            </div>
+          ) : null}
           <label className="giis-scene-select">
             前往場景：
             <select
@@ -624,71 +719,134 @@ export default function Game() {
         </div>
 
         <div className="giis-left-column">
-          <LeftUmiPanel
-            collapsed={umiPanelCollapsed}
-            tasks={umiSuggestions}
-            dailyFocus={campusSocialState?.dailyFocus ?? []}
-            today={campusSocialState?.today}
-            briefing={umiBriefing?.briefing}
-            umiEmotion={campusSocialState?.emotions?.find((item: any) => item.name === 'Umi')?.currentEmotion}
-            onCollapse={() => setUmiPanelCollapsed(true)}
-            onExpand={() => {
-              setUmiPanelCollapsed(false);
-              setCampusFeedCollapsed(true);
-              setSchedulePanelCollapsed(true);
-            }}
-            onOpenDialogue={() => {
-              window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
-              openPanelTab('dialogue');
-            }}
-          />
-
-          <CampusNotificationPanel
-            collapsed={campusFeedCollapsed}
-            items={campusFeedItems}
-            filter={campusFeedFilter}
-            fullView={campusFeedFullView}
-            readIds={readCampusFeedIds}
-            unreadCount={unreadCampusFeedCount}
-            onToggle={() =>
-              setCampusFeedCollapsed((value) => {
-                if (!value) {
+          {/* Pill row: 海 / 今日 / 日程 sit side-by-side when collapsed.
+              When any panel is expanded, that panel renders below; the
+              other two pills stay visible in this row. */}
+          <div className="giis-left-pill-row">
+            {umiPanelCollapsed ? (
+              <button
+                className="giis-left-pill giis-left-pill-umi"
+                onClick={() => {
+                  setUmiPanelCollapsed(false);
+                  setCampusFeedCollapsed(true);
+                  setSchedulePanelCollapsed(true);
+                }}
+              >
+                海
+              </button>
+            ) : null}
+            {campusFeedCollapsed ? (
+              <button
+                className="giis-left-pill giis-left-pill-feed"
+                onClick={() => {
+                  setUmiPanelCollapsed(true);
+                  setSchedulePanelCollapsed(true);
+                  setCampusFeedCollapsed(false);
                   setCampusFeedFullView(false);
-                  return true;
-                }
+                }}
+                onDoubleClick={(event) => {
+                  event.preventDefault();
+                  setUmiPanelCollapsed(true);
+                  setSchedulePanelCollapsed(true);
+                  setCampusFeedCollapsed(false);
+                  setCampusFeedFullView(true);
+                }}
+                title="雙擊展開全部校園動態"
+              >
+                今日
+                {unreadCampusFeedCount ? (
+                  <span className="giis-unread-badge">{unreadCampusFeedCount}</span>
+                ) : null}
+              </button>
+            ) : null}
+            {schedulePanelCollapsed ? (
+              <button
+                className="giis-left-pill giis-left-pill-schedule"
+                onClick={() => {
+                  setSchedulePanelCollapsed(false);
+                  setUmiPanelCollapsed(true);
+                  setCampusFeedCollapsed(true);
+                }}
+              >
+                日程
+                {scheduleEntries.length ? (
+                  <span className="giis-schedule-count">{scheduleEntries.length}</span>
+                ) : null}
+              </button>
+            ) : null}
+          </div>
+
+          {!umiPanelCollapsed && (
+            <LeftUmiPanel
+              collapsed={false}
+              tasks={umiSuggestions}
+              dailyFocus={campusSocialState?.dailyFocus ?? []}
+              today={campusSocialState?.today}
+              briefing={umiBriefing?.briefing}
+              umiEmotion={campusSocialState?.emotions?.find((item: any) => item.name === 'Umi')?.currentEmotion}
+              onCollapse={() => setUmiPanelCollapsed(true)}
+              onExpand={() => {
+                setUmiPanelCollapsed(false);
+                setCampusFeedCollapsed(true);
+                setSchedulePanelCollapsed(true);
+              }}
+              onOpenDialogue={() => {
+                window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
+                openPanelTab('dialogue');
+              }}
+            />
+          )}
+
+          {!campusFeedCollapsed && (
+            <CampusNotificationPanel
+              collapsed={false}
+              items={campusFeedItems}
+              filter={campusFeedFilter}
+              fullView={campusFeedFullView}
+              readIds={readCampusFeedIds}
+              unreadCount={unreadCampusFeedCount}
+              onToggle={() =>
+                setCampusFeedCollapsed((value) => {
+                  if (!value) {
+                    setCampusFeedFullView(false);
+                    return true;
+                  }
+                  setUmiPanelCollapsed(true);
+                  setSchedulePanelCollapsed(true);
+                  return false;
+                })
+              }
+              onShowAll={() => {
                 setUmiPanelCollapsed(true);
                 setSchedulePanelCollapsed(true);
-                return false;
-              })
-            }
-            onShowAll={() => {
-              setUmiPanelCollapsed(true);
-              setSchedulePanelCollapsed(true);
-              setCampusFeedCollapsed(false);
-              setCampusFeedFullView(true);
-            }}
-            onSummaryView={() => setCampusFeedFullView(false)}
-            onFilterChange={setCampusFeedFilter}
-            onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
-            onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
-          />
+                setCampusFeedCollapsed(false);
+                setCampusFeedFullView(true);
+              }}
+              onSummaryView={() => setCampusFeedFullView(false)}
+              onFilterChange={setCampusFeedFilter}
+              onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
+              onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
+            />
+          )}
 
-          <LeftSchedulePanel
-            collapsed={schedulePanelCollapsed}
-            entries={scheduleEntries}
-            periodLabel={periodLabel}
-            onCollapse={() => setSchedulePanelCollapsed(true)}
-            onExpand={() => {
-              setSchedulePanelCollapsed(false);
-              setUmiPanelCollapsed(true);
-              setCampusFeedCollapsed(true);
-            }}
-            onSelectCharacter={(name) =>
-              window.dispatchEvent(
-                new CustomEvent('giis:navigate-character', { detail: { name } }),
-              )
-            }
-          />
+          {!schedulePanelCollapsed && (
+            <LeftSchedulePanel
+              collapsed={false}
+              entries={scheduleEntries}
+              periodLabel={periodLabel}
+              onCollapse={() => setSchedulePanelCollapsed(true)}
+              onExpand={() => {
+                setSchedulePanelCollapsed(false);
+                setUmiPanelCollapsed(true);
+                setCampusFeedCollapsed(true);
+              }}
+              onSelectCharacter={(name) =>
+                window.dispatchEvent(
+                  new CustomEvent('giis:navigate-character', { detail: { name } }),
+                )
+              }
+            />
+          )}
         </div>
 
         <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
@@ -719,17 +877,6 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
               </Stage>
             </div>
           ) : null}
-          <div className="giis-camera-dock">
-            <button className="giis-mini-button" onClick={focusAlan}>
-              聚焦 Alan
-            </button>
-            <button className="giis-mini-button" onClick={focusSelectedTarget}>
-              聚焦選定角色
-            </button>
-            <button className="giis-mini-button" onClick={focusSceneCharacters}>
-              顯示本場景角色
-            </button>
-          </div>
           <div className="giis-move-hint">
             {alanMovementHint}
           </div>
@@ -741,9 +888,23 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
               <p className="mt-2 text-sm text-slate-200">「{selectedStatus}。」</p>
             </div>
           ) : null}
+          {floatingActionSummary && panelCollapsed && !isConversationMode ? (
+            <FloatingActionResult
+              summary={floatingActionSummary}
+              onDismiss={() => setFloatingActionSummary(undefined)}
+            />
+          ) : null}
         </div>
 
         <div className="giis-bottom-bar">
+          <div className="giis-play-flow" aria-label="目前互動流程">
+            {playFlowSteps.map((step, index) => (
+              <span key={step.label} className={`giis-play-step giis-play-step-${step.state}`}>
+                <b>{index + 1}</b>
+                {step.label}
+              </span>
+            ))}
+          </div>
           <div className="giis-bottom-status">
             <span className="giis-main-presence" title={timeHoverLabel}>
               Alan｜{alanPlaceLabel}｜{hudTimeLabel}
@@ -808,6 +969,13 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                 </button>
                 <button
                   className="giis-action-pill"
+                  title={ACTION_TOOLTIPS.leaveMessage}
+                  onClick={() => runQuickAction('leaveMessage')}
+                >
+                  留訊息
+                </button>
+                <button
+                  className="giis-action-pill"
                   title={ACTION_TOOLTIPS.invite}
                   onClick={() => runQuickAction('invite')}
                 >
@@ -824,6 +992,44 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
               更多互動
             </button>
           </div>
+          {quickTextAction ? (
+            <form className="giis-bottom-text-action" onSubmit={submitQuickTextAction}>
+              <label htmlFor="giis-quick-text-input">
+                {QUICK_ACTION_LABELS[quickTextAction]}
+                {QUICK_TARGET_TEXT_ACTIONS.has(quickTextAction) && selectedName
+                  ? `｜${displayAgentName(selectedName)}`
+                  : ''}
+              </label>
+              <input
+                id="giis-quick-text-input"
+                className="giis-bottom-text-input"
+                value={quickText}
+                autoFocus
+                maxLength={120}
+                placeholder={QUICK_ACTION_PLACEHOLDERS[quickTextAction]}
+                onChange={(event) => setQuickText(event.target.value)}
+                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                  if (event.key === 'Escape') {
+                    setQuickTextAction(undefined);
+                    setQuickText('');
+                  }
+                }}
+              />
+              <button className="giis-bottom-text-submit" type="submit">
+                送出
+              </button>
+              <button
+                className="giis-bottom-text-cancel"
+                type="button"
+                onClick={() => {
+                  setQuickTextAction(undefined);
+                  setQuickText('');
+                }}
+              >
+                取消
+              </button>
+            </form>
+          ) : null}
         </div>
 
         <div
@@ -872,6 +1078,53 @@ type QuickActionType =
   | 'kick'
   | 'assignRole';
 
+function FloatingActionResult({
+  summary,
+  onDismiss,
+}: {
+  summary: FloatingActionSummary;
+  onDismiss: () => void;
+}) {
+  const sourceLabel =
+    summary.sourceLabel ??
+    (summary.storyDigest?.length
+      ? '來源：世界自然發展'
+      : summary.yourAction.includes('海準備')
+        ? '來源：海的建議草稿'
+        : '來源：Alan 手動行動');
+  return (
+    <aside className="giis-floating-action-result" aria-live="polite">
+      <button
+        className="giis-floating-action-dismiss"
+        type="button"
+        aria-label="關閉行動結果"
+        onClick={onDismiss}
+      >
+        ×
+      </button>
+      {summary.storyDigest?.length ? (
+        <div className="giis-floating-story-digest">
+          <b>校園剛剛發生了 {summary.storyDigest.length} 件事</b>
+          <span>{displayTextWithNames(summary.storyDigest[0]?.happenedZh ?? '')}</span>
+        </div>
+      ) : null}
+      <span className="giis-floating-action-source">{sourceLabel}</span>
+      <p>
+        <b>你的行動：</b>
+        {displayTextWithNames(summary.yourAction)}
+      </p>
+      <p>
+        <b>角色反應：</b>
+        {displayTextWithNames(summary.characterReactions)}
+      </p>
+      <p>
+        <b>後續：</b>
+        {displayTextWithNames(summary.futureImplications)}
+      </p>
+    </aside>
+  );
+}
+
 function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string; actionType: QuickActionType }> {
   if (sceneId === 'dormitory') {
     return [
@@ -882,17 +1135,17 @@ function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string;
   }
   if (sceneId === 'studentCouncilRoom') {
     return [
-      { label: '討論', actionType: 'chat' },
-      { label: '質問', actionType: 'chat' },
-      { label: '旁聽', actionType: 'observe' },
-      { label: '公告', actionType: 'announce' },
+      { label: '談話', actionType: 'chat' },
+      { label: '道歉', actionType: 'leaveMessage' },
+      { label: '觀察', actionType: 'observe' },
+      { label: '提醒', actionType: 'announce' },
     ];
   }
   if (sceneId === 'aiClubRoom') {
     return [
-      { label: '實驗', actionType: 'createClub' },
-      { label: '討論規則', actionType: 'announce' },
-      { label: '開會', actionType: 'chat' },
+      { label: '吃飯', actionType: 'gift' },
+      { label: '聊天', actionType: 'chat' },
+      { label: '觀察', actionType: 'observe' },
     ];
   }
   if (sceneId === 'courtyard') {
@@ -908,6 +1161,45 @@ function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string;
     { label: '公告', actionType: 'announce' },
   ];
 }
+
+const QUICK_TEXT_ACTIONS: ReadonlySet<QuickActionType> = new Set([
+  'gift',
+  'leaveMessage',
+  'announce',
+  'createClub',
+]);
+
+const QUICK_TARGET_TEXT_ACTIONS: ReadonlySet<QuickActionType> = new Set(['gift', 'leaveMessage']);
+
+const QUICK_ACTION_LABELS: Record<QuickActionType, string> = {
+  observe: '觀察',
+  chat: '聊天',
+  gift: '送禮',
+  announce: '公告',
+  createClub: '建立社團',
+  advanceWorldTime: '自然發展',
+  checkIn: '關心近況',
+  leaveMessage: '留訊息',
+  askRumor: '問傳聞',
+  invite: '邀請',
+  kick: '挑釁',
+  assignRole: '任命',
+};
+
+const QUICK_ACTION_PLACEHOLDERS: Record<QuickActionType, string> = {
+  observe: '',
+  chat: '',
+  gift: '一句心意或小禮物，例如：熱茶，先休息一下。',
+  announce: '一句校園公告，例如：今天先看人，不先加功能。',
+  createClub: '社團名稱或主題，例如：午餐讀書會。',
+  advanceWorldTime: '',
+  checkIn: '',
+  leaveMessage: '留下一句短訊息，之後可能成為小記憶。',
+  askRumor: '',
+  invite: '',
+  kick: '',
+  assignRole: '',
+};
 
 const ACTION_TOOLTIPS: Record<QuickActionType, string> = {
   observe: '讀取 Alan 周圍場景、附近角色與近期事件。',
@@ -942,11 +1234,11 @@ function sceneBackgroundColor(sceneId: SchoolLocationId) {
 
 function topbarLifeStatus(scene: SchoolLocation, schedule?: string) {
   if (schedule && !schedule.includes('/')) return schedule;
-  if (scene.id === 'aiClubRoom') return 'AI 社團室：適合實驗、討論規則與整理想法。';
-  if (scene.id === 'studentCouncilRoom') return '學生會室：策略、秩序與校園張力容易浮出來。';
+  if (scene.id === 'aiClubRoom') return '餐廳：適合午餐、閒聊、尷尬沉默與小衝突。';
+  if (scene.id === 'studentCouncilRoom') return '校長室：海的簡報與邀請談話空間，其他角色不會單獨進來。';
   if (scene.id === 'dormitory') return '宿舍：適合安靜休息、私人對話與情緒整理。';
-  if (scene.id === 'courtyard') return '中央庭院：適合閒聊、傳聞與公開觀察。';
-  return '教室：適合課堂、公告與正式討論。';
+  if (scene.id === 'courtyard') return '中央庭院：適合閒聊、告白、秘密與公開觀察。';
+  return '教室：適合課堂、小考、作業與正式討論。';
 }
 
 function LeftSchedulePanel({
@@ -964,20 +1256,14 @@ function LeftSchedulePanel({
     displayName: string;
     locationZh: string;
     statusZh: string;
+    quietLineZh?: string;
   }>;
   periodLabel: string;
   onCollapse: () => void;
   onExpand: () => void;
   onSelectCharacter: (name: string) => void;
 }) {
-  if (collapsed) {
-    return (
-      <button className="giis-left-schedule-button" onClick={onExpand}>
-        日程
-        {entries.length ? <span className="giis-schedule-count">{entries.length}</span> : null}
-      </button>
-    );
-  }
+  if (collapsed) return null;
   return (
     <aside className="giis-left-schedule-panel">
       <div className="giis-left-panel-header">
@@ -1003,6 +1289,11 @@ function LeftSchedulePanel({
                 <span>{entry.locationZh}</span>
               </div>
               <small>{entry.statusZh}</small>
+              {entry.quietLineZh ? (
+                <small className="giis-schedule-behavior-line">
+                  {displayTextPreview(entry.quietLineZh, 48)}
+                </small>
+              ) : null}
             </button>
           ))
         ) : (
@@ -1027,7 +1318,7 @@ function LeftUmiPanel({
   collapsed: boolean;
   tasks: Array<{ title?: string; reason?: string; titleZh?: string }>;
   dailyFocus: any[];
-  today?: { moodZh?: string; rumorZh?: string; needsAlanActionZh?: string };
+  today?: { focus?: string; moodZh?: string; rumorZh?: string; needsAlanActionZh?: string };
   briefing?: any;
   umiEmotion?: any;
   onCollapse: () => void;
@@ -1039,20 +1330,14 @@ function LeftUmiPanel({
   const greeting = cleanUmiBriefingLine(
     briefing?.greetingZh ?? '歡迎回來，Alan。先看今天校園的氣氛，再決定要找誰聊。',
   );
-  if (collapsed) {
-    return (
-      <button className="giis-left-umi-button" onClick={onExpand}>
-        海
-      </button>
-    );
-  }
+  if (collapsed) return null;
   return (
     <aside className="giis-left-umi-panel">
       <div className="giis-left-panel-header">
         <CharacterPortrait name="Umi" size="md" emotion={umiEmotion} showName={false} />
         <div>
-          <span className="giis-kicker">海的簡報</span>
-          <h3>今日校園焦點</h3>
+          <span className="giis-kicker">海的判讀</span>
+          <h3>誰變了，為什麼</h3>
         </div>
         <button className="giis-icon-button" onClick={onCollapse} aria-label="收合海的簡報">
           ×
@@ -1072,9 +1357,9 @@ function LeftUmiPanel({
       {today ? (
         <section className="giis-today-brief">
           <b>今天的空氣</b>
-          <p>氣氛：{displayTextPreview(today.moodZh ?? '平靜')}</p>
-          <p>傳聞：{displayTextPreview(today.rumorZh ?? '目前沒有新的明確傳聞。')}</p>
-          <p>需要 Alan：{displayTextPreview(today.needsAlanActionZh ?? '先選一位角色好好聊。')}</p>
+          <p>變化：{displayTextPreview(today.focus ?? '目前沒有明顯變化。')}</p>
+          <p>流動的話：{displayTextPreview(today.rumorZh ?? '目前沒有新的明確傳聞。')}</p>
+          <p>Alan 下一步：{displayTextPreview(today.needsAlanActionZh ?? '先選一位角色好好聊。')}</p>
         </section>
       ) : null}
       <section>
@@ -1136,7 +1421,7 @@ function CampusNotificationPanel({
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
 }) {
-  const filters: CampusFeedFilter[] = ['全部', '未讀', '重大事件', '傳聞', '關係變化', '對話', '場景事件'];
+  const filters: CampusFeedFilter[] = ['全部', '未讀', '今日焦點', '傳聞', '關係事件', '對話', '場景事件'];
   const filteredItems = items
     .filter((item) => {
       if (filter === '全部') return true;
@@ -1144,22 +1429,7 @@ function CampusNotificationPanel({
       return item.category === filter;
     })
     .slice(0, fullView ? 80 : 8);
-  if (collapsed) {
-    return (
-      <button
-        className="giis-campus-feed-button"
-        onClick={onToggle}
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          onShowAll();
-        }}
-        title="雙擊展開全部校園動態"
-      >
-        校園動態
-        {unreadCount ? <span className="giis-unread-badge">{unreadCount}</span> : null}
-      </button>
-    );
-  }
+  if (collapsed) return null;
   return (
     <aside
       className={`giis-campus-notifications ${fullView ? 'giis-campus-notifications-full' : ''}`}
@@ -1168,8 +1438,8 @@ function CampusNotificationPanel({
     >
       <div className="giis-left-panel-header">
         <div>
-          <span className="giis-kicker">校園動態</span>
-          <h3>{fullView ? '全部訊息' : '最近發生的事'}</h3>
+          <span className="giis-kicker">今日校園動態</span>
+          <h3>{fullView ? '今天全部紀錄' : '今天紀錄'}</h3>
         </div>
         {unreadCount ? <span className="giis-unread-badge">{unreadCount}</span> : null}
         <button
@@ -1270,18 +1540,31 @@ function focusText(item: any) {
 
 function notificationCategory(item: any): CampusNotificationItem['category'] {
   if (item?.type === 'rumor_created') return '傳聞';
-  if (item?.type === 'relationship_change') return '關係變化';
-  if (item?.type === 'major_event' || item?.importance >= 8) return '重大事件';
+  if (item?.type === 'relationship_change') return '關係事件';
+  if (item?.type === 'major_event' || item?.importance >= 8) return '今日焦點';
   if (item?.type === 'conversation' || item?.type === 'conversation_created') return '對話';
   return '場景事件';
 }
 
 function eventCategory(event: any): CampusNotificationItem['category'] {
   if (event?.type === 'rumor_created' || event?.rumorId) return '傳聞';
-  if (event?.type === 'relationship_change') return '關係變化';
+  if (event?.type === 'relationship_change') return '關係事件';
   if (event?.type === 'conversationOutcome' || event?.type === 'chatMessage') return '對話';
-  if (event?.importance >= 8 || event?.type === 'dailyOpeningFocus') return '重大事件';
+  if (event?.importance >= 8 || event?.type === 'dailyOpeningFocus') return '今日焦點';
   return '場景事件';
+}
+
+function feedItemId(prefix: string, item: any, scope: string | number, index = 0) {
+  const text = focusText(item) || item?.contentZh || item?.descriptionZh || item?.titleZh || prefix;
+  return `${prefix}-${scope}-${index}-${stableTextHash(displayTextWithNames(String(text)))}`;
+}
+
+function stableTextHash(text: string) {
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(36);
 }
 
 function feedCreatedAt(item: any, fallback = Date.now()) {
