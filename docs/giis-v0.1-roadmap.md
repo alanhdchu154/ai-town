@@ -85,46 +85,177 @@ already addressed by tonight's earlier hardening; one was not:
   passed directly to `.take(...)` without a cap. Real caller passes
   100; clamped to `[1, 200]` defensively.
 
-### Backend audit findings deferred to follow-up
+### Backend Codex Handoffs (pickable in any order unless dep noted)
 
-Not done tonight; tracking here so they do not get lost:
+Each item below is sized for an independent Codex commit. They are
+infrastructure / contract fixes, NOT behavior tuning, so the
+fresh-sample rule does not block them. Take them in any order; #4
+depends on #1.
 
-1. **Pilot-pair detection should live in a single registry.**
-   `convex/aiTown/agent.ts` hardcodes Umi/Mahiru as `p:0`/`p:707`,
-   while `convex/agent/conversation.ts` uses display names and env
-   flags. If the world is reseeded or player IDs shift, hardcoded
-   IDs break silently and conversations route as non-pilot
-   (triggering lifecycle exits instead of cloud generation). Fix:
-   one `convex/agent/pilotRegistry.ts` exporting the canonical
-   pair list, consumed by both callers.
+---
 
-2. **`isGeneratedFallbackText` should split into two functions.**
-   Currently mixes system abort markers (`[ABORT_CONVERSATION]`,
-   `[LEAVE]`, `pilot LLM unavailable`) with deterministic-template
-   Chinese phrases (`但這次我想先說清楚`, etc.). The contract is
-   muddled. Cleanest: `isSystemAbortMarker(text)` for markers and
-   `isDeterministicTemplatePhrase(text)` for content. Pilot abort
-   guard would call both explicitly. The Asuna golden-line
-   allowlist (commit 90bb19d) is a stop-gap; a clean split would
-   make the contract unambiguous.
+#### Codex-B1 · Pilot-pair registry (high value, ~45 min)
 
-3. **`recentConversationEvalData` (school.ts:6287+) has an N+1
-   pattern.** Per participant, fetches 40 recent memories to build
-   a map. For 100 recent conversations that is 4000 memory reads.
-   Add a memoryCacheByPlayerId map at the function scope so each
-   participant is fetched once per call.
+**Problem.** Pilot-pair detection is split across two incompatible
+checks. [convex/aiTown/agent.ts:126-130](convex/aiTown/agent.ts#L126-L130)
+`isUmiMahiruPilotConversation` hardcodes `p:0` / `p:707`, but
+[convex/agent/conversation.ts](convex/agent/conversation.ts)
+`characterSoulPilotPair` uses display names + env flags. If the world
+is reseeded, player IDs shift, or a new pilot pair is added, the two
+checks drift silently — conversations route as non-pilot, hit
+deterministic lifecycle exits, then memory writes skip residue.
 
-4. **Residue write guards lack symmetry.** `RESIDUE_PILOT_NAMES` in
-   `memory.ts` and `characterSoulPilotPair` checks in
-   `conversation.ts` could drift. Pilot registry (#1) would
-   subsume this.
+**Files.**
+- create `convex/agent/pilotRegistry.ts`
+- update `convex/aiTown/agent.ts` (`isUmiMahiruPilotConversation`, `isSoulTriadName`, `soulTriadFocusPairNames`)
+- update `convex/agent/conversation.ts` (`characterSoulPilotPair`)
+- update `convex/agent/memory.ts` (`RESIDUE_PILOT_NAMES` at L44 → consume registry)
+- update `convex/modelPolicy.ts` (`shouldPersistCharacterSoulTranscript` `isPilotPair` check at L191-194 → consume registry)
 
-5. **`memoryInfluenceScore` separate from `memoryContinuityScore`.**
-   Today's metric measures memory-awareness framing (do they say
-   "上次"?), not memory-driven behavior (did Mahiru linger because
-   she remembered Umi sounded tired?). The latter is what we
-   actually care about. Designing this metric needs sample data,
-   so defer until 3+ fresh post-fix samples exist.
+**Fix shape.**
+```ts
+// convex/agent/pilotRegistry.ts
+export const PILOT_PAIRS = [
+  { displayNames: ['Umi', 'Mahiru Shiina'] as const, playerIds: ['p:0', 'p:707'] as const, envGate: 'UMI_MAHIRU_COLOCATION_PILOT' },
+  { displayNames: ['Umi', 'Asuna'] as const, playerIds: ['p:0', 'p:???'] as const, envGate: 'SOUL_TRIAD_COLOCATION_PILOT' },
+  // ...
+];
+export function isPilotPairByName(a?: string, b?: string): boolean;
+export function isPilotPairById(a: GameId<'players'>, b: GameId<'players'>): boolean;
+export function pilotPilotNames(): ReadonlySet<string>; // for RESIDUE_PILOT_NAMES
+```
+
+**Acceptance.**
+- `npm test` PASS (modelPolicy tests still green).
+- `npx tsc --noEmit` PASS.
+- Grep for `p:0` / `p:707` / `'Umi'` literal checks across `convex/` returns only the registry file.
+- One soul-triad sample run still produces an archived conversation with residue (existing `pilot:soul-triad:single-sample` script).
+
+**Subsumes.** Codex-B4.
+
+---
+
+#### Codex-B2 · Split `isGeneratedFallbackText` (~30 min)
+
+**Problem.** [convex/modelPolicy.ts:189-211](convex/modelPolicy.ts#L189-L211)
+mixes two detection modes:
+- System abort markers (`[ABORT_CONVERSATION]`, `[LEAVE]`, `pilot LLM unavailable`, `pilot repair fallback`) — always wrong, always block.
+- Deterministic-template Chinese phrases (`但這次我想先說清楚`, `今天先挑一件不要接的事`, `這段我先不寫進待辦`, ...) — only wrong when emitted by the deterministic fallback path; a model writing legitimate output that happens to overlap is a false positive.
+
+The Asuna golden-line allowlist (commit 90bb19d) is a stop-gap that
+swapped overlapping fragments for template-unique signatures, but
+the contract is still muddled.
+
+**Files.**
+- update `convex/modelPolicy.ts`
+- update callers — grep `isGeneratedFallbackText` to find them:
+  - `convex/agent/memory.ts` (via `shouldPersistCharacterSoulTranscript`)
+  - `convex/agent/conversation.ts` (pilot abort guards)
+
+**Fix shape.**
+```ts
+// Two functions, one contract each.
+export function isSystemAbortMarker(text: string): boolean {
+  // [ABORT_CONVERSATION], [LEAVE], pilot LLM unavailable, pilot repair fallback
+}
+export function isDeterministicTemplatePhrase(text: string): boolean {
+  // All the Chinese template signatures
+}
+// Keep isGeneratedFallbackText as a deprecated wrapper that calls both,
+// or remove it and update callers to call both explicitly.
+```
+
+**Acceptance.**
+- `modelPolicy.test.ts` "blocks generated fallback text from Umi/Mahiru persistence" test still PASS.
+- Add one new test case: a synthetic LLM output that contains the Asuna golden line `不是所有事都該默默丟給我` standalone (no template surrounding text) — should NOT be blocked.
+- `npx tsc --noEmit` PASS.
+
+**Independent of B1.**
+
+---
+
+#### Codex-B3 · `recentConversationEvalData` N+1 fix (~30 min)
+
+**Problem.** [convex/school.ts:6287+](convex/school.ts#L6287)
+`recentConversationEvalData` fetches 40 recent memories per
+participant inside the conversation map iteration. For 100 recent
+conversations that is up to 4000 memory reads per call. The eval
+harness + ConversationWall both consume this query.
+
+**Files.**
+- update `convex/school.ts` (`recentConversationEvalData` handler)
+
+**Fix shape.**
+```ts
+handler: async (ctx, args) => {
+  const conversations = await /* existing fetch */;
+  // Lift per-participant memory fetch out of the per-conversation loop.
+  const memoryCacheByPlayerId = new Map<string, Memory[]>();
+  const allParticipants = new Set(conversations.flatMap(c => c.participants));
+  for (const playerId of allParticipants) {
+    const memories = await ctx.db.query('memories')
+      .withIndex('playerId_type', q => q.eq('playerId', playerId).eq('data.type', 'conversation'))
+      .order('desc')
+      .take(Math.min(args.limit * 4, 80));  // cap, not per-conversation
+    memoryCacheByPlayerId.set(playerId, memories);
+  }
+  // Existing per-conversation logic now reads from the cache.
+};
+```
+
+**Acceptance.**
+- `npm run eval:soul-triad` produces identical report content (verify
+  by diffing `evals/conversations/reports/soul-triad-latest.md`
+  before/after).
+- `npx tsc --noEmit` PASS.
+- Convex logs show one memory read per participant per call instead
+  of one per (conversation × participant).
+
+**Independent of B1, B2.**
+
+---
+
+#### Codex-B4 · Residue write registry symmetry
+
+**Subsumed by B1.** Once `RESIDUE_PILOT_NAMES` in `memory.ts:44` and
+`characterSoulPilotPair` in `conversation.ts` both consume the
+registry from B1, this concern resolves automatically. Do not pick up
+separately — wait for B1.
+
+---
+
+#### Codex-B5 · `memoryInfluenceScore` design (defer; needs sample data)
+
+**Problem.** Today's `memoryContinuityScore` (in both
+`runSoulTriadEval.ts` and `conversation_metrics.ts`) measures
+memory-AWARENESS framing — does the LLM say "上次" / "還記得"? —
+not memory-DRIVEN behavior — did Mahiru actually linger because she
+remembered Umi sounded tired?
+
+**Why deferred.** Designing the influence metric needs corpus data:
+3+ fresh post-fix triad samples to see what "behavioral influence"
+looks like in practice (silence duration? topic deflection from a
+remembered concern? proximity choice?). Picking the regex / heuristic
+without samples is guessing.
+
+**Trigger.** Pick this up only after the soul-triad eval has produced
+≥ 3 PASS-grade conversations with rich enough behavior signals to
+discriminate. Until then this is a research task, not an engineering
+task.
+
+---
+
+### Picking order suggestion
+
+1. **B2** (split function) — smallest, unblocks reasoning about
+   contract elsewhere. ~30 min.
+2. **B3** (N+1) — independent, isolated change. ~30 min.
+3. **B1** (pilot registry) — bigger, touches 5 files, but subsumes
+   B4. ~45 min.
+4. Skip B4, it auto-resolves with B1.
+5. **B5** waits for samples.
+
+Total ~ 1 hr 45 min if all done in one Codex session.
 
 ### Fresh-sample rule reminder
 
