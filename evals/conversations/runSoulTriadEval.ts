@@ -39,6 +39,8 @@ type Result = {
   burdenResponseUniqueness: number;
   imperfectResponseStyle: number;
   indirectnessScore: number;
+  lifecycleFlowScore: number;
+  greetingBoilerplatePenalty: number;
   emotionalSloganPenalty: number;
   echoSimilarityPenalty: number;
   humanAftertaste: number;
@@ -67,21 +69,30 @@ async function main() {
   applyBatchSloganPenalty(results);
   printSummary(results);
   await writeReport(results);
-  warnIfBelowFreshSampleFloor(results);
+  warnIfBelowFreshSampleFloor(results, since);
 }
 
-function warnIfBelowFreshSampleFloor(results: Result[]) {
+function warnIfBelowFreshSampleFloor(results: Result[], sinceCreatedAt?: number) {
   if (results.length >= 3) return;
   const banner = '━'.repeat(60);
+  const scope = sinceCreatedAt
+    ? `fresh samples since ${new Date(sinceCreatedAt).toISOString()}`
+    : `total triad samples (no --since-created-at filter; count includes pre-change samples)`;
   console.warn('');
   console.warn(banner);
   console.warn('⚠️  FRESH-SAMPLE RULE WARNING');
   console.warn(`Triad sample count this run: ${results.length} (rule: ≥3 required)`);
+  console.warn(`Scope: ${scope}`);
   console.warn('');
   console.warn('Per docs/giis-v0.1-roadmap.md (2026-05-25 scope reset):');
   console.warn('  Do NOT modify conversation or memory behavior based on');
   console.warn('  this run unless you are fixing a runtime/hygiene bug.');
   console.warn('  Keep collecting samples before any prompt/memory edits.');
+  if (!sinceCreatedAt) {
+    console.warn('');
+    console.warn('Tip: pass --since-created-at=<unix-ms> to count only samples');
+    console.warn('     created after your most recent prompt/memory change.');
+  }
   console.warn(banner);
   console.warn('');
 }
@@ -170,6 +181,8 @@ function scoreConversation(conversation: Conversation): Result {
   const burdenResponseUniqueness = scoreBurdenResponseUniqueness(messages);
   const imperfectResponseStyle = scoreImperfectResponseStyle(messages);
   const indirectnessScore = scoreIndirectness(messages);
+  const lifecycleFlowScore = scoreLifecycleFlow(messages);
+  const greetingBoilerplatePenalty = scoreGreetingBoilerplatePenalty(messages);
   const emotionalSloganPenalty = scoreEmotionalSloganPenalty(messages);
   const echoSimilarityPenalty = adjacentEchoSimilarityPenalty(messages);
   const humanAftertaste = scoreHumanAftertaste(transcript);
@@ -208,12 +221,14 @@ function scoreConversation(conversation: Conversation): Result {
     0.14 * burdenResponseUniqueness +
     0.12 * imperfectResponseStyle +
     0.1 * indirectnessScore +
+    0.12 * lifecycleFlowScore +
     0.14 * humanAftertaste -
     0.16 * roleEscapePenalty -
     0.2 * overSystemPenalty -
     0.18 * overArticulationPenalty -
     0.16 * therapyEmpathyPenalty -
     0.22 * emotionalSloganPenalty -
+    0.2 * greetingBoilerplatePenalty -
     0.24 * templatePenalty -
     0.28 * stageDirectionLeakPenalty -
     0.14 * echoPenalty -
@@ -236,6 +251,9 @@ function scoreConversation(conversation: Conversation): Result {
     bounded = Math.min(bounded, 0.76);
   }
   if (emotionalSloganPenalty >= 0.25) {
+    bounded = Math.min(bounded, 0.76);
+  }
+  if (greetingBoilerplatePenalty >= 0.25) {
     bounded = Math.min(bounded, 0.76);
   }
   if (overLabelingPenalty >= 0.35) {
@@ -263,6 +281,8 @@ function scoreConversation(conversation: Conversation): Result {
     burdenResponseUniqueness,
     imperfectResponseStyle,
     indirectnessScore,
+    lifecycleFlowScore,
+    greetingBoilerplatePenalty,
     emotionalSloganPenalty,
     echoSimilarityPenalty,
     humanAftertaste,
@@ -367,6 +387,24 @@ function scoreIndirectness(messages: Conversation['transcriptMessages']) {
   }).length;
   const raw = indirect / texts.length;
   return clamp(raw > 0.7 ? 0.7 : raw);
+}
+
+function scoreLifecycleFlow(messages: Conversation['transcriptMessages']) {
+  const first = messages[0]?.text ?? '';
+  const last = messages.at(-1)?.text ?? '';
+  const openingHasReason = /剛剛|剛才|今天|早上|午休|午餐|簡報|清單|手|肩|聲音|語速|窗|門口|座位|安靜|沒吃|Alan|負責|交接|休息|睡|等一下|先/.test(first);
+  const closeRequired = messages.length >= 4;
+  const hasSoftClose = /先|等一下|不催|不問|少接|少寫|停|留|明天|下次|吃飯|休息|交給|分擔|一半|靠近|坐|不用急|不要新增|我來|我不/.test(last);
+  return clamp((openingHasReason ? 0.42 : 0.18) + (closeRequired ? (hasSoftClose ? 0.42 : 0.16) : 0.28) + 0.14);
+}
+
+function scoreGreetingBoilerplatePenalty(messages: Conversation['transcriptMessages']) {
+  const text = messages.map((message) => message.text).join('\n');
+  const hits = countMatches(
+    text,
+    /你好|最近過得怎麼樣|很高興(?:和你)?聊天|有什麼感受|掰掰|拜拜|今天先這樣|下次再聊|祝你(?:今天)?愉快|今晚先少接|先看人，不是先加|先休息一下吧|誰今天太安靜|今天先把該取消|再多一件任務/g,
+  );
+  return clamp(hits * 0.28);
 }
 
 function scoreEmotionBehaviorLink(messages: Conversation['transcriptMessages']) {
@@ -697,8 +735,8 @@ async function writeReport(results: Result[]) {
     '',
     `Generated: ${new Date().toISOString()}`,
     '',
-    '| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Asuna action | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |',
-    '|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
+    '| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Asuna action | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Lifecycle flow | Greeting boilerplate penalty | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |',
+    '|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
     ...results.map((result) =>
       [
         result.conversation.id,
@@ -723,6 +761,8 @@ async function writeReport(results: Result[]) {
         result.burdenResponseUniqueness.toFixed(2),
         result.imperfectResponseStyle.toFixed(2),
         result.indirectnessScore.toFixed(2),
+        result.lifecycleFlowScore.toFixed(2),
+        result.greetingBoilerplatePenalty.toFixed(2),
         result.emotionalSloganPenalty.toFixed(2),
         result.humanAftertaste.toFixed(2),
         result.echoSimilarityPenalty.toFixed(2),

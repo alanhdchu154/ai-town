@@ -70,6 +70,15 @@ function playerConversationCooldownMs() {
   );
 }
 
+function soulPilotConversationCooldownMs() {
+  return envNumber(
+    'SOUL_PILOT_PAIR_COOLDOWN_MS',
+    10 * 60_000,
+    60_000,
+    60 * 60_000,
+  );
+}
+
 function inviteAcceptProbability() {
   return envNumber('INVITE_ACCEPT_PROBABILITY', INVITE_ACCEPT_PROBABILITY, 0, 1);
 }
@@ -96,6 +105,7 @@ function conversationSingleFlightEnabled() {
 //   UMI_MAHIRU_SINGLE_SAMPLE_AFTER_MS ms before single-sample window ends
 //   SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS ms before triad single-sample window ends
 //   SOUL_TRIAD_FOCUS_PAIR             "NameA:NameB" to force one dyad this run
+//   SOUL_PILOT_PAIR_COOLDOWN_MS       min same-pair gap while pilot is active
 //
 // Residue read/write knobs live in convex/agent/memory.ts and
 // convex/agent/conversation.ts:
@@ -665,7 +675,7 @@ async function avoidDuplicateConversationMessage(
   const repeatedByAuthor = recentMessages.some(
     (message) =>
       message.author === authorPlayerId &&
-      normalizeConversationText(message.text) === normalized,
+      conversationTextTooSimilar(message.text, text),
   );
   if (!repeatedByAuthor) return text;
   const alternatives = [
@@ -682,6 +692,21 @@ function normalizeConversationText(text: string) {
     .toLowerCase()
     .replace(/[，。！？、,.!?「」"'\s]/g, '')
     .trim();
+}
+
+function conversationTextTooSimilar(previous: string, current: string) {
+  const left = normalizeConversationText(previous);
+  const right = normalizeConversationText(current);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const minLength = Math.min(left.length, right.length);
+  if (minLength < 12) return false;
+  const windowSize = Math.min(14, minLength);
+  for (let index = 0; index <= left.length - windowSize; index += 1) {
+    const fragment = left.slice(index, index + windowSize);
+    if (right.includes(fragment)) return true;
+  }
+  return false;
 }
 
 function stripLeadingConversationVocatives(text: string) {
@@ -776,6 +801,12 @@ export const findConversationCandidate = internalQuery({
         // so the rotation can guarantee coverage (e.g. Mahiru<->Asuna).
         return undefined;
       }
+      if (focusPair && playerName !== focusPair[0]) {
+        // Focused single-sample runs use the left side of the dyad as the sole
+        // initiator. Otherwise both agents can invite at once after a resume and
+        // create duplicate active conversations for the same pair.
+        return undefined;
+      }
       const preferredTargets = focusPair
         ? focusPair.filter((name) => name !== playerName)
         : playerName === 'Umi'
@@ -795,7 +826,7 @@ export const findConversationCandidate = internalQuery({
           )
           .order('desc')
           .first();
-        if (lastMember && now < lastMember.ended + playerConversationCooldownMs()) continue;
+        if (lastMember && now < lastMember.ended + soulPilotConversationCooldownMs()) continue;
         return target.id;
       }
       return undefined;
@@ -818,7 +849,7 @@ export const findConversationCandidate = internalQuery({
         // Block further candidates so the single-sample window only produces one sample.
         return undefined;
       }
-      if (lastMember && now < lastMember.ended + playerConversationCooldownMs()) {
+      if (lastMember && now < lastMember.ended + soulPilotConversationCooldownMs()) {
         return undefined;
       }
       return target.id;

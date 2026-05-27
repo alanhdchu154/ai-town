@@ -296,7 +296,10 @@ export const recentSamePairResidues = internalQuery({
         q.eq('playerId', args.playerId).eq('data.type', 'conversation'),
       )
       .order('desc')
-      .take(Math.max(args.limit, 1) * 5);
+      // Bounded overfetch: clamp limit to [1, 10] and overfetch 5x, so a
+      // misconfigured caller cannot ask for thousands of rows. The only real
+      // caller passes limit=2.
+      .take(Math.min(Math.max(args.limit, 1), 10) * 5);
     const matching: string[] = [];
     for (const memory of overfetched) {
       if (memory.data.type !== 'conversation') continue;

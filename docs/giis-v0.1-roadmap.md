@@ -1,8 +1,201 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-25 (post-review hardening pass)
+Last updated: 2026-05-26 (Asuna golden-line allowlist + audit follow-ups)
 
-## 2026-05-25 Post-Review Hardening Pass
+## 2026-05-26 Asuna Golden-Line Allowlist + Audit Follow-Ups
+
+Driver: Self-review of last commit (2fbdfa3) + audit of Codex's
+post-commit changes in `convex/agent/conversation.ts`,
+`convex/aiTown/agent.ts`, `convex/modelPolicy.ts`,
+`evals/conversations/runSoulTriadEval.ts`,
+`evals/conversations/metrics/conversation_metrics.ts`, and
+`scripts/run-soul-triad-single-sample.mjs`.
+
+Codex's work is sound overall (pilot LLM eligibility realignment, world
+heartbeat in single-sample runner, soul-pilot same-pair cooldown
+separated from world cooldown, focus-pair single-initiator gate,
+lifecycle flow scoring, greeting-boilerplate penalty). One concrete
+regression was flagged: Codex's additions to `isGeneratedFallbackText`
+included `不是所有事都該默默丟給我` and `你不是工具欄` as substring
+matches, but those are also the Asuna golden lines in
+`docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md` and README golden moments.
+Substring-matching them would block legitimate model-generated golden
+output, not just the deterministic templates they came from.
+
+Done this session:
+
+1. **Asuna golden-line allowlist** — `convex/modelPolicy.ts`
+   `isGeneratedFallbackText` now detects the two ambiguous templates
+   via phrases that ONLY appear in deterministic-template context:
+   `但這次我想先說清楚` (L2736 / L1380 templates) and
+   `今天先挑一件不要接的事` (L2677 template). The standalone golden
+   lines can now be archived. Other four Codex additions kept as-is
+   (they don't conflict with any documented golden line).
+
+2. **Roadmap date corrected** — Previous "Post-Review Hardening Pass"
+   entry was dated 2026-05-25; actually shipped 2026-05-26. Fixed.
+
+3. **Bounded `recentSamePairResidues` query** —
+   `convex/agent/memory.ts` clamps `args.limit` to `[1, 10]` before
+   the 5x overfetch, so a misconfigured caller cannot ask for
+   thousands of rows. Only real caller passes `limit=2`.
+
+4. **Fresh-sample warning surfaces filter context** —
+   `evals/conversations/runSoulTriadEval.ts`
+   `warnIfBelowFreshSampleFloor` now distinguishes
+   `total triad samples (no --since-created-at filter)` from
+   `fresh samples since <ISO timestamp>`, and prints a tip on how to
+   restrict the count to truly fresh post-change samples. Addresses
+   the gap that the original warning measured total, not fresh.
+
+5. **Deprecated shell wrappers verified by grep** —
+   `umi/COMMAND_REFERENCE.md` now distinguishes "truly orphaned
+   (safe to `rm`)" from "still wired via npm alias (remove alias
+   first)". Found that `umi/umi_mahiru_soul_depth_30min_loop.sh` is
+   still referenced from `package.json` `eval:umi-mahiru:soul-loop`,
+   contradicting my prior "Safe to delete" label.
+
+Verification:
+
+- `npx tsc --noEmit --pretty false` PASS.
+- `npm test` PASS, 55/55. The existing `modelPolicy.test.ts`
+  "blocks generated fallback text from Umi/Mahiru persistence" test
+  still passes after the template-signature swap.
+
+Not done:
+
+- Did not actually `rm` any deprecated shell wrapper. The user can do
+  that after one more confirmation pass.
+- Did not restructure `isGeneratedFallbackText` into separate marker /
+  content-phrase functions; chose the minimum-scope template-signature
+  swap instead.
+
+## 2026-05-26 Pilot Runner / Provider Safety Hardening
+
+Status: implemented as a harness and provider-safety fix after focused
+Umi/Mahiru collection hit local runtime and Qwen availability blockers.
+
+Evidence:
+
+- A focused Umi/Mahiru run timed out with no fresh archived sample.
+- Backend logs showed `testing:resume` restarted the engine without refreshing
+  `worldStatus.lastViewed`, so the inactive-world cron could stop the engine
+  during collection.
+- Backend logs also showed Qwen returning HTTP 429 with a
+  `model_not_found`/upstream-saturated response. The hard-abort rule correctly
+  prevented those failed cloud calls from becoming archived dialogue or memory.
+- A prior focused run created duplicate same-pair active conversations after
+  resume, consistent with both dyad members initiating at once.
+
+Fix:
+
+- Focused `SOUL_TRIAD_FOCUS_PAIR` runs now use the left side of the dyad as the
+  sole initiator. This is limited to focused sample collection and does not
+  change normal world behavior.
+- `scripts/run-soul-triad-single-sample.mjs` now calls
+  `world:heartbeatWorld` during polling so local sample runs keep the default
+  world active.
+- The runner now sets `UMI_MAHIRU_PILOT_COOLDOWN_FAILURES=1` and a 10-minute
+  `UMI_MAHIRU_PILOT_COOLDOWN_MS` during focused QA runs, so one provider failure
+  prevents repeated Qwen calls in that collection window.
+- Conversation logs now say `Aborting conversation after LLM failure` when the
+  cloud character-soul path returns an abort marker, instead of implying a
+  deterministic fallback line was persisted.
+
+Decision:
+
+- Provider 429 / quota / model availability is an operational blocker, not a
+  dialogue-quality signal.
+- If provider is unavailable, report `sample pending / provider unavailable`,
+  do not tune prompts, and do not count the run as evidence against v0.1 soul
+  quality.
+- Keep the hard rule: failed cloud calls must not archive conversation, memory,
+  reflection, world event, notification, or profile updates.
+
+## 2026-05-26 Conversation Lifecycle Hygiene
+
+Status: implemented as a small dialogue-hygiene pass after Alan asked whether
+conversations should have greetings and endings.
+
+Decision:
+
+- Conversations should have lifecycle shape, not forced greeting scripts.
+- Good shape means:
+  1. a natural opening reason: why this person speaks now;
+  2. a middle turn: something emotional, practical, or remembered changes;
+  3. a soft close when long enough: a small boundary, action, silence, refusal,
+     or unresolved line.
+- Do not force `你好`, `最近過得怎麼樣`, `掰掰`, or `今天先這樣`.
+- Short exchanges do not need a full closing. Silence or stopping can be the
+  close.
+
+Implementation:
+
+- Deterministic exits now rotate among several character-specific soft-close
+  shapes, instead of repeatedly emitting the same Umi / Mahiru / Asuna stock
+  tails.
+- Recent conversation eval now includes `conversation_lifecycle_flow`. It
+  rewards concrete opening reasons and soft closes, and flags customer-service
+  greeting/goodbye boilerplate.
+- Soul-triad eval now tracks `Lifecycle flow` and `Greeting boilerplate
+  penalty`.
+
+Guardrail:
+
+- Do not add a larger prompt mandate yet. If this rule becomes a template, it
+  is a regression.
+- Tune thresholds only after 3+ fresh post-change samples.
+
+## 2026-05-26 Pilot LLM / Memory Eligibility Alignment
+
+Status: implemented as a v0.1 blocker fix.
+
+Problem:
+
+- Post-lifecycle samples had better soft closes, but `memoryTraces: []`.
+- Umi/Asuna produced near-identical archived conversations one minute apart.
+- Root cause: soul pilot routing and memory eligibility had drifted apart.
+  Conversation generation checked generic autonomous LLM env before
+  `characterSoulPilotPair()`, and memory writing used the same generic LLM
+  eligibility helper. This let pilot-shaped conversations fall back to
+  deterministic dialogue and then skip memory/residue writes.
+- Local same-pair cooldown was 30 seconds, too short for high-probability pilot
+  sampling.
+
+Fix:
+
+- `conversationEligibleForLLM()` and autonomous generation gating now treat
+  `characterSoulPilotPair()` as LLM-eligible.
+- Soul pilot same-pair cooldown now uses `SOUL_PILOT_PAIR_COOLDOWN_MS`, default
+  10 minutes, instead of the general 30-second local player cooldown.
+- Same-conversation duplicate guard now rejects not only exact repeated lines,
+  but also near-identical semantic tails with long shared fragments. This keeps
+  one character from archiving two versions of the same ending inside the same
+  conversation.
+- The single-sample runner now sets `SOUL_PILOT_PAIR_COOLDOWN_MS=60000` by
+  default, with `--pair-cooldown-ms=` available for overrides. The live pilot
+  default remains 10 minutes; this only keeps focused QA samples from timing out
+  when the normal cooldown was still active.
+- Pilot conversations now hard-abort if the response is a known deterministic
+  fallback slogan or if the pilot path tries to use a deterministic lifecycle
+  exit before asking the cloud character-soul model. This protects the rule:
+  fallback output must not become archived dialogue or memory for the soul
+  pilot.
+- Recent-conversation eval now treats concrete behavior and attention cues as
+  valid implicit emotion. A line can show emotion through a pause, a file, a
+  hand, or responsibility avoidance without saying an emotion label directly.
+
+Guardrail:
+
+- This does not enable all autonomous conversations.
+- This does not change provider/model.
+- Fresh post-change samples are still required before judging quality. Current
+  status after the first successful pilot checks: the Qwen pilot can produce
+  real Umi/Mahiru/Asuna samples with non-empty `memoryTraces`, but v0.1 is not
+  final until at least 3 fresh post-fix samples show stable naturalness,
+  continuity, and no fallback contamination.
+
+## 2026-05-26 Post-Review Hardening Pass
 
 Driver: Two parallel agents reviewed the just-shipped Phase 1 residue
 loop and the working-tree health. They surfaced one critical eval

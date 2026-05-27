@@ -26,6 +26,8 @@ const args = new Map(
 );
 const TIMEOUT_MS = Number(args.get('timeout-ms') ?? 240_000);
 const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 7_000);
+const PAIR_COOLDOWN_MS = Number(args.get('pair-cooldown-ms') ?? 60_000);
+const PROVIDER_COOLDOWN_MS = Number(args.get('provider-cooldown-ms') ?? 10 * 60_000);
 const RUN_TIMESTAMP = Date.now();
 // Optional --focus-pair="Name:Name" (e.g. "Mahiru Shiina:Asuna") restricts this
 // run to a single dyad so callers can rotate coverage and stop Mahiru from being
@@ -38,6 +40,9 @@ const PILOT_ENV = {
   AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru Shiina,Umi:Asuna,Mahiru Shiina:Asuna',
   UMI_MAHIRU_PILOT_MODEL: 'qwen3-max',
   UMI_MAHIRU_PILOT_TIMEOUT_MS: '60000',
+  UMI_MAHIRU_PILOT_COOLDOWN_FAILURES: '1',
+  UMI_MAHIRU_PILOT_COOLDOWN_MS: String(PROVIDER_COOLDOWN_MS),
+  SOUL_PILOT_PAIR_COOLDOWN_MS: String(PAIR_COOLDOWN_MS),
   ...(FOCUS_PAIR ? { SOUL_TRIAD_FOCUS_PAIR: FOCUS_PAIR } : {}),
 };
 
@@ -48,6 +53,8 @@ for (const [key, value] of Object.entries(PILOT_ENV)) {
 console.log(
   `[soul-triad] starting at ${new Date(RUN_TIMESTAMP).toISOString()} ` +
     `(timestamp=${RUN_TIMESTAMP}, timeout=${TIMEOUT_MS}ms, poll=${POLL_INTERVAL_MS}ms` +
+    `, pairCooldown=${PAIR_COOLDOWN_MS}ms` +
+    `, providerCooldown=${PROVIDER_COOLDOWN_MS}ms` +
     `${FOCUS_PAIR ? `, focus=${FOCUS_PAIR}` : ''})`,
 );
 
@@ -97,6 +104,16 @@ async function convexRun(functionName, payload) {
   return parseJsonFromStdout(stdout);
 }
 
+let heartbeatWorldId;
+async function heartbeatDefaultWorld() {
+  if (!heartbeatWorldId) {
+    const worldStatus = await convexRun('world:defaultWorldStatus');
+    heartbeatWorldId = worldStatus?.worldId;
+  }
+  if (!heartbeatWorldId) return;
+  await convexRun('world:heartbeatWorld', { worldId: heartbeatWorldId });
+}
+
 function parseJsonFromStdout(stdout) {
   const first = stdout.indexOf('{');
   const last = stdout.lastIndexOf('}');
@@ -121,6 +138,7 @@ async function pollForFreshSample() {
   while (Date.now() < deadline) {
     attempts += 1;
     try {
+      await heartbeatDefaultWorld();
       const data = await convexRun('school:recentConversationEvalData', {
         limit: 16,
         compact: true,
@@ -172,6 +190,7 @@ try {
   console.log('[soul-triad] calling testing:resume');
   await convexRun('testing:resume');
   resumeCalled = true;
+  await heartbeatDefaultWorld();
 
   console.log('[soul-triad] calling school:coLocateSoulTriadForPilot');
   await convexRun('school:coLocateSoulTriadForPilot');

@@ -95,6 +95,7 @@ export function evaluateConversationCase(testCase: ConversationEvalCase): Conver
     characterVoiceScore(testCase),
     emotionalSpecificityScore(testCase),
     dialogueNaturalnessScore(testCase),
+    conversationLifecycleFlowScore(testCase),
     therapyTemplateScore(testCase),
     emotionalSloganScore(testCase),
     memoryContinuityScore(testCase),
@@ -286,14 +287,26 @@ function emotionalSpecificityScore(testCase: ConversationEvalCase): MetricResult
     '吃飯',
     '呼吸',
     '慢一點',
+    '沒人問過',
+    '沒被問過',
+    '停頓',
+    '反正',
   ];
   const naturalHits = emotionWords.filter((keyword) => testCase.sampleOutput.includes(keyword)).length;
-  const concreteSignals = countMatches(testCase.sampleOutput, /合上|停|走|放|窗|杯|茶|外套|吃飯|筆|清單|椅|門口|走廊|午餐|溫的/g);
+  const concreteSignals = countMatches(testCase.sampleOutput, /合上|停|停頓|走|放|窗|杯|茶|外套|吃飯|筆|文件|清單|椅|門口|走廊|午餐|溫的|盯著|問過/g);
   const bareEmotionOnlyPenalty = concreteSignals === 0 && naturalHits >= 3 ? 0.3 : 0;
-  const score = clamp01((expected.length ? hits / expected.length : Math.min(1, naturalHits / 2)) - bareEmotionOnlyPenalty);
+  const implicitEmotionScore =
+    concreteSignals >= 2 ? 0.82 :
+    concreteSignals === 1 ? 0.68 :
+    0;
+  const score = clamp01(
+    (expected.length ? hits / expected.length : Math.max(Math.min(1, naturalHits / 2), implicitEmotionScore)) -
+      bareEmotionOnlyPenalty,
+  );
   return metric('emotionalSpecificityScore', score, [
     expected.length ? `matched ${hits}/${expected.length} emotional-specific cue(s)` : `found ${naturalHits} emotional cue(s)`,
     concreteSignals ? `found ${concreteSignals} concrete signal(s)` : '',
+    !naturalHits && concreteSignals ? 'implicit emotion through behavior/concrete attention' : '',
     bareEmotionOnlyPenalty ? 'emotion labels without concrete signals reduced score' : '',
   ]);
 }
@@ -314,6 +327,46 @@ function dialogueNaturalnessScore(testCase: ConversationEvalCase): MetricResult 
     concretePivotCount ? `${concretePivotCount} concrete pivot(s)` : '',
     mirrorPenalty ? 'mirror repetition reduced naturalness' : '',
   ]);
+}
+
+function conversationLifecycleFlowScore(testCase: ConversationEvalCase): MetricResult {
+  const rows = transcriptRows(testCase);
+  const bodies = rows.length ? rows.map((row) => row.body) : splitSentences(transcriptContentOnly(testCase)).filter(Boolean);
+  const text = bodies.join('\n');
+  const first = bodies[0] ?? '';
+  const last = bodies.at(-1) ?? '';
+  const boilerplateHits = countMatches(
+    text,
+    /你好|最近過得怎麼樣|很高興(?:和你)?聊天|有什麼感受|掰掰|拜拜|今天先這樣|下次再聊|祝你(?:今天)?愉快|今晚先少接|先看人，不是先加|先休息一下吧|誰今天太安靜|今天先把該取消|再多一件任務/g,
+  );
+  const openingReasonHits = countMatches(
+    first,
+    /剛剛|剛才|今天|早上|午休|午餐|簡報|清單|手|肩|聲音|語速|窗|門口|座位|安靜|沒吃|Alan|負責|交接|休息|睡|等一下|先/g,
+  );
+  const softCloseHits = countMatches(
+    last,
+    /先|等一下|不催|不問|少接|少寫|停|留|明天|下次|吃飯|休息|交給|分擔|一半|靠近|坐|不用急|不要新增|我來|我不/g,
+  );
+  const enoughTurnsForClose = bodies.length >= 4;
+  const openingScore = first ? (openingReasonHits ? 0.35 : 0.12) : 0;
+  const closeScore = enoughTurnsForClose ? (softCloseHits ? 0.35 : 0.08) : 0.22;
+  const middleScore = bodies.length >= 3 ? 0.18 : 0.1;
+  const score = clamp01(openingScore + closeScore + middleScore + 0.12 - boilerplateHits * 0.24);
+  const normalized = round2(score);
+  return {
+    name: 'conversation_lifecycle_flow',
+    score: normalized,
+    status: boilerplateHits >= 2 ? 'FAIL' : normalized >= 0.78 ? 'PASS' : 'WARN',
+    notes: [
+      openingReasonHits ? 'opening has a concrete reason' : first ? 'opening lacks a concrete reason' : 'no opening line',
+      enoughTurnsForClose
+        ? softCloseHits
+          ? 'ending has a soft close'
+          : 'ending lacks a soft close'
+        : 'short exchange; closure not required',
+      boilerplateHits ? `${boilerplateHits} greeting/goodbye boilerplate hit(s)` : '',
+    ].filter(Boolean),
+  };
 }
 
 function therapyTemplateScore(testCase: ConversationEvalCase): MetricResult {

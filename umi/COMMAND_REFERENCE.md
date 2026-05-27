@@ -75,13 +75,17 @@ These set pilot env knobs at start and **always** unset them in a
 
 ## Deprecated / removed candidates
 
-These exist in the tree but are subsumed by something above. Safe to
-delete once you confirm nothing references them:
+Verified 2026-05-26 by `grep -r` across the repo.
+
+**Truly orphaned — safe to `rm` (only referenced from this section and historical WORKLOG/roadmap entries):**
 
 - `umi/fast_pilot_watch.sh` — pre-triad fast loop; replaced by `pilot:soul-triad:single-sample`.
 - `umi/umi_mahiru_eval_15min_loop.sh` — pre-triad eval loop; replaced by `eval:soul-triad:hourly`.
 - `umi/umi_mahiru_fast_loop.sh` — pre-triad sample collection; replaced by triad single-sample.
-- `umi/umi_mahiru_soul_depth_30min_loop.sh` — pre-triad depth eval; replaced by triad eval.
+
+**Still wired (delete requires removing the npm alias too):**
+
+- `umi/umi_mahiru_soul_depth_30min_loop.sh` — pre-triad depth eval; replaced by triad eval. **Still referenced via [`package.json` `eval:umi-mahiru:soul-loop`](../package.json)** — remove that npm script before deleting the shell wrapper.
 
 ---
 

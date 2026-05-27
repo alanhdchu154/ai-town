@@ -186,6 +186,19 @@ export function isGeneratedFallbackText(text: string) {
     text.includes('今晚先少接一件事') ||
     text.includes('我換個說法') ||
     text.includes('先不要重複') ||
+    text.includes('我可以拆下一步') ||
+    // Detect the L2736 / L1380 templates via a phrase that ONLY appears in
+    // deterministic templates, not in the golden Asuna line
+    // 「不是所有事都該默默丟給我」 itself. Without this split we would block
+    // the legitimate model-generated golden line (see docs/soul/
+    // UNDERWORLD_SOUL_ARCHITECTURE.md and README golden moments).
+    text.includes('但這次我想先說清楚') ||
+    // Detect the L2677 template via a phrase that ONLY appears there, not in
+    // the standalone golden line 「你不是工具欄」.
+    text.includes('今天先挑一件不要接的事') ||
+    text.includes('今天我不開 checklist') ||
+    text.includes('先不要再新增東西') ||
+    text.includes('這段我先不寫進待辦') ||
     text.includes('海決定先提醒 Alan：功能可以慢慢加，但學生的不安要先被看見') ||
     text.includes('真晝決定今晚先去宿舍確認幾位學生的狀態，因為她聽見有人開始不敢說真心話') ||
     text.includes('確認誰因 AI 社、傳聞或派系壓力而不敢說真心話') ||

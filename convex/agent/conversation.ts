@@ -13,6 +13,7 @@ import {
   characterSoulPolicyViolation,
   characterSoulProviderGuard,
   defaultCharacterSoulModel,
+  isGeneratedFallbackText,
   recordCharacterSoulProviderAttempt,
   recordCharacterSoulProviderFailure,
   recordCharacterSoulProviderSuccess,
@@ -102,10 +103,12 @@ export function conversationEligibleForLLM(
   humanInConversation: boolean,
 ) {
   if (humanInConversation) return true;
+  if (characterSoulPilotPair(playerName, otherPlayerName)) return true;
   return autonomousConversationLLMEnabledFor(playerName, otherPlayerName);
 }
 
 function autonomousConversationLLMEnabledFor(playerName: string, otherPlayerName: string) {
+  if (characterSoulPilotPair(playerName, otherPlayerName)) return true;
   if (autonomousConversationLLMEnabled()) return true;
   const pairConfig =
     process.env.AUTONOMOUS_CONVERSATION_LLM_PAIRS ??
@@ -223,7 +226,7 @@ export async function startConversationMessage(
         : initiativeFallback(player.name, otherPlayer.name, 'start', undefined, sceneContext),
     cloudConversation,
   );
-  return sanitizeConversationContent(
+  const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
     companionMode,
     player.name,
@@ -231,6 +234,10 @@ export async function startConversationMessage(
     undefined,
     [],
   );
+  if (pilotPair && isGeneratedFallbackText(trimmed)) {
+    return '[ABORT_CONVERSATION] pilot generated fallback text';
+  }
+  return trimmed;
 }
 
 function trimContentPrefx(content: string, prompt: string) {
@@ -335,15 +342,18 @@ export async function continueConversationMessage(
     conversation.id as GameId<'conversations'>,
   );
   const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents, sceneContext, clockContext);
-  if (lifecycle.shouldEnd && !humanInConversation) {
+  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
+  if (lifecycle.shouldEnd && !humanInConversation && !pilotPair) {
     return `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`;
   }
   if (!humanInConversation && deterministicFallbackPressure(previous) >= 3) {
+    if (pilotPair) {
+      return '[ABORT_CONVERSATION] pilot deterministic exit blocked';
+    }
     return `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`;
   }
   const lastAlanInput = companionMode ? lastDirectMessageFrom(otherPlayer.name, previous) : undefined;
   const companionIntent = companionMode ? companionIntentFor(lastAlanInput ?? '') : undefined;
-  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
   if (pilotPair) {
     const lastLine = stripConversationPrefix(previous.at(-1)?.content ?? '');
     if (lastLine) prompt.push(`上一句：${clipPromptText(normalizeTraditionalZh(lastLine), 42)}`);
@@ -423,6 +433,9 @@ export async function continueConversationMessage(
       ? `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`
       : repairedFallback;
   }
+  if (pilotPair && isGeneratedFallbackText(trimmed)) {
+    return '[ABORT_CONVERSATION] pilot generated fallback text';
+  }
   return trimmed;
 }
 
@@ -443,8 +456,16 @@ export async function leaveConversationMessage(
     },
   );
   const humanInConversation = Boolean(player.human || otherPlayer.human);
+  const previous = await previousMessages(
+    ctx,
+    worldId,
+    player,
+    otherPlayer,
+    conversation.id as GameId<'conversations'>,
+  );
+  const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents);
   if (!humanInConversation && !autonomousConversationLLMEnabledFor(player.name, otherPlayer.name)) {
-    return personalityExit(player.name, otherPlayer.name, '這段對話');
+    return personalityExit(player.name, otherPlayer.name, lifecycle);
   }
   const prompt = [
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
@@ -460,13 +481,6 @@ export async function leaveConversationMessage(
     pilotPair
       ? `Character-soul pilot leave rule: answer in one plain spoken sentence, 36 Traditional Chinese characters or fewer. Do not summarize the relationship, do not say "謝謝你的溫柔", "稍後再回來", "保重", or "整理沉默". Use one concrete boundary, like putting down a pen, pausing, or writing one next step.`
       : `How would you like to tell them that you're leaving? Your response should be brief and within 200 characters.`,
-  );
-  const previous = await previousMessages(
-    ctx,
-    worldId,
-    player,
-    otherPlayer,
-    conversation.id as GameId<'conversations'>,
   );
   const llmMessages: LLMMessage[] = [
     {
@@ -493,7 +507,7 @@ export async function leaveConversationMessage(
     },
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
-      : personalityExit(player.name, otherPlayer.name, '這段對話'),
+      : personalityExit(player.name, otherPlayer.name, lifecycle),
     cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
@@ -506,6 +520,9 @@ export async function leaveConversationMessage(
   );
   if (pilotPair && isVerboseUmiMahiruPilotExit(trimmed)) {
     return '[ABORT_CONVERSATION] pilot verbose exit';
+  }
+  if (pilotPair && isGeneratedFallbackText(trimmed)) {
+    return '[ABORT_CONVERSATION] pilot generated fallback text';
   }
   return trimmed;
 }
@@ -532,7 +549,13 @@ async function safeConversationCompletion(
     });
     return typeof content === 'string' ? content : fallback;
   } catch (error) {
-    console.debug('Falling back to deterministic conversation message', error);
+    const abortingConversation = fallback.startsWith('[ABORT_CONVERSATION]');
+    console.debug(
+      abortingConversation
+        ? 'Aborting conversation after LLM failure'
+        : 'Falling back to deterministic conversation message',
+      error,
+    );
     logGiisTiming({
       action: 'conversationLLM',
       phase: 'llmCallTime',
@@ -3037,47 +3060,129 @@ function actionableExit(
   otherPlayerName: string,
   lifecycle: ConversationLifecycle,
 ) {
-  return `${personalityExit(playerName, otherPlayerName, lifecycle.currentTopic)} ${actionableConclusion(
+  return `${personalityExit(playerName, otherPlayerName, lifecycle)} ${actionableConclusion(
     playerName,
+    otherPlayerName,
+    lifecycle,
   )}`;
 }
 
-function actionableConclusion(playerName: string) {
+function actionableConclusion(
+  playerName: string,
+  otherPlayerName: string,
+  lifecycle: ConversationLifecycle,
+) {
+  const pick = (options: string[]) => rotatingExitLine(options, playerName, otherPlayerName, lifecycle, 'conclusion');
   switch (playerName) {
     case 'CaoCao':
-      return '我會先確認誰的座位空了。秩序如果只照顧敢說話的人，就不算秩序。';
+      return pick([
+        '我會先確認誰的座位空了。',
+        '先看座位，不急著看誰講贏。',
+        '如果門口有人退了一步，我會先記住那一步。',
+      ]);
     case 'Liu Bei':
-      return '我會先做一個普通邀請。不是每件事一開始都需要開會。';
+      return pick([
+        '我先做一個普通邀請。',
+        '今天先不開會，先問一個人要不要吃飯。',
+        '如果他不想說，我就陪他走到門口。',
+      ]);
     case 'Mai':
-      return '我會把風險寫清楚，但也會留下那些沒有被說出口的代價。';
+      return pick([
+        '風險我會寫，但漂亮話先免了。',
+        '我先不替你們收成一個結論。',
+        '那個沒被說出口的地方，我會留著看。',
+      ]);
     case 'Umi':
-      return '我會把它留到明天簡報裡，但今晚先不再加重量。';
+      return pick([
+        '我先少寫一段。',
+        '剩下的等人真的休息過再說。',
+        '這次我不把沉默也整理進簡報。',
+      ]);
     case 'Mahiru Shiina':
-      return '我會先去確認學生們是不是開始害怕說錯話，尤其是那些說自己沒事的人。';
+      return pick([
+        '我先不追問了。',
+        '我在旁邊就好。',
+        '等那個人願意開口時，我再靠近一點。',
+      ]);
     case 'Asuna':
-      return '我會排出負責人和下一步，也會把不能再默默承擔的部分標出來。';
+      return pick([
+        '我只接一半。',
+        '另一半要有人現在說清楚。',
+        '這條我先不排進 checklist。',
+      ]);
     default:
-      return '我會先做一個具體行動。';
+      return pick(['我先做一件小事。', '先停一下，等真的有新狀況。']);
   }
 }
 
-function personalityExit(playerName: string, otherPlayerName: string, topic: string) {
+function personalityExit(
+  playerName: string,
+  otherPlayerName: string,
+  lifecycle: ConversationLifecycle,
+) {
+  const pick = (options: string[]) => rotatingExitLine(options, playerName, otherPlayerName, lifecycle, 'voice');
   switch (playerName) {
     case 'Mai':
-      return `${otherPlayerName}，再繞下去只是把害怕包裝成分析。窗邊那邊安靜得有點不自然，我先去看看。`;
+      return pick([
+        `${otherPlayerName}，再繞下去只是把害怕包裝成分析。`,
+        `${otherPlayerName}，你剛剛那句太乾淨了，我反而不信。`,
+        `${otherPlayerName}，先別把這件事說得那麼合理。`,
+      ]);
     case 'CaoCao':
-      return `${otherPlayerName}，先到這裡。真正該看的不是誰說服了誰，是誰忽然安靜下來。`;
+      return pick([
+        `${otherPlayerName}，先到這裡。`,
+        `${otherPlayerName}，別急著判斷誰對。`,
+        `${otherPlayerName}，規矩先放著，看誰不敢進來。`,
+      ]);
     case 'Umi':
-      return `${otherPlayerName}，今晚先少接一件事。明天我會提醒 Alan：先看人，不是先加功能。`;
+      return pick([
+        `${otherPlayerName}，先停在這裡。`,
+        `${otherPlayerName}，這段我先不寫進待辦。`,
+        `${otherPlayerName}，嗯，我今天先少說一點。`,
+      ]);
     case 'Asuna':
-      return `${otherPlayerName}，今天先把該取消的事情挑出來。再多一件任務，只會讓人更累。`;
+      return pick([
+        `${otherPlayerName}，等一下。`,
+        `${otherPlayerName}，這次不能又變成我先說「我來」。`,
+        `${otherPlayerName}，先不要再新增了。`,
+      ]);
     case 'Liu Bei':
-      return `${otherPlayerName}，我先不急著把大家拉進正式討論。我想先做一個普通的邀請。`;
+      return pick([
+        `${otherPlayerName}，我先不急著把大家拉進正式討論。`,
+        `${otherPlayerName}，我先去問那個坐在角落的人。`,
+        `${otherPlayerName}，如果他不想來，我也不追問。`,
+      ]);
     case 'Mahiru Shiina':
-      return `${otherPlayerName}，先休息一下吧。繼續談之前，我想去看看誰今天太安靜了。`;
+      return pick([
+        `${otherPlayerName}，好，我不催你。`,
+        `${otherPlayerName}，先不用把話說完整。`,
+        `${otherPlayerName}，我在這裡坐一下就好。`,
+      ]);
     default:
-      return `${otherPlayerName}，我們先停在這裡，等有新狀況再繼續。`;
+      return pick([
+        `${otherPlayerName}，先停在這裡。`,
+        `${otherPlayerName}，等真的有新狀況再說。`,
+      ]);
   }
+}
+
+function rotatingExitLine(
+  options: string[],
+  playerName: string,
+  otherPlayerName: string,
+  lifecycle: ConversationLifecycle,
+  salt: string,
+) {
+  const key = `${salt}:${playerName}:${otherPlayerName}:${lifecycle.exhaustionCount}:${lifecycle.currentTopic}`;
+  return options[stableTinyHash(key) % options.length];
+}
+
+function stableTinyHash(value: string) {
+  let hash = 0;
+  for (const char of value) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+  return hash;
 }
 
 async function previousMessages(
