@@ -121,6 +121,13 @@ Current source of truth:
 - `docs/soul/pilots/umi.md`
 - `docs/soul/pilots/mahiru.md`
 - `docs/soul/pilots/asuna.md`
+- `docs/soul/pilots/caocao.md`
+- `docs/soul/pilots/mai.md`
+- `docs/soul/pilots/liubei.md`
+
+Umi / Mahiru / Asuna remain the v0.1 evaluation pilot. CaoCao / Mai / Liu Bei
+are secondary local-LLM soul profiles: enough DNA to keep their conversations
+distinct, not a mandate to build all-character drift systems yet.
 
 ### Soul Expression
 
@@ -236,6 +243,10 @@ Pilot only:
 - Asuna / 明日奈
 
 Do not expand to all characters until the pilot shows stable value.
+
+Secondary character soul docs may exist before behavioral drift rollout. That is
+identity protection for local LLM conversations, not permission to enable broad
+high-frequency memory, relationship, or behavior writes.
 
 ### Pilot Examples
 

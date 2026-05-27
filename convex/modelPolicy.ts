@@ -170,16 +170,32 @@ export function reflectionLlmEnabled(env: ModelPolicyEnv = process.env) {
   return MODEL_POLICY.reflection.enabled;
 }
 
-export function isGeneratedFallbackText(text: string) {
+// System abort/leave markers emitted by the conversation engine itself
+// when LLM is unavailable, aborted, repetitive, or template-leaking. These
+// are NEVER legitimate model output — if any of these substrings appear,
+// the text is engine scaffolding that must not reach archive, memory,
+// reflection, or world events.
+//
+// Use `includes()` not `startsWith()` so mid-text leakage (e.g. a model
+// quoting the marker back) is still caught.
+export function isSystemAbortMarker(text: string): boolean {
   return (
-    // Defensive: catch abort/leave markers anywhere in the text, not just
-    // as the line prefix. The pilot fallback path emits
-    // `[ABORT_CONVERSATION] pilot repair fallback`, but mid-text leakage
-    // from a model that quotes the marker would slip past startsWith.
     text.includes('[ABORT_CONVERSATION]') ||
     text.includes('[LEAVE]') ||
     text.includes('pilot LLM unavailable') ||
-    text.includes('pilot repair fallback') ||
+    text.includes('pilot repair fallback')
+  );
+}
+
+// Deterministic-template Chinese phrases — only produced by the
+// initiativeFallback / companionFallback / bindingFallback / repair paths
+// in conversation.ts. A model emitting these standalone by coincidence is
+// theoretically possible but vanishingly unlikely (the strings are
+// signature-unique to their template branches). Where there was overlap
+// with documented golden lines (the Asuna soul references), we picked a
+// phrase that ONLY exists in the template context — see comments below.
+export function isDeterministicTemplatePhrase(text: string): boolean {
+  return (
     text.includes('這段先停在這裡') ||
     text.includes('先看見學生的不安，再談下一個功能') ||
     text.includes('我想去看看今天一直安靜的學生') ||
@@ -187,14 +203,14 @@ export function isGeneratedFallbackText(text: string) {
     text.includes('我換個說法') ||
     text.includes('先不要重複') ||
     text.includes('我可以拆下一步') ||
-    // Detect the L2736 / L1380 templates via a phrase that ONLY appears in
-    // deterministic templates, not in the golden Asuna line
-    // 「不是所有事都該默默丟給我」 itself. Without this split we would block
-    // the legitimate model-generated golden line (see docs/soul/
+    // Detects the L2736 / L1380 templates via a phrase that ONLY appears
+    // in deterministic templates, not in the golden Asuna line
+    // 「不是所有事都該默默丟給我」 itself. Without this split we would
+    // block the legitimate model-generated golden line (see docs/soul/
     // UNDERWORLD_SOUL_ARCHITECTURE.md and README golden moments).
     text.includes('但這次我想先說清楚') ||
-    // Detect the L2677 template via a phrase that ONLY appears there, not in
-    // the standalone golden line 「你不是工具欄」.
+    // Detects the L2677 template via a phrase that ONLY appears there,
+    // not in the standalone golden line 「你不是工具欄」.
     text.includes('今天先挑一件不要接的事') ||
     text.includes('今天我不開 checklist') ||
     text.includes('先不要再新增東西') ||
@@ -204,6 +220,15 @@ export function isGeneratedFallbackText(text: string) {
     text.includes('確認誰因 AI 社、傳聞或派系壓力而不敢說真心話') ||
     text.includes('真晝感覺 Alan 的世界仍有被溫柔照顧的空間')
   );
+}
+
+// Catch-both wrapper. Use when you want to reject anything that smells
+// like engine scaffolding — covers all current callers (persistence
+// gates, archive guards, send-message guards). Prefer the two specific
+// functions at NEW call sites so the intent is explicit, especially if
+// the caller could legitimately want one but not the other.
+export function isGeneratedFallbackText(text: string): boolean {
+  return isSystemAbortMarker(text) || isDeterministicTemplatePhrase(text);
 }
 
 export function shouldPersistCharacterSoulTranscript(participantNames: string[], messages: string[]) {

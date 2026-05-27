@@ -1,6 +1,122 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-26 (UI pass + portrait fix + backend audit follow-ups)
+Last updated: 2026-05-27 (Codex review pass: contract split, renames, dead-code cleanup)
+
+## 2026-05-27 Codex Review Pass
+
+Codex shipped a major lane while I was away (uncommitted): the
+"abort-everywhere" change, AM→PM continuity goal, fallback-pollution
+cleanup, ConversationWall URL routing. Direction is correct overall.
+Reviewed and shipped fixes for 6 of the 7 concerns I flagged.
+
+### What Codex shipped (now reviewed and accepted)
+
+- **`[ABORT_CONVERSATION]` everywhere instead of deterministic fallback**
+  ([convex/agent/conversation.ts](../convex/agent/conversation.ts)).
+  When LLM unavailable / disabled / fails / template leaks / repeats, all
+  paths now return `[ABORT_CONVERSATION] ...` markers that the
+  persistence gates drop. Belt-and-suspenders archive guard added in
+  [aiTown/game.ts](../convex/aiTown/game.ts#L298) and
+  [agentOperations.ts](../convex/aiTown/agentOperations.ts#L181).
+- **Auto-enable autonomous LLM when Ollama is configured**. Necessary
+  consequence of the abort change — otherwise non-pilot NPC↔NPC pairs
+  produce nothing at all.
+- **`date + weekday` injected into clock context for prompts**
+  (`localDateContextForPrompt`).
+- **Fallback-pollution audit + cleanup expanded to all cast** (was
+  Umi/Mahiru only). Cleanup now requires `includeArchivedConversations`
+  opt-in (safer default).
+- **`canStartAutonomousConversations` excludes wind-down hours**.
+- **AM→PM continuity goal**
+  ([docs/soul/AM_PM_CONTINUITY_GOAL.md](soul/AM_PM_CONTINUITY_GOAL.md))
+  + observe-only script + npm alias.
+- **`?view=conversations` URL routing for ConversationWall**
+  ([src/App.tsx](../src/App.tsx)).
+- **Pilot soul defs extended** to caocao / liubei / mai.
+
+### What I fixed tonight in response (this commit)
+
+1. **#1 Ollama auto-enable now visible.**
+   [.env.local.example](../.env.local.example) gained a 25-line block
+   explaining: why default-on for Ollama setups, the GPU/CPU impact,
+   and the `AUTONOMOUS_CONVERSATION_LLM=false` opt-out. Behavior
+   unchanged; just stops being a silent contract shift.
+
+2. **#2 `isGeneratedFallbackText` split into two functions.**
+   [convex/modelPolicy.ts](../convex/modelPolicy.ts) now exports:
+   - `isSystemAbortMarker(text)` — `[ABORT_CONVERSATION]`, `[LEAVE]`,
+     `pilot LLM unavailable`, `pilot repair fallback`. Engine
+     scaffolding, never legitimate model output.
+   - `isDeterministicTemplatePhrase(text)` — the Chinese template
+     signatures (with the Asuna golden-line allowlist already in
+     place from 90bb19d).
+   - `isGeneratedFallbackText(text)` kept as catch-both wrapper for
+     existing callers. The split is purely about contract clarity for
+     new callers (e.g. someone wanting a strict marker-only check on
+     archive ingest, no template-phrase false-positive risk).
+   - New test cases cover marker / template / golden-line edge cases.
+     **57/57 PASS** (was 55).
+
+3. **#3 Dead code cleanup.**
+   - **Deleted** the 5-function rotating-exit-line chain
+     (`actionableExit` / `personalityExit` / `actionableConclusion` /
+     `rotatingExitLine` / `stableTinyHash`) — Codex added these earlier
+     in the same session and then bypassed them in the abort pass. No
+     external callers; pure orphan chain.
+   - **Marked `@deprecated`** the 3 fallback helpers
+     (`initiativeFallback`, `companionFallback`, `bindingFallback`)
+     with comments. Kept in tree because:
+     (a) they carry substantial Chinese voice-design copy worth
+         preserving in-place as reference,
+     (b) they are the rollback safety net if `abort-everywhere`
+         proves too aggressive.
+     Safe to delete after one stable v0.1 release.
+
+4. **#4 Misleading function names renamed.**
+   `auditUmiMahiruFallbackPollution` → `auditFallbackPollution`.
+   `cleanupUmiMahiruFallbackPollution` → `cleanupFallbackPollution`.
+   `hasUmiMahiruFallbackMarker` → `hasFallbackMarker`.
+   `UMI_MAHIRU_FALLBACK_MEMORY_MARKERS` → `FALLBACK_MEMORY_MARKERS`.
+   These functions now scan ALL participants, not just Umi/Mahiru, so
+   the old names were lies. Updated 2 script callers
+   (`scripts/underworld-observe-once.mjs`,
+   `scripts/underworld-cleanup-fallback-pollution.mjs`).
+   `cleanupActiveUmiMahiruFallbackConversation` kept (genuinely
+   Umi/Mahiru-scoped).
+
+5. **#5 `moodEvents` annotated as future-use data.**
+   [data/schoolLocations.ts](../data/schoolLocations.ts) gained a
+   comment explaining the field is design data for a future consumer.
+   Not yet wired anywhere. Flagged so the next consumer adds a
+   roadmap entry when it ships.
+
+6. **#6 Abort path test coverage added.**
+   12 abort marker variants Codex introduced now have an explicit
+   regression test that asserts both `isSystemAbortMarker` catches
+   them AND `shouldPersistCharacterSoulTranscript` drops them.
+
+7. **#7 B-handoffs not yet picked up by Codex** — still valid. B2 is
+   now PARTIALLY addressed by tonight's split (the function is split,
+   but all existing callers still use the catch-both wrapper). B1
+   (pilot registry) and B3 (N+1) remain open.
+
+### Verification
+
+- `npx tsc --noEmit` PASS clean.
+- `npm test` PASS, **57/57** (was 55: +2 new tests).
+- `npx vite build` PASS.
+
+### What changed about the Codex handoffs
+
+- **B1** (pilot registry) — still valid, untouched.
+- **B2** (`isGeneratedFallbackText` split) — PARTIALLY done. The
+  function is split; existing callers still use the wrapper. Future
+  refactor: audit each call site and pick the specific function.
+- **B3** (`recentConversationEvalData` N+1) — still valid, gets WORSE
+  now that `auditFallbackPollution` scans all participants.
+- **B4** (residue write registry symmetry) — still subsumed by B1.
+- **B5** (`memoryInfluenceScore`) — still deferred until ≥3 fresh
+  samples.
 
 ## 2026-05-26 UI Pass + Portrait Fix + Backend Audit Follow-Ups
 

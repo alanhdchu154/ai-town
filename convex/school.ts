@@ -6404,7 +6404,7 @@ export const recentConversationEvalData = query({
   },
 });
 
-const UMI_MAHIRU_FALLBACK_MEMORY_MARKERS = [
+const FALLBACK_MEMORY_MARKERS = [
   '這段先停在這裡',
   '先看見學生的不安，再談下一個功能',
   '我想去看看今天一直安靜的學生',
@@ -6416,23 +6416,29 @@ const UMI_MAHIRU_FALLBACK_MEMORY_MARKERS = [
   '今晚先少接一件事',
   '先看人，不是先加功能',
   '……先停一下',
-  '我換個說法',
   '先不要重複',
   '今晚先去宿舍確認幾位學生的狀態',
   '確認誰因 AI 社、傳聞或派系壓力而不敢說真心話',
   '真正需要 Alan 先看見的情緒風險',
   '真晝感覺 Alan 的世界仍有被溫柔照顧的空間',
+  '我可以拆下一步。但這次我想先說清楚',
+  '不是所有事都該默默丟給我',
+  '……先不要再新增東西了',
+  '我剛剛差點又開始排順序',
+  '今天我不開 checklist',
+  '誰要跟我一起分掉一半',
+  '你直接說哪件事可以關掉',
 ];
 
-function hasUmiMahiruFallbackMarker(text?: string) {
-  return Boolean(text && UMI_MAHIRU_FALLBACK_MEMORY_MARKERS.some((marker) => text.includes(marker)));
+function hasFallbackMarker(text?: string) {
+  return Boolean(text && FALLBACK_MEMORY_MARKERS.some((marker) => text.includes(marker)));
 }
 
 function isUmiMahiruPair(names: string[]) {
   return names.includes('Umi') && names.includes('Mahiru Shiina');
 }
 
-export const auditUmiMahiruFallbackPollution = query({
+export const auditFallbackPollution = query({
   args: {
     limit: v.optional(v.number()),
   },
@@ -6441,9 +6447,7 @@ export const auditUmiMahiruFallbackPollution = query({
     const { world } = await defaultWorld(ctx);
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
-    const targetPlayerIds = [...descriptions.entries()]
-      .filter(([, description]) => description.name === 'Umi' || description.name === 'Mahiru Shiina')
-      .map(([id]) => id);
+    const targetPlayerIds = [...descriptions.keys()];
 
     const archivedConversations = await ctx.db
       .query('archivedConversations')
@@ -6454,14 +6458,13 @@ export const auditUmiMahiruFallbackPollution = query({
     const fallbackArchivedConversations = [];
     for (const conversation of archivedConversations) {
       const participantNames = conversation.participants.map(nameForPlayer);
-      if (!isUmiMahiruPair(participantNames)) continue;
       const messages = await ctx.db
         .query('messages')
         .withIndex('conversationId', (q) =>
           q.eq('worldId', world._id).eq('conversationId', conversation.id),
         )
         .collect();
-      if (!messages.some((message) => hasUmiMahiruFallbackMarker(message.text))) continue;
+      if (!messages.some((message) => hasFallbackMarker(message.text))) continue;
       fallbackArchivedConversations.push({
         conversationId: conversation.id,
         ended: conversation.ended,
@@ -6477,7 +6480,7 @@ export const auditUmiMahiruFallbackPollution = query({
         .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
         .collect();
       for (const memory of memories) {
-        if (!hasUmiMahiruFallbackMarker(memory.description)) continue;
+        if (!hasFallbackMarker(memory.description)) continue;
         fallbackMemories.push({
           memoryId: memory._id,
           embeddingId: memory.embeddingId,
@@ -6496,9 +6499,7 @@ export const auditUmiMahiruFallbackPollution = query({
         .take(limit * 2)
     )
       .filter((event) =>
-        (event.actorName === 'Umi' || event.actorName === 'Mahiru Shiina') &&
-        (event.targetName === 'Umi' || event.targetName === 'Mahiru Shiina') &&
-        hasUmiMahiruFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
+        hasFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
       )
       .map((event) => ({
         eventDocId: event._id,
@@ -6520,8 +6521,7 @@ export const auditUmiMahiruFallbackPollution = query({
     )
       .filter((notification) =>
         notification.type === 'relationship_change' &&
-        (notification.relatedCharacterName === 'Umi' || notification.relatedCharacterName === 'Mahiru Shiina') &&
-        hasUmiMahiruFallbackMarker(notification.contentZh),
+        hasFallbackMarker(notification.contentZh),
       )
       .map((notification) => ({
         notificationDocId: notification._id,
@@ -6538,11 +6538,10 @@ export const auditUmiMahiruFallbackPollution = query({
       .collect();
     for (const profile of profiles) {
       const profileName = nameForPlayer(profile.playerId);
-      if (profileName !== 'Umi' && profileName !== 'Mahiru Shiina') continue;
-      const pollutedIntentions = (profile.shortTermIntentions ?? []).filter(hasUmiMahiruFallbackMarker);
-      const pollutedShortMemory = profile.shortTermMemory.filter(hasUmiMahiruFallbackMarker);
-      const pollutedLongMemory = profile.longTermMemory.filter(hasUmiMahiruFallbackMarker);
-      const pollutedBeliefs = profile.beliefs.filter(hasUmiMahiruFallbackMarker);
+      const pollutedIntentions = (profile.shortTermIntentions ?? []).filter(hasFallbackMarker);
+      const pollutedShortMemory = profile.shortTermMemory.filter(hasFallbackMarker);
+      const pollutedLongMemory = profile.longTermMemory.filter(hasFallbackMarker);
+      const pollutedBeliefs = profile.beliefs.filter(hasFallbackMarker);
       if (
         pollutedIntentions.length ||
         pollutedShortMemory.length ||
@@ -6579,20 +6578,20 @@ export const auditUmiMahiruFallbackPollution = query({
   },
 });
 
-export const cleanupUmiMahiruFallbackPollution = mutation({
+export const cleanupFallbackPollution = mutation({
   args: {
     dryRun: v.optional(v.boolean()),
     limit: v.optional(v.number()),
+    includeArchivedConversations: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const dryRun = args.dryRun !== false;
     const limit = Math.max(50, Math.min(args.limit ?? 500, 1000));
+    const includeArchivedConversations = args.includeArchivedConversations === true;
     const { world } = await defaultWorld(ctx);
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
-    const targetPlayerIds = [...descriptions.entries()]
-      .filter(([, description]) => description.name === 'Umi' || description.name === 'Mahiru Shiina')
-      .map(([id]) => id);
+    const targetPlayerIds = [...descriptions.keys()];
 
     const memoryIdsToDelete = new Set<Id<'memories'>>();
     const embeddingIdsToDelete = new Set<Id<'memoryEmbeddings'>>();
@@ -6601,26 +6600,26 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
     const pollutedConversationIds = new Set<string>();
     const participatedTogetherIdsToDelete = new Set<Id<'participatedTogether'>>();
 
-    const archivedConversations = await ctx.db
-      .query('archivedConversations')
-      .withIndex('ended', (q) => q.eq('worldId', world._id))
-      .order('desc')
-      .take(limit);
-    for (const conversation of archivedConversations) {
-      const participantNames = conversation.participants.map(nameForPlayer);
-      if (!isUmiMahiruPair(participantNames)) continue;
-      const messages = await ctx.db
-        .query('messages')
-        .withIndex('conversationId', (q) =>
-          q.eq('worldId', world._id).eq('conversationId', conversation.id),
-        )
-        .collect();
-      if (!messages.some((message) => hasUmiMahiruFallbackMarker(message.text))) continue;
-      archivedConversationDocIdsToDelete.add(conversation._id);
-      for (const message of messages) {
-        messageIdsToDelete.add(message._id);
+    if (includeArchivedConversations) {
+      const archivedConversations = await ctx.db
+        .query('archivedConversations')
+        .withIndex('ended', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(limit);
+      for (const conversation of archivedConversations) {
+        const messages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) =>
+            q.eq('worldId', world._id).eq('conversationId', conversation.id),
+          )
+          .collect();
+        if (!messages.some((message) => hasFallbackMarker(message.text))) continue;
+        archivedConversationDocIdsToDelete.add(conversation._id);
+        for (const message of messages) {
+          messageIdsToDelete.add(message._id);
+        }
+        pollutedConversationIds.add(conversation.id);
       }
-      pollutedConversationIds.add(conversation.id);
     }
 
     for (const playerIdValue of targetPlayerIds) {
@@ -6641,7 +6640,7 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
         .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
         .collect();
       for (const memory of memories) {
-        if (!hasUmiMahiruFallbackMarker(memory.description)) continue;
+        if (!hasFallbackMarker(memory.description)) continue;
         memoryIdsToDelete.add(memory._id);
         embeddingIdsToDelete.add(memory.embeddingId);
       }
@@ -6655,9 +6654,7 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
         .take(limit * 2)
     )
       .filter((event) =>
-        (event.actorName === 'Umi' || event.actorName === 'Mahiru Shiina') &&
-        (event.targetName === 'Umi' || event.targetName === 'Mahiru Shiina') &&
-        hasUmiMahiruFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
+        hasFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
       )
       .map((event) => event._id);
 
@@ -6670,8 +6667,7 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
     )
       .filter((notification) =>
         notification.type === 'relationship_change' &&
-        (notification.relatedCharacterName === 'Umi' || notification.relatedCharacterName === 'Mahiru Shiina') &&
-        hasUmiMahiruFallbackMarker(notification.contentZh),
+        hasFallbackMarker(notification.contentZh),
       )
       .map((notification) => notification._id);
 
@@ -6682,13 +6678,12 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
       .collect();
     for (const profile of profiles) {
       const profileName = nameForPlayer(profile.playerId);
-      if (profileName !== 'Umi' && profileName !== 'Mahiru Shiina') continue;
       const shortTermIntentions = (profile.shortTermIntentions ?? []).filter(
-        (item) => !hasUmiMahiruFallbackMarker(item),
+        (item) => !hasFallbackMarker(item),
       );
-      const shortTermMemory = profile.shortTermMemory.filter((item) => !hasUmiMahiruFallbackMarker(item));
-      const longTermMemory = profile.longTermMemory.filter((item) => !hasUmiMahiruFallbackMarker(item));
-      const beliefs = profile.beliefs.filter((item) => !hasUmiMahiruFallbackMarker(item));
+      const shortTermMemory = profile.shortTermMemory.filter((item) => !hasFallbackMarker(item));
+      const longTermMemory = profile.longTermMemory.filter((item) => !hasFallbackMarker(item));
+      const beliefs = profile.beliefs.filter((item) => !hasFallbackMarker(item));
       const changed =
         shortTermIntentions.length !== (profile.shortTermIntentions ?? []).length ||
         shortTermMemory.length !== profile.shortTermMemory.length ||
@@ -6737,6 +6732,7 @@ export const cleanupUmiMahiruFallbackPollution = mutation({
     return {
       worldId: world._id,
       dryRun,
+      includeArchivedConversations,
       archivedConversationDocs: archivedConversationDocIdsToDelete.size,
       messageDocs: messageIdsToDelete.size,
       participatedTogetherDocs: participatedTogetherIdsToDelete.size,
@@ -6781,7 +6777,7 @@ export const cleanupActiveUmiMahiruFallbackConversation = mutation({
       const shouldRemove =
         force ||
         conversation.numMessages === 0 ||
-        messages.some((message) => hasUmiMahiruFallbackMarker(message.text));
+        messages.some((message) => hasFallbackMarker(message.text));
       if (!shouldRemove) continue;
       activeConversationIdsToRemove.add(conversation.id);
       for (const message of messages) {
@@ -7091,7 +7087,7 @@ export const currentScheduleContext = internalQuery({
       location,
       isSleepHour: isSleepHour(clock),
       isWindingDownHour: isWindingDownHour(clock),
-      canStartAutonomousConversations: !isSleepHour(clock),
+      canStartAutonomousConversations: !isSleepHour(clock) && !isWindingDownHour(clock),
       periodLabelZh: rhythmName(clock.hour),
       characterName,
     };

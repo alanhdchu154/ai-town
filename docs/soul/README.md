@@ -24,6 +24,17 @@ characters to remember, care, change, and leave emotional traces over time.
 - [Mahiru / 真晝](./pilots/mahiru.md)
 - [Asuna / 明日奈](./pilots/asuna.md)
 
+## Secondary Local-LLM Soul Profiles
+
+These characters now have soul definitions so local LLM conversations do not
+fall back to thin persona blurbs. They are still secondary for v0.1 evaluation:
+use them for character identity, contrast, and background continuity, but do not
+expand the main v0.1 acceptance target beyond the emotional continuity loop.
+
+- [CaoCao / 曹操](./pilots/caocao.md)
+- [Mai / 麻衣](./pilots/mai.md)
+- [Liu Bei / 劉備](./pilots/liubei.md)
+
 ## Current Principle
 
 Soul definitions are only Character DNA.

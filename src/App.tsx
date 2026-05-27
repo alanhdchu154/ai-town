@@ -1,40 +1,49 @@
 import Game from './components/Game.tsx';
+import ConversationWall from './components/ConversationWall.tsx';
 
 import { ToastContainer } from 'react-toastify';
+import { useEffect, useState } from 'react';
 // import { UserButton } from '@clerk/clerk-react';
 // import { Authenticated, Unauthenticated } from 'convex/react';
 // import LoginButton from './components/buttons/LoginButton.tsx';
 
 export default function Home() {
+  const [view, setView] = useState(() => currentView());
+  useEffect(() => {
+    const onPopState = () => setView(currentView());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+  const setRouteView = (nextView: 'world' | 'conversations') => {
+    const url = new URL(window.location.href);
+    if (nextView === 'world') {
+      url.searchParams.delete('view');
+    } else {
+      url.searchParams.set('view', nextView);
+    }
+    window.history.pushState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    setView(nextView);
+  };
+
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-between font-body game-background">
-      {/*<div className="p-3 absolute top-0 right-0 z-10 text-2xl">
-        <Authenticated>
-          <UserButton afterSignOutUrl="/ai-town" />
-        </Authenticated>
-
-        <Unauthenticated>
-          <LoginButton />
-        </Unauthenticated>
-      </div> */}
-
       <div className="w-full min-h-screen relative isolate overflow-hidden p-2 lg:p-4 flex flex-col justify-center items-center gap-3">
-        <h1 className="sr-only">
-          GIIS Underworld
-        </h1>
+        <h1 className="sr-only">GIIS Underworld</h1>
 
-        <div className="pointer-events-none absolute left-4 top-3 z-10 text-sm text-white/70">
-          GIIS Underworld / AI School Simulation
-          {/* <Unauthenticated>
-            <div className="my-1.5 sm:my-0" />
-            Log in to join the town
-            <br className="block sm:hidden" /> and the conversation!
-          </Unauthenticated> */}
-        </div>
-
-        <Game />
+        {view === 'conversations' ? (
+          <ConversationWall onOpenWorld={() => setRouteView('world')} />
+        ) : (
+          <Game view={view} onChangeView={setRouteView} />
+        )}
         <ToastContainer position="bottom-right" autoClose={2000} closeOnClick theme="dark" />
       </div>
     </main>
   );
+}
+
+function currentView(): 'world' | 'conversations' {
+  if (typeof window === 'undefined') return 'world';
+  return new URLSearchParams(window.location.search).get('view') === 'conversations'
+    ? 'conversations'
+    : 'world';
 }

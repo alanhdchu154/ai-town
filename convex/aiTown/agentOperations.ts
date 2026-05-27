@@ -24,6 +24,7 @@ import {
   randomClassroomTile,
 } from '../../data/classroomBounds';
 import { SchoolLocations } from '../../data/schoolLocations';
+import { isGeneratedFallbackText } from '../modelPolicy';
 
 function logGiisTiming(payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === 'production') return;
@@ -175,7 +176,10 @@ export const agentGenerateMessage = internalAction({
         type: args.type,
         playerId: args.playerId,
       });
-      const shouldAbortConversation = rawText.startsWith('[ABORT_CONVERSATION]');
+      const shouldLeave = rawText.startsWith('[LEAVE]');
+      const text = shouldLeave ? rawText.replace(/^\[LEAVE\]\s*/, '') : rawText;
+      const shouldAbortConversation =
+        rawText.startsWith('[ABORT_CONVERSATION]') || isGeneratedFallbackText(text);
       if (shouldAbortConversation) {
         await sendInputWithRetry(ctx, {
           worldId: args.worldId,
@@ -188,8 +192,6 @@ export const agentGenerateMessage = internalAction({
         });
         return;
       }
-      const shouldLeave = rawText.startsWith('[LEAVE]');
-      const text = shouldLeave ? rawText.replace(/^\[LEAVE\]\s*/, '') : rawText;
 
       const sendStart = Date.now();
       await ctx.runMutation(internal.aiTown.agent.agentSendMessage, {

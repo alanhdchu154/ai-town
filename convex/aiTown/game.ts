@@ -25,6 +25,7 @@ import { internal } from '../_generated/api';
 import { HistoricalObject } from '../engine/historicalObject';
 import { AgentDescription, serializedAgentDescription } from './agentDescription';
 import { parseMap, serializeMap } from '../util/object';
+import { isGeneratedFallbackText } from '../modelPolicy';
 
 const gameState = v.object({
   world: v.object(serializedWorld),
@@ -275,16 +276,27 @@ export class Game extends AbstractGame {
         if (conversation.numMessages === 0) {
           continue;
         }
-        if (failedCharacterSoulPilot) {
-          const messages = await ctx.db
+        let messages: Doc<'messages'>[] | undefined;
+        const loadMessages = async () => {
+          messages ??= await ctx.db
             .query('messages')
             .withIndex('conversationId', (q) =>
               q.eq('worldId', worldId).eq('conversationId', conversation.id),
             )
             .collect();
-          for (const message of messages) {
+          return messages;
+        };
+        const deleteMessages = async () => {
+          for (const message of await loadMessages()) {
             await ctx.db.delete(message._id);
           }
+        };
+        if (failedCharacterSoulPilot) {
+          await deleteMessages();
+          continue;
+        }
+        if ((await loadMessages()).some((message) => isGeneratedFallbackText(message.text))) {
+          await deleteMessages();
           continue;
         }
         const archivedConversation = {

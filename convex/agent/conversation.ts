@@ -73,8 +73,21 @@ function shouldUseCompactAutonomousPrompt(
 }
 
 function autonomousConversationLLMEnabled() {
-  return process.env.ENABLE_AUTONOMOUS_CONVERSATION_LLM === 'true' ||
-    process.env.AUTONOMOUS_CONVERSATION_LLM === 'true';
+  if (process.env.ENABLE_AUTONOMOUS_CONVERSATION_LLM === 'true') return true;
+  if (process.env.AUTONOMOUS_CONVERSATION_LLM === 'true') return true;
+  return autonomousConversationLLMDefaultEnabled();
+}
+
+// Default-on when a local LLM is configured (e.g. Ollama / Qwen). Lets autonomous
+// non-pilot dialogue go to the local model so deterministic templates never reach
+// the archive. Explicitly opt-out with AUTONOMOUS_CONVERSATION_LLM=false.
+function autonomousConversationLLMDefaultEnabled() {
+  if (process.env.AUTONOMOUS_CONVERSATION_LLM === 'false') return false;
+  if (process.env.ENABLE_AUTONOMOUS_CONVERSATION_LLM === 'false') return false;
+  if ((process.env.LLM_PROVIDER ?? '').trim().toLowerCase() === 'ollama') return true;
+  if ((process.env.OLLAMA_MODEL ?? '').trim() !== '') return true;
+  if ((process.env.CONVERSATION_FAST_MODEL ?? '').trim() !== '') return true;
+  return false;
 }
 
 // Whether the Alan↔Umi companion path may use the cloud adapter (same one as the
@@ -146,7 +159,7 @@ export async function startConversationMessage(
   const companionMode = isCompanionChat(player.name, otherPlayer.name);
   const humanInConversation = Boolean(player.human || otherPlayer.human);
   if (!humanInConversation && !autonomousConversationLLMEnabledFor(player.name, otherPlayer.name)) {
-    return initiativeFallback(player.name, otherPlayer.name, 'start', recentEvents?.[0]?.descriptionZh, sceneContext);
+    return '[ABORT_CONVERSATION] autonomous LLM disabled at start';
   }
   const compactAutonomousPrompt = shouldUseCompactAutonomousPrompt(
     player.name,
@@ -221,9 +234,7 @@ export async function startConversationMessage(
     },
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
-      : companionMode
-        ? companionFallback(player.name, otherPlayer.name, undefined, [])
-        : initiativeFallback(player.name, otherPlayer.name, 'start', undefined, sceneContext),
+      : '[ABORT_CONVERSATION] autonomous LLM unavailable at start',
     cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
@@ -266,22 +277,7 @@ export async function continueConversationMessage(
   const companionMode = isCompanionChat(player.name, otherPlayer.name);
   const humanInConversation = Boolean(player.human || otherPlayer.human);
   if (!humanInConversation && !autonomousConversationLLMEnabledFor(player.name, otherPlayer.name)) {
-    const previous = await previousMessages(
-      ctx,
-      worldId,
-      player,
-      otherPlayer,
-      conversation.id as GameId<'conversations'>,
-    );
-    const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents, sceneContext, clockContext);
-    if (lifecycle.shouldEnd || deterministicFallbackPressure(previous) >= 3) {
-      return `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`;
-    }
-    return repairWrongConversationAddressee(
-      bindingFallback(player.name, otherPlayer.name, lifecycle, sceneContext, previous),
-      player.name,
-      otherPlayer.name,
-    );
+    return '[ABORT_CONVERSATION] autonomous LLM disabled mid-conversation';
   }
   const compactAutonomousPrompt = shouldUseCompactAutonomousPrompt(
     player.name,
@@ -344,13 +340,12 @@ export async function continueConversationMessage(
   const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents, sceneContext, clockContext);
   const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
   if (lifecycle.shouldEnd && !humanInConversation && !pilotPair) {
-    return `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`;
+    return '[ABORT_CONVERSATION] autonomous conversation lifecycle exhausted';
   }
   if (!humanInConversation && deterministicFallbackPressure(previous) >= 3) {
-    if (pilotPair) {
-      return '[ABORT_CONVERSATION] pilot deterministic exit blocked';
-    }
-    return `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`;
+    return pilotPair
+      ? '[ABORT_CONVERSATION] pilot deterministic exit blocked'
+      : '[ABORT_CONVERSATION] autonomous deterministic pressure';
   }
   const lastAlanInput = companionMode ? lastDirectMessageFrom(otherPlayer.name, previous) : undefined;
   const companionIntent = companionMode ? companionIntentFor(lastAlanInput ?? '') : undefined;
@@ -399,15 +394,7 @@ export async function continueConversationMessage(
     },
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
-      : companionMode
-        ? companionFallback(player.name, otherPlayer.name, lastAlanInput, previous)
-        : initiativeFallback(
-            player.name,
-            otherPlayer.name,
-            'continue',
-            recentEvents?.[0]?.descriptionZh,
-            sceneContext,
-          ),
+      : '[ABORT_CONVERSATION] autonomous LLM unavailable mid-conversation',
     cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
@@ -425,13 +412,7 @@ export async function continueConversationMessage(
     if (humanInConversation) {
       return '[ABORT_CONVERSATION] human conversation repetitive response';
     }
-    const fallback = companionMode
-      ? companionFallback(player.name, otherPlayer.name, lastAlanInput, previous)
-      : bindingFallback(player.name, otherPlayer.name, lifecycle, sceneContext, previous);
-    const repairedFallback = repairWrongConversationAddressee(fallback, player.name, otherPlayer.name);
-    return lifecycle.shouldEnd && !humanInConversation
-      ? `[LEAVE] ${actionableExit(player.name, otherPlayer.name, lifecycle)}`
-      : repairedFallback;
+    return '[ABORT_CONVERSATION] autonomous repetitive response';
   }
   if (pilotPair && isGeneratedFallbackText(trimmed)) {
     return '[ABORT_CONVERSATION] pilot generated fallback text';
@@ -465,7 +446,7 @@ export async function leaveConversationMessage(
   );
   const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents);
   if (!humanInConversation && !autonomousConversationLLMEnabledFor(player.name, otherPlayer.name)) {
-    return personalityExit(player.name, otherPlayer.name, lifecycle);
+    return '[ABORT_CONVERSATION] autonomous LLM disabled on leave';
   }
   const prompt = [
     `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
@@ -507,7 +488,7 @@ export async function leaveConversationMessage(
     },
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
-      : personalityExit(player.name, otherPlayer.name, lifecycle),
+      : '[ABORT_CONVERSATION] autonomous LLM unavailable on leave',
     cloudConversation,
   );
   const trimmed = sanitizeConversationContent(
@@ -879,7 +860,7 @@ function compactAutonomousStartPrompt({
     `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
-    `Scene: ${sceneContext?.labelZh ?? '校園'}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}.`,
+    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}.`,
     `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
@@ -941,7 +922,7 @@ function compactAutonomousContinuePromptBase({
     `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
-    `Scene: ${sceneContext?.labelZh ?? '校園'}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
+    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     'Do not sound like a meeting note. Avoid labels like "主線", "形成意圖", or "conversationOutcome".',
@@ -1054,7 +1035,7 @@ function richUmiMahiruPrompt({
     'conversationMode: character_soul_triad_pilot',
     `你是${self}，正在${sceneContext?.labelZh ?? '校園'}和${other}說話。海是人的名字，不是海邊或海洋。`,
     '只用自然繁體中文一句，45字內。只輸出口語台詞，不要標籤。',
-    `Scene/time: ${sceneContext?.labelZh ?? '校園'}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
+    `Scene/time: ${sceneContext?.labelZh ?? '校園'}；${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
     `Public self / role：${clipPromptText(ownProfile?.role ?? agent?.identity ?? personalLifeFragment(playerName), 120)}；${clipPromptText(ownProfile?.persona ?? '', 160)}`,
     `Private self：${ownProfile ? clipPromptText(`${ownProfile.stakes.hiddenFear} ${ownProfile.stakes.emotionalVulnerability}`, 180) : clipPromptText(agent?.plan ?? personalLifeFragment(playerName), 160)}`,
     `Daily state：${dailyState}`,
@@ -1316,7 +1297,25 @@ type ClockContext = {
   hour: number;
   periodLabelZh: string;
   isNight: boolean;
+  dateLabelZh?: string;
+  weekdayZh?: string;
 };
+
+function localDateContextForPrompt(now = Date.now(), timeZone = 'America/Chicago') {
+  const date = new Date(now);
+  return {
+    dateLabelZh: new Intl.DateTimeFormat('zh-TW', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).format(date),
+    weekdayZh: new Intl.DateTimeFormat('zh-TW', {
+      timeZone,
+      weekday: 'long',
+    }).format(date),
+  };
+}
 
 function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, companionMode = false) {
   const everydayInstruction = `Also allow ordinary school-life topics when natural for ${sceneContext?.labelZh ?? 'the current scene'}: ${sceneEverydayTopics(sceneContext).join('、')}.`;
@@ -1341,6 +1340,14 @@ function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, compa
   }
 }
 
+/**
+ * @deprecated 2026-05-27. Replaced by `[ABORT_CONVERSATION]` markers in
+ * the conversation engine (Codex's abort-everywhere pass). Kept as the
+ * rollback safety net in case the abort-everywhere choice proves too
+ * aggressive for non-pilot pairs. Safe to delete after one stable v0.1
+ * release. Do NOT add new callers — return `[ABORT_CONVERSATION] ...`
+ * instead and let the persistence gates drop it.
+ */
 function initiativeFallback(
   playerName: string,
   otherPlayerName: string,
@@ -1434,17 +1441,16 @@ function sanitizeConversationContent(
     return sanitizeUmiMahiruPilotLine(content, playerName, otherPlayerName, previous);
   }
   if (hasTemplateLeak(content, companionMode ? lastInput : undefined)) {
-    if (!companionMode) {
-      return initiativeFallback(playerName, otherPlayerName, 'stall');
-    }
-    return companionFallback(playerName, otherPlayerName, lastInput, previous);
+    return companionMode
+      ? '[ABORT_CONVERSATION] companion template leak'
+      : '[ABORT_CONVERSATION] autonomous template leak';
   }
   const cleaned = content
     .replace(/^剛才\s*Alan\s*說[:：]\s*「[^」]+」[，,。]?\s*/g, '')
     .trim();
   const addressed = repairWrongConversationAddressee(cleaned, playerName, otherPlayerName);
   if (companionMode && repeatsCompanionFallback(addressed, previous)) {
-    return companionFallback(playerName, otherPlayerName, lastInput, previous);
+    return '[ABORT_CONVERSATION] companion repetitive fallback';
   }
   if (!companionMode) return addressed;
   return addressed;
@@ -1755,6 +1761,13 @@ function directQuestionPrompt(intent: CompanionIntent) {
   }
 }
 
+/**
+ * @deprecated 2026-05-27. Replaced by `[ABORT_CONVERSATION]` markers in
+ * the conversation engine. Carries substantial Alan↔Umi companion-voice
+ * design copy (vulnerable_honesty / philosophical_reflection branches)
+ * worth preserving as a reference until v0.1 ships. Do NOT add new
+ * callers.
+ */
 function companionFallback(
   playerName: string,
   otherPlayerName: string,
@@ -1762,7 +1775,7 @@ function companionFallback(
   previous: LLMMessage[] = [],
 ) {
   if (playerName !== 'Umi' || otherPlayerName !== 'Alan') {
-    return initiativeFallback(playerName, otherPlayerName, 'continue');
+    return '[ABORT_CONVERSATION] companion fallback unavailable';
   }
   const input = lastInput ?? '';
   const intent = companionIntentFor(input);
@@ -1856,7 +1869,7 @@ function everydayLifePrompt(
   return [
     'Everyday life layer:',
     ` - Current scene: ${sceneContext?.labelZh ?? '校園'}.`,
-    ` - Current time energy: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量、不要長篇分析' : ''}.`,
+    ` - Current date/time: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量、不要長篇分析' : ''}.`,
     ` - Natural non-main-plot topics here: ${topics.join('、')}.`,
     ` - ${playerName}'s personal-life fragment: ${personalLifeFragment(playerName)}.`,
     ` - ${otherPlayerName} is not only a political/philosophical role; treat them as someone living in a school day.`,
@@ -1909,15 +1922,15 @@ function conversationMicroPurpose(
 function sceneEverydayTopics(sceneContext?: SceneContext) {
   switch (sceneContext?.id) {
     case 'dormitory':
-      return ['睡眠不足', '疲憊', '孤單', '私下擔心', '想休息卻停不下來', '害怕讓別人失望', '關係距離'];
+      return ['睡眠不足', '疲憊', '孤單', '室友距離', '洗衣沒收', '熄燈後還在擔心', '私下擔心', '想休息卻停不下來', '害怕讓別人失望', '關係距離'];
     case 'courtyard':
-      return ['天氣', '午餐', '校園傳聞', '尷尬互動', '喜歡待在哪裡', '誰最近變安靜', '朋友之間的小誤會'];
+      return ['天氣', '午餐', '告白', '秘密被聽見', '校園傳聞', '尷尬互動', '喜歡待在哪裡', '誰最近變安靜', '朋友之間的小誤會', '有人在門口等很久'];
     case 'aiClubRoom':
       return ['為什麼加入社團', '技術是否讓人更疏遠', '實驗疲勞', '個人興趣', '想做但還不敢說的點子'];
     case 'studentCouncilRoom':
-      return ['海邀請進來的個別談話', '責任壓力', '被期待的疲憊', '不想承認的害怕', '誰在假裝沒事'];
+      return ['海邀請進來的個別談話', '責任壓力', '休息界線', '被期待的疲憊', '不想承認的害怕', '誰在假裝沒事', '不好開口的硬話'];
     case 'classroom':
-      return ['上課精神不好', '作業壓力', '公開發言的尷尬', '怕答錯', '未來不確定感'];
+      return ['小考考差', '作業壓力', '作弊被發現', '公開發言的尷尬', '怕答錯', '成績焦慮', '上課精神不好', '未來不確定感'];
     default:
       return ['睡眠', '食物', '天氣', '興趣', '壓力', '孤單', '關係'];
   }
@@ -2625,6 +2638,11 @@ function escalationLayerLabel(layer: ConversationLifecycle['escalationLayer']) {
   }
 }
 
+/**
+ * @deprecated 2026-05-27. Replaced by `[ABORT_CONVERSATION]` markers in
+ * the conversation engine. Kept as the rollback safety net. Do NOT add
+ * new callers.
+ */
 function bindingFallback(
   playerName: string,
   otherPlayerName: string,
@@ -3055,136 +3073,6 @@ function stakesLayerInstruction(layer: ConversationLifecycle['escalationLayer'])
   }
 }
 
-function actionableExit(
-  playerName: string,
-  otherPlayerName: string,
-  lifecycle: ConversationLifecycle,
-) {
-  return `${personalityExit(playerName, otherPlayerName, lifecycle)} ${actionableConclusion(
-    playerName,
-    otherPlayerName,
-    lifecycle,
-  )}`;
-}
-
-function actionableConclusion(
-  playerName: string,
-  otherPlayerName: string,
-  lifecycle: ConversationLifecycle,
-) {
-  const pick = (options: string[]) => rotatingExitLine(options, playerName, otherPlayerName, lifecycle, 'conclusion');
-  switch (playerName) {
-    case 'CaoCao':
-      return pick([
-        '我會先確認誰的座位空了。',
-        '先看座位，不急著看誰講贏。',
-        '如果門口有人退了一步，我會先記住那一步。',
-      ]);
-    case 'Liu Bei':
-      return pick([
-        '我先做一個普通邀請。',
-        '今天先不開會，先問一個人要不要吃飯。',
-        '如果他不想說，我就陪他走到門口。',
-      ]);
-    case 'Mai':
-      return pick([
-        '風險我會寫，但漂亮話先免了。',
-        '我先不替你們收成一個結論。',
-        '那個沒被說出口的地方，我會留著看。',
-      ]);
-    case 'Umi':
-      return pick([
-        '我先少寫一段。',
-        '剩下的等人真的休息過再說。',
-        '這次我不把沉默也整理進簡報。',
-      ]);
-    case 'Mahiru Shiina':
-      return pick([
-        '我先不追問了。',
-        '我在旁邊就好。',
-        '等那個人願意開口時，我再靠近一點。',
-      ]);
-    case 'Asuna':
-      return pick([
-        '我只接一半。',
-        '另一半要有人現在說清楚。',
-        '這條我先不排進 checklist。',
-      ]);
-    default:
-      return pick(['我先做一件小事。', '先停一下，等真的有新狀況。']);
-  }
-}
-
-function personalityExit(
-  playerName: string,
-  otherPlayerName: string,
-  lifecycle: ConversationLifecycle,
-) {
-  const pick = (options: string[]) => rotatingExitLine(options, playerName, otherPlayerName, lifecycle, 'voice');
-  switch (playerName) {
-    case 'Mai':
-      return pick([
-        `${otherPlayerName}，再繞下去只是把害怕包裝成分析。`,
-        `${otherPlayerName}，你剛剛那句太乾淨了，我反而不信。`,
-        `${otherPlayerName}，先別把這件事說得那麼合理。`,
-      ]);
-    case 'CaoCao':
-      return pick([
-        `${otherPlayerName}，先到這裡。`,
-        `${otherPlayerName}，別急著判斷誰對。`,
-        `${otherPlayerName}，規矩先放著，看誰不敢進來。`,
-      ]);
-    case 'Umi':
-      return pick([
-        `${otherPlayerName}，先停在這裡。`,
-        `${otherPlayerName}，這段我先不寫進待辦。`,
-        `${otherPlayerName}，嗯，我今天先少說一點。`,
-      ]);
-    case 'Asuna':
-      return pick([
-        `${otherPlayerName}，等一下。`,
-        `${otherPlayerName}，這次不能又變成我先說「我來」。`,
-        `${otherPlayerName}，先不要再新增了。`,
-      ]);
-    case 'Liu Bei':
-      return pick([
-        `${otherPlayerName}，我先不急著把大家拉進正式討論。`,
-        `${otherPlayerName}，我先去問那個坐在角落的人。`,
-        `${otherPlayerName}，如果他不想來，我也不追問。`,
-      ]);
-    case 'Mahiru Shiina':
-      return pick([
-        `${otherPlayerName}，好，我不催你。`,
-        `${otherPlayerName}，先不用把話說完整。`,
-        `${otherPlayerName}，我在這裡坐一下就好。`,
-      ]);
-    default:
-      return pick([
-        `${otherPlayerName}，先停在這裡。`,
-        `${otherPlayerName}，等真的有新狀況再說。`,
-      ]);
-  }
-}
-
-function rotatingExitLine(
-  options: string[],
-  playerName: string,
-  otherPlayerName: string,
-  lifecycle: ConversationLifecycle,
-  salt: string,
-) {
-  const key = `${salt}:${playerName}:${otherPlayerName}:${lifecycle.exhaustionCount}:${lifecycle.currentTopic}`;
-  return options[stableTinyHash(key) % options.length];
-}
-
-function stableTinyHash(value: string) {
-  let hash = 0;
-  for (const char of value) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
-  }
-  return hash;
-}
-
 async function previousMessages(
   ctx: ActionCtx,
   worldId: Id<'worlds'>,
@@ -3311,6 +3199,7 @@ export const queryPromptData = internalQuery({
       .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
       .first();
     const hour = worldStatus?.worldClock?.hour ?? new Date().getHours();
+    const dateContext = localDateContextForPrompt();
     const sceneLocation = nearestSchoolLocation(player.position);
     const profileFor = async (selectedPlayerId: string) =>
       ctx.db
@@ -3356,9 +3245,10 @@ export const queryPromptData = internalQuery({
               : hour >= 13 && hour < 17
                 ? '下午'
                 : hour >= 17 && hour < 23
-                  ? '晚上'
-                  : '深夜',
+                ? '晚上'
+                : '深夜',
         isNight: hour >= 21 || hour < 6,
+        ...dateContext,
       },
     };
   },

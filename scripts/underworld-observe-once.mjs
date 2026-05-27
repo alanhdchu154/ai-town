@@ -43,7 +43,7 @@ async function main() {
 
   const evals = await runEvals();
   const reports = await readEvalReports();
-  const fallbackAudit = await convexRunSafe('school:auditUmiMahiruFallbackPollution', { limit: 1000 });
+  const fallbackAudit = await convexRunSafe('school:auditFallbackPollution', { limit: 1000 });
   const findings = analyzeFindings({
     timing,
     health,

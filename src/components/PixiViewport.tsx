@@ -67,7 +67,7 @@ export default PixiComponent('Viewport', {
       events: app.renderer.events,
       passiveWheel: false,
       ...viewportProps,
-    });
+    } as ConstructorParameters<typeof Viewport>[0] & { events: Application['renderer']['events'] });
     if (viewportRef) {
       viewportRef.current = viewport;
     }

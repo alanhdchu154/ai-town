@@ -210,7 +210,7 @@ Examples:
 These moments matter because they reveal how a character loves, protects, or
 worries in a way that only they would.
 
-## Current v0.1 Pilot
+## Current v0.1 Pilot And Secondary Profiles
 
 The current soul pilot focuses on:
 
@@ -218,9 +218,20 @@ The current soul pilot focuses on:
 - Mahiru / 真晝
 - Asuna / 明日奈
 
-The goal is not to expand to every character immediately. The goal is to prove
-that a small group can carry differentiated emotional continuity before the
-system scales.
+The goal is not to expand v0.1 acceptance to every character immediately. The
+goal is to prove that a small group can carry differentiated emotional
+continuity before the system scales.
+
+Because secondary characters may now participate through local LLM paths, they
+also need soul definitions. These definitions protect character identity and
+prevent thin local-LLM dialogue, but they should not become a reason to build
+large all-character systems yet.
+
+Secondary soul profiles:
+
+- CaoCao / 曹操: order as protection
+- Mai / 麻衣: hidden cost and false clarity detection
+- Liu Bei / 劉備: invitation as protection
 
 v0.1 success:
 

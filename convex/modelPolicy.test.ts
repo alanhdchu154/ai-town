@@ -1,7 +1,9 @@
 import {
   characterSoulPolicyViolation,
   characterSoulProviderGuard,
+  isDeterministicTemplatePhrase,
   isGeneratedFallbackText,
+  isSystemAbortMarker,
   memorySummarizationMode,
   recordCharacterSoulProviderAttempt,
   recordCharacterSoulProviderFailure,
@@ -63,7 +65,81 @@ describe('model policy', () => {
         '曹操，這件事我會先看清楚再告訴 Alan。',
       ]),
     ).toBe(true);
+    expect(
+      shouldPersistCharacterSoulTranscript(['Asuna', 'Mai'], [
+        '我可以拆下一步。但這次我想先說清楚：我不是不累，只是習慣先把事情接住。',
+      ]),
+    ).toBe(false);
+    expect(
+      shouldPersistCharacterSoulTranscript(['Asuna', 'CaoCao'], [
+        '……先不要再新增東西了。你直接說哪件事可以關掉。',
+      ]),
+    ).toBe(false);
+    expect(
+      shouldPersistCharacterSoulTranscript(['Asuna', 'Mai'], [
+        '今天我不開 checklist。你選一件事，我只負責把它交出去。',
+      ]),
+    ).toBe(false);
     expect(isGeneratedFallbackText('[ABORT_CONVERSATION] anything')).toBe(true);
+  });
+
+  test('split: system abort markers vs deterministic template phrases', () => {
+    // System markers — engine-emitted, never legitimate model output.
+    expect(isSystemAbortMarker('[ABORT_CONVERSATION] autonomous LLM disabled')).toBe(true);
+    expect(isSystemAbortMarker('[LEAVE] 我先休息一下')).toBe(true);
+    expect(isSystemAbortMarker('pilot LLM unavailable now')).toBe(true);
+    expect(isSystemAbortMarker('我覺得我們先到這裡。')).toBe(false);
+
+    // Template phrases — only present in deterministic fallback templates.
+    expect(isDeterministicTemplatePhrase('今天先挑一件不要接的事，好嗎？')).toBe(true);
+    expect(isDeterministicTemplatePhrase('但這次我想先說清楚：我不是不累')).toBe(true);
+    expect(isDeterministicTemplatePhrase('明日奈，我覺得你今天有點累。')).toBe(false);
+
+    // The two Asuna golden lines must NOT be blocked standalone — only
+    // the template variants that contain them along with the unique
+    // template signature.
+    expect(isDeterministicTemplatePhrase('不是所有事都該默默丟給我')).toBe(false);
+    expect(isDeterministicTemplatePhrase('你不是工具欄')).toBe(false);
+    // But the full templates that wrap them must still block:
+    expect(
+      isDeterministicTemplatePhrase(
+        '我可以負責下一步。但這次我想先說清楚：不是所有事都該默默丟給我。',
+      ),
+    ).toBe(true);
+    expect(
+      isDeterministicTemplatePhrase('你不是工具欄，明日奈。\n\n今天先挑一件不要接的事，好嗎？'),
+    ).toBe(true);
+
+    // Catch-both wrapper still covers both.
+    expect(isGeneratedFallbackText('[ABORT_CONVERSATION] anything')).toBe(true);
+    expect(isGeneratedFallbackText('今天我不開 checklist。')).toBe(true);
+    expect(isGeneratedFallbackText('真晝，妳剛剛聲音很輕。')).toBe(false);
+  });
+
+  test('autonomous abort variants all dropped from persistence', () => {
+    // Spot-check the new abort marker variants introduced when the engine
+    // replaced deterministic fallbacks with [ABORT_CONVERSATION] markers.
+    // All start with [ABORT_CONVERSATION] so isSystemAbortMarker catches.
+    const variants = [
+      '[ABORT_CONVERSATION] autonomous LLM disabled at start',
+      '[ABORT_CONVERSATION] autonomous LLM unavailable at start',
+      '[ABORT_CONVERSATION] autonomous LLM disabled mid-conversation',
+      '[ABORT_CONVERSATION] autonomous conversation lifecycle exhausted',
+      '[ABORT_CONVERSATION] autonomous deterministic pressure',
+      '[ABORT_CONVERSATION] autonomous LLM unavailable mid-conversation',
+      '[ABORT_CONVERSATION] autonomous repetitive response',
+      '[ABORT_CONVERSATION] autonomous LLM disabled on leave',
+      '[ABORT_CONVERSATION] autonomous LLM unavailable on leave',
+      '[ABORT_CONVERSATION] companion template leak',
+      '[ABORT_CONVERSATION] autonomous template leak',
+      '[ABORT_CONVERSATION] companion repetitive fallback',
+    ];
+    for (const variant of variants) {
+      expect(isSystemAbortMarker(variant)).toBe(true);
+      expect(shouldPersistCharacterSoulTranscript(['CaoCao', 'Mai'], [variant])).toBe(false);
+    }
+    // Mid-text leakage (if a model quotes the marker back) also caught.
+    expect(isSystemAbortMarker('I said [ABORT_CONVERSATION] in the middle')).toBe(true);
   });
 
   test('enforces a daily quota and cooldown guard for character soul providers', () => {
