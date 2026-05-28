@@ -28,6 +28,7 @@ describe('model policy', () => {
 
   test('routes free-world main three as cloud speakers and others as local speakers', () => {
     expect(isFreeWorldCloudCharacterName('Umi')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('Mahiru')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Mahiru Shiina')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Asuna')).toBe(true);
     expect(isFreeWorldCloudCharacterName('CaoCao')).toBe(false);
@@ -35,6 +36,7 @@ describe('model policy', () => {
     expect(isFreeWorldCloudCharacterName('Liu Bei')).toBe(false);
 
     expect(freeWorldConversationProviderRole('Umi', 'CaoCao')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Mahiru', 'Asuna')).toBe('cloud');
     expect(freeWorldConversationProviderRole('Mahiru Shiina', 'Asuna')).toBe('cloud');
     expect(freeWorldConversationProviderRole('Asuna', 'Liu Bei')).toBe('cloud');
     expect(freeWorldConversationProviderRole('CaoCao', 'Umi')).toBe('local');
@@ -60,7 +62,7 @@ describe('model policy', () => {
   });
 
   test('blocks generated fallback text from Umi/Mahiru persistence', () => {
-    const participants = ['Umi', 'Mahiru Shiina'];
+    const participants = ['Umi', 'Mahiru'];
     expect(shouldPersistCharacterSoulTranscript(participants, [])).toBe(false);
     expect(
       shouldPersistCharacterSoulTranscript(participants, [
@@ -77,6 +79,7 @@ describe('model policy', () => {
         '海，妳剛剛一直在整理 Alan 的事情，可是妳自己有休息嗎？',
       ]),
     ).toBe(true);
+    expect(shouldPersistCharacterSoulTranscript(['Umi', 'Mahiru Shiina'], ['真晝，我先少講一點。'])).toBe(true);
   });
 
   test('blocks generated fallback text from all persistence but allows ordinary other-pair text', () => {

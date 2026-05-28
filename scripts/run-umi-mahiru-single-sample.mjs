@@ -44,7 +44,7 @@ const WORLD_ID = process.env.UMI_MAHIRU_WORLD_ID ?? 'md7cefps8wz097yk9k44n92rj18
 const PILOT_ENV = {
   UMI_MAHIRU_SINGLE_SAMPLE_AFTER_MS: String(RUN_TIMESTAMP),
   UMI_MAHIRU_COLOCATION_PILOT: 'true',
-  AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru Shiina',
+  AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru',
 };
 
 for (const [key, value] of Object.entries(PILOT_ENV)) {
@@ -157,7 +157,7 @@ function isUmiMahiruPair(names) {
   const set = new Set(names ?? []);
   const hasUmi = set.has('海') || set.has('Umi') || set.has('朝凪海');
   const hasMahiru =
-    set.has('真晝') || set.has('Mahiru') || set.has('Mahiru Shiina') || set.has('椎名真晝');
+    set.has('真晝') || set.has('Mahiru') || set.has('Mahiru') || set.has('椎名真晝');
   return hasUmi && hasMahiru;
 }
 

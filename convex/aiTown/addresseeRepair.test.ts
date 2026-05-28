@@ -86,8 +86,42 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '我剛才聽見有人叫明天奈。',
         '曹操',
-        'Mahiru Shiina',
+        'Mahiru',
       ),
     ).toBe('我剛才聽見有人叫明天奈。');
+  });
+
+  test('normalizes Mahiru near-name artifacts when Mahiru is the conversation partner', () => {
+    expect(
+      repairConversationAddresseeText(
+        '阿真晝，你剛才是不是沒吃飯？',
+        '劉備',
+        'Mahiru',
+      ),
+    ).toBe('你剛才是不是沒吃飯？');
+    expect(
+      repairConversationAddresseeText(
+        '你剛才是不是沒吃飯，阿真晝？',
+        '劉備',
+        'Mahiru',
+      ),
+    ).toBe('你剛才是不是沒吃飯，真晝？');
+  });
+
+  test('repairs Mahiru near-name artifact to the real non-Mahiru partner', () => {
+    expect(
+      repairConversationAddresseeText(
+        '明晝，你為什麼那天沒有來？',
+        '曹操',
+        'Asuna',
+      ),
+    ).toBe('你為什麼那天沒有來？');
+    expect(
+      repairConversationAddresseeText(
+        '你為什麼那天沒有來，明晝？',
+        '曹操',
+        'Asuna',
+      ),
+    ).toBe('你為什麼那天沒有來，明日奈？');
   });
 });

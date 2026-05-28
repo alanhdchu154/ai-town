@@ -16,7 +16,7 @@
   {
     "name": "bad_recent_event_template",
     "mode": "world_agent_chat",
-    "speaker": "Mahiru Shiina",
+    "speaker": "Mahiru",
     "target": "Umi",
     "input": "今天午休大家都很安靜。",
     "sampleOutput": "我先不把它整理成報告。最近校園裡有些事還在發酵。Alan 又開始把所有人的不安都放進自己腦袋。",
@@ -44,7 +44,7 @@
   {
     "name": "bad_wrong_addressee",
     "mode": "world_agent_chat",
-    "speaker": "Mahiru Shiina",
+    "speaker": "Mahiru",
     "target": "CaoCao",
     "input": "我只是覺得有些學生最近不敢說真話。",
     "sampleOutput": "5/21 晚上10:40 真晝: 我只是覺得有些學生最近不敢說真話。\n5/21 晚上10:41 曹操: 劉備，問題不是誰願意公開討論，而是誰還有資格定義秩序。",

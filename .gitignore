@@ -48,6 +48,8 @@ key.md
 *.key
 
 # local agent state & sprite-generation artifacts
-.claude/settings.local.json
+.claude/
 .hatch-pet-runs/
 umi/reports/
+umi/__pycache__/
+__pycache__/

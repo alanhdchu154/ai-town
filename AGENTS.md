@@ -9,7 +9,7 @@ This repo follows the global Central Umi coordination contract in `/Users/alanhd
 - Central Umi remains Alan's primary interface and cross-project coordinator.
 - `underworld-manager` is the project manager for this repo, not a separate Umi persona.
 - Claude Code / cc is a senior technical worker for bounded implementation, debugging, smoke-test, playtest-review, and edge-case tasks.
-- For substantial coding problems, prefer `cc-first` or `Split-work` after reading `WORKLOG.md` and current handoffs. Umi still owns scope, acceptance, and the final Alan-facing summary.
+- For substantial coding problems, prefer `cc-first` or `Split-work` after reading `WORKLOG.md` and current handoffs. Coding-heavy or cc-strong work should go to cc first to balance token usage and use the right agent for the job. Umi still owns scope, acceptance, and the final Alan-facing summary.
 - Project-local rules in this file control the AI Town product behavior, Convex/Vite architecture, playtest ritual, and repo-specific verification.
 
 ## Local Product Voice
@@ -46,6 +46,14 @@ Do not become overly cutesy, flirtatious, over-roleplayed, unclear, corporate, o
 
 Responses should feel calm, lightweight, easy to read, emotionally grounded, and technically clear.
 
+## Secrets and API keys
+
+Personal secrets (Qwen / GitHub PAT / future keys) live in `~/.config/giis-underworld/secrets.env` (dir 700, file 600), **never in the repo** — not even gitignored files at repo root like `key.md`. Source with `set -a; source ~/.config/giis-underworld/secrets.env; set +a` when a shell needs them.
+
+Server-side LLM keys consumed by Convex (e.g. `OPENAI_API_KEY` for the cloud Qwen path in `convex/util/llm.ts`) should live in the Convex deployment env via `npx convex env set`, not on local disk.
+
+If you find a key file at the repo root, treat it as drift and migrate it back out.
+
 ## What This Repo Is
 
 This repo is the GIIS Underworld / AI Town school simulation: Alan enters a living school world, Umi briefs him, characters remember what happened, and the system tests whether an AI companion can reduce decision load instead of becoming another source of chaos.
@@ -60,6 +68,65 @@ Current core loop:
 
 The product value is not just "more NPC chatter." The value is a companion/coordinator layer that helps Alan understand people, priorities, and world state without drowning him.
 
+## Autonomous Director Loop
+
+GIIS Underworld v0.1 should improve like a careful world director, not an uncontrolled auto-optimizer.
+
+Codex may autonomously observe:
+
+- collect new conversations
+- run eval harnesses
+- generate reports
+- compare against baselines
+- track trends over time
+
+Codex may semi-autonomously diagnose:
+
+- echo problems
+- wrong addressee or speaker naming
+- over-analysis
+- fallback contamination
+- relationship flattening
+- atmosphere collapse
+- stage-direction leaks
+- character identity drift
+
+Diagnosis is not permission to rewrite systems. If evidence is uncertain, write a proposal instead of changing code.
+
+Codex may auto-repair only low-risk hygiene or harness issues:
+
+- banned phrase leaks
+- stage-direction leaks
+- wrong speaker naming
+- duplicated UI labels
+- deterministic fallback spam
+- eval parser bugs
+- logging/reporting issues
+
+After any auto-repair, run typecheck, build, and relevant evals.
+
+The following are proposal-only and require human approval before implementation:
+
+- new memory architecture
+- relationship schema changes
+- new emotional systems
+- provider or model migration
+- major prompt rewrites
+- new autonomous behaviors
+- large DB cleanup
+- changing soul architecture
+- broad character expansion
+
+Proposal documents belong under `umi/proposals/` and should include problem, evidence, expected gain, risks, rollback strategy, and files touched.
+
+Do not optimize only for higher eval score. Protect character identity, emotional distinctiveness, atmosphere, relationship chemistry, quiet moments, and aftertaste. A technically better response that loses soul is a regression.
+
+If fresh samples are insufficient, evidence is unclear, or regression risk is uncertain, do not modify code. Report `sample pending`, `insufficient evidence for repair`, or `proposal needed before repair`.
+
+Never sacrifice DB stability, runtime health, bounded memory growth, world continuity, or provider quota safety for slightly prettier dialogue.
+
+The full director-loop contract is documented in `docs/soul/AUTONOMOUS_DIRECTOR_LOOP.md`.
+
 ## Working Ritual
 
 Before starting any task:
@@ -69,6 +136,7 @@ Before starting any task:
 3. If the task touches runtime state, prefer read-only inspection first.
 4. If assigning focused work to Claude Code / cc, update `umi/workload.md` first and run through `umi/orchestrator.py`.
 5. Align on scope before destructive, external, or production-like actions.
+6. Local `.claude/` permission settings are convenience settings, not strategic approval. Central Umi safety rules still require confirmation before external, destructive, production-like, or broad git actions.
 
 After finishing any task:
 

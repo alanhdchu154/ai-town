@@ -15,7 +15,7 @@ const REPORT_PATH = join(__dirname, 'reports', 'umi-mahiru-latest.md');
 const WORLD_ID = process.env.UMI_MAHIRU_WORLD_ID ?? 'md7cefps8wz097yk9k44n92rj1870x6c';
 const ENSURE_ACTIVE = process.argv.includes('--ensure-active');
 const TARGET_PLAYER_IDS = new Set(['p:0', 'p:707']);
-const TARGET_NAMES = new Set(['海', '真晝', 'Umi', 'Mahiru Shiina']);
+const TARGET_NAMES = new Set(['海', '真晝', 'Umi', 'Mahiru']);
 
 type Message = {
   author: string;

@@ -29,7 +29,7 @@ const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 7_000);
 const PAIR_COOLDOWN_MS = Number(args.get('pair-cooldown-ms') ?? 60_000);
 const PROVIDER_COOLDOWN_MS = Number(args.get('provider-cooldown-ms') ?? 10 * 60_000);
 const RUN_TIMESTAMP = Date.now();
-// Optional --focus-pair="Name:Name" (e.g. "Mahiru Shiina:Asuna") restricts this
+// Optional --focus-pair="Name:Name" (e.g. "Mahiru:Asuna") restricts this
 // run to a single dyad so callers can rotate coverage and stop Mahiru from being
 // starved by the Umi<->Asuna mutual-first-choice attractor. Empty == default.
 const FOCUS_PAIR = (args.get('focus-pair') ?? '').trim();
@@ -37,7 +37,7 @@ const FOCUS_PAIR = (args.get('focus-pair') ?? '').trim();
 const PILOT_ENV = {
   SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS: String(RUN_TIMESTAMP),
   SOUL_TRIAD_COLOCATION_PILOT: 'true',
-  AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru Shiina,Umi:Asuna,Mahiru Shiina:Asuna',
+  AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru,Umi:Asuna,Mahiru:Asuna',
   UMI_MAHIRU_PILOT_MODEL: 'qwen3-max',
   UMI_MAHIRU_PILOT_TIMEOUT_MS: '60000',
   UMI_MAHIRU_PILOT_COOLDOWN_FAILURES: '1',
@@ -127,7 +127,7 @@ function parseJsonFromStdout(stdout) {
 
 function isTriadPair(names) {
   const set = new Set(names ?? []);
-  const count = ['海', '真晝', '明日奈', 'Umi', 'Mahiru Shiina', 'Asuna']
+  const count = ['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']
     .filter((name) => set.has(name)).length;
   return count >= 2;
 }

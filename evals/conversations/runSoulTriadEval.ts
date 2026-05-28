@@ -8,7 +8,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
 const REPORT_PATH = join(__dirname, 'reports', 'soul-triad-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru Shiina', 'Asuna']);
+const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
 
 type Conversation = {
   id: string;
@@ -140,7 +140,7 @@ function scoreConversation(conversation: Conversation): Result {
   const messages = conversation.transcriptMessages ?? [];
   const transcript = messages.map((message) => `${message.author}: ${message.text}`).join('\n');
   const hasUmi = messages.some((message) => message.author === '海' || message.author === 'Umi');
-  const hasMahiru = messages.some((message) => message.author === '真晝' || message.author === 'Mahiru Shiina');
+  const hasMahiru = messages.some((message) => message.author === '真晝' || message.author === 'Mahiru');
   const hasAsuna = messages.some((message) => message.author === '明日奈' || message.author === 'Asuna');
   const otherAwareness = ratio([
     /你|妳|海|真晝|明日奈|肩膀|手|語速|杯|筆電|清單|負責|接住/.test(transcript),
@@ -314,7 +314,7 @@ function scoreEmotionalExpressionUniqueness(messages: Conversation['transcriptMe
             !/(陪你|誰都不動|安靜十秒).*(陪你|誰都不動|安靜十秒)/.test(text),
           ]);
         case '真晝':
-        case 'Mahiru Shiina':
+        case 'Mahiru':
           return ratio([
             /還好嗎|吃|肩膀|手|坐|陪|不急|停一下|放低/.test(text),
             !/(下一步|負責人|檢查點|排表|清單如下)/.test(text),
@@ -356,7 +356,7 @@ function scoreBurdenResponseUniqueness(messages: Conversation['transcriptMessage
   const hasAsunaAction = /明日奈:.*(關掉|停|放著|交出去|接一段|延後|負責|誰.*一起|誰.*接|不要再新增|等一下|不開.*checklist|checklist)/.test(transcript);
   const expected = [
     messages.some((message) => message.author === '海' || message.author === 'Umi') ? hasUmiStructure : undefined,
-    messages.some((message) => message.author === '真晝' || message.author === 'Mahiru Shiina') ? hasMahiruPresence : undefined,
+    messages.some((message) => message.author === '真晝' || message.author === 'Mahiru') ? hasMahiruPresence : undefined,
     messages.some((message) => message.author === '明日奈' || message.author === 'Asuna') ? hasAsunaAction : undefined,
   ].filter((value): value is boolean => value !== undefined);
   return ratio(expected);
@@ -430,7 +430,7 @@ function scoreEmotionToneLink(messages: Conversation['transcriptMessages']) {
 function scoreAttentionShift(messages: Conversation['transcriptMessages']) {
   const checks = messages.map((message) => {
     const author = message.author;
-    if (author === '真晝' || author === 'Mahiru Shiina') return /安靜|沒吃|低頭|笑得|窗邊|一個人|不敢|沒事|手|聲音/.test(message.text);
+    if (author === '真晝' || author === 'Mahiru') return /安靜|沒吃|低頭|笑得|窗邊|一個人|不敢|沒事|手|聲音/.test(message.text);
     if (author === '海' || author === 'Umi') return /Alan|校長|簡報|負擔|待辦|沒休息|太多|先看人|整理/.test(message.text);
     if (author === '明日奈' || author === 'Asuna') return /任務|負責|清單|交接|期限|先做|待辦|誰接|延後/.test(message.text);
     return false;
@@ -559,7 +559,7 @@ function conversationPairKey(conversation: Conversation) {
 
 function displayNameForEval(name: string) {
   if (name === 'Umi') return '海';
-  if (name === 'Mahiru Shiina') return '真晝';
+  if (name === 'Mahiru') return '真晝';
   if (name === 'Asuna') return '明日奈';
   return name;
 }

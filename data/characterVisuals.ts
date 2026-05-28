@@ -122,7 +122,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'HS2S2SH.', '.HTTTH..', '..CCCC..'],
     palette: { H: 0x3a4a2a, S: 0xedbd8f, F: 0x181425, T: 0x42a85f, C: 0x9fe6a0, '2': 0xffffff },
   },
-  'Mahiru Shiina': {
+  'Mahiru': {
     tint: 0xffd6ec,
     accent: 0xf28abd,
     label: '真晝',
@@ -143,7 +143,7 @@ export function characterVisualFor(name?: string): CharacterVisual | undefined {
   if (name === '海' || name === '朝凪海') return CharacterVisuals.Umi;
   if (name === '明日奈' || name === '結城明日奈') return CharacterVisuals.Asuna;
   if (name === '麻衣' || name === '櫻島麻衣') return CharacterVisuals.Mai;
-  if (name === 'Mahiru' || name === '真晝' || name === '椎名真晝') return CharacterVisuals['Mahiru Shiina'];
+  if (name === 'Mahiru' || name === 'Mahiru Shiina' || name === '真晝' || name === '椎名真晝') return CharacterVisuals['Mahiru'];
   if (name === 'Cao Cao' || name === '曹操') return CharacterVisuals.CaoCao;
   if (name === '劉備') return CharacterVisuals['Liu Bei'];
   if (name === 'LiuBei') return CharacterVisuals['Liu Bei'];

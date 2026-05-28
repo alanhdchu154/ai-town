@@ -81,13 +81,15 @@ async function writeReport(result, audit, dryRun) {
     `- Notification docs: ${result.notificationDocs ?? 0}`,
     `- Profile docs patched: ${result.profileDocs ?? 0}`,
     '',
-    '## Audit Examples',
+    '## Cleanup Target Examples',
     '',
     '### Archived Conversations',
     '',
-    ...exampleLines(audit.fallbackArchivedConversations, (item) =>
-      `- ${item.conversationId} · ${(item.participantNames ?? []).join(' / ')} · ${trim(item.text ?? '', 180)}`,
-    ),
+    ...(result.includeArchivedConversations
+      ? exampleLines(audit.fallbackArchivedConversations, (item) =>
+          `- ${item.conversationId} · ${(item.participantNames ?? []).join(' / ')} · ${trim(item.text ?? '', 180)}`,
+        )
+      : ['Skipped by policy. Archived fallback-like conversations were retained as historical transcript evidence.']),
     '',
     '### Memories',
     '',
@@ -100,6 +102,19 @@ async function writeReport(result, audit, dryRun) {
     ...exampleLines(audit.fallbackNotifications, (item) =>
       `- ${item.notificationDocId} · ${item.relatedCharacterName} · ${trim(item.contentZh ?? '', 160)}`,
     ),
+    '',
+    '### Profiles',
+    '',
+    ...exampleLines(audit.pollutedProfiles, (item) =>
+      `- ${item.profileId} · ${item.playerName} · intentions=${(item.pollutedIntentions ?? []).map((line) => trim(line, 120)).join(' / ') || 'none'} shortMemory=${(item.pollutedShortMemory ?? []).length} longMemory=${(item.pollutedLongMemory ?? []).length} beliefs=${(item.pollutedBeliefs ?? []).length}`,
+    ),
+    '',
+    '## Retained Historical Evidence',
+    '',
+    `- Archived fallback-like conversations found in audit: ${audit.fallbackArchivedConversationCount ?? 0}`,
+    result.includeArchivedConversations
+      ? '- Archived fallback-like conversations were included in this cleanup run.'
+      : '- Archived fallback-like conversations were not cleaned by this run.',
     '',
     '## Safety',
     '',

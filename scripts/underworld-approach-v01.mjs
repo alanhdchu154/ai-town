@@ -18,6 +18,8 @@ const ONCE = args.get('once') === 'true';
 const DRY_RUN = args.get('dry-run') === 'true';
 const OBSERVE_INTERVAL_MS = numberArg('observe-interval-ms', 45 * 60 * 1000, 60_000, 24 * 60 * 60 * 1000);
 const REPAIR_INTERVAL_MS = numberArg('repair-interval-ms', 2 * 60 * 60 * 1000, 30 * 60 * 1000, 24 * 60 * 60 * 1000);
+const HEARTBEAT_INTERVAL_MS = numberArg('heartbeat-interval-ms', 60_000, 30_000, 10 * 60 * 1000);
+const KEEPALIVE = args.get('keepalive') !== 'false';
 const COLLECT = args.get('collect') ?? 'auto';
 const CC = args.get('cc') ?? 'auto';
 
@@ -36,6 +38,7 @@ process.on('SIGTERM', () => {
 async function main() {
   console.log('[underworld-approach] v0.1 loop starting');
   console.log(`[underworld-approach] observe every ${Math.round(OBSERVE_INTERVAL_MS / 60000)} min; repair gate at most every ${Math.round(REPAIR_INTERVAL_MS / 60000)} min`);
+  console.log(`[underworld-approach] keepalive ${KEEPALIVE ? `enabled (${Math.round(HEARTBEAT_INTERVAL_MS / 1000)}s heartbeat)` : 'disabled'}`);
   console.log('[underworld-approach] stop with Ctrl-C');
 
   do {
@@ -64,10 +67,34 @@ async function main() {
 
     if (ONCE || stopping) break;
     console.log(`[underworld-approach] sleeping ${Math.round(OBSERVE_INTERVAL_MS / 60000)} minutes`);
-    await sleep(OBSERVE_INTERVAL_MS);
+    await sleepWithKeepalive(OBSERVE_INTERVAL_MS);
   } while (!stopping);
 
   console.log('[underworld-approach] stopped');
+}
+
+async function sleepWithKeepalive(durationMs) {
+  if (!KEEPALIVE) {
+    await sleep(durationMs);
+    return;
+  }
+  const deadline = Date.now() + durationMs;
+  while (!stopping && Date.now() < deadline) {
+    const timing = chicagoTiming();
+    if (!timing.isNight) {
+      const heartbeat = await runCommand(
+        'npm',
+        ['run', 'underworld:heartbeat', '--', '--once'],
+        { timeout: 60_000 },
+      );
+      if (heartbeat.code !== 0) {
+        console.log(`[underworld-approach] heartbeat exited ${heartbeat.code}; continuing observe loop`);
+      }
+    }
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) break;
+    await sleep(Math.min(HEARTBEAT_INTERVAL_MS, remainingMs));
+  }
 }
 
 async function runCommand(command, commandArgs, options = {}) {

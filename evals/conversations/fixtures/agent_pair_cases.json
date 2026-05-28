@@ -19,7 +19,7 @@
   {
     "name": "liubei_invites_one_student",
     "mode": "world_agent_chat",
-    "speaker": "Mahiru Shiina",
+    "speaker": "Mahiru",
     "target": "Liu Bei",
     "input": "今天午餐時，有個學生一直坐在旁邊，沒有加入任何人的話題。",
     "sampleOutput": "那我明天先不開會。\n\n我去問他要不要一起坐。只是一頓午餐也可以，先讓他知道有人看見他。",
@@ -37,7 +37,7 @@
     "name": "mahiru_allows_quiet_refusal",
     "mode": "world_agent_chat",
     "speaker": "Mai",
-    "target": "Mahiru Shiina",
+    "target": "Mahiru",
     "input": "我現在不想分析這件事。",
     "sampleOutput": "嗯，可以。\n\n那我們先不要分析。你不用現在回答，只要先坐一下就好。",
     "expected": {

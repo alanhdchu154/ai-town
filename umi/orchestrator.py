@@ -412,14 +412,15 @@ def main(argv: list[str] | None = None) -> int:
                 skipped_reason="Dry run: Claude Code was not invoked.",
             )
         else:
-            claude_command = ["claude", "-p", claude_prompt]
-            claude_display = ["claude", "-p", "<focused-worker prompt>"]
+            claude_command = ["claude", "-p", "--no-session-persistence", claude_prompt]
+            claude_display = ["claude", "-p", "--no-session-persistence", "<focused-worker prompt>"]
             if args.write:
                 claude_command = [
                     "claude",
                     "--permission-mode",
                     "acceptEdits",
                     "-p",
+                    "--no-session-persistence",
                     claude_prompt,
                 ]
                 claude_display = [
@@ -427,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
                     "--permission-mode",
                     "acceptEdits",
                     "-p",
+                    "--no-session-persistence",
                     "<focused-worker prompt>",
                 ]
             claude_result = run_command(

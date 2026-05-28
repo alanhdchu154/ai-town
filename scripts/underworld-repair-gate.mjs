@@ -21,6 +21,7 @@ const args = parseArgs(process.argv.slice(2));
 const REQUESTED_CATEGORY = args.get('category');
 const DRY_RUN = args.get('dry-run') === 'true';
 const CC_MODE = args.get('cc') ?? 'auto';
+const SELF_TEST = args.get('self-test') === 'true';
 
 const AUTO_FIX_ALLOWED = new Set([
   'wrong_addressee',
@@ -36,6 +37,16 @@ const PROPOSAL_ONLY = new Set([
   'conversation_quality_gap',
   'runtime_health',
   'soul_quality_gap',
+  'memory_continuity_gap',
+  'hygiene_failure',
+  'life_signal_repeated',
+  'prop_echo_repeated',
+  'life_signal_missing',
+  'conversation_shape_collapse',
+  'post_processing_drift',
+  'scene_diversity_thin',
+  'daily_rhythm_thin',
+  'soul_style_flat',
   'relationship_flattening',
   'atmosphere_collapse',
   'memory_architecture',
@@ -51,6 +62,11 @@ const PROPOSAL_ONLY = new Set([
 const OBSERVE_ONLY = new Set(['none', 'sample_pending']);
 
 async function main() {
+  if (SELF_TEST) {
+    runSelfTest();
+    return;
+  }
+
   const report = await readOptional(REPORT_PATH);
   if (!report && !REQUESTED_CATEGORY) {
     console.log('[underworld-repair-gate] no latest report found; run npm run underworld:observe first');
@@ -93,6 +109,433 @@ async function main() {
   if (umiDecision.changeSize === 'large_change_proposal_required') return;
 }
 
+function runSelfTest() {
+  const samplePending = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 0
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: WARN / sample_pending
+- Life signals: WARN / sample_pending
+
+Post-fix conversations checked: 0
+Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: WARN
+- decision: sample_pending
+- morning samples: 2
+- afternoon samples: 0
+- AM residue candidates: 1
+- PM callbacks found: 0
+
+## Life Signals
+
+- status: WARN
+- decision: sample_pending
+- conversation count: 0
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(samplePending.diagnosis.category, 'sample_pending', 'sample pending category');
+  assertEqual(samplePending.classification, 'observe_only', 'sample pending classification');
+  assertEqual(samplePending.decision.changeSize, 'observe_only', 'sample pending decision');
+
+  const amPmGap = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: FAIL / no_pm_callback
+- Life signals: PASS / life_signal_observed
+
+Post-fix conversations checked: 3
+Post-fix summary: 0 PASS / 2 WARN / 1 FAIL
+
+## AM→PM Continuity
+
+- status: FAIL
+- decision: no_pm_callback
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 3
+- PM callbacks found: 0
+
+## Life Signals
+
+- status: PASS
+- decision: life_signal_observed
+- conversation count: 3
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(amPmGap.diagnosis.category, 'memory_continuity_gap', 'AM→PM gap category');
+  assertEqual(amPmGap.classification, 'proposal_only', 'AM→PM gap classification');
+  assertEqual(amPmGap.decision.changeSize, 'large_change_proposal_required', 'AM→PM gap decision');
+
+  const freshLifeRepetition = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / life_signal_repeated
+
+Post-fix conversations checked: 3
+Post-fix summary: 1 PASS / 2 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 2
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: life_signal_repeated
+- conversation count: 3
+- repeated line flags: 2
+- administrative drift flags: 0
+`);
+  assertEqual(freshLifeRepetition.diagnosis.category, 'life_signal_repeated', 'fresh life repetition category');
+  assertEqual(freshLifeRepetition.classification, 'proposal_only', 'fresh life repetition classification');
+  assertEqual(freshLifeRepetition.decision.changeSize, 'large_change_proposal_required', 'fresh life repetition decision');
+
+  const freshPropEcho = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / prop_echo_repeated
+
+Post-fix conversations checked: 3
+Post-fix summary: 1 PASS / 2 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 2
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: prop_echo_repeated
+- conversation count: 3
+- prop echo flags: 1
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(freshPropEcho.diagnosis.category, 'prop_echo_repeated', 'fresh prop echo category');
+  assertEqual(freshPropEcho.classification, 'proposal_only', 'fresh prop echo classification');
+  assertEqual(freshPropEcho.decision.changeSize, 'large_change_proposal_required', 'fresh prop echo decision');
+
+  const freshShapeCollapse = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: FAIL / conversation_shape_collapse
+
+Post-fix conversations checked: 3
+Post-fix summary: 0 PASS / 1 WARN / 2 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 2
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: FAIL
+- decision: conversation_shape_collapse
+- conversation count: 3
+- conversation shape flags: 2
+- single-message conversations: 1
+- one-speaker conversations: 1
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(freshShapeCollapse.diagnosis.category, 'conversation_shape_collapse', 'fresh shape collapse category');
+  assertEqual(freshShapeCollapse.classification, 'proposal_only', 'fresh shape collapse classification');
+  assertEqual(freshShapeCollapse.decision.changeSize, 'large_change_proposal_required', 'fresh shape collapse decision');
+
+  const freshThinScenes = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 5
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / scene_diversity_thin
+
+Post-fix conversations checked: 5
+Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 5
+- afternoon samples: 5
+- AM residue candidates: 3
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: scene_diversity_thin
+- conversation count: 5
+- ordinary scene diversity: 1
+- office-grounded conversations: 4
+- ordinary-scene conversations: 1
+- conversation shape flags: 0
+- single-message conversations: 0
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(freshThinScenes.diagnosis.category, 'scene_diversity_thin', 'fresh thin scene category');
+  assertEqual(freshThinScenes.classification, 'proposal_only', 'fresh thin scene classification');
+  assertEqual(freshThinScenes.decision.changeSize, 'large_change_proposal_required', 'fresh thin scene decision');
+
+  const freshThinRhythm = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 5
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / daily_rhythm_thin
+
+Post-fix conversations checked: 5
+Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 5
+- afternoon samples: 5
+- AM residue candidates: 3
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: daily_rhythm_thin
+- conversation count: 5
+- ordinary scene diversity: 3
+- office-grounded conversations: 1
+- ordinary-scene conversations: 5
+- daily rhythm conversations: 0
+- daily rhythm diversity: 0
+- conversation shape flags: 0
+- single-message conversations: 0
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(freshThinRhythm.diagnosis.category, 'daily_rhythm_thin', 'fresh thin rhythm category');
+  assertEqual(freshThinRhythm.classification, 'proposal_only', 'fresh thin rhythm classification');
+  assertEqual(freshThinRhythm.decision.changeSize, 'large_change_proposal_required', 'fresh thin rhythm decision');
+
+  const freshFlatSoulStyle = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 5
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / soul_style_flat
+
+Post-fix conversations checked: 5
+Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 5
+- afternoon samples: 5
+- AM residue candidates: 3
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: soul_style_flat
+- conversation count: 5
+- ordinary scene diversity: 3
+- office-grounded conversations: 1
+- ordinary-scene conversations: 5
+- daily rhythm conversations: 5
+- daily rhythm diversity: 3
+- soul-style conversations: 0
+- soul-style diversity: 0
+- conversation shape flags: 0
+- single-message conversations: 0
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(freshFlatSoulStyle.diagnosis.category, 'soul_style_flat', 'fresh flat soul-style category');
+  assertEqual(freshFlatSoulStyle.classification, 'proposal_only', 'fresh flat soul-style classification');
+  assertEqual(freshFlatSoulStyle.decision.changeSize, 'large_change_proposal_required', 'fresh flat soul-style decision');
+
+  const hygieneFailure = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: FAIL / hygiene_failure
+
+Post-fix conversations checked: 3
+Post-fix summary: 0 PASS / 0 WARN / 1 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 2
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: FAIL
+- decision: hygiene_failure
+- conversation count: 3
+- life-grounded conversations: 2
+- administrative drift flags: 0
+- hygiene flags: 1
+- conversation shape flags: 0
+- single-message conversations: 0
+- one-speaker conversations: 0
+- repeated line flags: 0
+- scene diversity: 2
+- ordinary scene diversity: 2
+- office-grounded conversations: 0
+- ordinary-scene conversations: 3
+- daily rhythm conversations: 3
+- daily rhythm diversity: 2
+- soul-style conversations: 3
+- soul-style diversity: 2
+- average life signal score: 0.75
+`);
+  assertEqual(hygieneFailure.diagnosis.category, 'hygiene_failure', 'hygiene failure category');
+  assertEqual(hygieneFailure.classification, 'proposal_only', 'hygiene failure classification');
+  assertEqual(hygieneFailure.decision.changeSize, 'large_change_proposal_required', 'hygiene failure decision');
+  assertEqual(hygieneFailure.diagnosis.lifeSignals.hygieneFlags, '1', 'hygiene failure parsed hygiene flags');
+  assertEqual(hygieneFailure.diagnosis.lifeSignals.soulStyleConversations, '3', 'hygiene failure parsed soul-style conversations');
+  assertEqual(hygieneFailure.diagnosis.lifeSignals.dailyRhythmDiversity, '2', 'hygiene failure parsed daily rhythm diversity');
+
+  const lowSampleLifeRepetition = evaluateSelfTestReport(
+    `
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 0
+- Top failure category: sample_pending
+- Repair class: observe_only
+- AM→PM continuity: PASS / continuity_observed
+- Life signals: WARN / life_signal_repeated
+
+Post-fix conversations checked: 0
+Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
+
+## AM→PM Continuity
+
+- status: PASS
+- decision: continuity_observed
+- morning samples: 3
+- afternoon samples: 3
+- AM residue candidates: 2
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: life_signal_repeated
+- conversation count: 1
+- repeated line flags: 1
+- administrative drift flags: 0
+`,
+    'life_signal_repeated',
+  );
+  assertEqual(lowSampleLifeRepetition.diagnosis.category, 'life_signal_repeated', 'low-sample life repetition category');
+  assertEqual(lowSampleLifeRepetition.classification, 'proposal_only', 'low-sample life repetition classification');
+  assertEqual(lowSampleLifeRepetition.decision.changeSize, 'observe_only', 'low-sample life repetition decision');
+  assertIncludes(
+    lowSampleLifeRepetition.decision.blockedReasons,
+    'life_signal_needs_fresh_samples',
+    'low-sample life repetition blocker',
+  );
+
+  console.log('[underworld-repair-gate:self-test] PASS');
+}
+
+function evaluateSelfTestReport(report, requestedCategory) {
+  const diagnosis = diagnoseReport(report, requestedCategory);
+  const classification = classify(diagnosis.category);
+  const decision = decideNextAction({
+    diagnosis,
+    classification,
+    ccReview: { status: 'skipped_self_test', output: '' },
+  });
+  return { diagnosis, classification, decision };
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
+function assertIncludes(values, expected, label) {
+  if (!values.includes(expected)) {
+    throw new Error(`${label}: expected ${JSON.stringify(values)} to include ${expected}`);
+  }
+}
+
 function classify(category) {
   if (!category || category === 'none' || category === 'sample_pending') return 'observe_only';
   if (AUTO_FIX_ALLOWED.has(category)) return 'auto_fix_allowed';
@@ -109,6 +552,8 @@ function diagnoseReport(report, requestedCategory) {
   const recentPassWarnFail = parsePassWarnFail(summary['Recent PASS/WARN/FAIL']);
   const reportTopCategory = requestedCategory ?? summary['Top failure category'] ?? 'unknown';
   const repairClass = summary['Repair class'] ?? classify(reportTopCategory);
+  const amPm = parseAmPmContinuity(report);
+  const lifeSignals = parseLifeSignals(report);
   const postFixChecked = Number(report.match(/Post-fix conversations checked:\s*(\d+)/)?.[1] ?? 0);
   const postFixSummary = report.match(/Post-fix summary:\s*(.+)$/m)?.[1]?.trim() ?? 'unknown';
   const recentFailures = [...report.matchAll(/^### (conversation-[^\s]+) - FAIL \(([^)]+)\)[\s\S]*?Suggested fix category:\s*(.+?)(?:\n\n|$)/gm)].map(
@@ -134,22 +579,47 @@ function diagnoseReport(report, requestedCategory) {
   const hasVoiceOrSoulGap = /restore character-specific voice|too abstract|character voice|soul_quality_gap|relationship|aftertaste|behavior drift/i.test(report);
 
   let conversationCategory = 'none';
-  if (hasFallback) conversationCategory = 'fallback_contamination';
-  else if (hasStageLeak) conversationCategory = 'stage_direction_leak';
-  else if (hasWrongAddressee) conversationCategory = 'wrong_addressee';
-  else if (hasEcho) conversationCategory = 'echo_repetition';
-  else if (hasVoiceOrSoulGap) conversationCategory = 'soul_quality_gap';
+  if (postFixChecked > 0 || freshTriadSamples > 0) {
+    if (hasFallback) conversationCategory = 'fallback_contamination';
+    else if (hasStageLeak) conversationCategory = 'stage_direction_leak';
+    else if (hasWrongAddressee) conversationCategory = 'wrong_addressee';
+    else if (hasEcho) conversationCategory = 'echo_repetition';
+    else if (hasVoiceOrSoulGap) conversationCategory = 'soul_quality_gap';
+  }
 
-  const reportCategoryHasPriority = PROPOSAL_ONLY.has(reportTopCategory) || OBSERVE_ONLY.has(reportTopCategory);
+  const hasAmPmContinuityGap =
+    amPm.status === 'FAIL' &&
+    !['sample_pending', undefined, ''].includes(amPm.decision) &&
+    Number(amPm.afternoonSamples ?? 0) >= 3;
+  const hasLifeSignalGap =
+    [
+      'life_signal_repeated',
+      'prop_echo_repeated',
+      'hygiene_failure',
+      'life_signal_missing',
+      'conversation_shape_collapse',
+      'post_processing_drift',
+      'scene_diversity_thin',
+      'daily_rhythm_thin',
+      'soul_style_flat',
+    ].includes(lifeSignals.decision ?? '') &&
+    (freshTriadSamples >= 3 || postFixChecked >= 3);
+  const reportCategoryHasPriority =
+    PROPOSAL_ONLY.has(reportTopCategory) ||
+    (OBSERVE_ONLY.has(reportTopCategory) && !hasAmPmContinuityGap && !hasLifeSignalGap);
   const category =
     requestedCategory ??
-    (reportCategoryHasPriority
+    (hasAmPmContinuityGap
+      ? 'memory_continuity_gap'
+      : hasLifeSignalGap
+      ? lifeSignals.decision
+      : reportCategoryHasPriority
       ? reportTopCategory
       : postFixChecked > 0 && conversationCategory !== 'none'
         ? conversationCategory
         : reportTopCategory || 'unknown');
   const confidence =
-    postFixChecked >= 3 || freshTriadSamples >= 3
+    hasAmPmContinuityGap || postFixChecked >= 3 || freshTriadSamples >= 3
       ? 'enough_samples'
       : postFixChecked > 0 || freshTriadSamples > 0
         ? 'low_sample_warning'
@@ -165,6 +635,8 @@ function diagnoseReport(report, requestedCategory) {
     recentPassWarnFail,
     postFixChecked,
     postFixSummary,
+    amPm,
+    lifeSignals,
     recentFailures,
     resultRows,
     operationalIssue: hasProviderIssue ? 'provider_unavailable_or_timeout' : 'none',
@@ -226,6 +698,23 @@ function reviewBlockers(diagnosis) {
     blockers.push('fresh_samples_below_3');
   }
   if (diagnosis.operationalIssue !== 'none') blockers.push(diagnosis.operationalIssue);
+  if (diagnosis.amPm?.decision === 'sample_pending') blockers.push('am_pm_sample_pending');
+  if (
+    [
+      'life_signal_repeated',
+      'prop_echo_repeated',
+      'hygiene_failure',
+      'life_signal_missing',
+      'conversation_shape_collapse',
+      'post_processing_drift',
+      'scene_diversity_thin',
+      'daily_rhythm_thin',
+      'soul_style_flat',
+    ].includes(diagnosis.lifeSignals?.decision ?? '') &&
+    diagnosis.confidence === 'sample_pending'
+  ) {
+    blockers.push('life_signal_needs_fresh_samples');
+  }
   if (
     diagnosis.reportTopCategory &&
     diagnosis.category &&
@@ -290,6 +779,10 @@ async function writeReviewReport({ diagnosis, classification, evidence, ccReview
     `- Post-fix summary: ${diagnosis.postFixSummary}`,
     `- Operational issue: ${diagnosis.operationalIssue}`,
     `- Conversation category: ${diagnosis.conversationCategory}`,
+    `- AM→PM continuity: ${diagnosis.amPm?.status ?? 'unknown'} / ${diagnosis.amPm?.decision ?? 'unknown'}`,
+    `- AM→PM samples: morning=${diagnosis.amPm?.morningSamples ?? 'unknown'} afternoon=${diagnosis.amPm?.afternoonSamples ?? 'unknown'}`,
+    `- Life signals: ${diagnosis.lifeSignals?.status ?? 'unknown'} / ${diagnosis.lifeSignals?.decision ?? 'unknown'}`,
+    `- Life samples: conversations=${diagnosis.lifeSignals?.conversationCount ?? 'unknown'} repeated_lines=${diagnosis.lifeSignals?.repeatedLineFlags ?? 'unknown'} prop_echo=${diagnosis.lifeSignals?.propEchoFlags ?? 'unknown'} shape_flags=${diagnosis.lifeSignals?.conversationShapeFlags ?? 'unknown'} single_message=${diagnosis.lifeSignals?.singleMessageConversations ?? 'unknown'} post_processing_drift=${diagnosis.lifeSignals?.postProcessingDriftFlags ?? 'unknown'} ordinary_scenes=${diagnosis.lifeSignals?.ordinarySceneDiversity ?? 'unknown'} daily_rhythm=${diagnosis.lifeSignals?.dailyRhythmConversations ?? 'unknown'} soul_style=${diagnosis.lifeSignals?.soulStyleConversations ?? 'unknown'} admin_drift=${diagnosis.lifeSignals?.administrativeDriftFlags ?? 'unknown'}`,
     `- CC review: ${ccReview.status}`,
     `- Code changed: no`,
     proposalPath ? `- Proposal: ${relative(proposalPath)}` : '- Proposal: none',
@@ -382,14 +875,59 @@ async function writeProposal({ category, evidence, report, diagnosis, ccReview }
   return path;
 }
 
-function extractTopFailureCategory(report) {
-  return report.match(/^- Top failure category:\s*(.+)$/m)?.[1]?.trim() ?? 'unknown';
-}
-
 function extractEvidence(report) {
   const weakest = report.match(/## Weakest Recent Failure\n\n([\s\S]*?)\n\n## /)?.[1]?.trim();
   const summary = report.match(/## Summary\n\n([\s\S]*?)\n\n## /)?.[1]?.trim();
-  return [summary, weakest].filter(Boolean).join('\n\n');
+  const amPm = report.match(/## AM→PM Continuity\n\n([\s\S]*?)(?:\n\n## |\n```md|$)/)?.[1]?.trim();
+  const life = report.match(/## Life Signals\n\n([\s\S]*?)(?:\n\n## |\n```md|$)/)?.[1]?.trim();
+  return [summary, weakest, amPm ? `AM→PM continuity:\n${amPm}` : '', life ? `Life signals:\n${life}` : '']
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function parseAmPmContinuity(report) {
+  const section = report.match(/## AM→PM Continuity\n\n([\s\S]*?)(?:\n```md|\n\n## |$)/)?.[1] ?? '';
+  const field = (label) =>
+    section.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
+  const summary = report.match(/^- AM→PM continuity:\s*([^/\n]+)\/\s*(.+)$/m);
+  return {
+    status: field('status') ?? summary?.[1]?.trim(),
+    decision: field('decision') ?? summary?.[2]?.trim(),
+    morningSamples: field('morning samples'),
+    afternoonSamples: field('afternoon samples'),
+    amResidueCandidates: field('AM residue candidates'),
+    pmCallbacksFound: field('PM callbacks found'),
+  };
+}
+
+function parseLifeSignals(report) {
+  const section = report.match(/## Life Signals\n\n([\s\S]*?)(?:\n```md|\n\n## |$)/)?.[1] ?? '';
+  const field = (label) =>
+    section.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
+  const summary = report.match(/^- Life signals:\s*([^/\n]+)\/\s*(.+)$/m);
+  return {
+    status: field('status') ?? summary?.[1]?.trim(),
+    decision: field('decision') ?? summary?.[2]?.trim(),
+    conversationCount: field('conversation count'),
+    lifeGroundedConversations: field('life-grounded conversations'),
+    administrativeDriftFlags: field('administrative drift flags'),
+    hygieneFlags: field('hygiene flags'),
+    conversationShapeFlags: field('conversation shape flags'),
+    singleMessageConversations: field('single-message conversations'),
+    oneSpeakerConversations: field('one-speaker conversations'),
+    postProcessingDriftFlags: field('post-processing drift flags'),
+    propEchoFlags: field('prop echo flags'),
+    repeatedLineFlags: field('repeated line flags'),
+    sceneDiversity: field('scene diversity'),
+    ordinarySceneDiversity: field('ordinary scene diversity'),
+    officeGroundedConversations: field('office-grounded conversations'),
+    ordinarySceneConversations: field('ordinary-scene conversations'),
+    dailyRhythmConversations: field('daily rhythm conversations'),
+    dailyRhythmDiversity: field('daily rhythm diversity'),
+    soulStyleConversations: field('soul-style conversations'),
+    soulStyleDiversity: field('soul-style diversity'),
+    averageLifeSignalScore: field('average life signal score'),
+  };
 }
 
 async function readOptional(path) {

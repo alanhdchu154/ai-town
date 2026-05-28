@@ -161,6 +161,14 @@ export function Messages({
   const displayMessages = [...serverMessageItems, ...pendingMessageItems].sort(
     (a, b) => a.createdAt - b.createdAt,
   );
+  const formatConversationTime = (timestamp: number) =>
+    new Date(timestamp).toLocaleString('zh-TW', {
+      timeZone: 'America/Chicago',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   const messageNodes: { time: number; node: React.ReactNode }[] = displayMessages.map((m: any, index: number) => {
     const previous = displayMessages[index - 1];
     const groupedWithPrevious =
@@ -181,12 +189,7 @@ export function Messages({
             <CharacterPortrait name={m.authorName} size="sm" showName={false} />
             <span className="flex-grow font-bold">{displayAgentName(m.authorName)}</span>
             <time className="text-xs opacity-70" dateTime={m.createdAt.toString()}>
-              {new Date(m.createdAt).toLocaleString('zh-TW', {
-                month: 'numeric',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}
+              {formatConversationTime(m.createdAt)}
             </time>
           </div>
         ) : null}
@@ -262,7 +265,7 @@ export function Messages({
               <CharacterPortrait name={currentlyTypingName} size="sm" showName={false} />
               <span className="flex-grow">{displayAgentName(currentlyTypingName)}</span>
               <time className="text-xs opacity-70" dateTime={currentlyTyping.since.toString()}>
-                {new Date(currentlyTyping.since).toLocaleString()}
+                {formatConversationTime(currentlyTyping.since)}
               </time>
             </div>
             <div className={clsx('bubble')}>
@@ -280,7 +283,7 @@ export function Messages({
                 {displayAgentName(awaitingReply.targetName ?? placeholderTargetName)}
               </span>
               <time className="text-xs opacity-70" dateTime={awaitingReply.since.toString()}>
-                {new Date(awaitingReply.since).toLocaleString()}
+                {formatConversationTime(awaitingReply.since)}
               </time>
             </div>
             <div className={clsx('bubble')}>

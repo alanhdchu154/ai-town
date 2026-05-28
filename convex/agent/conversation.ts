@@ -50,6 +50,8 @@ const CONVERSATION_NAME_ALIASES = [
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
+  '明晝',
+  '阿真晝',
   '椎名真晝',
   'CaoCao',
   'Cao Cao',
@@ -955,6 +957,7 @@ function compactAutonomousStartPrompt({
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
+    'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
   ].filter(Boolean);
 }
@@ -1015,7 +1018,7 @@ function compactAutonomousContinuePromptBase({
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
-    'Do not greet again. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
+    'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     'Do not sound like a meeting note. Avoid labels like "主線", "形成意圖", or "conversationOutcome".',
     'If the same prop already appeared twice in this chat, stop using that prop; answer shorter, switch to a quiet pause, or move to a different ordinary detail.',
 	  ].filter(Boolean);
@@ -1183,7 +1186,7 @@ function richUmiMahiruPrompt({
     otherMemories.length ? `${other} 的記憶壓力：${otherMemories.join(' / ')}` : '',
     '角色設定只用來影響你注意什麼、避開什麼、保護什麼；不要直接背設定。',
     '不要介紹、建議、教學、問身份、提宿舍小貼士、提課、提睡覺、提海邊風景、照抄指令。',
-    '禁用泛用寒暄：最近過得好、很開心聊天、笑容很美、時光無價、日子更美好。',
+    '禁用泛用寒暄：你好、最近過得好、很開心聊天、笑容很美、時光無價、日子更美好。可以有短短的自然開場，例如「欸」「真晝」「等一下」，但後面一定要接具體原因。',
     '不要每句都問累、休息、喝水；如果已經照顧過一次，就往想家、沉默、誰沒被理解、Alan 今天的負擔、或誰可以一起承擔推進一小步。',
     '禁用抽象隱喻：不能說「世界變冷」「只剩數據」「沒人敢說」「文明」「系統」「智能」「機器」「算法」「扛在肩上」；要換成一個身體訊號、一個動作、或一個非常短的事實。',
     `情感表達身份：${emotionalIdentity}`,
@@ -1204,7 +1207,7 @@ function richUmiMahiruPrompt({
     bindingRule,
     mode === 'continue'
       ? '和上一句保持鬆散關聯，不能重複對方原話；可以回一個具體詞，也可以用短句、停頓、小任務或小物件繞開。'
-      : '柔和開場，只問一個關心，不能問最近過得好嗎，不能說「你剛才」。',
+      : '柔和開場，要像走近對方時先叫住一下；可以用名字或「欸」開頭，但必須立刻接一個眼前具體原因。不能問最近過得好嗎，不能說「你剛才」。',
     stance,
   ];
 }
@@ -1282,7 +1285,7 @@ function relevantSoulMemories(
         (text.includes('學生') && /學生|問到|真話|安靜/.test(memory) ? 3 : 0) +
         (text.includes('不安') && /不安|累|照顧|沒事/.test(memory) ? 2 : 0) +
         (otherPlayerName === 'Umi' && /有人問她|自己|累|照顧/.test(memory) ? 3 : 0) +
-        (otherPlayerName === 'Mahiru Shiina' && /可靠|秩序|學生|真話/.test(memory) ? 2 : 0) +
+        (otherPlayerName === 'Mahiru' && /可靠|秩序|學生|真話/.test(memory) ? 2 : 0) +
         (otherPlayerName === 'Asuna' && /執行|負責|可靠|交接|停下來|累/.test(memory) ? 3 : 0) -
         index * 0.01,
     }))
@@ -1462,7 +1465,7 @@ function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, compa
         return `As Umi in companion_chat mode, answer Alan as a trusted desktop companion, not as a world-event narrator. Prefer emotional clarity, real-life grounding, gentle teasing only when natural, and one useful next question. Do not use canned phrases like "這件事也不能忽略", "先別只點頭", or "主線". Do not turn Alan's vulnerable sentence into a report; answer the feeling first.`;
       }
       return `As Umi, take initiative by responding to the other person's actual feeling before mentioning Alan. If the topic repeats, do not reuse the "Alan carries everything" concern; instead ask what this specific person needs, fears, or noticed today. ${everydayInstruction} When worried she may over-organize or dodge care by being useful; she can answer briefly instead of confessing fatigue. She may tease Alan about sleep, food, clutter, or overworking only when Alan is present. Avoid sounding like a briefing unless Alan asks for one.`;
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may become quieter when tired and fail to name herself while noticing others. Her strongest lines should be gentle but specific, like noticing someone stopped eating lunch or avoided eye contact.`;
     case 'Liu Bei':
       return `As Liu Bei, take initiative by making one excluded person feel included, not by always announcing a public discussion. Reveal his fear that students will become divided and lonely. ${everydayInstruction} He may over-believe invitation can fix things and avoid conflict by being kind. He may ask about food, favorite places, or who has been left out lately.`;
@@ -1501,7 +1504,7 @@ function initiativeFallback(
       if (otherPlayerName === '明日奈' || otherPlayerName === 'Asuna') {
         return `${otherPlayerName}，先不用把它變成任務表。${eventClause}你剛剛說「反正明日奈會收拾」那句，我聽起來有點累。今天哪件事最不該再丟給你？`;
       }
-      if (otherPlayerName === '真晝' || otherPlayerName === 'Mahiru Shiina') {
+      if (otherPlayerName === '真晝' || otherPlayerName === 'Mahiru') {
         return `${otherPlayerName}，我聽到的是你也累了，不只是學生變安靜。${eventClause}今晚你最想先確認誰還好嗎？`;
       }
       if (otherPlayerName === '曹操' || otherPlayerName === 'CaoCao') {
@@ -1514,7 +1517,7 @@ function initiativeFallback(
         return `${otherPlayerName}，你不是討厭有趣，你是討厭大家用有趣遮住後果。${eventClause}你現在最想讓 Alan 承認哪個代價？`;
       }
       return `${otherPlayerName}，我先聽你這一句，不急著整理成結論。${eventClause}你剛才最放不下的是哪個畫面？`;
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return `${otherPlayerName}，我想先確認你的狀態。${eventClause}今天午休時，有幾個人明明坐在一起，卻幾乎沒有說話……我有點擔心。你是不是也覺得大家變得小心了？`;
     case 'Liu Bei':
       return `${otherPlayerName}，我不想一開口就說要開會。${eventClause}我只是想先找那個一直坐在角落的人一起吃飯。很多分裂都是從沒人邀請開始的。你覺得我該先找誰？`;
@@ -1815,6 +1818,8 @@ function normalizeTraditionalZh(content: string) {
     .replace(/灯/g, '燈')
     .replace(/担/g, '擔')
     .replace(/责/g, '責')
+    .replace(/阿真晝/g, '真晝')
+    .replace(/明晝/g, '真晝')
     .replace(/晩/g, '晝')
     .replace(/吗/g, '嗎');
 }
@@ -1836,7 +1841,7 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
   if (displayName === '明日奈') aliases.add('Asuna').add('結城明日奈');
   if (displayName === '麻衣') aliases.add('Mai').add('櫻島麻衣');
-  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝');
+  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
   if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
   if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
   return aliases;
@@ -1856,6 +1861,8 @@ function displayConversationName(name: string) {
     case 'Mahiru':
     case 'Mahiru Shiina':
     case '椎名真晝':
+    case '明晝':
+    case '阿真晝':
       return '真晝';
     case 'CaoCao':
     case 'Cao Cao':
@@ -2098,7 +2105,7 @@ function conversationMicroPurpose(
 ) {
   const scene = sceneContext?.id;
   if (playerName === 'Liu Bei') return 'invite one ignored or lonely student into a small ordinary interaction';
-  if (playerName === 'Mahiru Shiina') return 'check whether one person is tired or emotionally unsafe';
+  if (playerName === 'Mahiru') return 'check whether one person is tired or emotionally unsafe';
   if (playerName === 'Asuna') return 'decide exactly one next action and who should not carry it alone';
   if (playerName === 'Mai') return 'name one hidden cost, then decide whether to continue or stop';
   if (playerName === 'CaoCao') return 'ask why one person avoided the room or stayed silent';
@@ -2130,7 +2137,7 @@ function personalLifeFragment(playerName: string) {
   switch (playerName) {
     case 'Umi':
       return '她可能注意到 Alan 沒有真正休息，也會用輕微 teasing 包住關心。';
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return '她一直在照顧別人，但偶爾會承認自己也有點累。';
     case 'Mai':
       return '她習慣用吐槽保護距離，但其實也怕自己越來越在意這個世界。';
@@ -2150,7 +2157,7 @@ function everydayFallback(playerName: string, otherPlayerName: string, sceneCont
   switch (playerName) {
     case 'Umi':
       return `${otherPlayerName}，先把那些大題目放旁邊。現在在${scene}，我反而想問：你最近有真正休息嗎？我不是在查勤，嗯……只是覺得大家都把疲憊藏得太熟練了。`;
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return `${otherPlayerName}，我們先不要急著談大事。你今天看起來有點累。可以不用馬上回答，只要告訴我：你是不是也有一點不想再逞強了？`;
     case 'Mai':
       return `${otherPlayerName}，如果我們又只談制度，我就要懷疑這世界沒有其他生活了。換個問題：你最近是不是也覺得，大家連普通聊天都開始變小心？`;
@@ -2524,7 +2531,7 @@ function relationshipChemistryFor(
   const combined = contents.slice(-8).join('\n');
   const playerSpokeOften = contents.filter((text) => text.startsWith(`${playerName} to `)).length >= 3;
   const otherVulnerable = /喜歡|依賴|害怕|擔心|累|孤單|撐不住|不敢說真話/.test(combined);
-  if (otherVulnerable && ['Umi', 'Mahiru Shiina', 'Liu Bei'].includes(playerName)) {
+  if (otherVulnerable && ['Umi', 'Mahiru', 'Liu Bei'].includes(playerName)) {
     return {
       direction: 'protectiveness',
       signal: `${playerName} 對 ${otherPlayerName} 的脆弱變得更在意，不急著分析。`,
@@ -2656,7 +2663,7 @@ function conversationGoal(playerName: string, topic: string) {
       return `interpret ${topic} as emotional, social, and strategic patterns Alan can understand`;
     case 'CaoCao':
       return `turn ${topic} into a durable order strategy while hiding how much he wants to protect the world from chaos`;
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return `protect emotional safety around ${topic}, especially the feelings no one is saying directly`;
     case 'Asuna':
       return `turn ${topic} into owners, deadlines, and next steps`;
@@ -2715,7 +2722,7 @@ function nextInformationSeed(
       return `${otherPlayerName} 是否理解秩序不是邪惡，以及誰正在因混亂改變立場`;
     case 'Liu Bei':
       return '哪些學生還沒有被納入討論';
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return '誰在這次事件後變得更小心，卻沒有說出口';
     case 'Umi':
       return 'Alan 需要理解這件事正在改變哪段關係或校園文化';
@@ -2886,7 +2893,7 @@ function bindingFallback(
           `我知道你能處理。\n\n但我比較想知道：你希望誰終於學會自己處理？`,
         ], previous);
       }
-      if (otherPlayerName === '真晝' || otherPlayerName === 'Mahiru Shiina') {
+      if (otherPlayerName === '真晝' || otherPlayerName === 'Mahiru') {
         return pickFreshConversationLine([
           `……你一直在看別人還好不好。\n\n可是你自己也快沒力氣了吧。要不要先坐一下？`,
           `真晝，你剛剛又先照顧別人了。\n\n那你呢？你今天有被誰照顧到嗎？`,
@@ -2921,7 +2928,7 @@ function bindingFallback(
       ], previous);
     case 'CaoCao':
       return caoCaoBoundFallback(lifecycle, previous);
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return pickFreshConversationLine([
         `……我有點擔心。\n\n不是因為事情很大，是因為大家開始連小話都不太敢說了。`,
         `我剛剛想到的不是規則。\n\n是那個說「我沒事」的人，通常最需要有人慢一點靠近。`,
@@ -2977,7 +2984,7 @@ function motifBurnoutRedirect(
       `這裡太安靜了。\n\n我想知道的不是誰會進來，是誰已經開始不出聲。`,
     ], previous);
   }
-  if ((playerName === 'Mahiru Shiina' || playerName === 'Liu Bei') && /午餐|吃飯|一個人|角落|坐在旁邊/.test(recent)) {
+  if ((playerName === 'Mahiru' || playerName === 'Liu Bei') && /午餐|吃飯|一個人|角落|坐在旁邊/.test(recent)) {
     return pickFreshConversationLine([
       `那我先不問午餐了。\n\n我想去看看${scene}裡，誰的書包還放著，人卻不見了。`,
       `也許今天不用問原因。\n\n先陪對方走一段路就好。`,
@@ -3076,7 +3083,7 @@ function quietPauseFallback(playerName: string, otherPlayerName: string, core: s
         `嗯。\n\n這句先不要急著解釋。你現在需要的是一點空氣。`,
         `我在。\n\n但我不打算把你逼著立刻說清楚。`,
       ], previous);
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return pickFreshConversationLine([
         `……嗯。\n\n我不知道該怎麼說，但我有點擔心你。`,
         `先不用回答。\n\n我只是想確認，你不是一個人在撐。`,
@@ -3125,7 +3132,7 @@ function topicDriftFallback(
         `先把大問題放下十秒。\n\n你今天有沒有哪一刻是真的放鬆的？`,
         `我知道這題很重要。\n\n但你現在像是連呼吸都在 multitask，先慢一點。`,
       ], previous);
-    case 'Mahiru Shiina':
+    case 'Mahiru':
       return pickFreshConversationLine([
         `說到這裡，我反而想問一件小事。\n\n你最近是不是比較常一個人待在${scene}？`,
         `我想先問很小的事。\n\n今天午餐的時候，你旁邊有人坐嗎？`,

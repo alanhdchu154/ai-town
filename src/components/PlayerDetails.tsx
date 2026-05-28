@@ -195,14 +195,14 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
     return '休息中，不應該被普通校務打擾';
   }
   if (hour >= 21) {
-    if (name === 'Mahiru Shiina') return '在宿舍關心學生情緒後準備休息';
+    if (name === 'Mahiru' || name === 'Mahiru Shiina') return '在宿舍關心學生情緒後準備休息';
     if (name === 'Umi') return '收尾校務，準備給 Alan 的簡短提醒';
     return '準備回宿舍，對話應該變安靜';
   }
   if (hour >= 17) {
     if (name === 'CaoCao') return '在庭院觀察誰不願意開口';
     if (name === 'Liu Bei') return '在庭院維持學生之間的連結';
-    if (name === 'Mahiru Shiina') return '在宿舍或庭院照顧學生狀態';
+    if (name === 'Mahiru' || name === 'Mahiru Shiina') return '在宿舍或庭院照顧學生狀態';
     if (name === 'Umi') return '在校長室整理給 Alan 的短簡報';
     return '自由時間，可能移動到庭院、餐廳或宿舍';
   }
@@ -214,7 +214,7 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
   }
   if (hour >= 12) {
     if (name === 'Liu Bei') return '在中央庭院拉近學生關係';
-    if (name === 'Mahiru Shiina') return '觀察誰在午間顯得不安';
+    if (name === 'Mahiru' || name === 'Mahiru Shiina') return '觀察誰在午間顯得不安';
     return '午間社交或休息';
   }
   if (hour >= 9) {

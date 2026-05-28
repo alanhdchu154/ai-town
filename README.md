@@ -224,6 +224,41 @@ Manual observe:
 npm run underworld:observe
 ```
 
+`underworld:observe` reports both:
+
+- fresh-window life signals, used for repair-gate safety after a new run
+- day-window life signals, used to understand whether today's free world feels grounded, varied, and character-specific
+
+Day-start readiness check:
+
+```bash
+npm run underworld:morning-check
+npm run underworld:day-start
+```
+
+Everyday-life signal scan:
+
+```bash
+npm run underworld:life-signals
+npm run underworld:life-signals:self-test
+```
+
+AM to PM continuity scan:
+
+```bash
+npm run underworld:am-pm-continuity
+npm run underworld:am-pm-continuity:self-test
+```
+
+Harness sanity check:
+
+```bash
+npm run underworld:harness:self-test
+npm run underworld:repair-gate:self-test
+```
+
+The life-signal harness also flags `conversation_shape_collapse` when fresh archived conversations are too short or one-sided, `scene_diversity_thin` when life cues collapse back into Alan/office/task language instead of varied campus scenes, `daily_rhythm_thin` when conversations have places but not a lived sense of morning/lunch/afternoon/rest, and `soul_style_flat` when characters exchange life cues without showing distinct ways of caring, avoiding, ordering, or carrying burden.
+
 Local long-running loop:
 
 ```bash
@@ -242,6 +277,8 @@ Reports are written to:
 
 - `umi/reports/v01-approach-latest.md`
 - `umi/reports/v01-repair-gate-latest.md`
+- `umi/reports/day-start-latest.md`
+- `umi/reports/life-signals-latest.md`
 - `umi/reports/v01-approach-loop.log` (when using the local launcher)
 
 The observe step never modifies code. The repair gate only classifies small allowed fixes versus proposal-only changes. If provider health is bad or fresh samples are insufficient, the gate stays observe-only even when the issue would normally be a small-fix category.

@@ -13,6 +13,8 @@ const CONVERSATION_NAME_ALIASES = [
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
+  '明晝',
+  '阿真晝',
   '椎名真晝',
   'CaoCao',
   'Cao Cao',
@@ -29,18 +31,19 @@ export function repairConversationAddresseeText(
   authorName: string,
   otherName?: string,
 ) {
+  const normalizedText = normalizeKnownNameArtifacts(text);
   const namePattern = CONVERSATION_NAME_ALIASES.map(escapeRegex).join('|');
   const leadingName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${namePattern})([，,、：:])`, 'g');
   const authorAliases = conversationNameAliasesFor(authorName);
 
   if (!otherName) {
-    return text.replace(leadingName, (match, lineStart: string, prefix: string, name: string) => {
+    return normalizedText.replace(leadingName, (match, lineStart: string, prefix: string, name: string) => {
       return authorAliases.has(name) ? `${lineStart}${prefix}` : match;
     });
   }
 
   const allowed = conversationNameAliasesFor(otherName);
-  const repaired = text.replace(
+  const repaired = normalizedText.replace(
     leadingName,
     (match, lineStart: string, prefix: string, name: string, punctuation: string) => {
       if (allowed.has(name) && !authorAliases.has(name)) return match;
@@ -127,6 +130,8 @@ function displayConversationName(name: string) {
     case 'Mahiru':
     case 'Mahiru Shiina':
     case '椎名真晝':
+    case '明晝':
+    case '阿真晝':
       return '真晝';
     case 'CaoCao':
     case 'Cao Cao':
@@ -145,10 +150,14 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
   if (displayName === '明日奈') aliases.add('Asuna').add('結城明日奈').add('明天奈');
   if (displayName === '麻衣') aliases.add('Mai').add('櫻島麻衣');
-  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝');
+  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
   if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
   if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
   return aliases;
+}
+
+function normalizeKnownNameArtifacts(text: string) {
+  return text.replace(/阿真晝/g, '真晝').replace(/明晝/g, '真晝');
 }
 
 function escapeRegex(value: string) {

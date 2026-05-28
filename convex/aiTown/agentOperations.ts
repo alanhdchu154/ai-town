@@ -488,13 +488,13 @@ function schoolActivity(scheduleContext?: ScheduleContext) {
 function autonomousConversationChance(scheduleContext?: ScheduleContext) {
   if (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true') {
     return scheduleContext?.characterName === 'Umi' ||
-      scheduleContext?.characterName === 'Mahiru Shiina' ||
+      scheduleContext?.characterName === 'Mahiru' ||
       scheduleContext?.characterName === 'Asuna'
       ? 1
       : 0;
   }
   if (process.env.UMI_MAHIRU_COLOCATION_PILOT === 'true') {
-    return scheduleContext?.characterName === 'Umi' || scheduleContext?.characterName === 'Mahiru Shiina'
+    return scheduleContext?.characterName === 'Umi' || scheduleContext?.characterName === 'Mahiru'
       ? 1
       : 0;
   }

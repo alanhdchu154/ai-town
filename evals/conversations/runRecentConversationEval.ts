@@ -25,6 +25,7 @@ const CONVEX_TIMEOUT_MS = Number(process.env.CONVERSATION_EVAL_CONVEX_TIMEOUT_MS
 const SQLITE_RETRY_COUNT = Number(process.env.CONVERSATION_EVAL_SQLITE_RETRIES ?? 5);
 const SQLITE_RETRY_DELAY_MS = Number(process.env.CONVERSATION_EVAL_SQLITE_RETRY_DELAY_MS ?? 700);
 const SINCE_LAST_CHANGE = process.argv.includes('--since-last-change');
+const SINCE_CREATED_AT = argNumber('since-created-at');
 const LOCAL_SQLITE_PATH =
   process.env.CONVEX_LOCAL_SQLITE_PATH ??
   join(
@@ -66,7 +67,7 @@ type RecentEvalItem = {
 };
 
 async function main() {
-  const sinceLastChangeAt = SINCE_LAST_CHANGE ? await latestConversationSourceMtime() : undefined;
+  const sinceLastChangeAt = SINCE_CREATED_AT ?? (SINCE_LAST_CHANGE ? await latestConversationSourceMtime() : undefined);
   const fetchLimit = RECENT_LIMIT;
   const data = await fetchRecentConversations(fetchLimit, sinceLastChangeAt);
   const conversations = (data.conversations ?? [])
@@ -91,6 +92,14 @@ async function main() {
   const activeItems = SINCE_LAST_CHANGE ? items.filter((item) => item.cohort === 'post_fix') : items.slice(0, RECENT_LIMIT);
   printRecentSummary(activeItems, items, sinceLastChangeAt);
   await writeReport(activeItems, items, sinceLastChangeAt);
+}
+
+function argNumber(name: string) {
+  const prefix = `--${name}=`;
+  const raw = process.argv.find((value) => value.startsWith(prefix))?.slice(prefix.length);
+  if (!raw) return undefined;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 async function fetchRecentConversations(
@@ -378,9 +387,17 @@ function printRecentSummary(
     fix: item.suggestedFixCategory,
     topReason: [...item.result.failures, ...item.result.warnings][0] ?? '-',
   }));
-  console.log(`\nGIIS Recent Conversation Eval${SINCE_LAST_CHANGE ? ' --since-last-change' : ''}\n`);
+  const modeSuffix = SINCE_CREATED_AT
+    ? ' --since-created-at'
+    : SINCE_LAST_CHANGE
+      ? ' --since-last-change'
+      : '';
+  console.log(`\nGIIS Recent Conversation Eval${modeSuffix}\n`);
   if (sinceLastChangeAt !== undefined) {
-    console.log(`Post-fix boundary: ${new Date(sinceLastChangeAt).toISOString()} (${WATCHED_CONVERSATION_SOURCE_PATHS.join(', ')})`);
+    const boundarySource = SINCE_CREATED_AT
+      ? 'explicit --since-created-at'
+      : WATCHED_CONVERSATION_SOURCE_PATHS.join(', ');
+    console.log(`Post-fix boundary: ${new Date(sinceLastChangeAt).toISOString()} (${boundarySource})`);
   }
   if (rows.length) {
     console.table(rows);
@@ -418,7 +435,13 @@ async function writeReport(
     '',
     `Generated: ${new Date().toISOString()}`,
     '',
-    `Mode: ${SINCE_LAST_CHANGE ? 'post-fix since latest conversation/density code change' : 'recent archived conversations'}`,
+    `Mode: ${
+      SINCE_CREATED_AT
+        ? 'post-fix since explicit createdAt boundary'
+        : SINCE_LAST_CHANGE
+          ? 'post-fix since latest conversation/density code change'
+          : 'recent archived conversations'
+    }`,
     sinceLastChangeAt !== undefined
       ? `Post-fix boundary: ${new Date(sinceLastChangeAt).toISOString()}`
       : 'Post-fix boundary: not applied',
@@ -508,6 +531,8 @@ function suggestedFixCategory(result: ConversationEvalResult) {
   if (text.includes('repetitionScore')) return 'add intra-conversation response move diversity';
   if (text.includes('previousSpeakerBindingScore')) return 'strengthen emotional hook binding to previous speaker';
   if (text.includes('directAnswerScore')) return 'answer the actual question before persona/world analysis';
+  if (text.includes('administrativeLanguageScore')) return 'replace administrative/meeting language with ordinary school life';
+  if (text.includes('everydayObjectLoopScore')) return 'vary concrete cues instead of looping one object';
   if (text.includes('verbosityScore')) return 'shorten response and allow silence/refusal';
   if (text.includes('sceneGroundingScore')) return 'limit concrete scene detail to one grounded image';
   if (text.includes('characterVoiceScore')) return 'restore character-specific voice without expanding lore';
@@ -522,6 +547,8 @@ function postFixFailureCategory(result: ConversationEvalResult) {
   if (text.includes('previousSpeakerBindingScore') || text.includes('directAnswerScore')) {
     return 'not responding to previous speaker';
   }
+  if (text.includes('administrativeLanguageScore')) return 'administrative language leak';
+  if (text.includes('everydayObjectLoopScore')) return 'object-loop repetition';
   if (text.includes('emotionalSpecificityScore') || text.includes('characterVoiceScore')) return 'too abstract';
   if (text.includes('verbosityScore') || text.includes('sceneGroundingScore')) return 'noisy structure';
   if (text.includes('bannedPhraseCount')) return 'template leak';

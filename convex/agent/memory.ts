@@ -213,7 +213,7 @@ function memoryAnchorScore(text: string) {
 
 function displayResidueName(name: string) {
   if (name === 'Umi' || name === '朝凪海') return '海';
-  if (name === 'Mahiru Shiina' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
+  if (name === 'Mahiru' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
   if (name === 'Asuna' || name === '結城明日奈') return '明日奈';
   return name;
 }

@@ -406,11 +406,17 @@ function isFailedCharacterSoulPilot(
   playerNames: Map<string, string>,
 ) {
   if (participants.length !== 2) return false;
-  const names = new Set(participants.map((playerId) => playerNames.get(playerId)));
-  if (names.has('Umi') && names.has('Mahiru Shiina')) return true;
+  const names = new Set(
+    participants.map((playerId) => canonicalPilotName(playerNames.get(playerId))).filter(Boolean),
+  );
+  if (names.has('Umi') && names.has('Mahiru')) return true;
   if (process.env.SOUL_TRIAD_COLOCATION_PILOT !== 'true') return false;
-  const triadNames = new Set(['Umi', 'Mahiru Shiina', 'Asuna']);
+  const triadNames = new Set(['Umi', 'Mahiru', 'Asuna']);
   return [...names].every((name) => typeof name === 'string' && triadNames.has(name));
+}
+
+function canonicalPilotName(name?: string) {
+  return name === 'Mahiru Shiina' ? 'Mahiru' : name;
 }
 
 export const loadWorld = internalQuery({

@@ -73,7 +73,7 @@ function isStageDirectionClause(clause: string) {
 
 function knownCharacterStageDirectionClause(line: string) {
   const trimmed = line.trim();
-  return /^(?:海|真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$))/.test(
+  return /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$))/.test(
     trimmed,
   );
 }
@@ -81,7 +81,7 @@ function knownCharacterStageDirectionClause(line: string) {
 function quotedSpeechFromThirdPersonNarration(line: string) {
   const trimmed = line.trim();
   const match = trimmed.match(
-    /^(?:海|真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「([^」]{1,240})」[。.!！?？]*$/,
+    /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「([^」]{1,240})」[。.!！?？]*$/,
   );
   return match?.[1]?.trim() ?? '';
 }
@@ -89,7 +89,7 @@ function quotedSpeechFromThirdPersonNarration(line: string) {
 function firstPersonFromUnquotedThirdPersonSelfNarration(line: string) {
   const trimmed = line.trim();
   const match = trimmed.match(
-    /^(?:海|真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(注意到|覺得|感覺|想起|知道|聽見|看見|看到)(.{2,260})$/,
+    /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(注意到|覺得|感覺|想起|知道|聽見|看見|看到)(.{2,260})$/,
   );
   if (!match) return undefined;
   return `我${match[1]}${match[2]}`.trim();

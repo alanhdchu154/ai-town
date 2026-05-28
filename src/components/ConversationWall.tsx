@@ -375,7 +375,7 @@ function statusEntriesFromCampusState(campusState: any): StatusEntry[] {
 
 function displayWallName(name: string) {
   if (name === 'Umi') return '海';
-  if (name === 'Mahiru Shiina') return '真晝';
+  if (name === 'Mahiru' || name === 'Mahiru Shiina') return '真晝';
   if (name === 'Asuna') return '明日奈';
   if (name === 'CaoCao') return '曹操';
   if (name === 'Liu Bei') return '劉備';
@@ -386,6 +386,7 @@ function displayWallName(name: string) {
 function displayWallText(text: string) {
   return text
     .replaceAll('Mahiru Shiina', '真晝')
+    .replaceAll('Mahiru', '真晝')
     .replaceAll('Asuna', '明日奈')
     .replaceAll('Liu Bei', '劉備')
     .replaceAll('CaoCao', '曹操')

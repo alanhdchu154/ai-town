@@ -55,9 +55,35 @@ const BANNED_PHRASES = [
   '它可能正在改變大家理解這個世界的方式',
   'conversationOutcome',
   '形成意圖',
+  '世界協調報告',
+  '世界協調',
+  '校園情緒地圖',
   '我看見你',
   '你最擔心的是',
   '先把它放下',
+  '掃描教室',
+  '自行覺醒',
+  '任務和支援',
+  '明細已經拿到',
+  '名單已交接清楚',
+  '整理明天的流程',
+  '是否有人需要幫助',
+  '暫時不覺得累',
+  '緊急決策',
+  '這世界又會亂成一團',
+  '執行清單',
+  '核對工作',
+  '商量下一步',
+  '按你說的办',
+  '隱形成本',
+  '隱形的成本',
+  '隐形的成本',
+  '個人準備更有效率',
+  '互相補充信息',
+  '自己組織比較好',
+  '做個助手',
+  '正中窩心',
+  '那就這樣做吧',
 ];
 
 const SCENE_DETAILS = [
@@ -85,6 +111,64 @@ const GENERIC_TEMPLATE_MARKERS = [
   '世界正在改變',
 ];
 
+const ADMINISTRATIVE_LANGUAGE = [
+  '會議流程',
+  '流程表',
+  '公告欄',
+  '通知文書',
+  '緊急校務',
+  '世界協調報告',
+  '世界協調',
+  '校園情緒地圖',
+  '核對清單',
+  '預算表',
+  '行政',
+  '決策',
+  '緊急決策',
+  '掃描教室',
+  '自行覺醒',
+  '任務和支援',
+  '明細已經拿到',
+  '名單已交接清楚',
+  '整理明天的流程',
+  '是否有人需要幫助',
+  '暫時不覺得累',
+  '這筆預算',
+  '執行清單',
+  '核對工作',
+  '商量下一步',
+  '個人準備更有效率',
+  '互相補充信息',
+  '自己組織比較好',
+  '正中窩心',
+  '那就這樣做吧',
+  '公平對待',
+  '風險點',
+  '影響力',
+  '落地',
+  '聯盟',
+  '弱勢組合',
+];
+
+const EVERYDAY_OBJECTS = [
+  '便當',
+  '便當盒',
+  '三明治',
+  '熱湯',
+  '湯匙',
+  '筷子',
+  '魚排',
+  '冷茶',
+  '茶',
+  '飯',
+  '杯子',
+  '筆',
+  '清單',
+  '桌子',
+  '椅子',
+  '空位',
+];
+
 export function evaluateConversationCase(testCase: ConversationEvalCase): ConversationEvalResult {
   const metrics = [
     repetitionScore(testCase),
@@ -95,6 +179,8 @@ export function evaluateConversationCase(testCase: ConversationEvalCase): Conver
     characterVoiceScore(testCase),
     emotionalSpecificityScore(testCase),
     dialogueNaturalnessScore(testCase),
+    administrativeLanguageScore(testCase),
+    everydayObjectLoopScore(testCase),
     conversationLifecycleFlowScore(testCase),
     therapyTemplateScore(testCase),
     emotionalSloganScore(testCase),
@@ -140,7 +226,9 @@ export function conversation_judge(_prompt: string, transcript: string): Convers
   const result = evaluateConversationCase(pseudoCase);
   const naturalness = toJudgeScale(
     (result.metrics.find((m) => m.name === 'verbosityScore')?.score ?? 0.5) * 0.45 +
-      (result.metrics.find((m) => m.name === 'dialogueNaturalnessScore')?.score ?? 0.5) * 0.55,
+      (result.metrics.find((m) => m.name === 'dialogueNaturalnessScore')?.score ?? 0.5) * 0.35 +
+      (result.metrics.find((m) => m.name === 'administrativeLanguageScore')?.score ?? 0.5) * 0.12 +
+      (result.metrics.find((m) => m.name === 'everydayObjectLoopScore')?.score ?? 0.5) * 0.08,
   );
   const emotional = toJudgeScale(
       (result.metrics.find((m) => m.name === 'emotionalSpecificityScore')?.score ?? 0.5) * 0.35 +
@@ -329,6 +417,30 @@ function dialogueNaturalnessScore(testCase: ConversationEvalCase): MetricResult 
   ]);
 }
 
+function administrativeLanguageScore(testCase: ConversationEvalCase): MetricResult {
+  const text = transcriptContentOnly(testCase);
+  const hits = ADMINISTRATIVE_LANGUAGE.filter((term) => text.includes(term));
+  const score = clamp01(1 - hits.length * 0.24);
+  return metric('administrativeLanguageScore', score, [
+    hits.length ? `${hits.length} administrative/meeting term(s): ${hits.join(' / ')}` : '',
+  ]);
+}
+
+function everydayObjectLoopScore(testCase: ConversationEvalCase): MetricResult {
+  const text = transcriptContentOnly(testCase);
+  const repeated = EVERYDAY_OBJECTS.flatMap((object) => {
+    const count = countMatches(text, new RegExp(escapeRegex(object), 'g'));
+    return count >= 3 ? [{ object, count }] : [];
+  });
+  const penalty = repeated.reduce((sum, item) => sum + (item.count - 2) * 0.18, 0);
+  const score = clamp01(1 - penalty);
+  return metric('everydayObjectLoopScore', score, [
+    repeated.length
+      ? `over-repeated everyday object(s): ${repeated.map((item) => `${item.object} x${item.count}`).join(' / ')}`
+      : '',
+  ]);
+}
+
 function conversationLifecycleFlowScore(testCase: ConversationEvalCase): MetricResult {
   const rows = transcriptRows(testCase);
   const bodies = rows.length ? rows.map((row) => row.body) : splitSentences(transcriptContentOnly(testCase)).filter(Boolean);
@@ -490,8 +602,8 @@ function attentionShift(testCase: ConversationEvalCase): MetricResult {
         if (author === '真晝') return /安靜|沒吃|低頭|笑得|窗邊|一個人|不敢|沒事|手|聲音/.test(row.body);
         if (author === '海') return /Alan|校長|簡報|負擔|待辦|沒休息|太多|先看人|整理/.test(row.body);
         if (author === '明日奈') return /任務|負責|清單|交接|期限|先做|待辦|誰接|延後/.test(row.body);
-        if (author === '麻衣') return /假|太工整|沒事|代價|模糊|說清楚|玩笑|躲/.test(row.body);
-        if (author === '曹操') return /秩序|位置|門口|誰被|混亂|坐下|規則|不敢/.test(row.body);
+        if (author === '麻衣') return /假|太工整|沒事|代價|模糊|不合理|說清楚|玩笑|躲/.test(row.body);
+        if (author === '曹操') return /秩序|位置|門口|誰被|混亂|坐下|規則|不敢|失控|站出來/.test(row.body);
         if (author === '劉備') return /一起|邀請|午餐|角落|一個人|排除|坐/.test(row.body);
         return false;
       })
@@ -601,6 +713,8 @@ const KNOWN_NAME_ALIASES = [
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
+  '明晝',
+  '阿真晝',
   '椎名真晝',
   'CaoCao',
   'Cao Cao',
@@ -608,6 +722,8 @@ const KNOWN_NAME_ALIASES = [
   'Liu Bei',
   'LiuBei',
   '劉備',
+  '曉夢同學',
+  '曉夢',
 ];
 
 function transcriptRows(testCase: ConversationEvalCase) {
@@ -641,7 +757,14 @@ function displayNameZh(name: string) {
   if (name === 'Umi' || name === '海' || name === '朝凪海') return '海';
   if (name === 'Asuna' || name === '明日奈' || name === '結城明日奈') return '明日奈';
   if (name === 'Mai' || name === '麻衣' || name === '櫻島麻衣') return '麻衣';
-  if (name === 'Mahiru' || name === 'Mahiru Shiina' || name === '真晝' || name === '椎名真晝') {
+  if (
+    name === 'Mahiru' ||
+    name === 'Mahiru Shiina' ||
+    name === '真晝' ||
+    name === '明晝' ||
+    name === '阿真晝' ||
+    name === '椎名真晝'
+  ) {
     return '真晝';
   }
   if (name === 'CaoCao' || name === 'Cao Cao' || name === '曹操') return '曹操';
@@ -655,9 +778,11 @@ function escapeRegex(value: string) {
 
 function defaultVoiceCues(target: string) {
   const name = displayNameZh(target);
-  if (name === '海') return ['嗯', '先', '整理', 'Alan', '校長', '簡報', '休息', '安靜'];
-  if (name === '曹操') return ['秩序', '底牌', '負責'];
-  if (name === '麻衣') return ['分析', '風險', '害怕'];
+  if (name === '海') return ['嗯', '先', '整理', 'Alan', '校長', '簡報', '休息', '安靜', '負責'];
+  if (name === '曹操') {
+    return ['秩序', '底牌', '負責', '失控', '站出來', '門口', '位置', '座位', '椅子', '走廊', '回房', '燈'];
+  }
+  if (name === '麻衣') return ['分析', '風險', '害怕', '模糊', '不合理', '代價', '太工整'];
   if (name === '真晝') return ['嗯', '茶', '外套', '你吃了嗎', '不用', '先坐', '不催', '阿海'];
   if (name === '劉備') return ['一起', '看見', '午餐'];
   if (name === '明日奈') return ['關掉', '停', '放著', '交出去', '延後', '負責', '等一下', 'checklist'];

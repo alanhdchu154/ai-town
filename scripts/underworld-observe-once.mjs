@@ -14,7 +14,9 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru Shiina', 'Asuna']);
+const AM_PM_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.md');
+const LIFE_SIGNALS_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md');
+const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
 
 const args = parseArgs(process.argv.slice(2));
 const DRY_RUN = args.get('dry-run') === 'true';
@@ -25,7 +27,7 @@ const SAMPLE_TIMEOUT_MS = numberArg('sample-timeout-ms', DRY_RUN ? 1_000 : 180_0
 const SAMPLE_POLL_MS = numberArg('sample-poll-ms', 7_000, 1_000, 30_000);
 // Rotate the collected dyad across samples so Mahiru is not starved by the
 // Umi<->Asuna mutual-first-choice attractor. Disable with --no-focus-rotation.
-const FOCUS_ROTATION = ['Umi:Mahiru Shiina', 'Mahiru Shiina:Asuna', 'Umi:Asuna'];
+const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Asuna', 'Umi:Asuna'];
 const FOCUS_ROTATION_ENABLED = args.get('no-focus-rotation') !== 'true';
 const RUN_STARTED_AT = Date.now();
 const RUN_ISO = new Date(RUN_STARTED_AT).toISOString();
@@ -42,6 +44,9 @@ async function main() {
   printTranscripts(freshConversations);
 
   const evals = await runEvals();
+  const amPmContinuity = await runAmPmContinuity();
+  const lifeSignals = await runLifeSignals();
+  const dayWindowLifeSignals = await runDayWindowLifeSignals();
   const reports = await readEvalReports();
   const fallbackAudit = await convexRunSafe('school:auditFallbackPollution', { limit: 1000 });
   const findings = analyzeFindings({
@@ -61,6 +66,9 @@ async function main() {
     collection,
     freshConversations,
     evals,
+    amPmContinuity,
+    lifeSignals,
+    dayWindowLifeSignals,
     reports,
     fallbackAudit,
     findings,
@@ -172,10 +180,54 @@ async function runEvals() {
     ['run', 'eval:soul-triad', '--', `--since-created-at=${EVAL_SINCE_AT}`],
     { timeout: 90_000 },
   );
-  const recent = await runCommand('npm', ['run', 'eval:conversation:recent', '--', '--since-last-change'], {
-    timeout: 90_000,
-  });
+  const recent = await runCommand(
+    'npm',
+    ['run', 'eval:conversation:recent', '--', `--since-created-at=${EVAL_SINCE_AT}`],
+    { timeout: 90_000 },
+  );
   return { soulTriad, recent };
+}
+
+async function runAmPmContinuity() {
+  const command = await runCommand('npm', ['run', 'underworld:am-pm-continuity'], {
+    timeout: 90_000,
+    quiet: true,
+  });
+  const report = await readOptional(AM_PM_REPORT_PATH);
+  return {
+    code: command.code,
+    report,
+    summary: parseAmPmSummary(report),
+    output: `${command.stdout}\n${command.stderr}`.trim().slice(-2000),
+  };
+}
+
+async function runLifeSignals() {
+  const command = await runCommand('npm', ['run', 'underworld:life-signals', '--', `--since-created-at=${EVAL_SINCE_AT}`], {
+    timeout: 90_000,
+    quiet: true,
+  });
+  const report = await readOptional(LIFE_SIGNALS_REPORT_PATH);
+  return {
+    code: command.code,
+    report,
+    summary: parseLifeSignalsSummary(report),
+    output: `${command.stdout}\n${command.stderr}`.trim().slice(-2000),
+  };
+}
+
+async function runDayWindowLifeSignals() {
+  const command = await runCommand('npm', ['run', 'underworld:life-signals'], {
+    timeout: 90_000,
+    quiet: true,
+  });
+  const report = await readOptional(LIFE_SIGNALS_REPORT_PATH);
+  return {
+    code: command.code,
+    report,
+    summary: parseLifeSignalsSummary(report),
+    output: `${command.stdout}\n${command.stderr}`.trim().slice(-2000),
+  };
 }
 
 async function readEvalReports() {
@@ -191,8 +243,8 @@ function analyzeFindings({ timing, health, collection, freshConversations, repor
   const recentStatusCounts = statusCountsFromRecentReport(reports.recent);
   const stageDirectionLeaks = sumNumericColumn(reports.soulTriad, 'Stage direction leak penalty');
   const echoPenalty = sumNumericColumn(reports.soulTriad, 'Echo penalty');
-  const fallbackPollutionCount =
-    (fallbackAudit.data?.fallbackArchivedConversationCount ?? 0) +
+  const archivedFallbackHistoryCount = fallbackAudit.data?.fallbackArchivedConversationCount ?? 0;
+  const activeFallbackPollutionCount =
     (fallbackAudit.data?.fallbackMemoryCount ?? 0) +
     (fallbackAudit.data?.fallbackEventCount ?? 0) +
     (fallbackAudit.data?.fallbackNotificationCount ?? 0) +
@@ -251,7 +303,8 @@ function analyzeFindings({ timing, health, collection, freshConversations, repor
     repairClass,
     stageDirectionLeaks,
     echoPenalty,
-    fallbackPollutionCount,
+    activeFallbackPollutionCount,
+    archivedFallbackHistoryCount,
     freshFallbackMarkers,
     wrongAddressee,
     providerUnavailable,
@@ -287,11 +340,11 @@ function repairClassFor(category) {
 function estimateV01Scores({ findings, freshConversations, reports, health, fallbackAudit }) {
   const rows = parseSoulRows(reports.soulTriad);
   const avg = (key, fallback) => average(rows.map((row) => row[key]).filter((value) => Number.isFinite(value))) ?? fallback;
-  const fallbackPollutionCount = findings.fallbackPollutionCount;
+  const activeFallbackPollutionCount = findings.activeFallbackPollutionCount;
   const confidenceCap = freshConversations.length >= 3 ? 1 : freshConversations.length > 0 ? 0.72 : 0.55;
   const cap = (value) => clamp01(Math.min(value, confidenceCap));
   return {
-    stability_score: clamp01((health.healthy ? 0.82 : 0.35) - (fallbackPollutionCount > 0 ? 0.25 : 0)),
+    stability_score: clamp01((health.healthy ? 0.82 : 0.35) - (activeFallbackPollutionCount > 0 ? 0.25 : 0)),
     conversation_naturalness_score: cap(0.78 - findings.stageDirectionLeaks * 0.2 - findings.echoPenalty * 0.15),
     soul_continuity_score: cap(avg('memoryResidue', freshConversations.length ? 0.5 : 0.35)),
     behavior_drift_score: cap(avg('behavior', freshConversations.length ? 0.45 : 0.3)),
@@ -340,6 +393,9 @@ async function writeReport({
   collection,
   freshConversations,
   evals,
+  amPmContinuity,
+  lifeSignals,
+  dayWindowLifeSignals,
   reports,
   fallbackAudit,
   findings,
@@ -371,13 +427,21 @@ async function writeReport({
     `- Recent failure reason: ${findings.recentFailureReason ?? 'none'}`,
     `- Provider health: ${collection.providerHealth}`,
     `- Runtime health: ${health.healthy ? 'ok' : 'check'}`,
-    `- Fallback pollution count: ${findings.fallbackPollutionCount}`,
+    `- Active fallback pollution count: ${findings.activeFallbackPollutionCount}`,
+    `- Archived fallback history count: ${findings.archivedFallbackHistoryCount}`,
     `- Fresh fallback markers: ${findings.freshFallbackMarkers}`,
     `- Stage-direction leak sum: ${findings.stageDirectionLeaks.toFixed(2)}`,
     `- Echo penalty sum: ${findings.echoPenalty.toFixed(2)}`,
     `- CC review: ${ccReview.status}`,
     `- Code changed: no`,
     `- Next safest action: ${findings.nextSafestAction}`,
+    `- AM→PM continuity: ${amPmContinuity.summary.status ?? 'unknown'} / ${amPmContinuity.summary.decision ?? 'unknown'}`,
+    `- Fresh-window life signals: ${lifeSignals.summary.status ?? 'unknown'} / ${lifeSignals.summary.decision ?? 'unknown'}`,
+    `- Day-window life signals: ${dayWindowLifeSignals.summary.status ?? 'unknown'} / ${dayWindowLifeSignals.summary.decision ?? 'unknown'}`,
+    `- Day-window life conversations: ${dayWindowLifeSignals.summary.conversationCount ?? 'unknown'}`,
+    `- Day-window ordinary scenes: ${dayWindowLifeSignals.summary.ordinarySceneDiversity ?? 'unknown'}`,
+    `- Day-window daily rhythm: ${dayWindowLifeSignals.summary.dailyRhythmConversations ?? 'unknown'}`,
+    `- Day-window soul style: ${dayWindowLifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
     '',
     '## v0.1 Scores',
     '',
@@ -414,7 +478,10 @@ async function writeReport({
     '## Eval Commands',
     '',
     `- npm run eval:soul-triad -- --since-created-at=${EVAL_SINCE_AT}: exit ${evals.soulTriad.code}`,
-    `- npm run eval:conversation:recent -- --since-last-change: exit ${evals.recent.code}`,
+    `- npm run eval:conversation:recent -- --since-created-at=${EVAL_SINCE_AT}: exit ${evals.recent.code}`,
+    `- npm run underworld:am-pm-continuity: exit ${amPmContinuity.code}`,
+    `- npm run underworld:life-signals -- --since-created-at=${EVAL_SINCE_AT}: exit ${lifeSignals.code}`,
+    `- npm run underworld:life-signals: exit ${dayWindowLifeSignals.code}`,
     '',
     '## CC Review',
     '',
@@ -423,6 +490,82 @@ async function writeReport({
     '## Repair Gate Recommendation',
     '',
     repairGateRecommendation(findings),
+    '',
+    '## AM→PM Continuity',
+    '',
+    `- status: ${amPmContinuity.summary.status ?? 'unknown'}`,
+    `- decision: ${amPmContinuity.summary.decision ?? 'unknown'}`,
+    `- morning samples: ${amPmContinuity.summary.morningSampleCount ?? 'unknown'}`,
+    `- afternoon samples: ${amPmContinuity.summary.afternoonSampleCount ?? 'unknown'}`,
+    `- AM residue candidates: ${amPmContinuity.summary.amResidueCandidates ?? 'unknown'}`,
+    `- PM callbacks found: ${amPmContinuity.summary.pmCallbacksFound ?? 'unknown'}`,
+    `- next safest action: ${amPmContinuity.summary.nextSafestAction ?? 'unknown'}`,
+    '',
+    '```md',
+    amPmContinuity.report.slice(0, 2500),
+    '```',
+    '',
+    '## Life Signals',
+    '',
+    'Fresh-window life-signal evidence is used for repair-gate safety. It only counts conversations archived after this observe run began.',
+    '',
+    `- status: ${lifeSignals.summary.status ?? 'unknown'}`,
+    `- decision: ${lifeSignals.summary.decision ?? 'unknown'}`,
+    `- conversation count: ${lifeSignals.summary.conversationCount ?? 'unknown'}`,
+    `- life-grounded conversations: ${lifeSignals.summary.lifeGroundedConversations ?? 'unknown'}`,
+    `- administrative drift flags: ${lifeSignals.summary.administrativeDriftFlags ?? 'unknown'}`,
+    `- hygiene flags: ${lifeSignals.summary.hygieneFlags ?? 'unknown'}`,
+    `- conversation shape flags: ${lifeSignals.summary.conversationShapeFlags ?? 'unknown'}`,
+    `- single-message conversations: ${lifeSignals.summary.singleMessageConversations ?? 'unknown'}`,
+    `- one-speaker conversations: ${lifeSignals.summary.oneSpeakerConversations ?? 'unknown'}`,
+    `- post-processing drift flags: ${lifeSignals.summary.postProcessingDriftFlags ?? 'unknown'}`,
+    `- prop echo flags: ${lifeSignals.summary.propEchoFlags ?? 'unknown'}`,
+    `- repeated line flags: ${lifeSignals.summary.repeatedLineFlags ?? 'unknown'}`,
+    `- scene diversity: ${lifeSignals.summary.sceneDiversity ?? 'unknown'}`,
+    `- ordinary scene diversity: ${lifeSignals.summary.ordinarySceneDiversity ?? 'unknown'}`,
+    `- office-grounded conversations: ${lifeSignals.summary.officeGroundedConversations ?? 'unknown'}`,
+    `- ordinary-scene conversations: ${lifeSignals.summary.ordinarySceneConversations ?? 'unknown'}`,
+    `- daily rhythm conversations: ${lifeSignals.summary.dailyRhythmConversations ?? 'unknown'}`,
+    `- daily rhythm diversity: ${lifeSignals.summary.dailyRhythmDiversity ?? 'unknown'}`,
+    `- soul-style conversations: ${lifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
+    `- soul-style diversity: ${lifeSignals.summary.soulStyleDiversity ?? 'unknown'}`,
+    `- average life signal score: ${lifeSignals.summary.averageLifeSignalScore ?? 'unknown'}`,
+    `- next safest action: ${lifeSignals.summary.nextSafestAction ?? 'unknown'}`,
+    '',
+    '```md',
+    lifeSignals.report.slice(0, 2500),
+    '```',
+    '',
+    '## Day-Window Life Signals',
+    '',
+    'Day-window life-signal evidence is used to understand the free world across the current school day. Do not auto-repair from this section alone.',
+    '',
+    `- status: ${dayWindowLifeSignals.summary.status ?? 'unknown'}`,
+    `- decision: ${dayWindowLifeSignals.summary.decision ?? 'unknown'}`,
+    `- conversation count: ${dayWindowLifeSignals.summary.conversationCount ?? 'unknown'}`,
+    `- life-grounded conversations: ${dayWindowLifeSignals.summary.lifeGroundedConversations ?? 'unknown'}`,
+    `- administrative drift flags: ${dayWindowLifeSignals.summary.administrativeDriftFlags ?? 'unknown'}`,
+    `- hygiene flags: ${dayWindowLifeSignals.summary.hygieneFlags ?? 'unknown'}`,
+    `- conversation shape flags: ${dayWindowLifeSignals.summary.conversationShapeFlags ?? 'unknown'}`,
+    `- single-message conversations: ${dayWindowLifeSignals.summary.singleMessageConversations ?? 'unknown'}`,
+    `- one-speaker conversations: ${dayWindowLifeSignals.summary.oneSpeakerConversations ?? 'unknown'}`,
+    `- post-processing drift flags: ${dayWindowLifeSignals.summary.postProcessingDriftFlags ?? 'unknown'}`,
+    `- prop echo flags: ${dayWindowLifeSignals.summary.propEchoFlags ?? 'unknown'}`,
+    `- repeated line flags: ${dayWindowLifeSignals.summary.repeatedLineFlags ?? 'unknown'}`,
+    `- scene diversity: ${dayWindowLifeSignals.summary.sceneDiversity ?? 'unknown'}`,
+    `- ordinary scene diversity: ${dayWindowLifeSignals.summary.ordinarySceneDiversity ?? 'unknown'}`,
+    `- office-grounded conversations: ${dayWindowLifeSignals.summary.officeGroundedConversations ?? 'unknown'}`,
+    `- ordinary-scene conversations: ${dayWindowLifeSignals.summary.ordinarySceneConversations ?? 'unknown'}`,
+    `- daily rhythm conversations: ${dayWindowLifeSignals.summary.dailyRhythmConversations ?? 'unknown'}`,
+    `- daily rhythm diversity: ${dayWindowLifeSignals.summary.dailyRhythmDiversity ?? 'unknown'}`,
+    `- soul-style conversations: ${dayWindowLifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
+    `- soul-style diversity: ${dayWindowLifeSignals.summary.soulStyleDiversity ?? 'unknown'}`,
+    `- average life signal score: ${dayWindowLifeSignals.summary.averageLifeSignalScore ?? 'unknown'}`,
+    `- next safest action: ${dayWindowLifeSignals.summary.nextSafestAction ?? 'unknown'}`,
+    '',
+    '```md',
+    dayWindowLifeSignals.report.slice(0, 2500),
+    '```',
     '',
     '## Soul Eval Excerpt',
     '',
@@ -578,7 +721,7 @@ function numberArg(name, fallback, min, max) {
 function chicagoTiming() {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
-    hour12: false,
+    hourCycle: 'h23',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -621,6 +764,49 @@ function firstRecentFailureReason(report) {
   if (reason) return reason.trim();
   const topReason = report.match(/Top reasons \|\n[^\n]*\n\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|\s*([^|]+)/i)?.[1];
   return topReason?.replace(/<br>/g, '; ').trim();
+}
+
+function parseAmPmSummary(report) {
+  const field = (label) =>
+    report.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
+  return {
+    status: field('Status'),
+    decision: field('Decision'),
+    morningSampleCount: field('Morning sample count'),
+    afternoonSampleCount: field('Afternoon sample count'),
+    amResidueCandidates: field('AM residue candidates'),
+    pmCallbacksFound: field('PM callbacks found'),
+    nextSafestAction: field('Next safest action'),
+  };
+}
+
+function parseLifeSignalsSummary(report) {
+  const field = (label) =>
+    report.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
+  return {
+    status: field('Status'),
+    decision: field('Decision'),
+    conversationCount: field('Conversation count'),
+    lifeGroundedConversations: field('Life-grounded conversations'),
+    administrativeDriftFlags: field('Administrative drift flags'),
+    hygieneFlags: field('Hygiene flags'),
+    conversationShapeFlags: field('Conversation shape flags'),
+    singleMessageConversations: field('Single-message conversations'),
+    oneSpeakerConversations: field('One-speaker conversations'),
+    postProcessingDriftFlags: field('Post-processing drift flags'),
+    propEchoFlags: field('Prop echo flags'),
+    repeatedLineFlags: field('Repeated line flags'),
+    sceneDiversity: field('Scene diversity'),
+    ordinarySceneDiversity: field('Ordinary scene diversity'),
+    officeGroundedConversations: field('Office-grounded conversations'),
+    ordinarySceneConversations: field('Ordinary-scene conversations'),
+    dailyRhythmConversations: field('Daily rhythm conversations'),
+    dailyRhythmDiversity: field('Daily rhythm diversity'),
+    soulStyleConversations: field('Soul-style conversations'),
+    soulStyleDiversity: field('Soul-style diversity'),
+    averageLifeSignalScore: field('Average life signal score'),
+    nextSafestAction: field('Next safest action'),
+  };
 }
 
 function parseSoulRows(report) {

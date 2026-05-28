@@ -34,7 +34,7 @@ const LOCAL_SMOKE_MODELS = new Set(['qwen2.5:1.5b']);
 const CHARACTER_SOUL_CLOUD_PROVIDERS = new Set<string>(
   MODEL_POLICY.characterSoul.allowedProviders,
 );
-const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahirushiina', 'asuna']);
+const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'asuna']);
 
 const DEFAULT_DAILY_QUOTA = 24;
 const DEFAULT_COOLDOWN_MS = 5 * 60_000;
@@ -255,11 +255,11 @@ export function isGeneratedFallbackText(text: string): boolean {
 }
 
 export function shouldPersistCharacterSoulTranscript(participantNames: string[], messages: string[]) {
-  const names = new Set(participantNames);
+  const names = new Set(participantNames.map(normalizedCharacterName));
   const isPilotPair =
-    (names.has('Umi') && names.has('Mahiru Shiina')) ||
+    (names.has('umi') && (names.has('mahiru') || names.has('mahirushiina'))) ||
     (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true' &&
-      ['Umi', 'Mahiru Shiina', 'Asuna'].filter((name) => names.has(name)).length >= 2);
+      ['umi', 'mahiru', 'mahirushiina', 'asuna'].filter((name) => names.has(name)).length >= 2);
   if (messages.some(isGeneratedFallbackText)) return false;
   if (!isPilotPair) return true;
   if (messages.length === 0) return false;

@@ -18,10 +18,11 @@ const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.m
 const args = parseArgs(process.argv.slice(2));
 const TIME_ZONE = args.get('time-zone') ?? 'America/Chicago';
 const TARGET_DATE = args.get('date') ?? dateKeyFor(Date.now(), TIME_ZONE);
-const LIMIT = numberArg('limit', 50, 1, 50);
+const LIMIT = numberArg('limit', 120, 1, 200);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
+const SELF_TEST = args.get('self-test') === 'true';
 
-const PRIMARY_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru Shiina', 'Asuna']);
+const PRIMARY_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
 const SECONDARY_NAMES = new Set(['曹操', '麻衣', '劉備', 'CaoCao', 'Mai', 'Liu Bei']);
 
 const CONCRETE_CUES = [
@@ -89,19 +90,37 @@ const TEMPORAL_CALLBACK_CUES = [
 ];
 
 async function main() {
+  if (SELF_TEST) {
+    runSelfTest();
+    return;
+  }
   console.log(`[am-pm-continuity] observe-only; target=${TARGET_DATE} ${TIME_ZONE}`);
-  const evalData = await convexRun('school:recentConversationEvalData', {
+  const morningWindow = localWindow(TARGET_DATE, 6, 12, TIME_ZONE);
+  const afternoonWindow = localWindow(TARGET_DATE, 13, 17, TIME_ZONE);
+  const morningData = await convexRun('school:recentConversationEvalData', {
     timeZone: TIME_ZONE,
     limit: LIMIT,
+    startAt: morningWindow.startAt,
+    endAt: morningWindow.endAt,
     compact: false,
     messagesPerConversation: MESSAGES_PER_CONVERSATION,
   });
-  const conversations = Array.isArray(evalData?.conversations) ? evalData.conversations : [];
-  const today = conversations
+  const afternoonData = await convexRun('school:recentConversationEvalData', {
+    timeZone: TIME_ZONE,
+    limit: LIMIT,
+    startAt: afternoonWindow.startAt,
+    endAt: afternoonWindow.endAt,
+    compact: false,
+    messagesPerConversation: MESSAGES_PER_CONVERSATION,
+  });
+  const morning = (Array.isArray(morningData?.conversations) ? morningData.conversations : [])
     .map((conversation) => withLocalTime(conversation, TIME_ZONE))
-    .filter((conversation) => conversation.localDate === TARGET_DATE);
-  const morning = today.filter((conversation) => conversation.bucket === 'morning');
-  const afternoon = today.filter((conversation) => conversation.bucket === 'afternoon');
+    .filter((conversation) => conversation.localDate === TARGET_DATE && conversation.bucket === 'morning');
+  const afternoon = (Array.isArray(afternoonData?.conversations) ? afternoonData.conversations : [])
+    .map((conversation) => withLocalTime(conversation, TIME_ZONE))
+    .filter((conversation) => conversation.localDate === TARGET_DATE && conversation.bucket === 'afternoon');
+  const conversations = dedupeConversations([...morning, ...afternoon]);
+  const today = conversations;
 
   const amResidueCandidates = extractAmResidueCandidates(morning);
   const pmCallbacks = findPmCallbacks(amResidueCandidates, afternoon);
@@ -110,7 +129,14 @@ async function main() {
   const bestContinuityMoment = bestMoment(pmCallbacks);
 
   await writeReport({
-    evalData,
+    evalData: {
+      checkedAt: Math.max(morningData?.checkedAt ?? 0, afternoonData?.checkedAt ?? 0),
+      morningCheckedAt: morningData?.checkedAt,
+      afternoonCheckedAt: afternoonData?.checkedAt,
+      rangeMode: true,
+      morningWindow,
+      afternoonWindow,
+    },
     conversations,
     today,
     morning,
@@ -125,6 +151,90 @@ async function main() {
   console.log(`[am-pm-continuity] morning=${morning.length} afternoon=${afternoon.length}`);
   console.log(`[am-pm-continuity] status=${status.label} decision=${status.decision}`);
   console.log(`[am-pm-continuity] report=${relative(REPORT_PATH)}`);
+}
+
+function runSelfTest() {
+  const morning = [
+    fixtureConversation('conversation-am-1', '2026-05-27T15:00:00.000Z', ['真晝', '海'], [
+      ['真晝', '海，你早上一直在整理 Alan 的簡報，可是你自己有吃飯嗎？'],
+      ['海', '我先少說一點。'],
+    ]),
+  ];
+  const afternoon = [
+    fixtureConversation('conversation-pm-1', '2026-05-27T19:00:00.000Z', ['真晝', '海'], [
+      ['真晝', '早上你說你先少說一點，我下午還是想問，你午餐有吃嗎？'],
+      ['海', '有。今天不用再替 Alan 加東西了。'],
+    ]),
+    fixtureConversation('conversation-pm-2', '2026-05-27T19:10:00.000Z', ['明日奈', '海'], [
+      ['明日奈', '簡報那件事先交接，不要再把責任都放在你手上。'],
+      ['海', '好，交接。'],
+    ]),
+    fixtureConversation('conversation-pm-3', '2026-05-27T19:20:00.000Z', ['真晝', '明日奈'], [
+      ['真晝', '下午餐廳比較安靜。'],
+      ['明日奈', '那先別開清單。'],
+    ]),
+  ];
+  const candidates = extractAmResidueCandidates(morning);
+  const callbacks = findPmCallbacks(candidates, afternoon);
+  const passStatus = decideStatus({ morning, afternoon, amResidueCandidates: candidates, pmCallbacks: callbacks });
+  assert(candidates.length > 0, 'extracts AM residue candidates');
+  assert(callbacks.some((callback) => callback.strength === 'strong'), 'detects strong PM callback');
+  assertEqual(passStatus.decision, 'continuity_observed', 'strong callback passes continuity');
+
+  const pendingStatus = decideStatus({
+    morning,
+    afternoon: afternoon.slice(0, 2),
+    amResidueCandidates: candidates,
+    pmCallbacks: [],
+  });
+  assertEqual(pendingStatus.decision, 'sample_pending', 'afternoon count below 3 stays sample_pending');
+
+  const noCallbackStatus = decideStatus({
+    morning,
+    afternoon: [
+      fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['曹操', '劉備'], [
+        ['曹操', '今天庭院的座位先不要動。'],
+        ['劉備', '我去看看誰自己吃飯。'],
+      ]),
+      fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['曹操', '麻衣'], [
+        ['麻衣', '你又把問題說得太工整。'],
+        ['曹操', '規矩先放著。'],
+      ]),
+      fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '麻衣'], [
+        ['劉備', '我先去餐廳。'],
+        ['麻衣', '別繞了。'],
+      ]),
+    ],
+    amResidueCandidates: candidates,
+    pmCallbacks: [],
+  });
+  assertEqual(noCallbackStatus.decision, 'no_pm_callback', 'enough PM samples without callback fails');
+
+  console.log('[am-pm-continuity:self-test] PASS');
+}
+
+function fixtureConversation(id, iso, participants, rows) {
+  const createdAt = Date.parse(iso);
+  return {
+    id,
+    createdAt,
+    timestampLabelZh: 'self-test',
+    involvedCharacters: participants,
+    localDate: TARGET_DATE,
+    bucket: iso.includes('T15') ? 'morning' : 'afternoon',
+    transcriptMessages: rows.map(([author, text]) => ({ author, text })),
+    memoryTraces: [],
+  };
+}
+
+function assert(value, label) {
+  if (!value) throw new Error(label);
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
 }
 
 function extractAmResidueCandidates(morning) {
@@ -350,8 +460,8 @@ async function writeReport(data) {
     bestContinuityMoment,
   } = data;
   const capWarning =
-    conversations.length >= LIMIT
-      ? `\n- Data cap warning: query returned the max ${LIMIT} conversations; older morning items may be missing.`
+    morning.length >= LIMIT || afternoon.length >= LIMIT
+      ? `\n- Data cap warning: one time-window query returned the max ${LIMIT} conversations; increase --limit before judging continuity.`
       : '';
   const report = [
     '# GIIS Underworld AM -> PM Continuity Report',
@@ -360,6 +470,13 @@ async function writeReport(data) {
     `Target date: ${TARGET_DATE}`,
     `Timezone: ${TIME_ZONE}`,
     `Windows: morning 06:00-11:59, afternoon 13:00-16:59`,
+    `Query mode: ${evalData?.rangeMode ? 'time-window range' : 'recent'}`,
+    evalData?.morningWindow
+      ? `Morning UTC range: ${new Date(evalData.morningWindow.startAt).toISOString()} -> ${new Date(evalData.morningWindow.endAt).toISOString()}`
+      : undefined,
+    evalData?.afternoonWindow
+      ? `Afternoon UTC range: ${new Date(evalData.afternoonWindow.startAt).toISOString()} -> ${new Date(evalData.afternoonWindow.endAt).toISOString()}`
+      : undefined,
     '',
     '## Summary',
     '',
@@ -465,6 +582,46 @@ function withLocalTime(conversation, timeZone) {
     localHour: hour,
     bucket,
   };
+}
+
+function dedupeConversations(conversations) {
+  const seen = new Set();
+  const deduped = [];
+  for (const conversation of conversations) {
+    if (seen.has(conversation.id)) continue;
+    seen.add(conversation.id);
+    deduped.push(conversation);
+  }
+  return deduped.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function localWindow(dateKey, startHour, endHour, timeZone) {
+  return {
+    startAt: timestampForLocalDateHour(dateKey, startHour, timeZone),
+    endAt: timestampForLocalDateHour(dateKey, endHour, timeZone),
+  };
+}
+
+function timestampForLocalDateHour(dateKey, hour, timeZone) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const targetAsUtc = Date.UTC(year, month - 1, day, hour, 0, 0, 0);
+  let guess = targetAsUtc;
+  for (let index = 0; index < 4; index += 1) {
+    const parts = localParts(guess, timeZone);
+    const guessLocalAsUtc = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      0,
+      0,
+    );
+    const delta = targetAsUtc - guessLocalAsUtc;
+    if (delta === 0) break;
+    guess += delta;
+  }
+  return guess;
 }
 
 function extractCues(text, conversation) {

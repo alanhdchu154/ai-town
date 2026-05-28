@@ -20,7 +20,7 @@ const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'soul-loop-latest.md');
 const PROPOSAL_DIR = join(REPO_ROOT, 'umi', 'proposals');
 const GOLDEN_DIR = join(REPO_ROOT, 'evals', 'conversations', 'golden');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru Shiina', 'Asuna']);
+const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
 
 const args = new Map(
   process.argv
@@ -43,7 +43,7 @@ const SAMPLE_POLL_MS = Number(args.get('sample-poll-ms') ?? 7_000);
 // Rotate the collected dyad across samples so every triad pair is exercised and
 // Mahiru is not starved by the Umi<->Asuna mutual-first-choice attractor.
 // Mahiru appears in 2 of every 3 samples. Disable with --no-focus-rotation.
-const FOCUS_ROTATION = ['Umi:Mahiru Shiina', 'Mahiru Shiina:Asuna', 'Umi:Asuna'];
+const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Asuna', 'Umi:Asuna'];
 const FOCUS_ROTATION_ENABLED = args.get('no-focus-rotation') !== 'true';
 
 async function main() {

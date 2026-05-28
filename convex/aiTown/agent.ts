@@ -40,6 +40,8 @@ const CONVERSATION_NAME_ALIASES = [
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
+  '明晝',
+  '阿真晝',
   '椎名真晝',
   'CaoCao',
   'Cao Cao',
@@ -162,7 +164,7 @@ function soulTriadSingleSampleAfterMs(): number | undefined {
 }
 
 // Optional collection knob: when set to a single "Name:Name" dyad (e.g.
-// "Mahiru Shiina:Asuna"), the soul-triad pilot only lets that specific pair seek
+// "Mahiru:Asuna"), the soul-triad pilot only lets that specific pair seek
 // each other this run. Lets the QA/observe loops rotate coverage so Mahiru is not
 // starved by the Umi<->Asuna mutual-first-choice attractor. Unset == current
 // behavior. Pilot-gated only; never affects the live autonomous world.
@@ -185,7 +187,7 @@ function isUmiMahiruPilotConversation(leftPlayerId: GameId<'players'>, rightPlay
 }
 
 function isSoulTriadName(name?: string) {
-  return name === 'Umi' || name === 'Mahiru Shiina' || name === 'Asuna';
+  return name === 'Umi' || name === 'Mahiru' || name === 'Asuna';
 }
 
 function agentActionSingleFlightEnabled() {
@@ -813,6 +815,8 @@ function displayConversationName(name: string) {
     case 'Mahiru':
     case 'Mahiru Shiina':
     case '椎名真晝':
+    case '明晝':
+    case '阿真晝':
       return '真晝';
     case 'CaoCao':
     case 'Cao Cao':
@@ -831,7 +835,7 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
   if (displayName === '明日奈') aliases.add('Asuna').add('結城明日奈');
   if (displayName === '麻衣') aliases.add('Mai').add('櫻島麻衣');
-  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝');
+  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
   if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
   if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
   return aliases;
@@ -894,10 +898,10 @@ export const findConversationCandidate = internalQuery({
       const preferredTargets = focusPair
         ? focusPair.filter((name) => name !== playerName)
         : playerName === 'Umi'
-          ? ['Asuna', 'Mahiru Shiina']
-          : playerName === 'Mahiru Shiina'
+          ? ['Asuna', 'Mahiru']
+          : playerName === 'Mahiru'
             ? ['Asuna', 'Umi']
-            : ['Umi', 'Mahiru Shiina'];
+            : ['Umi', 'Mahiru'];
       for (const targetName of preferredTargets) {
         const target = otherFreePlayers.find(
           (otherPlayer) => names.get(otherPlayer.id) === targetName && triadIds.has(otherPlayer.id),
