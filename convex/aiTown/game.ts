@@ -25,7 +25,7 @@ import { internal } from '../_generated/api';
 import { HistoricalObject } from '../engine/historicalObject';
 import { AgentDescription, serializedAgentDescription } from './agentDescription';
 import { parseMap, serializeMap } from '../util/object';
-import { isGeneratedFallbackText } from '../modelPolicy';
+import { isFreeWorldCloudCharacterName, isGeneratedFallbackText } from '../modelPolicy';
 
 const gameState = v.object({
   world: v.object(serializedWorld),
@@ -262,6 +262,7 @@ export class Game extends AbstractGame {
       .withIndex('worldId', (q) => q.eq('worldId', worldId))
       .collect();
     const playerNames = new Map(descriptions.map((description) => [description.playerId, description.name]));
+    const humanPlayers = new Map(existingWorld.players.map((player) => [player.id, Boolean(player.human)]));
     // Archive newly deleted players, conversations, and agents.
     for (const player of existingWorld.players) {
       if (!newWorld.players.some((p) => p.id === player.id)) {
@@ -295,7 +296,23 @@ export class Game extends AbstractGame {
           await deleteMessages();
           continue;
         }
-        if ((await loadMessages()).some((message) => isGeneratedFallbackText(message.text))) {
+        const conversationMessages = await loadMessages();
+        const meaningfulMessages = conversationMessages.filter((message) => message.text.trim().length > 0);
+        const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
+        if (meaningfulMessages.length < 2 || meaningfulAuthors.size < 2) {
+          await deleteMessages();
+          continue;
+        }
+        const humanInConversation = participants.some((participant) => humanPlayers.get(participant));
+        const hasCloudCharacter = participants.some((participant) => {
+          const name = playerNames.get(participant);
+          return typeof name === 'string' && isFreeWorldCloudCharacterName(name);
+        });
+        if (!humanInConversation && !hasCloudCharacter && meaningfulMessages.length < 4) {
+          await deleteMessages();
+          continue;
+        }
+        if (conversationMessages.some((message) => isGeneratedFallbackText(message.text))) {
           await deleteMessages();
           continue;
         }

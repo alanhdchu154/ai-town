@@ -87,6 +87,27 @@ function maxConversationMessages() {
   return envNumber('MAX_CONVERSATION_MESSAGES', MAX_CONVERSATION_MESSAGES, 2, 12);
 }
 
+// Minimum number of messages an autonomous (NPC↔NPC) conversation should reach
+// before an ordinary duration timeout is allowed to end it. This is the
+// "minimum-shape grace": it keeps weak two/three-line exchanges from being
+// archived (and later turned into memory) just because the clock ran out.
+function minAutonomousConversationMessages() {
+  return envNumber('MIN_AUTONOMOUS_CONVERSATION_MESSAGES', 4, 2, maxConversationMessages());
+}
+
+// Hard duration cap for autonomous conversations. Even while we hold a
+// conversation open for the minimum-shape grace, this ceiling still forces it
+// to end so nothing can get stuck. Defaults to 3x the ordinary duration,
+// clamped to the ordinary duration on the low end and 30 minutes on the high.
+function hardAutonomousConversationDurationMs() {
+  return envNumber(
+    'HARD_AUTONOMOUS_CONVERSATION_DURATION_MS',
+    MAX_CONVERSATION_DURATION * 3,
+    MAX_CONVERSATION_DURATION,
+    30 * 60_000,
+  );
+}
+
 function conversationSingleFlightEnabled() {
   return process.env.CONVERSATION_SINGLE_FLIGHT !== 'false';
 }
@@ -386,8 +407,16 @@ export class Agent {
         }
         // See if the conversation has been going on too long and decide to leave.
         const tooLongDeadline = started + MAX_CONVERSATION_DURATION;
+        const hardDeadline = started + hardAutonomousConversationDurationMs();
         const hasHumanParticipant = player.human || otherPlayer.human;
-        if (!hasHumanParticipant && (tooLongDeadline < now || conversation.numMessages > maxConversationMessages())) {
+        const overMaxMessages = conversation.numMessages > maxConversationMessages();
+        const reachedMinShape = conversation.numMessages >= minAutonomousConversationMessages();
+        // Ordinary duration timeout only ends the conversation once it has
+        // reached the minimum shape; the hard deadline ends it regardless so a
+        // conversation can never get stuck.
+        const ordinaryTimeoutLeave = tooLongDeadline < now && reachedMinShape;
+        const hardTimeoutLeave = hardDeadline < now;
+        if (!hasHumanParticipant && (overMaxMessages || ordinaryTimeoutLeave || hardTimeoutLeave)) {
           if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
             return;
           }
@@ -558,6 +587,51 @@ export async function runAgentOperation(ctx: MutationCtx, operation: string, arg
   await ctx.scheduler.runAfter(0, reference, args);
 }
 
+export interface ConversationLeaveState {
+  hasHumanParticipant: boolean;
+  currentMessageCount: number;
+  conversationCreated: number;
+}
+
+// Decide whether an autonomous conversation's requested leave should be held
+// back. We defer the leave only when: it is a non-human conversation, sending
+// this next message would still leave it below the minimum shape, and the hard
+// duration cap has not yet elapsed. Human conversations and hard-timed-out
+// conversations are never deferred.
+export function shouldDeferConversationLeave(
+  state: ConversationLeaveState | undefined,
+  now: number,
+): boolean {
+  if (!state || state.hasHumanParticipant) {
+    return false;
+  }
+  if (state.currentMessageCount + 1 >= minAutonomousConversationMessages()) {
+    return false;
+  }
+  return now < state.conversationCreated + hardAutonomousConversationDurationMs();
+}
+
+async function loadConversationLeaveState(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  conversationIdValue: string,
+): Promise<ConversationLeaveState | undefined> {
+  const world = await ctx.db.get(worldId);
+  const conversation = world?.conversations.find((item: any) => item.id === conversationIdValue);
+  if (!world || !conversation) {
+    return undefined;
+  }
+  const hasHumanParticipant = conversation.participants
+    .map((member: any) => (typeof member === 'string' ? member : member?.playerId))
+    .filter((id: unknown): id is string => typeof id === 'string')
+    .some((id: string) => world.players.some((p: any) => p.id === id && p.human));
+  return {
+    hasHumanParticipant,
+    currentMessageCount: conversation.numMessages,
+    conversationCreated: conversation.created,
+  };
+}
+
 export const agentSendMessage = internalMutation({
   args: {
     worldId: v.id('worlds'),
@@ -591,11 +665,21 @@ export const agentSendMessage = internalMutation({
       messageUuid: args.messageUuid,
       worldId: args.worldId,
     });
+    const now = Date.now();
+    // Refuse to actually leave a non-human autonomous conversation if this next
+    // message would still leave it below the minimum shape (unless the hard
+    // duration cap has elapsed). Keeps weak exchanges from being archived early.
+    const leaveConversation =
+      args.leaveConversation &&
+      !shouldDeferConversationLeave(
+        await loadConversationLeaveState(ctx, args.worldId, args.conversationId),
+        now,
+      );
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
       conversationId: args.conversationId,
       agentId: args.agentId,
-      timestamp: Date.now(),
-      leaveConversation: args.leaveConversation,
+      timestamp: now,
+      leaveConversation,
       operationId: args.operationId,
     });
   },

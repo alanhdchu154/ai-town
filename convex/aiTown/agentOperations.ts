@@ -47,8 +47,8 @@ function conversationCooldownMs() {
   return envNumber('CONVERSATION_COOLDOWN_MS', CONVERSATION_COOLDOWN, 10_000, 15 * 60_000);
 }
 
-function scheduleMovementEnabled() {
-  return process.env.ENABLE_SCHEDULE_MOVEMENT === 'true';
+export function scheduleMovementEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.ENABLE_SCHEDULE_MOVEMENT !== 'false';
 }
 
 function daytimeActivityDuration(minutes: number) {

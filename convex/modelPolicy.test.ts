@@ -1,6 +1,9 @@
 import {
   characterSoulPolicyViolation,
+  characterSoulLocalFallbackEnabled,
   characterSoulProviderGuard,
+  freeWorldConversationProviderRole,
+  isFreeWorldCloudCharacterName,
   isDeterministicTemplatePhrase,
   isGeneratedFallbackText,
   isSystemAbortMarker,
@@ -21,6 +24,28 @@ describe('model policy', () => {
     expect(characterSoulPolicyViolation('qwen', 'qwen2.5:1.5b')).toMatch(/smoke-only/);
     expect(characterSoulPolicyViolation('qwen', 'qwen3-max')).toBeNull();
     expect(characterSoulPolicyViolation('ollama', 'qwen2.5:1.5b')).toMatch(/cloud provider/);
+  });
+
+  test('routes free-world main three as cloud speakers and others as local speakers', () => {
+    expect(isFreeWorldCloudCharacterName('Umi')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('Mahiru Shiina')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('Asuna')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('CaoCao')).toBe(false);
+    expect(isFreeWorldCloudCharacterName('Mai')).toBe(false);
+    expect(isFreeWorldCloudCharacterName('Liu Bei')).toBe(false);
+
+    expect(freeWorldConversationProviderRole('Umi', 'CaoCao')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Mahiru Shiina', 'Asuna')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Asuna', 'Liu Bei')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('CaoCao', 'Umi')).toBe('local');
+    expect(freeWorldConversationProviderRole('Mai', 'Liu Bei')).toBe('local');
+    expect(freeWorldConversationProviderRole('Umi', 'Alan', true)).toBe('human');
+  });
+
+  test('allows local LLM fallback for character soul unless explicitly disabled', () => {
+    expect(characterSoulLocalFallbackEnabled({})).toBe(true);
+    expect(characterSoulLocalFallbackEnabled({ CHARACTER_SOUL_LOCAL_FALLBACK: 'true' })).toBe(true);
+    expect(characterSoulLocalFallbackEnabled({ CHARACTER_SOUL_LOCAL_FALLBACK: 'false' })).toBe(false);
   });
 
   test('keeps memory summarization deterministic and reflection disabled by policy', () => {

@@ -10,9 +10,17 @@ import { NUM_MEMORIES_TO_SEARCH } from '../constants';
 import { nearestSchoolLocation } from '../../data/schoolLocations';
 import { formativeMemoriesForName, giisProfileForName } from '../../data/giisProfiles';
 import {
+  hasDialogueSystemPhraseLeak,
+  stripSeparatorArtifacts,
+  stripStageDirectionsFromDialogue,
+} from './dialogueHygiene';
+import {
   characterSoulPolicyViolation,
+  characterSoulLocalFallbackEnabled,
   characterSoulProviderGuard,
   defaultCharacterSoulModel,
+  freeWorldConversationProviderRole,
+  isFreeWorldCloudCharacterName,
   isGeneratedFallbackText,
   recordCharacterSoulProviderAttempt,
   recordCharacterSoulProviderFailure,
@@ -121,6 +129,7 @@ export function conversationEligibleForLLM(
 }
 
 function autonomousConversationLLMEnabledFor(playerName: string, otherPlayerName: string) {
+  if (freeWorldCloudSpeaker(playerName, otherPlayerName)) return true;
   if (characterSoulPilotPair(playerName, otherPlayerName)) return true;
   if (autonomousConversationLLMEnabled()) return true;
   const pairConfig =
@@ -140,6 +149,14 @@ function autonomousConversationLLMEnabledFor(playerName: string, otherPlayerName
       const [left, right] = pair.split(':').map((name) => normalizedPilotName(name.trim()));
       return left && right && currentPair.has(left) && currentPair.has(right);
     });
+}
+
+function freeWorldCloudSpeaker(playerName: string, otherPlayerName: string) {
+  return freeWorldConversationProviderRole(playerName, otherPlayerName, false) === 'cloud';
+}
+
+function localFallbackConversationModel() {
+  return process.env.CHARACTER_SOUL_LOCAL_FALLBACK_MODEL ?? process.env.OLLAMA_MODEL;
 }
 
 export async function startConversationMessage(
@@ -214,28 +231,32 @@ export async function startConversationMessage(
   if (!pilotPair) prompt.push(lastPrompt);
   const companionCloud = companionMode && companionCloudEnabled();
   const humanCloud = humanInConversation && humanConversationCloudEnabled();
-  const cloudConversation = Boolean(pilotPair) || companionCloud || humanCloud;
+  const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
+  const cloudConversation = Boolean(pilotPair) || freeWorldCloud || companionCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const request = {
+    messages: [
+      {
+        role: 'system' as const,
+        content: prompt.join('\n'),
+      },
+    ],
+    max_tokens: tuning.maxTokens,
+    model: tuning.model,
+    stop: stopWords(otherPlayer.name, player.name),
+    timeoutMs: tuning.timeoutMs,
+  };
   const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
-  if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
-
+  if (policyAbort) {
+    return await localFallbackAfterPolicyAbort(request, policyAbort);
+  }
   const content = await safeConversationCompletion(
-    {
-      messages: [
-        {
-          role: 'system',
-          content: prompt.join('\n'),
-        },
-      ],
-      max_tokens: tuning.maxTokens,
-      model: tuning.model,
-      stop: stopWords(otherPlayer.name, player.name),
-      timeoutMs: tuning.timeoutMs,
-    },
+    request,
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable at start',
     cloudConversation,
+    cloudConversation ? localFallbackRequest(request) : undefined,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -380,22 +401,27 @@ export async function continueConversationMessage(
 
   const companionCloud = companionMode && companionCloudEnabled();
   const humanCloud = humanInConversation && humanConversationCloudEnabled();
-  const cloudConversation = Boolean(pilotPair) || companionCloud || humanCloud;
+  const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
+  const cloudConversation = Boolean(pilotPair) || freeWorldCloud || companionCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const request = {
+    messages: llmMessages,
+    max_tokens: tuning.maxTokens,
+    model: tuning.model,
+    stop: stopWords(otherPlayer.name, player.name),
+    timeoutMs: tuning.timeoutMs,
+  };
   const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
-  if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
+  if (policyAbort) {
+    return await localFallbackAfterPolicyAbort(request, policyAbort);
+  }
   const content = await safeConversationCompletion(
-    {
-      messages: llmMessages,
-      max_tokens: tuning.maxTokens,
-      model: tuning.model,
-      stop: stopWords(otherPlayer.name, player.name),
-      timeoutMs: tuning.timeoutMs,
-    },
+    request,
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable mid-conversation',
     cloudConversation,
+    cloudConversation ? localFallbackRequest(request) : undefined,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -473,23 +499,27 @@ export async function leaveConversationMessage(
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   llmMessages.push({ role: 'user', content: lastPrompt });
   const humanCloud = humanInConversation && humanConversationCloudEnabled();
-  const cloudConversation = Boolean(pilotPair) || humanCloud;
+  const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
+  const cloudConversation = Boolean(pilotPair) || freeWorldCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
+  const request = {
+    messages: llmMessages,
+    max_tokens: tuning.maxTokens,
+    model: tuning.model,
+    stop: stopWords(otherPlayer.name, player.name),
+    timeoutMs: tuning.timeoutMs,
+  };
   const policyAbort = cloudConversation ? characterSoulPolicyAbortReason(tuning.model) : null;
-  if (policyAbort) return `[ABORT_CONVERSATION] ${policyAbort}`;
-
+  if (policyAbort) {
+    return await localFallbackAfterPolicyAbort(request, policyAbort);
+  }
   const content = await safeConversationCompletion(
-    {
-      messages: llmMessages,
-      max_tokens: tuning.maxTokens,
-      model: tuning.model,
-      stop: stopWords(otherPlayer.name, player.name),
-      timeoutMs: tuning.timeoutMs,
-    },
+    request,
     humanInConversation || cloudConversation
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable on leave',
     cloudConversation,
+    cloudConversation ? localFallbackRequest(request) : undefined,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -512,9 +542,10 @@ async function safeConversationCompletion(
   request: Parameters<typeof chatCompletion>[0],
   fallback: string,
   pilotCloudAllowed = false,
+  localFallback?: Parameters<typeof chatCompletion>[0],
 ) {
   const start = Date.now();
-  const promptChars = request.messages.reduce((sum, message) => sum + (message.content?.length ?? 0), 0);
+  const promptChars = conversationPromptChars(request);
   try {
     const { content } = pilotCloudAllowed && shouldUsePilotCloudCompletion(request)
       ? await pilotCloudCompletion(request)
@@ -530,6 +561,10 @@ async function safeConversationCompletion(
     });
     return typeof content === 'string' ? content : fallback;
   } catch (error) {
+    const localContent = await tryLocalConversationCompletion(localFallback, promptChars);
+    if (typeof localContent === 'string') {
+      return localContent;
+    }
     const abortingConversation = fallback.startsWith('[ABORT_CONVERSATION]');
     console.debug(
       abortingConversation
@@ -550,8 +585,60 @@ async function safeConversationCompletion(
   }
 }
 
+function conversationPromptChars(request: Parameters<typeof chatCompletion>[0]) {
+  return request.messages.reduce((sum, message) => sum + (message.content?.length ?? 0), 0);
+}
+
+async function localFallbackAfterPolicyAbort(
+  request: Parameters<typeof chatCompletion>[0],
+  reason: string,
+) {
+  const localContent = await tryLocalConversationCompletion(
+    localFallbackRequest(request),
+    conversationPromptChars(request),
+  );
+  if (typeof localContent === 'string') return localContent;
+  return `[ABORT_CONVERSATION] ${reason}`;
+}
+
+async function tryLocalConversationCompletion(
+  localFallback: Parameters<typeof chatCompletion>[0] | undefined,
+  promptChars: number,
+) {
+  if (!localFallback || !characterSoulLocalFallbackEnabled()) return undefined;
+  try {
+    const localStart = Date.now();
+    const { content } = await chatCompletion(localFallback);
+    logGiisTiming({
+      action: 'conversationLLM',
+      phase: 'localFallbackCallTime',
+      ms: Date.now() - localStart,
+      model: localFallback.model ?? 'default',
+      maxTokens: localFallback.max_tokens,
+      promptChars,
+      usedFallback: true,
+    });
+    return typeof content === 'string' ? content : undefined;
+  } catch (fallbackError) {
+    console.debug('Local LLM fallback failed after cloud/provider failure', fallbackError);
+    return undefined;
+  }
+}
+
+function localFallbackRequest(
+  request: Parameters<typeof chatCompletion>[0],
+): Parameters<typeof chatCompletion>[0] | undefined {
+  const model = localFallbackConversationModel();
+  if (!model) return undefined;
+  return {
+    ...request,
+    model,
+    timeoutMs: envInteger('CHARACTER_SOUL_LOCAL_FALLBACK_TIMEOUT_MS', 12_000, 3_000, 60_000),
+  };
+}
+
 function conversationGenerationTuning(playerName: string, pilotPair = false, cloudConversation = false) {
-  const isCore = CORE_CONVERSATION_CHARACTERS.has(playerName);
+  const isCore = CORE_CONVERSATION_CHARACTERS.has(playerName) || isFreeWorldCloudCharacterName(playerName);
   const pilotProvider = process.env.UMI_MAHIRU_PILOT_PROVIDER?.toLowerCase();
   const pilotModel =
     process.env.UMI_MAHIRU_PILOT_MODEL ??
@@ -854,10 +941,12 @@ function compactAutonomousStartPrompt({
   return [
     'conversationMode: autonomous_school_chat_compact',
     `You are ${displayConversationName(playerName)} starting a conversation with ${displayConversationName(otherPlayerName)} in GIIS Underworld.`,
-    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
-    `Keep it brief: 1-2 sentences, under 120 Chinese characters.`,
-    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
-    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
+	    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
+	    `Keep it brief: 1-2 sentences, under 120 Chinese characters.`,
+	    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
+	    ...freeWorldNaturalnessPrompt(),
+	    compactCharacterVoicePrompt(playerName, sceneContext),
+	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}.`,
@@ -916,17 +1005,50 @@ function compactAutonomousContinuePromptBase({
     'conversationMode: autonomous_school_chat_compact',
     `You are ${displayConversationName(playerName)} continuing a conversation with ${displayConversationName(otherPlayerName)}.`,
     `The conversation started at ${started.toLocaleString()}; current time is ${new Date(now).toLocaleString()}.`,
-    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
-    `Keep it brief: 1-2 sentences, under 140 Chinese characters.`,
-    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
-    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
+	    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
+	    `Keep it brief: 1-2 sentences, under 140 Chinese characters.`,
+	    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
+	    ...freeWorldNaturalnessPrompt(),
+	    compactCharacterVoicePrompt(playerName, sceneContext),
+	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     'Do not sound like a meeting note. Avoid labels like "主線", "形成意圖", or "conversationOutcome".',
-  ].filter(Boolean);
+    'If the same prop already appeared twice in this chat, stop using that prop; answer shorter, switch to a quiet pause, or move to a different ordinary detail.',
+	  ].filter(Boolean);
+}
+
+function freeWorldNaturalnessPrompt() {
+  return [
+    'Free-world life rules:',
+    ' - Use Traditional Chinese only. Do not mix Simplified Chinese, pinyin-like wording, or English filler like "maybe".',
+    ' - Use the other person’s Chinese name in speech: 海、真晝、明日奈、麻衣、曹操、劉備. Do not say Umi, Mahiru, Shiina, Asuna, Mai, CaoCao, or Liu Bei.',
+    ' - Prefer school-life details over abstract analysis: lunch, homework, dorm lights, hallway, window, chair, club room, someone not eating, someone going quiet.',
+    ' - Use one visible school-life cue when helpful: a tray, cup, desk, bag, homework, lights, footsteps, empty seat, window, door, or unfinished lunch. Do not cling to the same object for the whole conversation.',
+    ' - Do not use therapy/essay phrases like 互相啟發、感受此刻、情緒暖流、被看見的需求、構想、心頭沉重, or "我明白你的意思了".',
+    ' - Do not push someone to explain trauma with lines like "到底發生了什麼", "說得再清楚一些", or "這應該就是原因". Let resistance remain.',
+    ' - Do not sound like a meeting or consultant memo: avoid 會議記錄、優先行動、跟進機制、執行團隊、代表不同聲音、跨派系溝通、影響力、落地、風險點、評估、實質上、規劃、接下來我們怎麼做.',
+    ' - One ordinary imperfect line is better than a polished insight. It may be short, sharp, evasive, tired, or practical.',
+  ];
+}
+
+function compactCharacterVoicePrompt(playerName: string, sceneContext?: SceneContext) {
+  const scene = sceneContext?.labelZh ?? '校園';
+  switch (playerName) {
+    case 'Mai':
+      return `For 麻衣 in ${scene}: be sharp and specific. Attack one false sentence or hidden cost, but do not give a strategy memo. Use ordinary objects before concepts.`;
+    case 'CaoCao':
+      return `For 曹操 in ${scene}: protect through order, but name a chair, door, empty seat, tray, or hallway before naming responsibility. Do not discuss influence, documents, fairness policy, or decisions.`;
+    case 'Liu Bei':
+      return `For 劉備 in ${scene}: care through invitation. Ask who has not eaten, who is sitting alone, or who needs a short walk; do not propose a meeting.`;
+    case 'Asuna':
+      return `For 明日奈 in ${scene}: be practical but tired. Use one concrete task or refusal; do not turn feelings into a full checklist.`;
+    default:
+      return `For ${displayConversationName(playerName)} in ${scene}: answer from a small visible moment, not an abstract thesis.`;
+  }
 }
 
 function characterSoulPilotPair(playerName: string, otherPlayerName: string) {
@@ -1022,6 +1144,16 @@ function richUmiMahiruPrompt({
         : '角色缺口 / Asuna：情緒會太快變成行動；過載時聲音偏平，求助可以很不自然。不要固定說「我又想把它拆成任務」；同一個傾向要換成關掉排程、不開 checklist、停止新增、把筆放著、或請別人接一小段。';
   const surfaceDiversityRule =
     '表面多樣性：保留情緒傾向，不保留口頭禪。同一個洞察如果剛說過，就不要再直接說；改成更短、更日常、更笨拙，或乾脆讓它變成少接一件事、沉默、停頓、換話題。';
+  const everydayPilotRule =
+    '生活感硬規則：如果場景是餐廳，就停在便當、湯匙、冷掉的茶、沒吃完的飯、旁邊空位或誰還沒吃。不要把餐廳對話轉成會議流程、流程表、公告欄、通知、文書或明天的安排。';
+  const asunaEverydayBurdenRule =
+    self === '明日奈'
+      ? '明日奈此刻的責任感要用短句和拒絕表現：可以說「等一下」「這個我先不接」「你先吃」「我晚點再看」，不要說會議流程、流程表、公告欄、通知或文書。'
+      : '';
+  const mahiruEverydayCareRule =
+    self === '真晝'
+      ? '真晝照顧人時不要把同一個物件重複三次；如果已經提過便當或湯匙，下一句改成不催、坐旁邊、問要不要先停。'
+      : '';
   const intraAuthorSloganRule =
     self === '明日奈'
       ? '作者內防口號 / Asuna：如果你已經說過任務、清單、排表、下一步或「我來」，下一句不要再用同一組詞。改說關掉一件事、把筆放著、讓別人接一段、或直接說「等一下」。'
@@ -1063,6 +1195,9 @@ function richUmiMahiruPrompt({
     imperfectSpeechRule,
     characterFlawRule,
     surfaceDiversityRule,
+    everydayPilotRule,
+    asunaEverydayBurdenRule,
+    mahiruEverydayCareRule,
     intraAuthorSloganRule,
     '節奏：真晝的關注會一層層累積；海可以先擋一兩次（把話帶回責任），但不要每句都擋。整段對話裡，海至少要有一次真正卸下盔甲的瞬間——一句不帶 Alan/劉備/簡報/明天的真話，或一個只屬於此刻的沉默。明日奈可以做事，但有時要笨拙地承認「我也不知道怎麼求救」。一次真正的裂縫，勝過五句客套的疲憊台詞。對話總體要留下一個動作或一個停頓的痕跡，不要全句談心理。',
     '輸出格式硬規則：只輸出真正說出口的台詞，不要用括號舞台指示，也不要把第一人稱動作寫進台詞。禁用例：我合上筆電、我放下杯子、我看向你、我把手機轉過去、我輕輕靠回椅背。若需要動作，只讓它影響語氣、長短或下一步，不要直接寫出動作。',
@@ -1437,18 +1572,39 @@ function sanitizeConversationContent(
   lastInput?: string,
   previous: LLMMessage[] = [],
 ) {
+  const withoutSeparatorArtifacts = stripSeparatorArtifacts(content);
   if (characterSoulPilotPair(playerName, otherPlayerName)) {
-    return sanitizeUmiMahiruPilotLine(content, playerName, otherPlayerName, previous);
+    return sanitizeUmiMahiruPilotLine(withoutSeparatorArtifacts, playerName, otherPlayerName, previous);
   }
-  if (hasTemplateLeak(content, companionMode ? lastInput : undefined)) {
+  if (hasTemplateLeak(withoutSeparatorArtifacts, companionMode ? lastInput : undefined)) {
     return companionMode
       ? '[ABORT_CONVERSATION] companion template leak'
       : '[ABORT_CONVERSATION] autonomous template leak';
   }
-  const cleaned = content
+  const normalized = normalizeTraditionalZh(withoutSeparatorArtifacts)
     .replace(/^剛才\s*Alan\s*說[:：]\s*「[^」]+」[，,。]?\s*/g, '')
     .trim();
+  const { line: cleaned, strippedStageDirection } = stripStageDirectionsFromDialogue(normalized);
+  if (!cleaned) {
+    return companionMode
+      ? '[ABORT_CONVERSATION] companion stage-direction-only output'
+      : '[ABORT_CONVERSATION] autonomous stage-direction-only output';
+  }
   const addressed = repairWrongConversationAddressee(cleaned, playerName, otherPlayerName);
+  if (
+    !companionMode &&
+    (hasFreeWorldQualityLeak(addressed) || hasFreeWorldPropEchoLeak(addressed, previous))
+  ) {
+    return '[ABORT_CONVERSATION] autonomous quality leak';
+  }
+  if (strippedStageDirection && process.env.NODE_ENV !== 'production') {
+    console.debug('[GIIS conversation] stripped stage direction from dialogue', {
+      playerName,
+      otherPlayerName,
+      preview: normalized.slice(0, 180),
+      sanitizedPreview: cleaned.slice(0, 180),
+    });
+  }
   if (companionMode && repeatsCompanionFallback(addressed, previous)) {
     return '[ABORT_CONVERSATION] companion repetitive fallback';
   }
@@ -1462,7 +1618,7 @@ function sanitizeUmiMahiruPilotLine(
   otherPlayerName: string,
   previous: LLMMessage[] = [],
 ) {
-  const normalizedLine = normalizeTraditionalZh(content)
+  const normalizedLine = normalizeTraditionalZh(stripSeparatorArtifacts(content))
     .replace(/^["'「『“”]+|["'」』“”]+$/g, '')
     .replace(/^上一句[:：]\s*/g, '')
     .replace(/（[^）]{1,100}）|\([^)]{1,100}\)/g, '')
@@ -1477,10 +1633,16 @@ function sanitizeUmiMahiruPilotLine(
     /[:：]「|(?:我|你|妳|他|她).{0,18}說[:：]/.test(line) ||
     (line.match(/「/g)?.length ?? 0) !== (line.match(/」/g)?.length ?? 0);
   const blocked =
-    /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是明日奈|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|明日奈 to|Umi to|Mahiru to|Asuna to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|海邊|海景|風景|景色|海浪|海面|海洋/.test(
+    /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是明日奈|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|明日奈 to|Umi to|Mahiru to|Asuna to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|我看見你|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|會議流程|流程表|公告欄|通知文書|明天.*會議|海邊|海景|風景|景色|海浪|海面|海洋/.test(
       line,
     );
-  if (blocked || startHallucinatedPrevious || quotedStageNarration || line.length < 2) {
+  if (
+    blocked ||
+    hasDialogueSystemPhraseLeak(line) ||
+    startHallucinatedPrevious ||
+    quotedStageNarration ||
+    line.length < 2
+  ) {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[GIIS soul pilot] sanitized blocked line', {
         playerName,
@@ -1498,40 +1660,54 @@ function sanitizeUmiMahiruPilotLine(
   }
   const repaired = repairWrongConversationAddressee(line, playerName, otherPlayerName);
   const deEchoed = stripPilotEcho(repaired, previous);
-  return deEchoed.length > 90 ? `${deEchoed.slice(0, 89)}。` : deEchoed;
+	  return deEchoed.length > 90 ? `${deEchoed.slice(0, 89)}。` : deEchoed;
 }
 
-function stripStageDirectionsFromDialogue(line: string) {
-  const clauses = line.split(/(?<=[，,。！？!?])/);
-  let strippedStageDirection = false;
-  const kept = clauses.filter((clause) => {
-    if (!clause.trim()) return false;
-    if (!isStageDirectionClause(clause)) return true;
-    strippedStageDirection = true;
-    return false;
-  });
-  const cleaned = kept.join('').replace(/^[，,。！？!?\s]+/g, '').trim();
-  return {
-    line: cleaned,
-    strippedStageDirection,
-  };
-}
-
-function isStageDirectionClause(clause: string) {
-  const trimmed = clause
-    .trim()
-    .replace(/^["'「『“”]+|["'」』“”]+$/g, '')
-    .replace(/[，,。！？!?\s]+$/g, '');
-  const withoutLeadIn = trimmed
-    .replace(/^(?:好|嗯|行|可以|是啊)[，,、\s]*(?:那)?/g, '')
-    .replace(/^那(?=我)/g, '');
-  if (!withoutLeadIn) return false;
+function hasFreeWorldQualityLeak(line: string) {
   return (
-    /^(?:我)(?:輕輕|慢慢|先|再|又|剛|剛剛|默默|順手)?(?:合上|放下|看向|走到|靠回|拿起|起身|伸手|握住|推開|按住|移開|坐下|站起|轉身|低頭|抬頭|停下|停住|靠近|退開|把手機|把[^，,。！？!?]{0,18}(?:放下|轉過去|拿起|推開|按住|移開|合上|收起|遞過去|蓋好|劃掉|圈掉))/.test(
-      withoutLeadIn,
-    ) ||
-    /^看(?:你|妳|著|向)/.test(withoutLeadIn)
+    hasDialogueSystemPhraseLeak(line) ||
+    hasDisallowedLatinText(line) ||
+    /maybe|Umi|Mahiru|Shiina|Asuna|CaoCao|Liu Bei|LiuBei|Mai|互相啟發|感受此刻|情緒暖流|被看見的需求|構想|心頭沉重|(?:我)?明白你的意思了|明白了|理解了|我很感激有地方可以|放鬆一下|簡單的情緒|讓心情好轉|會議記錄|會議流程|緊急會議|流程表|公告欄|優先行動|跟進機制|執行團隊|代表不同聲音|派系|要變天|跨派系溝通|信息傳遞|名單完整性|合適的代表|平衡各方|影響力|落地|風險點|進一步的評估|長遠影響|事先有所準備|謹慎行事|順風車|重大決策|緊急決策|通知文書|通知.*學生|學生會提案|公平對待|緊急校務|核對.*清單|執行清單|核對工作|這筆預算|如何協調|承擔.*責任|聯盟|弱勢組合|謝謝你的(?:提議|建議|提醒)|分析者|參與者|真正開銷|隱形成本|隱形的成本|隐形的成本|代價太高|你覺得呢|實質上|這種會|接下來.*規劃|怎麼規劃|商量下一步|按你說的办|個人準備更有效率|互相補充信息|自己組織比較好|做個助手|正中窩心|那就這樣做吧|不必每次都|問號|繼續聊聊嗎|語氣中透出|掃描教室|自行覺醒|任務和支援|更快地完成任務|明細已經拿到|名單已交接清楚|整理明天的流程|確保所有人|是否有人需要幫助|暫時不覺得累|這種感受你有好幾年|能不能.*分享一下.*發生|到底發生了什麼|到底发生了什麼|這應該就是原因|說得再清楚一些|這世界又會亂成一團|^(?:海|真晝|明日奈|麻衣|曹操|劉備)覺得/.test(line)
   );
+}
+
+function hasFreeWorldPropEchoLeak(line: string, previous: LLMMessage[]) {
+  const cue = repeatedFreeWorldProp(previous);
+  return Boolean(cue && line.includes(cue));
+}
+
+function repeatedFreeWorldProp(previous: LLMMessage[]) {
+  const text = previous
+    .slice(-6)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  const cues = [
+    '便當',
+    '便當盒',
+    '餐盤',
+    '杯',
+    '茶',
+    '冷茶',
+    '清單',
+    '紀錄表',
+    '燈',
+    '門縫',
+    '窗',
+    '角落',
+    '椅子',
+    '座位',
+    '桌子',
+  ];
+  return cues.find((cue) => countOccurrences(text, cue) >= 2);
+}
+
+function countOccurrences(text: string, cue: string) {
+  if (!cue) return 0;
+  return text.split(cue).length - 1;
+}
+
+function hasDisallowedLatinText(line: string) {
+  return /[A-Za-z]/.test(line.replace(/\bAlan\b/g, ''));
 }
 
 function stripPilotEcho(line: string, previous: LLMMessage[]) {
@@ -1625,6 +1801,20 @@ function normalizeTraditionalZh(content: string) {
     .replace(/轻/g, '輕')
     .replace(/来/g, '來')
     .replace(/爱/g, '愛')
+    .replace(/们/g, '們')
+    .replace(/划/g, '劃')
+    .replace(/谢/g, '謝')
+    .replace(/儿/g, '兒')
+    .replace(/够/g, '夠')
+    .replace(/乐/g, '樂')
+    .replace(/设/g, '設')
+    .replace(/传/g, '傳')
+    .replace(/递/g, '遞')
+    .replace(/遗/g, '遺')
+    .replace(/确/g, '確')
+    .replace(/灯/g, '燈')
+    .replace(/担/g, '擔')
+    .replace(/责/g, '責')
     .replace(/晩/g, '晝')
     .replace(/吗/g, '嗎');
 }
@@ -3182,7 +3372,12 @@ export const queryPromptData = internalQuery({
       .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'conversation'))
       .order('desc')
       .take(24))
-      .filter((entry) => entry.data.type === 'conversation' && entry.data.playerIds.includes(args.otherPlayerId))
+      .filter(
+        (entry) =>
+          entry.data.type === 'conversation' &&
+          entry.data.playerIds.includes(args.otherPlayerId) &&
+          memory.shouldExposeMemoryDescription(entry.description),
+      )
       .map((entry) => ({
         text: memory.residueFromMemoryDescription(entry.description),
         createdAt: entry._creationTime,

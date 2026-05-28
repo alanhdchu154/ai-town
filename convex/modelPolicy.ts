@@ -34,6 +34,7 @@ const LOCAL_SMOKE_MODELS = new Set(['qwen2.5:1.5b']);
 const CHARACTER_SOUL_CLOUD_PROVIDERS = new Set<string>(
   MODEL_POLICY.characterSoul.allowedProviders,
 );
+const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahirushiina', 'asuna']);
 
 const DEFAULT_DAILY_QUOTA = 24;
 const DEFAULT_COOLDOWN_MS = 5 * 60_000;
@@ -103,6 +104,28 @@ export function shouldUseCharacterSoulCloudProvider(provider?: string, model?: s
   if (CHARACTER_SOUL_CLOUD_PROVIDERS.has(normalizedProvider)) return true;
   const normalizedModel = model?.trim().toLowerCase() ?? '';
   return normalizedModel === 'gemini' || normalizedModel.startsWith('gemini/') || normalizedModel.startsWith('qwen/');
+}
+
+export function normalizedCharacterName(name: string) {
+  return name.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+export function isFreeWorldCloudCharacterName(name: string) {
+  return FREE_WORLD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(name));
+}
+
+export function freeWorldConversationProviderRole(
+  speakerName: string,
+  listenerName: string,
+  humanInConversation = false,
+) {
+  void listenerName;
+  if (humanInConversation) return 'human' as const;
+  return isFreeWorldCloudCharacterName(speakerName) ? 'cloud' as const : 'local' as const;
+}
+
+export function characterSoulLocalFallbackEnabled(env: ModelPolicyEnv = process.env) {
+  return env.CHARACTER_SOUL_LOCAL_FALLBACK !== 'false';
 }
 
 export function characterSoulProviderGuard(env: ModelPolicyEnv = process.env, now = Date.now()) {

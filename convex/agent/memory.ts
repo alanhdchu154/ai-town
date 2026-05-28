@@ -13,6 +13,7 @@ import {
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
 import { conversationEligibleForLLM } from './conversation';
+import { hasDialogueSystemPhraseLeak } from './dialogueHygiene';
 import { giisProfileForName } from '../../data/giisProfiles';
 
 // How long to wait before updating a memory's last access time.
@@ -42,6 +43,45 @@ type MemoryRetentionDecision = {
 
 const RESIDUE_PREFIX = '殘留：';
 const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '明日奈']);
+const MEMORY_POST_PROCESSING_DRIFT_CUES = [
+  'AI 社',
+  'AI社',
+  '學生會',
+  '派系',
+  '世界情緒',
+  '世界協調報告',
+  '世界協調',
+  '校園情緒地圖',
+  '情緒脈絡',
+  '主線',
+  'conversationOutcome',
+  '會議流程',
+  '策略衝擊',
+  '掃描教室',
+  '自行覺醒',
+  '任務和支援',
+  '明細已經拿到',
+  '名單已交接清楚',
+  '整理明天的流程',
+  '是否有人需要幫助',
+  '暫時不覺得累',
+  '緊急決策',
+  '這世界又會亂成一團',
+  '這筆預算',
+  '執行清單',
+  '核對工作',
+  '商量下一步',
+  '按你說的办',
+  '隱形成本',
+  '隱形的成本',
+  '隐形的成本',
+  '個人準備更有效率',
+  '互相補充信息',
+  '自己組織比較好',
+  '做個助手',
+  '正中窩心',
+  '那就這樣做吧',
+];
 
 function logGiisTiming(payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === 'production') return;
@@ -105,14 +145,70 @@ function deterministicConversationSummary(
   otherPlayer: { name: string },
   messages: Doc<'messages'>[],
 ) {
-  const lastMeaningfulText = [...messages]
-    .reverse()
-    .map((message) => message.text.trim())
-    .find(Boolean);
-  const preview = lastMeaningfulText
-    ? `最後留下的重點是：「${lastMeaningfulText.slice(0, 96)}${lastMeaningfulText.length > 96 ? '...' : ''}」`
+  const anchorText = memoryAnchorTextForMessages(messages);
+  const preview = anchorText
+    ? `留下的情緒重點是：「${anchorText.slice(0, 96)}${anchorText.length > 96 ? '...' : ''}」`
     : '這段對話沒有留下明確訊息。';
   return `${player.name} 和 ${otherPlayer.name} 進行了一段短暫對話；${preview}`;
+}
+
+export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
+  const candidates = messages
+    .map((message, index) => ({ text: message.text.trim(), index }))
+    .filter((message) => message.text.length > 0 && !hasMemoryPostProcessingDrift(message.text));
+  if (!candidates.length) return '';
+  const scored = candidates.map((candidate) => ({
+    ...candidate,
+    score: memoryAnchorScore(candidate.text),
+  }));
+  scored.sort((left, right) => right.score - left.score || left.index - right.index);
+  const best = scored[0];
+  if (best.score <= 0) return candidates.at(-1)?.text ?? '';
+  return best.text;
+}
+
+function memoryAnchorScore(text: string) {
+  let score = 0;
+  const highValueCues = [
+    '不想一個人',
+    '一個人扛',
+    '不想總是',
+    '別讓我一個人',
+    '被誰照顧',
+    '你自己呢',
+    '有沒有吃',
+    '沒吃',
+    '沒休息',
+    '還好嗎',
+  ];
+  const mediumValueCues = [
+    '分走一半',
+    '分擔',
+    '責任',
+    '接住',
+    '交出',
+    '扛',
+    '累',
+    '疲憊',
+    '擔心',
+    '害怕',
+    '安靜',
+    '說沒事',
+    '沒說完',
+    '手',
+    '冷茶',
+    '熱茶',
+    '便當',
+  ];
+  for (const cue of highValueCues) {
+    if (text.includes(cue)) score += 6;
+  }
+  for (const cue of mediumValueCues) {
+    if (text.includes(cue)) score += 2;
+  }
+  if (/^(好|嗯|明白|是的|謝謝)[，,。]/.test(text)) score -= 2;
+  if (text.includes('檢查') || text.includes('表格') || text.includes('文件')) score -= 1;
+  return score;
 }
 
 function displayResidueName(name: string) {
@@ -120,6 +216,29 @@ function displayResidueName(name: string) {
   if (name === 'Mahiru Shiina' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
   if (name === 'Asuna' || name === '結城明日奈') return '明日奈';
   return name;
+}
+
+export function hasMemoryPostProcessingDrift(description: string) {
+  return (
+    hasDialogueSystemPhraseLeak(description) ||
+    MEMORY_POST_PROCESSING_DRIFT_CUES.some((cue) => description.includes(cue))
+  );
+}
+
+export function shouldExposeMemoryDescription(description: string) {
+  return !hasMemoryPostProcessingDrift(description);
+}
+
+export function shouldPersistConversationMemoryShape(
+  meaningfulMessageCount: number,
+  meaningfulAuthorCount: number,
+  humanInConversation: boolean,
+) {
+  if (meaningfulMessageCount < 2 || meaningfulAuthorCount < 2) return false;
+  // Autonomous NPC conversations need enough exchange to prove there was a
+  // real turn-by-turn moment. Two-line exchanges often become generic residue.
+  if (!humanInConversation && meaningfulMessageCount < 4) return false;
+  return true;
 }
 
 function emotionalResidueEnabled() {
@@ -386,11 +505,32 @@ export async function rememberConversation(
   if (!messages.length) {
     return;
   }
+  const meaningfulMessages = messages.filter((message) => message.text.trim().length > 0);
+  const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
+  const humanInConversation = Boolean(player.human || otherPlayer.human);
+  if (
+    !shouldPersistConversationMemoryShape(
+      meaningfulMessages.length,
+      meaningfulAuthors.size,
+      humanInConversation,
+    )
+  ) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipWeakConversationMemoryShape',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+      conversationId,
+      messageCount: meaningfulMessages.length,
+      authorCount: meaningfulAuthors.size,
+      humanInConversation,
+    });
+    return;
+  }
   // Only LLM-eligible conversations (Alan ↔ anyone, or an explicitly enabled
   // autonomous LLM pair) carry enough soul/specificity to be worth a memory.
   // Pure-template NPC↔NPC small talk would otherwise pollute memory with
   // generic lines that the character never "really" said.
-  const humanInConversation = Boolean(player.human || otherPlayer.human);
   if (!conversationEligibleForLLM(player.name, otherPlayer.name, humanInConversation)) {
     logGiisTiming({
       action: 'rememberConversation',
@@ -406,6 +546,26 @@ export async function rememberConversation(
       action: 'rememberConversation',
       phase: 'skipDegeneratePilotExit',
       player: player.name,
+      conversationId,
+    });
+    return;
+  }
+  if (messages.some((message) => hasDialogueSystemPhraseLeak(message.text))) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipDialogueSystemPhraseLeak',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+      conversationId,
+    });
+    return;
+  }
+  if (messages.some((message) => hasMemoryPostProcessingDrift(message.text))) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipFreeWorldQualityDrift',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
       conversationId,
     });
     return;
@@ -448,9 +608,14 @@ export async function rememberConversation(
     ms: Date.now() - summaryStart,
     player: player.name,
   });
-  const baseDescription = `與 ${otherPlayer.name} 在 ${new Date(
-    data.conversation._creationTime,
-  ).toLocaleString()} 的對話：${content}`;
+  const baseDescription = `與 ${otherPlayer.name} 在 ${new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(data.conversation._creationTime))} 的對話：${content}`;
   const candidateResidue = deterministicResidueSentence(player, otherPlayer, messages, content);
   let residue = candidateResidue;
   if (candidateResidue) {
@@ -663,7 +828,10 @@ export async function searchMemories(
     candidates,
     n,
   });
-  return rankedMemories.map(({ memory }: { memory: Memory }) => memory);
+  return rankedMemories
+    .map(({ memory }: { memory: Memory }) => memory)
+    .filter((memory) => shouldExposeMemoryDescription(memory.description))
+    .slice(0, n);
 }
 
 function makeRange(values: number[]) {
@@ -952,11 +1120,12 @@ export const getReflectionMemories = internalQuery({
     }
     // Bounded take so a misconfigured caller cannot fetch the whole
     // memory table for a player. Real caller passes 100; cap defensively.
-    const memories = await ctx.db
+    const memories = (await ctx.db
       .query('memories')
       .withIndex('playerId', (q) => q.eq('playerId', player.id))
       .order('desc')
-      .take(Math.min(Math.max(args.numberOfItems, 1), 200));
+      .take(Math.min(Math.max(args.numberOfItems, 1), 200)))
+      .filter((memory) => shouldExposeMemoryDescription(memory.description));
 
     const lastReflection = await ctx.db
       .query('memories')
