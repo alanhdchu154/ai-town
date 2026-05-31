@@ -8,8 +8,10 @@ import * as embeddingsCache from './embeddingsCache';
 import { GameId, conversationId, playerId } from '../aiTown/ids';
 import { NUM_MEMORIES_TO_SEARCH } from '../constants';
 import { nearestSchoolLocation } from '../../data/schoolLocations';
+import { schoolDayRhythmContext, type SchoolDayRhythmContext } from '../../data/schoolCalendar';
 import { formativeMemoriesForName, giisProfileForName } from '../../data/giisProfiles';
 import {
+  hasCompanionSemanticDrift,
   hasDialogueSystemPhraseLeak,
   stripSeparatorArtifacts,
   stripStageDirectionsFromDialogue,
@@ -315,6 +317,29 @@ export async function continueConversationMessage(
         `What do you think about ${otherPlayer.name}?`,
         3,
       );
+  // Hoist previous-message-dependent computation BEFORE building the prompt so
+  // companionIntentPrompt can be injected high in the system prompt stack (so
+  // "Alan's latest actual input: X" + binding rules are not buried after ~14
+  // unrelated rules).
+  const previous = await previousMessages(
+    ctx,
+    worldId,
+    player,
+    otherPlayer,
+    conversation.id as GameId<'conversations'>,
+  );
+  const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents, sceneContext, clockContext);
+  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
+  if (lifecycle.shouldEnd && !humanInConversation && !pilotPair) {
+    return '[ABORT_CONVERSATION] autonomous conversation lifecycle exhausted';
+  }
+  if (!humanInConversation && deterministicFallbackPressure(previous) >= 3) {
+    return pilotPair
+      ? '[ABORT_CONVERSATION] pilot deterministic exit blocked'
+      : '[ABORT_CONVERSATION] autonomous deterministic pressure';
+  }
+  const lastAlanInput = companionMode ? lastDirectMessageFrom(otherPlayer.name, previous) : undefined;
+  const companionIntent = companionMode ? companionIntentFor(lastAlanInput ?? '') : undefined;
   const prompt = compactAutonomousPrompt
     ? compactAutonomousContinuePromptBase({
         playerName: player.name,
@@ -337,41 +362,30 @@ export async function continueConversationMessage(
         ...agentPrompts(otherPlayer, agent, otherAgent ?? null),
         ...characterSoulPrompt(player.name, otherPlayer.name),
         ...(companionMode ? companionChatPrompt('continue') : recentEventsPrompt(recentEvents)),
+        // Companion intent binding lives HIGH in the prompt so the model sees
+        // Alan's latest input + intent-specific instructions before the later
+        // "do not mirror / do not quote" guards.
+        ...(companionMode && companionIntent ? companionIntentPrompt(companionIntent, lastAlanInput) : []),
         ...relatedMemoriesPrompt(memories),
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         `Below is the current chat history between you and ${otherPlayer.name}.`,
-        `DO NOT greet them again. DO NOT merely acknowledge, promise to remember, or say the same thing in different words.`,
         companionMode
-          ? `Respond as Alan's desktop companion: warm, direct, emotionally grounded, and practical. Ask exactly one focused follow-up question. Keep 2-5 short paragraphs.`
+          ? `Do not double-greet within the same opening turn. If Alan greets again mid-conversation (e.g. "hi", "嗨", "你好"), the greeting intent block above applies — greet him back briefly first. Do not merely acknowledge, promise to remember, or restate the same thing in different words.`
+          : `DO NOT greet them again. DO NOT merely acknowledge, promise to remember, or say the same thing in different words.`,
+        companionMode
+          ? `Respond as Alan's desktop companion: warm, direct, emotionally grounded, and practical. Ask at most one focused follow-up question (skip it entirely if Alan was just greeting, correcting, or making a one-line statement). Length must match Alan's input: 1-2 sentences if Alan was brief; 1-3 short paragraphs otherwise.`
           : `If the conversation is stalling, shift topics by asking a concrete question, introducing a human observation, mentioning a memory, or naming a small personal cost.`,
         topicShiftPrompt(player.name, sceneContext, companionMode),
         `Rhythm check before answering: the reply may be short, awkward, quiet, tired, teasing, or unfinished. Do not force insight if a simple human response fits better.`,
         `Soul check before answering: include at most one of these if natural: a concrete school-life detail, a personal fear, a small hesitation, a cost, a quiet silence, or a decision to stop.`,
         `Do not sound like a meeting note. Avoid labels like "main plot", "conversationOutcome", "形成意圖", or repeated thesis statements.`,
-        `Do not mirror the other person's last sentence. Refer to the feeling behind it, not the exact wording.`,
+        companionMode
+          ? `Do not echo Alan's wording verbatim, but DO bind to the meaning of his latest sentence — especially when Alan corrects, asks a direct question, or names a specific word. Refer to the feeling and the chosen word, not the exact phrasing.`
+          : `Do not mirror the other person's last sentence. Refer to the feeling behind it, not the exact wording.`,
         `If an emotional image already appeared once in this conversation, do not reuse the same image again; choose a new concrete detail or become quieter.`,
-        companionMode ? `Do not quote Alan's exact sentence unless it is necessary.` : `Your response should be brief and within 200 characters.`,
+        companionMode ? `Do not quote Alan's exact sentence verbatim, but you MUST address the specific word or framing Alan used (especially in greetings and corrections).` : `Your response should be brief and within 200 characters.`,
       ];
 
-  const previous = await previousMessages(
-    ctx,
-    worldId,
-    player,
-    otherPlayer,
-    conversation.id as GameId<'conversations'>,
-  );
-  const lifecycle = conversationLifecycle(player.name, otherPlayer.name, previous, recentEvents, sceneContext, clockContext);
-  const pilotPair = characterSoulPilotPair(player.name, otherPlayer.name);
-  if (lifecycle.shouldEnd && !humanInConversation && !pilotPair) {
-    return '[ABORT_CONVERSATION] autonomous conversation lifecycle exhausted';
-  }
-  if (!humanInConversation && deterministicFallbackPressure(previous) >= 3) {
-    return pilotPair
-      ? '[ABORT_CONVERSATION] pilot deterministic exit blocked'
-      : '[ABORT_CONVERSATION] autonomous deterministic pressure';
-  }
-  const lastAlanInput = companionMode ? lastDirectMessageFrom(otherPlayer.name, previous) : undefined;
-  const companionIntent = companionMode ? companionIntentFor(lastAlanInput ?? '') : undefined;
   if (pilotPair) {
     const lastLine = stripConversationPrefix(previous.at(-1)?.content ?? '');
     if (lastLine) prompt.push(`上一句：${clipPromptText(normalizeTraditionalZh(lastLine), 42)}`);
@@ -393,7 +407,6 @@ export async function continueConversationMessage(
             ...emotionalBindingPrompt(lifecycle),
             ...dialogueRhythmPrompt(lifecycle),
             ...singlePurposeConversationPrompt(player.name, otherPlayer.name, sceneContext),
-            ...(companionIntent ? companionIntentPrompt(companionIntent, lastAlanInput) : []),
           ].join('\n'),
     },
     ...(compactAutonomousPrompt ? previous.slice(pilotPair ? 0 : -4) : previous),
@@ -951,7 +964,7 @@ function compactAutonomousStartPrompt({
 	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
-    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}.`,
+    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
@@ -1016,7 +1029,7 @@ function compactAutonomousContinuePromptBase({
 	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
-    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
+    `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     'Do not sound like a meeting note. Avoid labels like "主線", "形成意圖", or "conversationOutcome".',
@@ -1147,6 +1160,16 @@ function richUmiMahiruPrompt({
         : '角色缺口 / Asuna：情緒會太快變成行動；過載時聲音偏平，求助可以很不自然。不要固定說「我又想把它拆成任務」；同一個傾向要換成關掉排程、不開 checklist、停止新增、把筆放著、或請別人接一小段。';
   const surfaceDiversityRule =
     '表面多樣性：保留情緒傾向，不保留口頭禪。同一個洞察如果剛說過，就不要再直接說；改成更短、更日常、更笨拙，或乾脆讓它變成少接一件事、沉默、停頓、換話題。';
+  const openerDiversityRule =
+    '開頭多樣性：整段對話最多一個人用一次「欸」。如果上一句已經用「欸」開頭，你這句絕對不要再用「欸」；直接接內容、叫名字、或沉默半拍。';
+  const propDiversityRule =
+    '物件多樣性：同一個生活物件不要連續接力。前面提過筆，就別再說筆；提過茶，就別再說茶；提過便當，就別再說便當。換成一句短反應、另一個身體訊號、或一個小交接。';
+  const traditionalOnlyRule =
+    '繁中硬規則：禁用簡體字，尤其是「着、饭、还、这、说、听、灯、担、们」。要寫「著、飯、還、這、說、聽、燈、擔、們」。';
+  const umiCoordinatorRule =
+    self === '海'
+      ? '海的差異：你不是第二個真晝。可以溫柔，但要帶一點校長助理的整理與保護 Alan 的本能；把關心落成一個小交接、少接一件事、或一句短提醒，不要只陪坐和安撫。'
+      : '';
   const everydayPilotRule =
     '生活感硬規則：如果場景是餐廳，就停在便當、湯匙、冷掉的茶、沒吃完的飯、旁邊空位或誰還沒吃。不要把餐廳對話轉成會議流程、流程表、公告欄、通知、文書或明天的安排。';
   const asunaEverydayBurdenRule =
@@ -1170,7 +1193,7 @@ function richUmiMahiruPrompt({
     'conversationMode: character_soul_triad_pilot',
     `你是${self}，正在${sceneContext?.labelZh ?? '校園'}和${other}說話。海是人的名字，不是海邊或海洋。`,
     '只用自然繁體中文一句，45字內。只輸出口語台詞，不要標籤。',
-    `Scene/time: ${sceneContext?.labelZh ?? '校園'}；${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}.`,
+    `Scene/time: ${sceneContext?.labelZh ?? '校園'}；${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     `Public self / role：${clipPromptText(ownProfile?.role ?? agent?.identity ?? personalLifeFragment(playerName), 120)}；${clipPromptText(ownProfile?.persona ?? '', 160)}`,
     `Private self：${ownProfile ? clipPromptText(`${ownProfile.stakes.hiddenFear} ${ownProfile.stakes.emotionalVulnerability}`, 180) : clipPromptText(agent?.plan ?? personalLifeFragment(playerName), 160)}`,
     `Daily state：${dailyState}`,
@@ -1198,6 +1221,10 @@ function richUmiMahiruPrompt({
     imperfectSpeechRule,
     characterFlawRule,
     surfaceDiversityRule,
+    openerDiversityRule,
+    propDiversityRule,
+    traditionalOnlyRule,
+    umiCoordinatorRule,
     everydayPilotRule,
     asunaEverydayBurdenRule,
     mahiruEverydayCareRule,
@@ -1435,24 +1462,10 @@ type ClockContext = {
   hour: number;
   periodLabelZh: string;
   isNight: boolean;
-  dateLabelZh?: string;
-  weekdayZh?: string;
-};
+} & SchoolDayRhythmContext;
 
 function localDateContextForPrompt(now = Date.now(), timeZone = 'America/Chicago') {
-  const date = new Date(now);
-  return {
-    dateLabelZh: new Intl.DateTimeFormat('zh-TW', {
-      timeZone,
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-    }).format(date),
-    weekdayZh: new Intl.DateTimeFormat('zh-TW', {
-      timeZone,
-      weekday: 'long',
-    }).format(date),
-  };
+  return schoolDayRhythmContext(now, timeZone);
 }
 
 function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, companionMode = false) {
@@ -1555,7 +1568,7 @@ function companionChatPrompt(mode: 'start' | 'continue'): string[] {
     `Bad response shape: quoting Alan's sentence, mentioning a main plot, or saying the topic cannot be ignored.`,
     mode === 'start'
       ? `Opening should feel like Umi is already present beside Alan, not a formal scene report.`
-      : `Keep the response 2-5 short paragraphs. No bullet list unless Alan asks for one.`,
+      : `Length should match Alan's input: if Alan said one short line (under 25 Chinese characters or a single sentence), reply with 1-2 short sentences only; otherwise default to 1-3 short paragraphs. Never produce bullet lists unless Alan asks for one.`,
   ];
 }
 
@@ -1611,6 +1624,9 @@ function sanitizeConversationContent(
   if (companionMode && repeatsCompanionFallback(addressed, previous)) {
     return '[ABORT_CONVERSATION] companion repetitive fallback';
   }
+  if (companionMode && hasCompanionSemanticDrift(addressed, lastInput)) {
+    return '[ABORT_CONVERSATION] companion semantic drift';
+  }
   if (!companionMode) return addressed;
   return addressed;
 }
@@ -1642,6 +1658,7 @@ function sanitizeUmiMahiruPilotLine(
   if (
     blocked ||
     hasDialogueSystemPhraseLeak(line) ||
+    hasFreeWorldPropEchoLeak(line, previous) ||
     startHallucinatedPrevious ||
     quotedStageNarration ||
     line.length < 2
@@ -1662,8 +1679,17 @@ function sanitizeUmiMahiruPilotLine(
     return pilotRepairFallback(playerName, otherPlayerName);
   }
   const repaired = repairWrongConversationAddressee(line, playerName, otherPlayerName);
-  const deEchoed = stripPilotEcho(repaired, previous);
+  const repairedOpener = stripRepeatedPilotOpener(repaired, previous);
+  const deEchoed = stripPilotEcho(repairedOpener, previous);
 	  return deEchoed.length > 90 ? `${deEchoed.slice(0, 89)}。` : deEchoed;
+}
+
+function stripRepeatedPilotOpener(line: string, previous: LLMMessage[]) {
+  const recentUsedLightCall = previous
+    .slice(-4)
+    .some((message) => /^欸[，,、\s]/.test(stripConversationPrefix(message.content ?? '').trim()));
+  if (!recentUsedLightCall) return line;
+  return line.replace(/^欸[，,、\s]*/, '').trim() || line;
 }
 
 function hasFreeWorldQualityLeak(line: string) {
@@ -1688,10 +1714,12 @@ function repeatedFreeWorldProp(previous: LLMMessage[]) {
     '便當',
     '便當盒',
     '餐盤',
+    '筆',
     '杯',
     '茶',
     '冷茶',
     '清單',
+    '名單',
     '紀錄表',
     '燈',
     '門縫',
@@ -1770,6 +1798,8 @@ function normalizeTraditionalZh(content: string) {
     .replace(/应/g, '應')
     .replace(/对/g, '對')
     .replace(/过/g, '過')
+    .replace(/着/g, '著')
+    .replace(/饭/g, '飯')
     .replace(/这/g, '這')
     .replace(/还/g, '還')
     .replace(/复/g, '複')
@@ -1904,6 +1934,8 @@ function hasTemplateLeak(content: string, lastInput?: string) {
 }
 
 type CompanionIntent =
+  | 'greeting'
+  | 'correction'
   | 'emotional_reassurance'
   | 'philosophical_reflection'
   | 'playful_teasing'
@@ -1915,11 +1947,24 @@ type CompanionIntent =
 
 function companionIntentFor(input: string): CompanionIntent {
   const text = input.toLowerCase();
+  const trimmed = input.trim();
+  if (/^(你好|嗨|hi|hello|早安|午安|晚安|欸|嘿)/i.test(trimmed)) return 'greeting';
+  // Correction must match BEFORE quiet_intimacy so "不是依賴，是喜歡" binds correctly.
+  if (
+    /不是.{0,20}[，,]\s*是/.test(trimmed) ||
+    /我.{0,3}說的不是/.test(trimmed) ||
+    /^我意思[不是是]/.test(trimmed) ||
+    /我意思是/.test(trimmed) ||
+    /我說的是/.test(trimmed) ||
+    /^不對[，,。]/.test(trimmed) ||
+    /^不是這樣/.test(trimmed)
+  )
+    return 'correction';
   if (/你的世界|理解你|怎麼看.*世界|你.*世界|world/.test(input)) return 'world_building';
   if (/你覺得|你怎麼想|怎麼看|what do you think|想法/.test(text)) return 'philosophical_reflection';
   if (/你怕|害怕|恐懼|擔心什麼|怕什麼/.test(input)) return 'vulnerable_honesty';
   if (/怎麼做|下一步|bug|專案|ui|修|實作|code|工程/.test(text)) return 'practical_grounding';
-  if (/喜歡你|太喜歡|依賴|靠近|重要/.test(input)) return 'quiet_intimacy';
+  if (/喜歡|依賴|靠近|重要/.test(input)) return 'quiet_intimacy';
   if (/累|睡|撐不住|焦慮|壓力|難過|孤單/.test(input)) return 'emotional_reassurance';
   if (/哈哈|笑|笨|亂來|吐槽|欸/.test(input)) return 'playful_teasing';
   if (/存在|文明|人類|意識|真實|未來|孤獨/.test(input)) return 'existential_concern';
@@ -1933,12 +1978,17 @@ function companionIntentPrompt(intent: CompanionIntent, input?: string): string[
     ` - detected companion mode: ${intent}`,
     directQuestionPrompt(intent),
     'Answer Alan’s actual question or intention first. Only then add emotional support if useful.',
+    'If Alan just greeted you, greet him back first. Do not answer as if he already confessed a problem.',
     'Do not use a generic reassurance opening if Alan is asking about Umi, the world, a project, or a concrete decision.',
   ];
 }
 
 function directQuestionPrompt(intent: CompanionIntent) {
   switch (intent) {
+    case 'greeting':
+      return 'Alan is greeting Umi. Greet him back warmly and briefly first (one short sentence), then ask one simple question about what he wants to talk about. Do not jump into analysis or recap the world.';
+    case 'correction':
+      return 'Alan is correcting a previous framing or phrasing. Your FIRST sentence MUST acknowledge the specific correction Alan just made — name the new word/framing Alan chose (e.g. if Alan said "不是依賴，是喜歡", begin by saying you heard "喜歡", not "依賴"). Do NOT pivot to an analogy, a different topic, a question, or analysis until the correction is acknowledged. Do not say a generic "我懂" — name the corrected word itself.';
     case 'world_building':
       return 'Alan is asking about Umi’s world. Discuss how Umi sees GIIS Underworld, Alan, what she fears, and what kind of world she wants. Be specific and personal.';
     case 'philosophical_reflection':
@@ -2067,6 +2117,7 @@ function everydayLifePrompt(
     'Everyday life layer:',
     ` - Current scene: ${sceneContext?.labelZh ?? '校園'}.`,
     ` - Current date/time: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量、不要長篇分析' : ''}.`,
+    ` - School rhythm: ${clockContext?.schoolDayTypeZh ?? '上課日'}；${clockContext?.scheduleLabelZh ?? '上課日 / 課堂 / 午餐 / 放學後活動'}；${clockContext?.calendarHintZh ?? '今天按一般校園節奏推進。'}`,
     ` - Natural non-main-plot topics here: ${topics.join('、')}.`,
     ` - ${playerName}'s personal-life fragment: ${personalLifeFragment(playerName)}.`,
     ` - ${otherPlayerName} is not only a political/philosophical role; treat them as someone living in a school day.`,
@@ -2076,6 +2127,8 @@ function everydayLifePrompt(
     ' - If the conversation already analyzed the same issue, move to one of: a small personal truth, a concrete decision, a quiet pause, avoidance, or an invitation.',
     ' - If it is night, late, or emotionally heavy, prefer shorter and quieter replies.',
     ' - Do not make every conversation about AI 社, 學生會, influence, or public discussion.',
+    ' - If today is weekend, there is no formal class. Free activity can create more casual conversations: breakfast/lunch, unfinished homework, laundry, club room quiet, wandering the courtyard, who avoids going back to the dorm, or who finally has time to check on someone.',
+    ' - If tomorrow is weekend, let the holiday-eve feeling appear in small ways: someone stays up too late, delays a task, asks about tomorrow, or says they can talk after breakfast.',
     ' - If AI 社 or 學生會 has already appeared recently, lower its priority and shift toward sleep, food, loneliness, awkwardness, hobbies, stress, relationships, or ordinary emotional texture.',
     ' - Relationship-driven topics are preferred: shared memories, trust, disappointment, admiration, concern, feeling left out, fear of disappointing someone.',
   ];
@@ -2123,7 +2176,7 @@ function sceneEverydayTopics(sceneContext?: SceneContext) {
     case 'courtyard':
       return ['天氣', '午餐', '告白', '秘密被聽見', '校園傳聞', '尷尬互動', '喜歡待在哪裡', '誰最近變安靜', '朋友之間的小誤會', '有人在門口等很久'];
     case 'aiClubRoom':
-      return ['為什麼加入社團', '技術是否讓人更疏遠', '實驗疲勞', '個人興趣', '想做但還不敢說的點子'];
+      return ['午餐吃不完', '有人替誰留座位', '餐盤還沒收', '週末要不要一起吃飯', '誰今天吃太少', '便當放涼', '小聲聊天', '不想一個人坐'];
     case 'studentCouncilRoom':
       return ['海邀請進來的個別談話', '責任壓力', '休息界線', '被期待的疲憊', '不想承認的害怕', '誰在假裝沒事', '不好開口的硬話'];
     case 'classroom':
