@@ -55,6 +55,14 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Refreshed current v0.1 state at 10:43 CDT from a clean
+  worktree. It is still before the real afternoon continuity window, so v0.1
+  cannot be honestly completed yet: the latest AM->PM report remains
+  `WARN / sample_pending` with 10 morning samples, 0 afternoon samples, and 0 PM
+  callbacks. Added `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` to pin the
+  requirement-by-requirement completion criteria, afternoon gate plan, and stop
+  conditions before the next run. No runtime or role behavior was changed.
+  Verification: source-of-truth refresh only; `git diff --check`.
 - 2026-06-03 local: Continued the post-role-change v0.1 gate from a clean
   worktree. Local launchd dev stack was auto-restarting but Convex backend 3210
   was stuck against a 15GB local state directory / 6GB SQLite DB; paused
