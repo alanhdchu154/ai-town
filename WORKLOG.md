@@ -55,6 +55,14 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Continued the active v0.1 goal at 10:46 CDT. It is still
+  before the afternoon continuity window, so no collection was forced and v0.1
+  remains pending afternoon evidence. Verified the afternoon gate harness itself
+  is ready: all self-tests for AM->PM continuity, life-signals, repair gate,
+  observe, v0.1 goal audit, rubric reconciliation, and soul-triad single-sample
+  passed. This narrows the next afternoon run's risk to runtime/provider/fresh
+  evidence, not known broken report parsing.
+  Verification: `npm run underworld:harness:self-test`.
 - 2026-06-03 local: Refreshed current v0.1 state at 10:43 CDT from a clean
   worktree. It is still before the real afternoon continuity window, so v0.1
   cannot be honestly completed yet: the latest AM->PM report remains
