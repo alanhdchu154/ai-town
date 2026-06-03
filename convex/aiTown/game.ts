@@ -105,6 +105,19 @@ export function deletedConversationArchiveDecisionForTest(args: {
       reason: 'weak_single_sided_autonomous_conversation',
     };
   }
+  if (!args.humanInConversation && args.hasCloudCharacter && args.meaningfulMessageCount < 3) {
+    // v0.1 evidence requires at least 3 meaningful messages from a cloud-soul
+    // pilot conversation so emotional residue and continuity can be judged
+    // honestly. Two-message archives also write participatedTogether and lock
+    // the single-sample loop out of the same pair until the next eligibility
+    // window, blocking fresh sample collection.
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'weak_cloud_autonomous_pilot_conversation',
+    };
+  }
   if (!args.humanInConversation && !args.hasCloudCharacter && args.meaningfulMessageCount < 4) {
     return {
       archive: false,
