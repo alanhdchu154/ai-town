@@ -1,4 +1,5 @@
 import {
+  concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
   shouldExposeMemoryDescription,
@@ -42,7 +43,7 @@ describe('memory post-processing hygiene', () => {
 
   test('hides task-manager phrasing that should not become emotional residue', () => {
     const driftDescription =
-      '與 明日奈 在 5/28/2026 的對話：最後留下的重點是：「我會開始掃描教室，確保所有人都有任務和支援。」';
+      '與 天澤 在 5/28/2026 的對話：最後留下的重點是：「我會開始掃描教室，確保所有人都有任務和支援。」';
     const flowDescription =
       '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「名單已交接清楚，我累了，需要去整理明天的流程。」';
     const helperDescription =
@@ -58,11 +59,11 @@ describe('memory post-processing hygiene', () => {
 
   test('hides admin and slogan drift from autonomous conversation memory', () => {
     const budgetDescription =
-      '與 麻衣 在 5/28/2026 的對話：最後留下的重點是：「我先把這筆預算的執行清單寫好，這份文件的核對工作你願意分擔一半嗎？」';
+      '與 一之瀨 在 5/28/2026 的對話：最後留下的重點是：「我先把這筆預算的執行清單寫好，這份文件的核對工作你願意分擔一半嗎？」';
     const sloganDescription =
-      '與 明日奈 在 5/28/2026 的對話：最後留下的重點是：「我們商量下一步，別讓那些隱形成本趁虛而入。」';
+      '與 天澤 在 5/28/2026 的對話：最後留下的重點是：「我們商量下一步，別讓那些隱形成本趁虛而入。」';
     const simplifiedSloganDescription =
-      '與 明日奈 在 5/28/2026 的對話：最後留下的重點是：「那就按你說的办，不過别忘了那些隐形的成本哦。」';
+      '與 天澤 在 5/28/2026 的對話：最後留下的重點是：「那就按你說的办，不過别忘了那些隐形的成本哦。」';
 
     expect(hasMemoryPostProcessingDrift(budgetDescription)).toBe(true);
     expect(shouldExposeMemoryDescription(budgetDescription)).toBe(false);
@@ -76,7 +77,7 @@ describe('memory post-processing hygiene', () => {
     const efficiencyDescription =
       '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「嗯，但這也是個提醒，讓我思考怎麼讓個人準備更有效率。」';
     const collaborationDescription =
-      '與 麻衣 在 5/28/2026 的對話：最後留下的重點是：「這樣一起合作看看可行嗎？我們可以互相補充信息。」';
+      '與 一之瀨 在 5/28/2026 的對話：最後留下的重點是：「這樣一起合作看看可行嗎？我們可以互相補充信息。」';
     const selfOrganizeDescription =
       '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「我覺得目前還是我自己組織比較好，別的想法。」';
 
@@ -96,12 +97,39 @@ describe('memory post-processing hygiene', () => {
     expect(shouldExposeMemoryDescription(genericClosureDescription)).toBe(false);
   });
 
+  test('extracts concrete timed commitments from Alan food requests', () => {
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:2', name: '天澤' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:human', text: '我想要你明天做給我？可以嗎' },
+        { author: 'p:2', text: '……明天啊。好，我試試看。' },
+      ],
+    );
+
+    expect(commitment).toBe('');
+
+    const curryCommitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:2', name: '天澤' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:human', text: '我想吃你做的咖喱飯。' },
+        { author: 'p:human', text: '我想要你明天做給我？可以嗎' },
+        { author: 'p:2', text: '……明天啊。好，我試試看。' },
+      ],
+    );
+
+    expect(curryCommitment).toBe('具體承諾：天澤答應明天為Alan準備咖哩飯');
+  });
+
   test('requires enough autonomous exchange before writing conversation memory', () => {
     expect(shouldPersistConversationMemoryShape(2, 2, false)).toBe(false);
     expect(shouldPersistConversationMemoryShape(3, 2, false)).toBe(false);
+    expect(shouldPersistConversationMemoryShape(3, 2, false, true)).toBe(true);
     expect(shouldPersistConversationMemoryShape(4, 2, false)).toBe(true);
     expect(shouldPersistConversationMemoryShape(2, 2, true)).toBe(true);
     expect(shouldPersistConversationMemoryShape(4, 1, false)).toBe(false);
+    expect(shouldPersistConversationMemoryShape(3, 1, false, true)).toBe(false);
   });
 
   test('chooses emotional burden anchor instead of the final surface action', () => {

@@ -24,7 +24,7 @@ const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 
 const SINCE_CREATED_AT = optionalNumberArg('since-created-at');
 const SELF_TEST = args.get('self-test') === 'true';
 
-const PILOT_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
+const PILOT_NAMES = new Set(['海', '真晝', '天澤', 'Umi', 'Mahiru', 'Tianze']);
 
 const LIFE_GROUPS = {
   classroom: ['教室', '作業', '考試', '小考', '成績', '作弊', '筆記', '書包', '座位', '黑板'],
@@ -50,14 +50,32 @@ const SOUL_STYLE_CUES = {
   Umi: ['Alan', '校長', '簡報', '整理', '先看人', '少說', '少整理', '負責'],
   真晝: ['還好', '沒事', '低頭', '小聲', '慢一點', '照顧', '有人陪', '有吃'],
   'Mahiru': ['還好', '沒事', '低頭', '小聲', '慢一點', '照顧', '有人陪', '有吃'],
-  明日奈: ['負責', '清單', '下一步', '交接', '我來', '分掉', '不要新增'],
-  Asuna: ['負責', '清單', '下一步', '交接', '我來', '分掉', '不要新增'],
-  麻衣: ['太工整', '躲', '代價', '說清楚', '假裝', '拆你的邏輯', '別繞', '模糊', '不合理'],
-  Mai: ['太工整', '躲', '代價', '說清楚', '假裝', '拆你的邏輯', '別繞', '模糊', '不合理'],
+  天澤: ['測試', '底線', '規則', '破綻', '挑釁', '停手', '再往前', '不好玩'],
+  Tianze: ['測試', '底線', '規則', '破綻', '挑釁', '停手', '再往前', '不好玩'],
+  一之瀨: ['善意', '邊界', '信任債', '欠', '記帳', '收債', '佔有', '溫柔'],
+  Ichinose: ['善意', '邊界', '信任債', '欠', '記帳', '收債', '佔有', '溫柔'],
   曹操: ['秩序', '規矩', '位置', '門口', '多餘', '不敢進來', '誰被', '失控', '站出來'],
   CaoCao: ['秩序', '規矩', '位置', '門口', '多餘', '不敢進來', '誰被', '失控', '站出來'],
   劉備: ['邀請', '一起', '午餐', '角落', '坐過來', '陪', '分裂'],
   'Liu Bei': ['邀請', '一起', '午餐', '角落', '坐過來', '陪', '分裂'],
+};
+
+const ROLE_ACTION_STYLE_CUES = {
+  reduce_overload: /少說|縮短|不加|先看|整理|簡報|擋下|只留|少接|分清|放一邊|分好|分給|先不用|不急著整理|不要變成任務表|校長|小交接/g,
+  presence: /陪|坐|安靜|不催|慢一點|還好|吃|肩膀|手|呼吸|低頭|留下|靠近|停一下/g,
+  pressure_test: /測試|底線|規則|破綻|挑釁|停手|再往前|不好玩|躲過|誰受益/g,
+  kindness_boundary: /善意|邊界|信任|信任債|代價|免費|取用|拒絕|誰付|欠|記帳|收債|佔有|停止供應|溫柔/g,
+  order_protection: /秩序|規矩|位置|門口|椅子|留座|安靜下來|誰沒|不要公開問/g,
+  invitation: /邀請|一起|坐過來|午餐|陪走|空位|多帶一份|留一個位置|進來/g,
+};
+
+const PILOT_EXPECTED_ACTION_STYLE = {
+  海: 'reduce_overload',
+  Umi: 'reduce_overload',
+  真晝: 'presence',
+  Mahiru: 'presence',
+  天澤: 'pressure_test',
+  Tianze: 'pressure_test',
 };
 
 const PROP_ECHO_CUES = [
@@ -143,9 +161,9 @@ const HYGIENE_CUES = [
 ];
 
 const THIRD_PERSON_SELF_NARRATION_RE =
-  /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「[^」]{1,240}」|(?:注意到|覺得|感覺|想起|知道|聽見|看見|看到).{2,260}|(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$)))/;
+  /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(?:(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「[^」]{1,240}」|(?:注意到|覺得|感覺|想起|知道|聽見|看見|看到).{2,260}|(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$)))/;
 const MALFORMED_NAME_CLUSTER_RE =
-  /[，,、]\s*(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei){2,}\s*[？?。.!！]/;
+  /[，,、]\s*(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei){2,}\s*[？?。.!！]/;
 
 const POST_PROCESSING_DRIFT_CUES = [
   'AI 社',
@@ -206,16 +224,16 @@ async function main() {
 
 function runSelfTest() {
   const repeatedConversations = [
-    fixtureConversation('conversation-test-1', ['明日奈', '麻衣'], [
-      ['明日奈', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
-      ['麻衣', '先吃飯。你講太快了。'],
+    fixtureConversation('conversation-test-1', ['天澤', '一之瀨'], [
+      ['天澤', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
+      ['一之瀨', '先吃飯。你講太快了。'],
     ]),
-    fixtureConversation('conversation-test-2', ['明日奈', '海'], [
-      ['明日奈', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
+    fixtureConversation('conversation-test-2', ['天澤', '海'], [
+      ['天澤', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
       ['海', '那就先把杯子放著。'],
     ]),
-    fixtureConversation('conversation-test-3', ['明日奈', '真晝'], [
-      ['明日奈', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
+    fixtureConversation('conversation-test-3', ['天澤', '真晝'], [
+      ['天澤', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
       ['真晝', '你今天先坐一下。'],
     ]),
   ];
@@ -228,17 +246,17 @@ function runSelfTest() {
   assertEqual(repeatedStatus.decision, 'life_signal_repeated', 'repeated line downgrades life signal');
 
   const adminConversations = [
-    fixtureConversation('conversation-admin-1', ['麻衣', '劉備'], [
-      ['麻衣', '這個系統策略會造成政治衝擊，先不要談午餐。'],
+    fixtureConversation('conversation-admin-1', ['一之瀨', '劉備'], [
+      ['一之瀨', '這個系統策略會造成政治衝擊，先不要談午餐。'],
       ['劉備', '那我們掃描教室，確保所有人都有任務和支援。'],
-      ['麻衣', '你又把人說成流程了。'],
+      ['一之瀨', '你又把人說成流程了。'],
       ['劉備', '我先記下不同意見。'],
     ]),
-    fixtureConversation('conversation-admin-2', ['曹操', '麻衣'], [
+    fixtureConversation('conversation-admin-2', ['曹操', '一之瀨'], [
       ['曹操', '流程和架構比誰坐哪裡更重要。'],
-      ['麻衣', '你又把人藏進系統裡了。'],
+      ['一之瀨', '你又把人藏進系統裡了。'],
       ['曹操', '那就先確認權責。'],
-      ['麻衣', '聽起來還是很像公告。'],
+      ['一之瀨', '聽起來還是很像公告。'],
     ]),
     fixtureConversation('conversation-admin-3', ['海', '曹操'], [
       ['海', '這個緊急決策如果沒人接住，這世界又會亂成一團。'],
@@ -256,14 +274,14 @@ function runSelfTest() {
   assertEqual(emptyStatus.decision, 'sample_pending', 'empty fresh window stays sample_pending');
 
   const collapsedConversations = [
-    fixtureConversation('conversation-shape-1', ['海', '明日奈'], [['海', '今天先少說一點。']]),
+    fixtureConversation('conversation-shape-1', ['海', '天澤'], [['海', '今天先少說一點。']]),
     fixtureConversation('conversation-shape-2', ['真晝', '海'], [
       ['真晝', '你午餐有吃嗎？'],
       ['真晝', '我只是想確認。'],
     ]),
-    fixtureConversation('conversation-shape-3', ['明日奈', '麻衣'], [
-      ['明日奈', '先不要新增了。'],
-      ['麻衣', '那你先坐。'],
+    fixtureConversation('conversation-shape-3', ['天澤', '一之瀨'], [
+      ['天澤', '先不要新增了。'],
+      ['一之瀨', '那你先坐。'],
     ]),
   ];
   const collapsedSummary = summarize(collapsedConversations.map(analyzeConversation), []);
@@ -272,11 +290,11 @@ function runSelfTest() {
   assertEqual(collapsedStatus.decision, 'conversation_shape_collapse', 'short or one-sided conversations flag shape collapse');
 
   const thinSceneConversations = [
-    fixtureConversation('conversation-scene-1', ['海', '明日奈'], [
+    fixtureConversation('conversation-scene-1', ['海', '天澤'], [
       ['海', 'Alan 的簡報今天先留三件。'],
-      ['明日奈', '那我先不開清單。'],
+      ['天澤', '那我先不追第二句。'],
       ['海', '你休息一下。'],
-      ['明日奈', '嗯，這次我不急著接。'],
+      ['天澤', '嗯，這次我不急著接。'],
     ]),
     fixtureConversation('conversation-scene-2', ['海', '真晝'], [
       ['真晝', '你是不是還在想 Alan？'],
@@ -290,16 +308,16 @@ function runSelfTest() {
       ['海', '不要把人排進表格裡。'],
       ['曹操', '我聽見了。'],
     ]),
-    fixtureConversation('conversation-scene-4', ['明日奈', '真晝'], [
-      ['明日奈', '我先把 Alan 那段收起來。'],
+    fixtureConversation('conversation-scene-4', ['天澤', '真晝'], [
+      ['天澤', '我先把 Alan 那段收起來。'],
       ['真晝', '你可以少說一點。'],
-      ['明日奈', '那清單明天再看。'],
+      ['天澤', '那條底線明天再看。'],
       ['真晝', '好。'],
     ]),
-    fixtureConversation('conversation-scene-5', ['海', '麻衣'], [
-      ['麻衣', '簡報很乾淨，但人呢？'],
+    fixtureConversation('conversation-scene-5', ['海', '一之瀨'], [
+      ['一之瀨', '簡報很乾淨，但人呢？'],
       ['海', '我知道。今天先不加。'],
-      ['麻衣', '你最好真的知道。'],
+      ['一之瀨', '你最好真的知道。'],
       ['海', '嗯。'],
     ]),
   ];
@@ -309,10 +327,10 @@ function runSelfTest() {
   assertEqual(thinSceneStatus.decision, 'scene_diversity_thin', 'office-only life signal warns about thin scene diversity');
 
   const thinRhythmConversations = [
-    fixtureConversation('conversation-rhythm-1', ['明日奈', '真晝'], [
-      ['明日奈', '教室裡那份作業我先放著。'],
+    fixtureConversation('conversation-rhythm-1', ['天澤', '真晝'], [
+      ['天澤', '教室裡那份作業我先放著。'],
       ['真晝', '你先看黑板旁邊那個座位。'],
-      ['明日奈', '我知道。'],
+      ['天澤', '我知道。'],
       ['真晝', '不要急。'],
     ]),
     fixtureConversation('conversation-rhythm-2', ['劉備', '曹操'], [
@@ -321,10 +339,10 @@ function runSelfTest() {
       ['劉備', '我去問他要不要坐。'],
       ['曹操', '別太快。'],
     ]),
-    fixtureConversation('conversation-rhythm-3', ['麻衣', '海'], [
-      ['麻衣', '教室後排那張桌子太安靜。'],
+    fixtureConversation('conversation-rhythm-3', ['一之瀨', '海'], [
+      ['一之瀨', '教室後排那張桌子太安靜。'],
       ['海', '我先不把它寫進簡報。'],
-      ['麻衣', '這次算你聰明。'],
+      ['一之瀨', '這次算你聰明。'],
       ['海', '欸。'],
     ]),
     fixtureConversation('conversation-rhythm-4', ['真晝', '海'], [
@@ -333,11 +351,11 @@ function runSelfTest() {
       ['真晝', '不用開會。'],
       ['海', '知道。'],
     ]),
-    fixtureConversation('conversation-rhythm-5', ['明日奈', '麻衣'], [
-      ['明日奈', '教室的清單先關掉。'],
-      ['麻衣', '你終於沒有把它講成任務。'],
-      ['明日奈', '先別誇。'],
-      ['麻衣', '我也沒要。'],
+    fixtureConversation('conversation-rhythm-5', ['天澤', '一之瀨'], [
+      ['天澤', '教室那條規則先別推。'],
+      ['一之瀨', '你終於沒有把它講成任務。'],
+      ['天澤', '先別誇。'],
+      ['一之瀨', '我也沒要。'],
     ]),
   ];
   const thinRhythmSummary = summarize(thinRhythmConversations.map(analyzeConversation), []);
@@ -352,11 +370,11 @@ function runSelfTest() {
       ['海', '黑板旁邊也空了一格。'],
       ['真晝', '我知道。'],
     ]),
-    fixtureConversation('conversation-soul-2', ['明日奈', '麻衣'], [
-      ['明日奈', '中午餐廳靠窗那桌空著。'],
-      ['麻衣', '餐盤還在桌上。'],
-      ['明日奈', '我看到了。'],
-      ['麻衣', '嗯。'],
+    fixtureConversation('conversation-soul-2', ['天澤', '一之瀨'], [
+      ['天澤', '中午餐廳靠窗那桌空著。'],
+      ['一之瀨', '餐盤還在桌上。'],
+      ['天澤', '我看到了。'],
+      ['一之瀨', '嗯。'],
     ]),
     fixtureConversation('conversation-soul-3', ['曹操', '劉備'], [
       ['曹操', '下午庭院旁邊有人把作業放著。'],
@@ -364,16 +382,16 @@ function runSelfTest() {
       ['曹操', '樹下也有人站著。'],
       ['劉備', '先看著。'],
     ]),
-    fixtureConversation('conversation-soul-4', ['海', '明日奈'], [
+    fixtureConversation('conversation-soul-4', ['海', '天澤'], [
       ['海', '放學後教室桌上還有紙。'],
-      ['明日奈', '旁邊的書包也還在。'],
+      ['天澤', '旁邊的書包也還在。'],
       ['海', '今天先記下來。'],
-      ['明日奈', '好。'],
+      ['天澤', '好。'],
     ]),
-    fixtureConversation('conversation-soul-5', ['麻衣', '真晝'], [
-      ['麻衣', '晚上走廊燈還亮著。'],
+    fixtureConversation('conversation-soul-5', ['一之瀨', '真晝'], [
+      ['一之瀨', '晚上走廊燈還亮著。'],
       ['真晝', '宿舍門旁邊有人站過。'],
-      ['麻衣', '地上有水。'],
+      ['一之瀨', '地上有水。'],
       ['真晝', '我注意到了。'],
     ]),
   ];
@@ -381,6 +399,31 @@ function runSelfTest() {
   const flatSoulStatus = decideStatus(flatSoulSummary);
   assertEqual(flatSoulSummary.soulStyledConversations, 0, 'detects no character-specific soul style');
   assertEqual(flatSoulStatus.decision, 'soul_style_flat', 'life/rhythm-rich but generic dialogue warns about flat soul style');
+
+  const flatPilotActionConversations = [
+    fixtureConversation('conversation-pilot-action-1', ['海', '真晝'], [
+      ['海', '上午教室後排那個人先坐一下。'],
+      ['真晝', '我陪他，不急著問。'],
+      ['海', '今天就安靜一點。'],
+      ['真晝', '嗯，先不要催。'],
+    ]),
+    fixtureConversation('conversation-pilot-action-2', ['天澤', '海'], [
+      ['天澤', '你先坐，我不催。'],
+      ['海', '今天教室旁邊也安靜一點。'],
+      ['天澤', '我陪你等。'],
+      ['海', '好。'],
+    ]),
+    fixtureConversation('conversation-pilot-action-3', ['真晝', '天澤'], [
+      ['真晝', '下午餐廳那邊先坐一下。'],
+      ['天澤', '我也先陪著，不急。'],
+      ['真晝', '嗯。'],
+      ['天澤', '今天先安靜。'],
+    ]),
+  ];
+  const flatPilotActionSummary = summarize(flatPilotActionConversations.map(analyzeConversation), []);
+  const flatPilotActionStatus = decideStatus(flatPilotActionSummary);
+  assertEqual(flatPilotActionSummary.pilotActionCollapseFlags, 3, 'detects pilot characters sharing one care/action style');
+  assertEqual(flatPilotActionStatus.decision, 'pilot_role_actions_flat', 'pilot role-action flattening warns');
 
   const postProcessingDriftConversations = [
     fixtureConversation('conversation-post-1', ['真晝', '海'], [
@@ -395,10 +438,10 @@ function runSelfTest() {
         memoryLineZh: '海要整理世界情緒的脈絡，避免牽動主線。',
       },
     ]),
-    fixtureConversation('conversation-post-2', ['麻衣', '曹操'], [
-      ['麻衣', '那句沒事說得太漂亮。'],
+    fixtureConversation('conversation-post-2', ['一之瀨', '曹操'], [
+      ['一之瀨', '那句沒事說得太漂亮。'],
       ['曹操', '我先看門口。'],
-      ['麻衣', '別把它講成規矩。'],
+      ['一之瀨', '別把它講成規矩。'],
       ['曹操', '我知道，先留座位。'],
     ], [
       {
@@ -406,11 +449,11 @@ function runSelfTest() {
         memoryLineZh: '曹操決定觀察誰支持 Alan 的 AI 社邊界。',
       },
     ]),
-    fixtureConversation('conversation-post-3', ['劉備', '明日奈'], [
+    fixtureConversation('conversation-post-3', ['劉備', '天澤'], [
       ['劉備', '午餐我多帶一份。'],
-      ['明日奈', '那我少接一件。'],
+      ['天澤', '那我少接一件。'],
       ['劉備', '我們先不追問。'],
-      ['明日奈', '好，今天先這樣。'],
+      ['天澤', '好，今天先這樣。'],
     ], []),
   ];
   const postProcessingDriftSummary = summarize(
@@ -428,11 +471,11 @@ function runSelfTest() {
       ['真晝', '便當可以晚一點，但紀錄表上那個名字我有點在意。'],
       ['海', '那就先不要一直盯著紀錄表。'],
     ]),
-    fixtureConversation('conversation-prop-2', ['明日奈', '麻衣'], [
-      ['明日奈', '今天中午餐廳那張桌子空著。'],
-      ['麻衣', '我看到了，你先不要把它拆成待辦。'],
-      ['明日奈', '好，下午再說。'],
-      ['麻衣', '這句比較像人話。'],
+    fixtureConversation('conversation-prop-2', ['天澤', '一之瀨'], [
+      ['天澤', '今天中午餐廳那張桌子空著。'],
+      ['一之瀨', '我看到了，你先不要把它拆成待辦。'],
+      ['天澤', '好，下午再說。'],
+      ['一之瀨', '這句比較像人話。'],
     ]),
     fixtureConversation('conversation-prop-3', ['曹操', '劉備'], [
       ['曹操', '門口那張椅子還空著。'],
@@ -456,16 +499,16 @@ function runSelfTest() {
       ['海', '嗯，這句比較像邀請。'],
       ['劉備', '那我午餐多帶一份。'],
     ]),
-    fixtureConversation('conversation-narration-2', ['真晝', '明日奈'], [
+    fixtureConversation('conversation-narration-2', ['真晝', '天澤'], [
       ['真晝', '早餐先吃一點吧。'],
-      ['明日奈', '明日奈把清單推遠一點，「今天先不要再新增東西。」'],
+      ['天澤', '天澤把話收回一點，「今天先拆到這裡。」'],
       ['真晝', '不用急。'],
-      ['明日奈', '好。'],
+      ['天澤', '好。'],
     ]),
-    fixtureConversation('conversation-narration-3', ['麻衣', '曹操'], [
-      ['麻衣', '麻衣看著曹操沒有碰那份午餐，你這句太工整。'],
+    fixtureConversation('conversation-narration-3', ['一之瀨', '曹操'], [
+      ['一之瀨', '一之瀨看著曹操沒有碰那份午餐，你這句太工整。'],
       ['曹操', '那我不說規矩。'],
-      ['麻衣', '先看誰站在門口。'],
+      ['一之瀨', '先看誰站在門口。'],
       ['曹操', '我知道。'],
     ]),
   ];
@@ -523,6 +566,7 @@ function analyzeConversation(conversation) {
   );
   const propEchoes = propEchoesForMessages(messages);
   const soulStyleHits = soulStyleHitsForMessages(messages);
+  const roleAction = roleActionSummaryForMessages(messages);
   const speakerCount = new Set(messages.map((message) => message.author).filter(Boolean)).size;
   const messageCount = messages.filter((message) => cleanLine(message.text)).length;
   const pilotScope = (conversation.involvedCharacters ?? []).some((name) => PILOT_NAMES.has(name));
@@ -550,6 +594,7 @@ function analyzeConversation(conversation) {
     rhythmCues,
     soulStyleHits,
     soulStyleAuthors: [...new Set(soulStyleHits.map((hit) => hit.author))],
+    roleAction,
     propEchoes,
     postProcessingDriftCues,
     shapeScore,
@@ -609,6 +654,28 @@ function summarize(analyses, repeatedLines) {
   );
   const soulStyledConversations = analyses.filter((item) => item.soulStyleHits.length > 0).length;
   const soulStyleAuthors = [...new Set(analyses.flatMap((item) => item.soulStyleAuthors))];
+  const roleActionSummaries = analyses.map((item) => item.roleAction).filter((item) => item.pilotAuthorCount > 0);
+  const pilotExpectedActionChecks = roleActionSummaries.reduce((sum, item) => sum + item.expectedChecks, 0);
+  const pilotExpectedActionMatches = roleActionSummaries.reduce((sum, item) => sum + item.expectedMatches, 0);
+  const pilotExpectedActionMatchRate =
+    pilotExpectedActionChecks > 0 ? pilotExpectedActionMatches / pilotExpectedActionChecks : 0;
+  const pilotActionCollapseFlags = roleActionSummaries.filter((item) => item.collapsed).length;
+  const pilotActionStyles = [
+    ...new Set(
+      roleActionSummaries.flatMap((item) =>
+        item.authorStyles.map((authorStyle) => `${authorStyle.author}:${authorStyle.dominantStyle ?? 'none'}`),
+      ),
+    ),
+  ];
+  const pilotExpectedActionMissAuthors = [
+    ...new Set(
+      roleActionSummaries.flatMap((item) =>
+        item.authorStyles
+          .filter((authorStyle) => authorStyle.expectedStyle && !authorStyle.expectedHit)
+          .map((authorStyle) => authorStyle.author),
+      ),
+    ),
+  ];
   return {
     count,
     lifeGrounded,
@@ -635,7 +702,20 @@ function summarize(analyses, repeatedLines) {
     soulStyledConversations,
     soulStyleDiversity: soulStyleAuthors.length,
     soulStyleAuthors,
+    pilotExpectedActionChecks,
+    pilotExpectedActionMatches,
+    pilotExpectedActionMatchRate,
+    pilotActionCollapseFlags,
+    pilotActionStyles,
+    pilotExpectedActionMissAuthors,
   };
+}
+
+function pilotActionRateLabel(summary) {
+  if (!summary || summary.pilotExpectedActionChecks === 0) {
+    return `no_data (${summary?.pilotExpectedActionMatches ?? 0}/${summary?.pilotExpectedActionChecks ?? 0})`;
+  }
+  return summary.pilotExpectedActionMatchRate.toFixed(2);
 }
 
 function decideStatus(summary) {
@@ -734,6 +814,28 @@ function decideStatus(summary) {
       nextAction: 'Keep observing; if fresh samples repeat this, propose a small character-style routing fix instead of broad prompt rewrites.',
     };
   }
+  if (
+    summary.count >= 3 &&
+    summary.pilotExpectedActionChecks >= 3 &&
+    summary.pilotExpectedActionMatchRate < 0.45
+  ) {
+    return {
+      label: 'WARN',
+      passWarnFail: '0 / 1 / 0',
+      decision: 'pilot_role_actions_flat',
+      reason: 'Pilot characters are present, but their care/action moves are not landing in their distinct role shapes.',
+      nextAction: 'Use fresh samples to tune only role-action routing: Umi reduces overload, Mahiru stays near, Tianze pressure-tests a rule and stops before harm.',
+    };
+  }
+  if (summary.count >= 3 && summary.pilotCount >= 3 && summary.pilotActionCollapseFlags / summary.pilotCount >= 0.35) {
+    return {
+      label: 'WARN',
+      passWarnFail: '0 / 1 / 0',
+      decision: 'pilot_role_action_collapse',
+      reason: 'Multiple pilot conversations share the same dominant care/action style across characters.',
+      nextAction: 'Do not add characters; keep observing and separate the existing trio by action shape if fresh samples repeat this.',
+    };
+  }
   if (summary.averageNetLifeScore < 0.45 || summary.lifeGrounded / summary.count < 0.4) {
     return {
       label: 'WARN',
@@ -794,6 +896,9 @@ async function writeReport({ data, window, queryWindow, conversations, analyses,
     `- Daily rhythm diversity: ${summary.rhythmDiversity}`,
     `- Soul-style conversations: ${summary.soulStyledConversations}`,
     `- Soul-style diversity: ${summary.soulStyleDiversity}`,
+    `- Pilot expected action matches: ${summary.pilotExpectedActionMatches}/${summary.pilotExpectedActionChecks}`,
+    `- Pilot expected action match rate: ${pilotActionRateLabel(summary)}`,
+    `- Pilot action collapse flags: ${summary.pilotActionCollapseFlags}`,
     `- Average life signal score: ${summary.averageNetLifeScore.toFixed(2)}`,
     `- Average pilot life signal score: ${summary.averagePilotLifeScore.toFixed(2)}`,
     `- Next safest action: ${status.nextAction}`,
@@ -808,6 +913,25 @@ async function writeReport({ data, window, queryWindow, conversations, analyses,
     summary.soulStyleAuthors.length
       ? `- characters with style cues: ${summary.soulStyleAuthors.join('、')}`
       : '- characters with style cues: none',
+    summary.pilotActionStyles.length
+      ? `- pilot role action styles: ${summary.pilotActionStyles.join('、')}`
+      : '- pilot role action styles: none',
+    summary.pilotExpectedActionMissAuthors.length
+      ? `- pilot expected action misses: ${summary.pilotExpectedActionMissAuthors.join('、')}`
+      : '- pilot expected action misses: none',
+    '',
+    '## Pilot Role Action Coverage',
+    '',
+    listOrNone(
+      analyses
+        .filter((item) => item.roleAction.collapsed || item.roleAction.authorStyles.some((style) => style.expectedStyle && !style.expectedHit))
+        .slice(0, 8)
+        .map(
+          (item) =>
+            `- ${item.id} · ${item.timeLabel} · ${item.participants.join(' / ')} · ${roleActionLabel(item.roleAction)}\n  - ${item.bestLine || 'No clear line.'}`,
+        ),
+      'No pilot role-action collapse found.',
+    ),
     '',
     '## Repeated Surface Lines',
     '',
@@ -938,6 +1062,64 @@ function soulStyleHitsForMessages(messages) {
   });
 }
 
+function roleActionSummaryForMessages(messages) {
+  const authorStyles = [...new Set(messages.map((message) => message.author).filter(Boolean))]
+    .filter((author) => PILOT_NAMES.has(author))
+    .map((author) => {
+      const text = messages
+        .filter((message) => message.author === author)
+        .map((message) => cleanLine(message.text))
+        .join('\n');
+      const styleCounts = roleActionStyleCounts(text);
+      const dominant = Object.entries(styleCounts)
+        .sort(([, left], [, right]) => right - left)
+        .find(([, count]) => count > 0)?.[0];
+      const expectedStyle = PILOT_EXPECTED_ACTION_STYLE[author];
+      const selectedStyle =
+        expectedStyle && styleCounts[expectedStyle] > 0
+          ? expectedStyle
+          : dominant;
+      return {
+        author,
+        dominantStyle: dominant,
+        selectedStyle,
+        expectedStyle,
+        expectedHit: expectedStyle ? styleCounts[expectedStyle] > 0 : false,
+      };
+    });
+  const dominantStyles = authorStyles
+    .map((item) => item.selectedStyle)
+    .filter(Boolean);
+  const collapsed =
+    dominantStyles.length >= 2 &&
+    new Set(dominantStyles).size < dominantStyles.length;
+  const expectedChecks = authorStyles.filter((item) => item.expectedStyle).length;
+  const expectedMatches = authorStyles.filter((item) => item.expectedStyle && item.expectedHit).length;
+  return {
+    pilotAuthorCount: authorStyles.length,
+    authorStyles,
+    collapsed,
+    expectedChecks,
+    expectedMatches,
+  };
+}
+
+function roleActionStyleCounts(text) {
+  return Object.fromEntries(
+    Object.entries(ROLE_ACTION_STYLE_CUES).map(([style, pattern]) => [
+      style,
+      countRegexMatches(text, pattern),
+    ]),
+  );
+}
+
+function roleActionLabel(roleAction) {
+  const styles = roleAction.authorStyles
+    .map((item) => `${item.author}:${item.selectedStyle ?? 'none'}${item.expectedHit ? '' : item.expectedStyle ? ` expected ${item.expectedStyle}` : ''}`)
+    .join('、');
+  return `${roleAction.collapsed ? 'collapsed' : 'checked'} · ${styles || 'none'}`;
+}
+
 function countOccurrences(text, needle) {
   if (!needle) return 0;
   let count = 0;
@@ -947,6 +1129,10 @@ function countOccurrences(text, needle) {
     index += needle.length;
   }
   return count;
+}
+
+function countRegexMatches(text, pattern) {
+  return text.match(pattern)?.length ?? 0;
 }
 
 function bestLifeLine(conversation, cues) {

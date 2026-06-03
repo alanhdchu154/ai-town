@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { internalAction } from '../_generated/server';
+import { internalAction, internalQuery } from '../_generated/server';
 import { WorldMap, serializedWorldMap } from './worldMap';
 import { rememberConversation } from '../agent/memory';
 import { GameId, agentId, conversationId, playerId } from './ids';
@@ -51,6 +51,70 @@ export function scheduleMovementEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.ENABLE_SCHEDULE_MOVEMENT !== 'false';
 }
 
+export function shouldRunAgentGenerationForTest(
+  state: { currentOperationId?: string; conversationExists: boolean },
+  operationId: string,
+) {
+  if (state.currentOperationId !== operationId) return { run: false, clear: false, reason: 'stale_operation' };
+  if (!state.conversationExists) return { run: false, clear: true, reason: 'missing_conversation' };
+  return { run: true, clear: false, reason: 'ok' };
+}
+
+export function shouldRunAgentRememberForTest(
+  state: { currentOperationId?: string; archivedConversationExists: boolean },
+  operationId: string,
+) {
+  if (state.currentOperationId !== operationId) return { run: false, clear: false, reason: 'stale_operation' };
+  if (!state.archivedConversationExists) return { run: false, clear: true, reason: 'missing_archived_conversation' };
+  return { run: true, clear: false, reason: 'ok' };
+}
+
+export const agentRememberConversationPreflight = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    agentId,
+    operationId: v.string(),
+    conversationId,
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    const agent = world?.agents.find((item: any) => item.id === args.agentId);
+    const archivedConversation = await ctx.db
+      .query('archivedConversations')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('id', args.conversationId))
+      .first();
+    return shouldRunAgentRememberForTest(
+      {
+        currentOperationId: agent?.inProgressOperation?.operationId,
+        archivedConversationExists: Boolean(archivedConversation),
+      },
+      args.operationId,
+    );
+  },
+});
+
+export const agentGenerateMessagePreflight = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    agentId,
+    operationId: v.string(),
+    conversationId,
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    const agent = world?.agents.find((item: any) => item.id === args.agentId);
+    return shouldRunAgentGenerationForTest(
+      {
+        currentOperationId: agent?.inProgressOperation?.operationId,
+        conversationExists: Boolean(
+          world?.conversations.some((conversation: any) => conversation.id === args.conversationId),
+        ),
+      },
+      args.operationId,
+    );
+  },
+});
+
 function daytimeActivityDuration(minutes: number) {
   return minutes * 60_000;
 }
@@ -75,6 +139,8 @@ type ScheduleContext = {
   isWindingDownHour?: boolean;
   canStartAutonomousConversations?: boolean;
   periodLabelZh?: string;
+  schoolDayTypeZh?: string;
+  isWeekend?: boolean;
   characterName?: string;
   location: {
     id: string;
@@ -93,6 +159,32 @@ export const agentRememberConversation = internalAction({
   },
   handler: async (ctx, args) => {
     try {
+      const preflight = await ctx.runQuery(internal.aiTown.agentOperations.agentRememberConversationPreflight, {
+        worldId: args.worldId,
+        agentId: args.agentId,
+        operationId: args.operationId,
+        conversationId: args.conversationId,
+      });
+      if (!preflight.run) {
+        logGiisTiming({
+          action: 'rememberConversation',
+          phase: 'preflightSkipped',
+          reason: preflight.reason,
+          playerId: args.playerId,
+        });
+        if (preflight.clear) {
+          await sendInputWithRetry(ctx, {
+            worldId: args.worldId,
+            name: 'clearAgentOperation',
+            args: {
+              agentId: args.agentId,
+              operationId: args.operationId,
+              conversationId: args.conversationId,
+            },
+          });
+        }
+        return;
+      }
       await rememberConversation(
         ctx,
         args.worldId,
@@ -147,6 +239,33 @@ export const agentGenerateMessage = internalAction({
   handler: async (ctx, args) => {
     const totalStart = Date.now();
     try {
+      const preflight = await ctx.runQuery(internal.aiTown.agentOperations.agentGenerateMessagePreflight, {
+        worldId: args.worldId,
+        agentId: args.agentId,
+        operationId: args.operationId,
+        conversationId: args.conversationId,
+      });
+      if (!preflight.run) {
+        logGiisTiming({
+          action: 'agentGenerateMessage',
+          phase: 'preflightSkipped',
+          reason: preflight.reason,
+          type: args.type,
+          playerId: args.playerId,
+        });
+        if (preflight.clear) {
+          await sendInputWithRetry(ctx, {
+            worldId: args.worldId,
+            name: 'clearAgentOperation',
+            args: {
+              agentId: args.agentId,
+              operationId: args.operationId,
+              conversationId: args.conversationId,
+            },
+          });
+        }
+        return;
+      }
       let completionFn;
       switch (args.type) {
         case 'start':
@@ -489,7 +608,7 @@ function autonomousConversationChance(scheduleContext?: ScheduleContext) {
   if (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true') {
     return scheduleContext?.characterName === 'Umi' ||
       scheduleContext?.characterName === 'Mahiru' ||
-      scheduleContext?.characterName === 'Asuna'
+      scheduleContext?.characterName === 'Tianze'
       ? 1
       : 0;
   }
@@ -501,6 +620,9 @@ function autonomousConversationChance(scheduleContext?: ScheduleContext) {
   let base = 0.25;
   if (scheduleContext?.isSleepHour) return 0;
   if (scheduleContext?.isWindingDownHour) base = 0.12;
+  else if (scheduleContext?.isWeekend && scheduleContext.location.id === 'aiClubRoom') base = 0.56;
+  else if (scheduleContext?.isWeekend && scheduleContext.location.id === 'courtyard') base = 0.52;
+  else if (scheduleContext?.isWeekend && scheduleContext.location.id === 'dormitory') base = 0.34;
   else if (scheduleContext?.location.id === 'courtyard') base = 0.42;
   else if (scheduleContext?.location.id === 'dormitory') base = 0.24;
   else if (scheduleContext?.location.id === 'classroom') base = 0.28;

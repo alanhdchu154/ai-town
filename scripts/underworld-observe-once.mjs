@@ -13,12 +13,31 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
+const COMMAND_ENV = {
+  ...process.env,
+  CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:
+    process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? '180',
+  CONVERSATION_EVAL_CONVEX_TIMEOUT_MS: process.env.CONVERSATION_EVAL_CONVEX_TIMEOUT_MS ?? '180000',
+};
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
 const AM_PM_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.md');
 const LIFE_SIGNALS_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
+const TRIAD_NAMES = new Set(['海', '真晝', '天澤', 'Umi', 'Mahiru', 'Tianze']);
+const POLICY_ENV_KEYS = [
+  'AUTONOMOUS_CONVERSATION_LLM',
+  'AUTONOMOUS_CONVERSATION_LLM_PAIRS',
+  'CHARACTER_SOUL_LOCAL_FALLBACK',
+  'LLM_PROVIDER',
+  'OLLAMA_MODEL',
+  'UMI_MAHIRU_PILOT_DAILY_QUOTA',
+  'UMI_MAHIRU_PILOT_PROVIDER',
+  'SOUL_TRIAD_COLOCATION_PILOT',
+  'SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS',
+  'SOUL_TRIAD_FOCUS_PAIR',
+];
 
 const args = parseArgs(process.argv.slice(2));
+const SELF_TEST = args.get('self-test') === 'true';
 const DRY_RUN = args.get('dry-run') === 'true';
 const COLLECT_MODE = args.get('collect') ?? 'auto';
 const CC_MODE = args.get('cc') ?? 'auto';
@@ -26,8 +45,8 @@ const TARGET_SAMPLES = numberArg('target-samples', 1, 0, 3);
 const SAMPLE_TIMEOUT_MS = numberArg('sample-timeout-ms', DRY_RUN ? 1_000 : 180_000, 1_000, 300_000);
 const SAMPLE_POLL_MS = numberArg('sample-poll-ms', 7_000, 1_000, 30_000);
 // Rotate the collected dyad across samples so Mahiru is not starved by the
-// Umi<->Asuna mutual-first-choice attractor. Disable with --no-focus-rotation.
-const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Asuna', 'Umi:Asuna'];
+// Umi<->Tianze mutual-first-choice attractor. Disable with --no-focus-rotation.
+const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Tianze', 'Umi:Tianze'];
 const FOCUS_ROTATION_ENABLED = args.get('no-focus-rotation') !== 'true';
 const RUN_STARTED_AT = Date.now();
 const RUN_ISO = new Date(RUN_STARTED_AT).toISOString();
@@ -39,7 +58,8 @@ async function main() {
 
   const timing = chicagoTiming();
   const health = await collectHealth();
-  const collection = await maybeCollectSamples(timing);
+  const policyEnv = await collectPolicyEnv();
+  const collection = await maybeCollectSamples(timing, health);
   const freshConversations = await fetchFreshTriadConversations(EVAL_SINCE_AT);
   printTranscripts(freshConversations);
 
@@ -52,6 +72,7 @@ async function main() {
   const findings = analyzeFindings({
     timing,
     health,
+    policyEnv,
     collection,
     freshConversations,
     reports,
@@ -63,6 +84,7 @@ async function main() {
   await writeReport({
     timing,
     health,
+    policyEnv,
     collection,
     freshConversations,
     evals,
@@ -80,12 +102,14 @@ async function main() {
   console.log(`[underworld-observe] next safest action: ${findings.nextSafestAction}`);
 }
 
-async function maybeCollectSamples(timing) {
-  const shouldCollect =
-    !DRY_RUN &&
-    COLLECT_MODE !== 'skip' &&
-    TARGET_SAMPLES > 0 &&
-    (COLLECT_MODE === 'force' || !timing.isNight);
+async function maybeCollectSamples(timing, health) {
+  const skipReason = collectionSkipReason(timing, COLLECT_MODE);
+  const shouldCollect = shouldAttemptSampleCollection({
+    dryRun: DRY_RUN,
+    collectMode: COLLECT_MODE,
+    targetSamples: TARGET_SAMPLES,
+    timing,
+  });
 
   const result = {
     mode: COLLECT_MODE,
@@ -93,20 +117,33 @@ async function maybeCollectSamples(timing) {
     dryRun: DRY_RUN,
     attempts: [],
     providerHealth: DRY_RUN ? 'not_checked_dry_run' : 'not_checked',
+    worldEngineStatusBefore: health.worldEngineStatus,
+    worldEngineResumedBeforeCollection: false,
   };
 
   if (DRY_RUN) {
     console.log('[underworld-observe] dry-run: sample collection skipped');
     return result;
   }
-  if (timing.isNight && COLLECT_MODE !== 'force') {
+  if (skipReason === 'night_quiet') {
     console.log('[underworld-observe] night quiet: sample collection skipped');
     result.providerHealth = 'not_checked_night_quiet';
+    return result;
+  }
+  if (skipReason === 'winding_down_quiet') {
+    console.log('[underworld-observe] winding-down quiet: sample collection skipped');
+    result.providerHealth = 'not_checked_winding_down';
     return result;
   }
   if (!shouldCollect) {
     console.log('[underworld-observe] sample collection skipped by configuration');
     return result;
+  }
+
+  if (shouldResumeWorldBeforeCollection(timing, health.worldEngineStatus)) {
+    console.log(`[underworld-observe] world engine is ${health.worldEngineStatus}; resuming before sample collection`);
+    await convexRunSafe('testing:resume');
+    result.worldEngineResumedBeforeCollection = true;
   }
 
   for (let index = 0; index < TARGET_SAMPLES; index += 1) {
@@ -151,16 +188,39 @@ async function maybeCollectSamples(timing) {
 }
 
 async function collectHealth() {
-  const [worldClock, debugState] = await Promise.all([
+  const [worldClock, debugState, defaultWorldStatus] = await Promise.all([
     convexRunSafe('school:worldClock'),
     convexRunSafe('school:debugState'),
+    convexRunSafe('world:defaultWorldStatus'),
   ]);
   return {
     worldClock,
     debugState,
+    defaultWorldStatus,
+    worldEngineStatus: defaultWorldStatus.data?.status,
     playerCount: Array.isArray(debugState.data) ? debugState.data.length : undefined,
     healthy: worldClock.ok && debugState.ok,
   };
+}
+
+async function collectPolicyEnv() {
+  const entries = await Promise.all(
+    POLICY_ENV_KEYS.map(async (key) => [key, await convexEnvGetSafe(key)]),
+  );
+  const values = Object.fromEntries(entries);
+  return {
+    values,
+    ready: isModelPolicyEnvReady(values),
+  };
+}
+
+async function convexEnvGetSafe(key) {
+  const result = await runCommand('npx', ['convex', 'env', 'get', key], {
+    timeout: 45_000,
+    quiet: true,
+  });
+  if (result.code !== 0) return undefined;
+  return result.stdout.trim();
 }
 
 async function fetchFreshTriadConversations(sinceCreatedAt) {
@@ -338,10 +398,18 @@ function repairClassFor(category) {
 }
 
 function estimateV01Scores({ findings, freshConversations, reports, health, fallbackAudit }) {
+  if (freshConversations.length < 3) {
+    return {
+      withheld: true,
+      reason: `fresh_sample_count ${freshConversations.length} below required 3`,
+      fresh_sample_count: freshConversations.length,
+      required_sample_count: 3,
+    };
+  }
   const rows = parseSoulRows(reports.soulTriad);
   const avg = (key, fallback) => average(rows.map((row) => row[key]).filter((value) => Number.isFinite(value))) ?? fallback;
   const activeFallbackPollutionCount = findings.activeFallbackPollutionCount;
-  const confidenceCap = freshConversations.length >= 3 ? 1 : freshConversations.length > 0 ? 0.72 : 0.55;
+  const confidenceCap = 1;
   const cap = (value) => clamp01(Math.min(value, confidenceCap));
   return {
     stability_score: clamp01((health.healthy ? 0.82 : 0.35) - (activeFallbackPollutionCount > 0 ? 0.25 : 0)),
@@ -390,6 +458,7 @@ async function maybeRunCcReview({ findings, scores, freshConversations, reports 
 async function writeReport({
   timing,
   health,
+  policyEnv,
   collection,
   freshConversations,
   evals,
@@ -410,6 +479,7 @@ async function writeReport({
     `Mode: observe_once${DRY_RUN ? ' dry_run' : ''}`,
     `Chicago time: ${timing.label}`,
     `Night quiet: ${timing.isNight ? 'yes' : 'no'}`,
+    `Winding-down quiet: ${timing.isWindingDown ? 'yes' : 'no'}`,
     '',
     '## v0.1 Question',
     '',
@@ -426,7 +496,9 @@ async function writeReport({
     `- Rubric disagreement: ${findings.rubricDisagreement ? 'yes' : 'no'}`,
     `- Recent failure reason: ${findings.recentFailureReason ?? 'none'}`,
     `- Provider health: ${collection.providerHealth}`,
+    `- Model policy env: ${policyEnv.ready ? 'ok' : 'check'}`,
     `- Runtime health: ${health.healthy ? 'ok' : 'check'}`,
+    `- World engine status: ${health.worldEngineStatus ?? 'unknown'}`,
     `- Active fallback pollution count: ${findings.activeFallbackPollutionCount}`,
     `- Archived fallback history count: ${findings.archivedFallbackHistoryCount}`,
     `- Fresh fallback markers: ${findings.freshFallbackMarkers}`,
@@ -442,10 +514,12 @@ async function writeReport({
     `- Day-window ordinary scenes: ${dayWindowLifeSignals.summary.ordinarySceneDiversity ?? 'unknown'}`,
     `- Day-window daily rhythm: ${dayWindowLifeSignals.summary.dailyRhythmConversations ?? 'unknown'}`,
     `- Day-window soul style: ${dayWindowLifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
+    `- Day-window pilot expected action match rate: ${pilotActionRateLabel(dayWindowLifeSignals.summary)}`,
+    `- Day-window pilot action collapse flags: ${dayWindowLifeSignals.summary.pilotActionCollapseFlags ?? 'unknown'}`,
     '',
     '## v0.1 Scores',
     '',
-    ...Object.entries(scores).map(([key, value]) => `- ${key}: ${value.toFixed(2)}`),
+    ...scoreReportLines(scores),
     '',
     '## Strongest Recent Moment',
     '',
@@ -463,13 +537,34 @@ async function writeReport({
     '',
     `- worldClock: ${health.worldClock.ok ? 'ok' : 'failed'}`,
     `- debugState: ${health.debugState.ok ? 'ok' : 'failed'}`,
+    `- defaultWorldStatus: ${health.defaultWorldStatus.ok ? 'ok' : 'failed'}`,
+    `- worldEngineStatus: ${health.worldEngineStatus ?? 'unknown'}`,
     `- playerCount: ${health.playerCount ?? 'unknown'}`,
     `- fallback audit: ${fallbackAudit.ok ? 'ok' : 'failed'}`,
+    '',
+    '## Fallback Pollution',
+    '',
+    `- active_total: ${findings.activeFallbackPollutionCount}`,
+    `- memories: ${fallbackAudit.data?.fallbackMemoryCount ?? 'unknown'}`,
+    `- world_events: ${fallbackAudit.data?.fallbackEventCount ?? 'unknown'}`,
+    `- notifications: ${fallbackAudit.data?.fallbackNotificationCount ?? 'unknown'}`,
+    `- polluted_profiles: ${fallbackAudit.data?.pollutedProfileCount ?? 'unknown'}`,
+    `- archived_history_retained: ${findings.archivedFallbackHistoryCount}`,
+    `- cleanup_report: umi/reports/fallback-pollution-cleanup-latest.md`,
+    `- cleanup_proposal: umi/proposals/20260529T030000Z-fallback-pollution-cleanup-proposal.md`,
+    '- policy: proposal-only; do not apply cleanup without Alan approval and fresh-sample evidence.',
+    '',
+    '## Model Policy Env',
+    '',
+    `- ready: ${policyEnv.ready ? 'yes' : 'no'}`,
+    ...POLICY_ENV_KEYS.map((key) => `- ${key}: ${policyEnv.values[key] ?? 'unset'}`),
     '',
     '## Collection',
     '',
     `- attempted: ${collection.attempted ? 'yes' : 'no'}`,
     `- dry_run: ${collection.dryRun ? 'yes' : 'no'}`,
+    `- world_engine_before_collection: ${collection.worldEngineStatusBefore ?? 'unknown'}`,
+    `- world_engine_resumed_before_collection: ${collection.worldEngineResumedBeforeCollection ? 'yes' : 'no'}`,
     ...collection.attempts.map((attempt, index) =>
       `- attempt ${index + 1}: code=${attempt.code} ok=${attempt.ok ? 'yes' : 'no'} provider_unavailable=${attempt.providerUnavailable ? 'yes' : 'no'} sample=${attempt.sampleId ?? 'none'}`,
     ),
@@ -529,6 +624,9 @@ async function writeReport({
     `- daily rhythm diversity: ${lifeSignals.summary.dailyRhythmDiversity ?? 'unknown'}`,
     `- soul-style conversations: ${lifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
     `- soul-style diversity: ${lifeSignals.summary.soulStyleDiversity ?? 'unknown'}`,
+    `- pilot expected action matches: ${lifeSignals.summary.pilotExpectedActionMatches ?? 'unknown'}`,
+    `- pilot expected action match rate: ${pilotActionRateLabel(lifeSignals.summary)}`,
+    `- pilot action collapse flags: ${lifeSignals.summary.pilotActionCollapseFlags ?? 'unknown'}`,
     `- average life signal score: ${lifeSignals.summary.averageLifeSignalScore ?? 'unknown'}`,
     `- next safest action: ${lifeSignals.summary.nextSafestAction ?? 'unknown'}`,
     '',
@@ -560,6 +658,9 @@ async function writeReport({
     `- daily rhythm diversity: ${dayWindowLifeSignals.summary.dailyRhythmDiversity ?? 'unknown'}`,
     `- soul-style conversations: ${dayWindowLifeSignals.summary.soulStyleConversations ?? 'unknown'}`,
     `- soul-style diversity: ${dayWindowLifeSignals.summary.soulStyleDiversity ?? 'unknown'}`,
+    `- pilot expected action matches: ${dayWindowLifeSignals.summary.pilotExpectedActionMatches ?? 'unknown'}`,
+    `- pilot expected action match rate: ${pilotActionRateLabel(dayWindowLifeSignals.summary)}`,
+    `- pilot action collapse flags: ${dayWindowLifeSignals.summary.pilotActionCollapseFlags ?? 'unknown'}`,
     `- average life signal score: ${dayWindowLifeSignals.summary.averageLifeSignalScore ?? 'unknown'}`,
     `- next safest action: ${dayWindowLifeSignals.summary.nextSafestAction ?? 'unknown'}`,
     '',
@@ -581,6 +682,26 @@ async function writeReport({
     '',
   ];
   await writeFile(REPORT_PATH, `${lines.join('\n')}\n`, 'utf8');
+}
+
+function scoreReportLines(scores) {
+  if (scores.withheld) {
+    return [
+      '- status: withheld',
+      `- reason: ${scores.reason}`,
+      `- fresh_sample_count: ${scores.fresh_sample_count}`,
+      `- required_sample_count: ${scores.required_sample_count}`,
+      '- policy: scores are hidden until enough fresh samples exist; do not infer regression or readiness from stale/default decimals.',
+    ];
+  }
+  return Object.entries(scores).map(([key, value]) => `- ${key}: ${value.toFixed(2)}`);
+}
+
+function pilotActionRateLabel(summary) {
+  const matches = summary.pilotExpectedActionMatches;
+  const checks = typeof matches === 'string' ? Number(matches.split('/')[1]) : Number.NaN;
+  if (Number.isFinite(checks) && checks === 0) return 'no_data (0/0)';
+  return summary.pilotExpectedActionMatchRate ?? 'unknown';
 }
 
 function repairGateRecommendation(findings) {
@@ -667,7 +788,7 @@ async function runCommand(command, commandArgs, options = {}) {
   try {
     const { stdout, stderr } = await execFileAsync(command, commandArgs, {
       cwd: REPO_ROOT,
-      env: process.env,
+      env: COMMAND_ENV,
       maxBuffer: 1024 * 1024 * 12,
       timeout: options.timeout ?? 60_000,
     });
@@ -696,7 +817,7 @@ function providerUnavailableFromOutput(code, output) {
   if (/429|model_not_found|quota|provider_unavailable|LLM unavailable|call timed out|request timed out/i.test(output)) {
     return true;
   }
-  return code !== 0 && /timed out after|timeout waiting|no fresh archived/i.test(output);
+  return code !== 0 && /timeout waiting/i.test(output);
 }
 
 function parseArgs(values) {
@@ -718,6 +839,45 @@ function numberArg(name, fallback, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function shouldAttemptSampleCollection({ dryRun, collectMode, targetSamples, timing }) {
+  return (
+    !dryRun &&
+    collectMode !== 'skip' &&
+    targetSamples > 0 &&
+    (collectMode === 'force' || timing.canStartAutonomousConversations)
+  );
+}
+
+function shouldResumeWorldBeforeCollection(timing, worldEngineStatus) {
+  return timing.canStartAutonomousConversations && worldEngineStatus !== 'running';
+}
+
+function isModelPolicyEnvReady(values) {
+  const pairs = values.AUTONOMOUS_CONVERSATION_LLM_PAIRS ?? '';
+  const quota = Number(values.UMI_MAHIRU_PILOT_DAILY_QUOTA);
+  const stalePilotEnv =
+    Boolean(values.SOUL_TRIAD_COLOCATION_PILOT?.trim()) ||
+    Boolean(values.SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS?.trim()) ||
+    Boolean(values.SOUL_TRIAD_FOCUS_PAIR?.trim());
+  return (
+    values.CHARACTER_SOUL_LOCAL_FALLBACK === 'false' &&
+    pairs.includes('Umi:Mahiru') &&
+    pairs.includes('Umi:Tianze') &&
+    pairs.includes('Mahiru:Tianze') &&
+    values.UMI_MAHIRU_PILOT_PROVIDER === 'qwen' &&
+    Number.isFinite(quota) &&
+    quota > 0 &&
+    !stalePilotEnv
+  );
+}
+
+function collectionSkipReason(timing, collectMode) {
+  if (collectMode === 'force') return null;
+  if (timing.isNight) return 'night_quiet';
+  if (timing.isWindingDown) return 'winding_down_quiet';
+  return null;
+}
+
 function chicagoTiming() {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
@@ -734,8 +894,161 @@ function chicagoTiming() {
   return {
     hour,
     isNight: hour >= 22 || hour < 6,
+    isWindingDown: hour >= 21 && hour < 23,
+    canStartAutonomousConversations: hour >= 6 && hour < 21,
     label: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} America/Chicago`,
   };
+}
+
+function timingForHour(hour) {
+  return {
+    hour,
+    isNight: hour >= 22 || hour < 6,
+    isWindingDown: hour >= 21 && hour < 23,
+    canStartAutonomousConversations: hour >= 6 && hour < 21,
+    label: `self-test hour ${hour}`,
+  };
+}
+
+function runSelfTest() {
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'auto',
+      targetSamples: 1,
+      timing: timingForHour(20),
+    }),
+    true,
+    '20:00 can collect',
+  );
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'auto',
+      targetSamples: 1,
+      timing: timingForHour(21),
+    }),
+    false,
+    '21:00 winding-down skips collect',
+  );
+  assertEqual(collectionSkipReason(timingForHour(21), 'auto'), 'winding_down_quiet', '21:00 skip reason');
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'auto',
+      targetSamples: 1,
+      timing: timingForHour(22),
+    }),
+    false,
+    '22:00 night skips collect',
+  );
+  assertEqual(collectionSkipReason(timingForHour(22), 'auto'), 'night_quiet', '22:00 skip reason');
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'auto',
+      targetSamples: 1,
+      timing: timingForHour(5),
+    }),
+    false,
+    '05:00 night skips collect',
+  );
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'auto',
+      targetSamples: 1,
+      timing: timingForHour(6),
+    }),
+    true,
+    '06:00 resumes collection',
+  );
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'force',
+      targetSamples: 1,
+      timing: timingForHour(21),
+    }),
+    true,
+    'force can collect during winding-down',
+  );
+  assertEqual(shouldResumeWorldBeforeCollection(timingForHour(9), 'inactive'), true, 'daytime inactive resumes');
+  assertEqual(shouldResumeWorldBeforeCollection(timingForHour(9), 'running'), false, 'daytime running stays running');
+  assertEqual(shouldResumeWorldBeforeCollection(timingForHour(21), 'inactive'), false, 'winding-down inactive stays quiet');
+  assertEqual(shouldResumeWorldBeforeCollection(timingForHour(23), 'inactive'), false, 'night inactive stays quiet');
+  assertEqual(
+    estimateV01Scores({
+      findings: { activeFallbackPollutionCount: 0 },
+      freshConversations: [],
+      reports: { soulTriad: '', recent: '' },
+      health: { healthy: true },
+      fallbackAudit: {},
+    }).withheld,
+    true,
+    'v0.1 scores are withheld when fresh samples are absent',
+  );
+  assertEqual(
+    scoreReportLines({ withheld: true, reason: 'sample_pending', fresh_sample_count: 0, required_sample_count: 3 })[0],
+    '- status: withheld',
+    'withheld score report is explicit',
+  );
+  assertEqual(
+    isModelPolicyEnvReady({
+      CHARACTER_SOUL_LOCAL_FALLBACK: 'false',
+      AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze',
+      UMI_MAHIRU_PILOT_PROVIDER: 'qwen',
+      UMI_MAHIRU_PILOT_DAILY_QUOTA: '8',
+      SOUL_TRIAD_COLOCATION_PILOT: '',
+      SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS: '',
+      SOUL_TRIAD_FOCUS_PAIR: '',
+    }),
+    true,
+    'model policy env ready',
+  );
+  assertEqual(
+    isModelPolicyEnvReady({
+      CHARACTER_SOUL_LOCAL_FALLBACK: 'true',
+      AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze',
+      UMI_MAHIRU_PILOT_PROVIDER: 'qwen',
+      UMI_MAHIRU_PILOT_DAILY_QUOTA: '8',
+      SOUL_TRIAD_COLOCATION_PILOT: '',
+      SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS: '',
+      SOUL_TRIAD_FOCUS_PAIR: '',
+    }),
+    false,
+    'local fallback enabled is not ready',
+  );
+  assertEqual(
+    isModelPolicyEnvReady({
+      CHARACTER_SOUL_LOCAL_FALLBACK: 'false',
+      AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze',
+      UMI_MAHIRU_PILOT_PROVIDER: 'qwen',
+      UMI_MAHIRU_PILOT_DAILY_QUOTA: '8',
+      SOUL_TRIAD_COLOCATION_PILOT: 'true',
+      SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS: '',
+      SOUL_TRIAD_FOCUS_PAIR: '',
+    }),
+    false,
+    'stale pilot env is not ready',
+  );
+  assertEqual(
+    shouldAttemptSampleCollection({
+      dryRun: false,
+      collectMode: 'skip',
+      targetSamples: 1,
+      timing: timingForHour(20),
+    }),
+    false,
+    'skip mode never collects',
+  );
+  console.log('[underworld-observe:self-test] PASS');
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
 }
 
 function isTriadConversation(conversation) {
@@ -804,30 +1117,44 @@ function parseLifeSignalsSummary(report) {
     dailyRhythmDiversity: field('Daily rhythm diversity'),
     soulStyleConversations: field('Soul-style conversations'),
     soulStyleDiversity: field('Soul-style diversity'),
+    pilotExpectedActionMatches: field('Pilot expected action matches'),
+    pilotExpectedActionMatchRate: field('Pilot expected action match rate'),
+    pilotActionCollapseFlags: field('Pilot action collapse flags'),
     averageLifeSignalScore: field('Average life signal score'),
     nextSafestAction: field('Next safest action'),
   };
 }
 
 function parseSoulRows(report) {
-  return report
-    .split('\n')
+  const lines = report.split('\n');
+  const header = lines.find((line) => line.startsWith('| Conversation |'));
+  const headerCells = header?.split('|').map((cell) => cell.trim()) ?? [];
+  const indexOf = (name) => headerCells.indexOf(name);
+  return lines
     .filter((line) => line.startsWith('conversation-'))
     .map((line) => {
       const cells = line.split('|').map((cell) => cell.trim());
+      const numberCell = (name) => {
+        const index = indexOf(name);
+        return index >= 0 ? Number(cells[index]) : Number.NaN;
+      };
+      const stringCell = (name, fallbackIndex) => {
+        const index = indexOf(name);
+        return cells[index >= 0 ? index : fallbackIndex];
+      };
       return {
-        conversation: cells[0],
-        participants: cells[1],
-        messages: Number(cells[2]),
-        status: cells[3],
-        score: Number(cells[4]),
-        otherAware: Number(cells[5]),
-        privateSelf: Number(cells[6]),
-        memoryResidue: Number(cells[7]),
-        behavior: Number(cells[8]),
-        humanAftertaste: Number(cells[14]),
-        stageDirectionLeakPenalty: Number(cells[19]),
-        echoPenalty: Number(cells[20]),
+        conversation: stringCell('Conversation', 0),
+        participants: stringCell('Participants', 1),
+        messages: numberCell('Messages'),
+        status: stringCell('Status', 3),
+        score: numberCell('Score'),
+        otherAware: numberCell('Other aware'),
+        privateSelf: numberCell('Private self'),
+        memoryResidue: numberCell('Memory residue'),
+        behavior: numberCell('Behavior'),
+        humanAftertaste: numberCell('Human aftertaste'),
+        stageDirectionLeakPenalty: numberCell('Stage direction leak penalty'),
+        echoPenalty: numberCell('Echo penalty'),
       };
     });
 }
@@ -907,7 +1234,15 @@ function relative(path) {
   return path.startsWith(REPO_ROOT) ? path.slice(REPO_ROOT.length + 1) : path;
 }
 
-main().catch((error) => {
+try {
+  if (SELF_TEST) runSelfTest();
+  else {
+    main().catch((error) => {
+      console.error(`[underworld-observe] fatal: ${error.stack ?? error.message ?? error}`);
+      process.exitCode = 1;
+    });
+  }
+} catch (error) {
   console.error(`[underworld-observe] fatal: ${error.stack ?? error.message ?? error}`);
   process.exitCode = 1;
-});
+}

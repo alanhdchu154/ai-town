@@ -89,6 +89,12 @@ export class Player {
   tick(game: Game, now: number) {
     this.enforceClassroomBounds();
     if (this.human && this.lastInput < now - HUMAN_IDLE_TOO_LONG) {
+      const inConversation = [...game.world.conversations.values()].some((conversation) =>
+        conversation.participants.has(this.id),
+      );
+      if (inConversation) {
+        return;
+      }
       this.leave(game, now);
     }
   }

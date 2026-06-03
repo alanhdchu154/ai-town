@@ -31,9 +31,9 @@
     "name": "bad_mechanical_exit",
     "mode": "world_agent_chat",
     "speaker": "CaoCao",
-    "target": "Mai",
+    "target": "Ichinose",
     "input": "你是真的在保護秩序，還是在躲害怕？",
-    "sampleOutput": "我先去整理一下，麻衣，晚點再聊。",
+    "sampleOutput": "我先去整理一下，一之瀨，晚點再聊。",
     "expected": {
       "shouldFail": true,
       "respondsDirectlyTo": ["秩序", "害怕"],

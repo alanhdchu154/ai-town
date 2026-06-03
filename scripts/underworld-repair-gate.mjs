@@ -467,6 +467,33 @@ Post-fix summary: 0 PASS / 0 WARN / 1 FAIL
   assertEqual(hygieneFailure.diagnosis.lifeSignals.soulStyleConversations, '3', 'hygiene failure parsed soul-style conversations');
   assertEqual(hygieneFailure.diagnosis.lifeSignals.dailyRhythmDiversity, '2', 'hygiene failure parsed daily rhythm diversity');
 
+  const dbCleanup = evaluateSelfTestReport(
+    `
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 0
+- Top failure category: sample_pending
+- Repair class: observe_only
+- Active fallback pollution count: 236
+- Archived fallback history count: 248
+
+## Fallback Pollution
+
+- active_total: 236
+- memories: 48
+- world_events: 174
+- notifications: 12
+- polluted_profiles: 2
+- policy: proposal-only; do not apply cleanup without Alan approval and fresh-sample evidence.
+`,
+    'db_cleanup',
+  );
+  assertEqual(dbCleanup.diagnosis.category, 'db_cleanup', 'requested DB cleanup category');
+  assertEqual(dbCleanup.classification, 'proposal_only', 'DB cleanup classification');
+  assertEqual(dbCleanup.decision.changeSize, 'large_change_proposal_required', 'DB cleanup proposal decision');
+
   const lowSampleLifeRepetition = evaluateSelfTestReport(
     `
 # GIIS Underworld v0.1 Approach Report
@@ -653,7 +680,7 @@ function decideNextAction({ diagnosis, classification, ccReview }) {
       blockedReasons,
     };
   }
-  if (diagnosis.confidence === 'sample_pending') {
+  if (diagnosis.confidence === 'sample_pending' && diagnosis.category !== 'db_cleanup') {
     return {
       changeSize: 'observe_only',
       action: 'No conversation repair. Wait for fresh samples.',
@@ -690,15 +717,21 @@ function decideNextAction({ diagnosis, classification, ccReview }) {
 
 function reviewBlockers(diagnosis) {
   const blockers = [];
-  if (diagnosis.confidence === 'sample_pending') blockers.push('sample_pending');
+  if (diagnosis.confidence === 'sample_pending' && diagnosis.category !== 'db_cleanup') {
+    blockers.push('sample_pending');
+  }
   if (
     diagnosis.confidence === 'low_sample_warning' &&
     !PROPOSAL_ONLY.has(diagnosis.category)
   ) {
     blockers.push('fresh_samples_below_3');
   }
-  if (diagnosis.operationalIssue !== 'none') blockers.push(diagnosis.operationalIssue);
-  if (diagnosis.amPm?.decision === 'sample_pending') blockers.push('am_pm_sample_pending');
+  if (diagnosis.operationalIssue !== 'none' && diagnosis.category !== 'db_cleanup') {
+    blockers.push(diagnosis.operationalIssue);
+  }
+  if (diagnosis.amPm?.decision === 'sample_pending' && diagnosis.category !== 'db_cleanup') {
+    blockers.push('am_pm_sample_pending');
+  }
   if (
     [
       'life_signal_repeated',
@@ -711,7 +744,8 @@ function reviewBlockers(diagnosis) {
       'daily_rhythm_thin',
       'soul_style_flat',
     ].includes(diagnosis.lifeSignals?.decision ?? '') &&
-    diagnosis.confidence === 'sample_pending'
+    diagnosis.confidence === 'sample_pending' &&
+    diagnosis.category !== 'db_cleanup'
   ) {
     blockers.push('life_signal_needs_fresh_samples');
   }
@@ -719,7 +753,8 @@ function reviewBlockers(diagnosis) {
     diagnosis.reportTopCategory &&
     diagnosis.category &&
     diagnosis.reportTopCategory !== diagnosis.category &&
-    diagnosis.operationalIssue !== 'none'
+    diagnosis.operationalIssue !== 'none' &&
+    diagnosis.category !== 'db_cleanup'
   ) {
     blockers.push(`category_mismatch:${diagnosis.reportTopCategory}->${diagnosis.category}`);
   }

@@ -299,6 +299,9 @@ export const conversationInputs = {
           `Player ${conversation.isTyping.playerId} is already typing in ${conversationId}`,
         );
       }
+      if (player.human) {
+        player.lastInput = now;
+      }
       conversation.isTyping = { playerId, messageUuid: args.messageUuid, since: now };
       return null;
     },
@@ -319,6 +322,10 @@ export const conversationInputs = {
       }
       if (conversation.isTyping && conversation.isTyping.playerId === playerId) {
         delete conversation.isTyping;
+      }
+      const player = game.world.players.get(playerId);
+      if (player?.human) {
+        player.lastInput = now;
       }
       conversation.lastMessage = { author: playerId, timestamp: args.timestamp };
       conversation.numMessages++;

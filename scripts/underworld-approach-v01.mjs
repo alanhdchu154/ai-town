@@ -56,7 +56,15 @@ async function main() {
     const observe = await runCommand('npm', observeArgs, { timeout: DRY_RUN ? 180_000 : 420_000 });
     if (observe.code !== 0) {
       console.log(`[underworld-approach] observe exited ${observe.code}; will not run repair gate this cycle`);
-    } else if (!timing.isNight && Date.now() - lastRepairAt >= REPAIR_INTERVAL_MS) {
+    } else {
+      console.log('[underworld-approach] goal audit');
+      const audit = await runCommand('npm', ['run', 'underworld:v01-goal-audit'], { timeout: 60_000 });
+      if (audit.code !== 0) {
+        console.log(`[underworld-approach] goal audit exited ${audit.code}; goal remains active unless audit reaches PASS`);
+      }
+    }
+
+    if (observe.code === 0 && !timing.isNight && Date.now() - lastRepairAt >= REPAIR_INTERVAL_MS) {
       console.log('[underworld-approach] repair gate check');
       const repair = await runCommand('npm', ['run', 'underworld:repair-gate'], { timeout: 90_000 });
       lastRepairAt = Date.now();

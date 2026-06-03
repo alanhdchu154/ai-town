@@ -31,7 +31,7 @@ const TIMEOUT_MS = Number(args.get('timeout-ms') ?? 180_000);
 const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 6_000);
 const TARGET_SAMPLES = Number(args.get('samples') ?? 1);
 const KEEP = args.get('keep') === 'true';
-const FOCUS_PAIR = (args.get('focus-pair') ?? 'Mahiru:Asuna').trim();
+const FOCUS_PAIR = (args.get('focus-pair') ?? 'Mahiru:Tianze').trim();
 const RUN_TIMESTAMP = Date.now();
 const [LEFT_NAME, RIGHT_NAME] = FOCUS_PAIR.split(':').map((name) => name.trim());
 if (!LEFT_NAME || !RIGHT_NAME) {

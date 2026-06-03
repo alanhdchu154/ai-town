@@ -6,19 +6,19 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '謝謝真晝提點，我會先找那個一直坐在角落的人吃飯。',
         '劉備',
-        '麻衣',
+        '一之瀨',
       ),
-    ).toBe('謝謝麻衣提點，我會先找那個一直坐在角落的人吃飯。');
+    ).toBe('謝謝一之瀨提點，我會先找那個一直坐在角落的人吃飯。');
   });
 
   test('keeps the real conversation partner when already addressed correctly', () => {
     expect(
       repairConversationAddresseeText(
-        '謝謝麻衣提醒，我先不把它講成規則。',
+        '謝謝一之瀨提醒，我先不把它講成規則。',
         '劉備',
-        '麻衣',
+        '一之瀨',
       ),
-    ).toBe('謝謝麻衣提醒，我先不把它講成規則。');
+    ).toBe('謝謝一之瀨提醒，我先不把它講成規則。');
   });
 
   test('does not rewrite ordinary third-person references', () => {
@@ -26,7 +26,7 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '真晝昨天看起來很累。',
         '劉備',
-        '麻衣',
+        '一之瀨',
       ),
     ).toBe('真晝昨天看起來很累。');
   });
@@ -36,7 +36,7 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '謝謝海邊的風讓我冷靜。',
         '劉備',
-        '麻衣',
+        '一之瀨',
       ),
     ).toBe('謝謝海邊的風讓我冷靜。');
   });
@@ -46,9 +46,9 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '你為什麼今天沒說話，海真晝？',
         '曹操',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('你為什麼今天沒說話，明日奈？');
+    ).toBe('你為什麼今天沒說話，天澤？');
   });
 
   test('repairs observed hallucinated leading addressee to the real conversation partner', () => {
@@ -56,32 +56,32 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '曉夢同學，你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。',
         '劉備',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。');
+    ).toBe('天澤，你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。');
   });
 
   test('keeps a correct terminal vocative', () => {
     expect(
       repairConversationAddresseeText(
-        '你今天先不要再接新的清單，明日奈？',
+        '你今天先不要再接新的清單，天澤？',
         '曹操',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('你今天先不要再接新的清單，明日奈？');
+    ).toBe('你今天先不要再接新的清單，天澤？');
   });
 
-  test('normalizes the observed Asuna typo only when Asuna is the conversation partner', () => {
+  test('normalizes the observed Tianze typo only when Tianze is the conversation partner', () => {
     expect(
       repairConversationAddresseeText(
         '放心去寫吧，明天奈。',
         '曹操',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('放心去寫吧，明日奈。');
+    ).toBe('放心去寫吧，天澤。');
   });
 
-  test('does not rewrite the Asuna typo when Asuna is not the conversation partner', () => {
+  test('does not rewrite the Tianze typo when Tianze is not the conversation partner', () => {
     expect(
       repairConversationAddresseeText(
         '我剛才聽見有人叫明天奈。',
@@ -113,15 +113,15 @@ describe('conversation addressee repair', () => {
       repairConversationAddresseeText(
         '明晝，你為什麼那天沒有來？',
         '曹操',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('你為什麼那天沒有來？');
+    ).toBe('天澤，你為什麼那天沒有來？');
     expect(
       repairConversationAddresseeText(
         '你為什麼那天沒有來，明晝？',
         '曹操',
-        'Asuna',
+        'Tianze',
       ),
-    ).toBe('你為什麼那天沒有來，明日奈？');
+    ).toBe('你為什麼那天沒有來，天澤？');
   });
 });

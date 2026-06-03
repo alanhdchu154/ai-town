@@ -25,7 +25,11 @@ import { internal } from '../_generated/api';
 import { HistoricalObject } from '../engine/historicalObject';
 import { AgentDescription, serializedAgentDescription } from './agentDescription';
 import { parseMap, serializeMap } from '../util/object';
-import { isFreeWorldCloudCharacterName, isGeneratedFallbackText } from '../modelPolicy';
+import {
+  characterSoulPersistenceRejectionReason,
+  isFreeWorldCloudCharacterName,
+  isGeneratedFallbackText,
+} from '../modelPolicy';
 
 const gameState = v.object({
   world: v.object(serializedWorld),
@@ -43,6 +47,95 @@ const gameStateDiff = v.object({
   agentOperations: v.array(v.object({ name: v.string(), args: v.any() })),
 });
 type GameStateDiff = Infer<typeof gameStateDiff>;
+
+type DeletedConversationArchiveDecision = {
+  archive: boolean;
+  deleteMessages: boolean;
+  writeParticipatedTogether: boolean;
+  reason: string;
+};
+
+export function deletedConversationArchiveDecisionForTest(args: {
+  conversationNumMessages: number;
+  meaningfulMessageCount: number;
+  meaningfulAuthorCount: number;
+  humanInConversation: boolean;
+  hasCloudCharacter: boolean;
+  failedCharacterSoulPilot: boolean;
+  hasGeneratedFallbackText: boolean;
+  persistenceRejection: boolean;
+}): DeletedConversationArchiveDecision {
+  if (args.meaningfulMessageCount === 0 && args.conversationNumMessages === 0) {
+    return {
+      archive: false,
+      deleteMessages: false,
+      writeParticipatedTogether: false,
+      reason: 'empty_conversation',
+    };
+  }
+  if (args.failedCharacterSoulPilot) {
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'failed_character_soul_pilot',
+    };
+  }
+  if (args.meaningfulMessageCount === 0) {
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'no_meaningful_messages',
+    };
+  }
+  if (args.meaningfulMessageCount < 2 || args.meaningfulAuthorCount < 2) {
+    if (args.humanInConversation) {
+      return {
+        archive: true,
+        deleteMessages: false,
+        writeParticipatedTogether: false,
+        reason: 'human_single_sided_diagnostic',
+      };
+    }
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'weak_single_sided_autonomous_conversation',
+    };
+  }
+  if (!args.humanInConversation && !args.hasCloudCharacter && args.meaningfulMessageCount < 4) {
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'weak_non_cloud_autonomous_conversation',
+    };
+  }
+  if (args.hasGeneratedFallbackText) {
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'generated_fallback_text',
+    };
+  }
+  if (args.persistenceRejection) {
+    return {
+      archive: false,
+      deleteMessages: true,
+      writeParticipatedTogether: false,
+      reason: 'character_soul_persistence_rejection',
+    };
+  }
+  return {
+    archive: true,
+    deleteMessages: false,
+    writeParticipatedTogether: true,
+    reason: 'archive_conversation',
+  };
+}
 
 export class Game extends AbstractGame {
   tickDuration = 16;
@@ -272,11 +365,6 @@ export class Game extends AbstractGame {
     for (const conversation of existingWorld.conversations) {
       if (!newWorld.conversations.some((c) => c.id === conversation.id)) {
         const participants = conversation.participants.map((p) => p.playerId as GameId<'players'>);
-        const failedCharacterSoulPilot =
-          conversation.numMessages < 2 && isFailedCharacterSoulPilot(participants, playerNames);
-        if (conversation.numMessages === 0) {
-          continue;
-        }
         let messages: Doc<'messages'>[] | undefined;
         const loadMessages = async () => {
           messages ??= await ctx.db
@@ -292,29 +380,66 @@ export class Game extends AbstractGame {
             await ctx.db.delete(message._id);
           }
         };
-        if (failedCharacterSoulPilot) {
-          await deleteMessages();
-          continue;
-        }
         const conversationMessages = await loadMessages();
         const meaningfulMessages = conversationMessages.filter((message) => message.text.trim().length > 0);
         const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
-        if (meaningfulMessages.length < 2 || meaningfulAuthors.size < 2) {
-          await deleteMessages();
-          continue;
-        }
         const humanInConversation = participants.some((participant) => humanPlayers.get(participant));
         const hasCloudCharacter = participants.some((participant) => {
           const name = playerNames.get(participant);
           return typeof name === 'string' && isFreeWorldCloudCharacterName(name);
         });
-        if (!humanInConversation && !hasCloudCharacter && meaningfulMessages.length < 4) {
-          await deleteMessages();
+        const participantNames = participants
+          .map((participant) => playerNames.get(participant))
+          .filter((name): name is string => typeof name === 'string');
+        const meaningfulMessageTexts = meaningfulMessages.map((message) => message.text);
+        const persistenceRejection = characterSoulPersistenceRejectionReason(
+          participantNames,
+          meaningfulMessageTexts,
+        );
+        const failedCharacterSoulPilot =
+          meaningfulMessages.length < 2 && isFailedCharacterSoulPilot(participants, playerNames);
+        const archiveDecision = deletedConversationArchiveDecisionForTest({
+          conversationNumMessages: conversation.numMessages,
+          meaningfulMessageCount: meaningfulMessages.length,
+          meaningfulAuthorCount: meaningfulAuthors.size,
+          humanInConversation,
+          hasCloudCharacter,
+          failedCharacterSoulPilot,
+          hasGeneratedFallbackText: conversationMessages.some((message) =>
+            isGeneratedFallbackText(message.text),
+          ),
+          persistenceRejection: persistenceRejection !== null,
+        });
+        if (persistenceRejection !== null && archiveDecision.deleteMessages) {
+          console.warn('Skipping archived conversation due to character-soul persistence guard', {
+            conversationId: conversation.id,
+            participantNames,
+            reason: persistenceRejection,
+            messageCount: meaningfulMessages.length,
+          });
+        }
+        if (!archiveDecision.archive) {
+          if (archiveDecision.deleteMessages) {
+            await deleteMessages();
+          }
           continue;
         }
-        if (conversationMessages.some((message) => isGeneratedFallbackText(message.text))) {
-          await deleteMessages();
-          continue;
+        const lastMeaningfulMessage = meaningfulMessages.at(-1);
+        const lastMessage =
+          conversation.lastMessage ??
+          (lastMeaningfulMessage
+            ? {
+                author: lastMeaningfulMessage.author as GameId<'players'>,
+                timestamp: lastMeaningfulMessage._creationTime,
+              }
+            : undefined);
+        const archivedNumMessages = Math.max(conversation.numMessages, meaningfulMessages.length);
+        if (archiveDecision.reason === 'human_single_sided_diagnostic') {
+          console.warn('Archiving single-sided human conversation for diagnostic review', {
+            conversationId: conversation.id,
+            participantNames,
+            messageCount: meaningfulMessages.length,
+          });
         }
         const archivedConversation = {
           worldId,
@@ -322,25 +447,27 @@ export class Game extends AbstractGame {
           created: conversation.created,
           creator: conversation.creator,
           ended: Date.now(),
-          lastMessage: conversation.lastMessage,
-          numMessages: conversation.numMessages,
+          lastMessage,
+          numMessages: archivedNumMessages,
           participants,
         };
         await ctx.db.insert('archivedConversations', archivedConversation);
-        for (let i = 0; i < participants.length; i++) {
-          for (let j = 0; j < participants.length; j++) {
-            if (i == j) {
-              continue;
+        if (archiveDecision.writeParticipatedTogether) {
+          for (let i = 0; i < participants.length; i++) {
+            for (let j = 0; j < participants.length; j++) {
+              if (i == j) {
+                continue;
+              }
+              const player1 = participants[i];
+              const player2 = participants[j];
+              await ctx.db.insert('participatedTogether', {
+                worldId,
+                conversationId: conversation.id,
+                player1,
+                player2,
+                ended: Date.now(),
+              });
             }
-            const player1 = participants[i];
-            const player2 = participants[j];
-            await ctx.db.insert('participatedTogether', {
-              worldId,
-              conversationId: conversation.id,
-              player1,
-              player2,
-              ended: Date.now(),
-            });
           }
         }
       }
@@ -410,8 +537,9 @@ function isFailedCharacterSoulPilot(
     participants.map((playerId) => canonicalPilotName(playerNames.get(playerId))).filter(Boolean),
   );
   if (names.has('Umi') && names.has('Mahiru')) return true;
+  if (names.has('Tianze') && names.has('Ichinose')) return true;
   if (process.env.SOUL_TRIAD_COLOCATION_PILOT !== 'true') return false;
-  const triadNames = new Set(['Umi', 'Mahiru', 'Asuna']);
+  const triadNames = new Set(['Umi', 'Mahiru', 'Tianze']);
   return [...names].every((name) => typeof name === 'string' && triadNames.has(name));
 }
 

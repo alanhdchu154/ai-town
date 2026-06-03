@@ -34,7 +34,13 @@ const LOCAL_SMOKE_MODELS = new Set(['qwen2.5:1.5b']);
 const CHARACTER_SOUL_CLOUD_PROVIDERS = new Set<string>(
   MODEL_POLICY.characterSoul.allowedProviders,
 );
-const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'asuna']);
+const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set([
+  'umi',
+  'mahiru',
+  'mahirushiina',
+  'tianze',
+  'ichinose',
+]);
 
 const DEFAULT_DAILY_QUOTA = 24;
 const DEFAULT_COOLDOWN_MS = 5 * 60_000;
@@ -125,7 +131,7 @@ export function freeWorldConversationProviderRole(
 }
 
 export function characterSoulLocalFallbackEnabled(env: ModelPolicyEnv = process.env) {
-  return env.CHARACTER_SOUL_LOCAL_FALLBACK !== 'false';
+  return env.CHARACTER_SOUL_LOCAL_FALLBACK === 'true';
 }
 
 export function characterSoulProviderGuard(env: ModelPolicyEnv = process.env, now = Date.now()) {
@@ -215,7 +221,7 @@ export function isSystemAbortMarker(text: string): boolean {
 // in conversation.ts. A model emitting these standalone by coincidence is
 // theoretically possible but vanishingly unlikely (the strings are
 // signature-unique to their template branches). Where there was overlap
-// with documented golden lines (the Asuna soul references), we picked a
+// with documented golden lines (the Tianze soul references), we picked a
 // phrase that ONLY exists in the template context — see comments below.
 export function isDeterministicTemplatePhrase(text: string): boolean {
   return (
@@ -227,7 +233,7 @@ export function isDeterministicTemplatePhrase(text: string): boolean {
     text.includes('先不要重複') ||
     text.includes('我可以拆下一步') ||
     // Detects the L2736 / L1380 templates via a phrase that ONLY appears
-    // in deterministic templates, not in the golden Asuna line
+    // in deterministic templates, not in the golden Tianze line
     // 「不是所有事都該默默丟給我」 itself. Without this split we would
     // block the legitimate model-generated golden line (see docs/soul/
     // UNDERWORLD_SOUL_ARCHITECTURE.md and README golden moments).
@@ -254,14 +260,68 @@ export function isGeneratedFallbackText(text: string): boolean {
   return isSystemAbortMarker(text) || isDeterministicTemplatePhrase(text);
 }
 
+const CHARACTER_SOUL_REPEATED_MOTIFS = [
+  '便當',
+  '便當盒',
+  '餐盤',
+  '三明治',
+  '熱湯',
+  '湯匙',
+  '筷子',
+  '魚排',
+  '飯',
+  '杯子',
+  '杯',
+  '茶',
+  '冷茶',
+  '紅茶',
+  '咖啡',
+  '清單',
+  '名單',
+  '表單',
+  '文件',
+  '資料',
+  '數據',
+  '便條',
+  '紀錄表',
+  '簡報',
+  '燈',
+  '門縫',
+  '窗',
+  '角落',
+  '椅子',
+  '座位',
+  '桌子',
+];
+
+function repeatedCharacterSoulMotif(messages: string[]) {
+  const text = messages.join('\n');
+  return CHARACTER_SOUL_REPEATED_MOTIFS.find((motif) => countLiteral(text, motif) >= 3);
+}
+
+function countLiteral(text: string, literal: string) {
+  if (!literal) return 0;
+  return text.split(literal).length - 1;
+}
+
 export function shouldPersistCharacterSoulTranscript(participantNames: string[], messages: string[]) {
+  return characterSoulPersistenceRejectionReason(participantNames, messages) === null;
+}
+
+export function characterSoulPersistenceRejectionReason(
+  participantNames: string[],
+  messages: string[],
+): null | 'generated_fallback' | 'empty_pilot_transcript' | 'too_short_pilot_transcript' {
   const names = new Set(participantNames.map(normalizedCharacterName));
+  const coreTriadCount = ['umi', 'mahiru', 'mahirushiina', 'tianze'].filter((name) => names.has(name)).length;
+  const isTianzeIchinosePair = names.has('tianze') && names.has('ichinose');
   const isPilotPair =
     (names.has('umi') && (names.has('mahiru') || names.has('mahirushiina'))) ||
-    (process.env.SOUL_TRIAD_COLOCATION_PILOT === 'true' &&
-      ['umi', 'mahiru', 'mahirushiina', 'asuna'].filter((name) => names.has(name)).length >= 2);
-  if (messages.some(isGeneratedFallbackText)) return false;
-  if (!isPilotPair) return true;
-  if (messages.length === 0) return false;
-  return true;
+    coreTriadCount >= 2 ||
+    isTianzeIchinosePair;
+  if (messages.some(isGeneratedFallbackText)) return 'generated_fallback';
+  if (!isPilotPair) return null;
+  if (messages.length === 0) return 'empty_pilot_transcript';
+  if (messages.length < 3) return 'too_short_pilot_transcript';
+  return null;
 }

@@ -12,6 +12,7 @@ import {
   CONVERSATION_DISTANCE,
   INVITE_ACCEPT_PROBABILITY,
   INVITE_TIMEOUT,
+  HUMAN_CONVERSATION_IDLE_CLOSE_AFTER,
   MAX_CONVERSATION_DURATION,
   MAX_CONVERSATION_MESSAGES,
   MESSAGE_COOLDOWN,
@@ -31,12 +32,12 @@ const CONVERSATION_NAME_ALIASES = [
   'Umi',
   '海',
   '朝凪海',
-  'Asuna',
-  '明日奈',
-  '結城明日奈',
-  'Mai',
-  '麻衣',
-  '櫻島麻衣',
+  'Tianze',
+  '天澤',
+  '天澤',
+  'Ichinose',
+  '一之瀨',
+  '一之瀨',
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
@@ -117,14 +118,14 @@ function conversationSingleFlightEnabled() {
 // --------------------------------------------------------------------
 // Soul-triad / Umi-Mahiru pilot env knobs (off by default).
 //
-// These open temporary collection windows for the Umi / Mahiru / Asuna
+// These open temporary collection windows for the Umi / Mahiru / Tianze
 // pilot. They never affect the live autonomous world unless explicitly
 // set, and the pilot scripts in scripts/run-*-single-sample.mjs remove
 // them in their `finally` blocks. Do not turn them on in production
 // without an explicit token-budget check.
 //
 //   UMI_MAHIRU_COLOCATION_PILOT       'true' to enable Umi↔Mahiru pilot
-//   SOUL_TRIAD_COLOCATION_PILOT       'true' to enable Umi/Mahiru/Asuna trio
+//   SOUL_TRIAD_COLOCATION_PILOT       'true' to enable Umi/Mahiru/Tianze trio
 //   UMI_MAHIRU_SINGLE_SAMPLE_AFTER_MS ms before single-sample window ends
 //   SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS ms before triad single-sample window ends
 //   SOUL_TRIAD_FOCUS_PAIR             "NameA:NameB" to force one dyad this run
@@ -164,9 +165,9 @@ function soulTriadSingleSampleAfterMs(): number | undefined {
 }
 
 // Optional collection knob: when set to a single "Name:Name" dyad (e.g.
-// "Mahiru:Asuna"), the soul-triad pilot only lets that specific pair seek
+// "Mahiru:Tianze"), the soul-triad pilot only lets that specific pair seek
 // each other this run. Lets the QA/observe loops rotate coverage so Mahiru is not
-// starved by the Umi<->Asuna mutual-first-choice attractor. Unset == current
+// starved by the Umi<->Tianze mutual-first-choice attractor. Unset == current
 // behavior. Pilot-gated only; never affects the live autonomous world.
 function soulTriadFocusPairNames(): string[] | undefined {
   const raw = process.env.SOUL_TRIAD_FOCUS_PAIR;
@@ -187,7 +188,7 @@ function isUmiMahiruPilotConversation(leftPlayerId: GameId<'players'>, rightPlay
 }
 
 function isSoulTriadName(name?: string) {
-  return name === 'Umi' || name === 'Mahiru' || name === 'Asuna';
+  return name === 'Umi' || name === 'Mahiru' || name === 'Tianze';
 }
 
 function agentActionSingleFlightEnabled() {
@@ -411,6 +412,11 @@ export class Agent {
         const tooLongDeadline = started + MAX_CONVERSATION_DURATION;
         const hardDeadline = started + hardAutonomousConversationDurationMs();
         const hasHumanParticipant = player.human || otherPlayer.human;
+        const idleHumanConversationCloseDue =
+          !player.human &&
+          Boolean(otherPlayer.human) &&
+          otherPlayer.lastInput < now - HUMAN_CONVERSATION_IDLE_CLOSE_AFTER &&
+          conversation.lastMessage.author === player.id;
         const overMaxMessages = conversation.numMessages > maxConversationMessages();
         const reachedMinShape = conversation.numMessages >= minAutonomousConversationMessages();
         // Ordinary duration timeout only ends the conversation once it has
@@ -423,6 +429,28 @@ export class Agent {
             return;
           }
           console.log(`${player.id} leaving conversation with ${otherPlayer.id}.`);
+          const messageUuid = crypto.randomUUID();
+          conversation.setIsTyping(now, player, messageUuid);
+          this.startOperation(game, now, 'agentGenerateMessage', {
+            worldId: game.worldId,
+            playerId: player.id,
+            agentId: this.id,
+            conversationId: conversation.id,
+            otherPlayerId: otherPlayer.id,
+            messageUuid,
+            type: 'leave',
+          });
+          return;
+        }
+        if (idleHumanConversationCloseDue) {
+          const awkwardDeadline = conversation.lastMessage.timestamp + AWKWARD_CONVERSATION_TIMEOUT;
+          if (now < awkwardDeadline) {
+            return;
+          }
+          if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
+            return;
+          }
+          console.log(`${player.id} closing idle human conversation with ${otherPlayer.id}.`);
           const messageUuid = crypto.randomUUID();
           conversation.setIsTyping(now, player, messageUuid);
           this.startOperation(game, now, 'agentGenerateMessage', {
@@ -591,6 +619,7 @@ export async function runAgentOperation(ctx: MutationCtx, operation: string, arg
 
 export interface ConversationLeaveState {
   hasHumanParticipant: boolean;
+  humanIdleCloseDue?: boolean;
   currentMessageCount: number;
   conversationCreated: number;
 }
@@ -598,15 +627,17 @@ export interface ConversationLeaveState {
 // Decide whether an autonomous conversation's requested leave should be held
 // back. We defer the leave only when: it is a non-human conversation, sending
 // this next message would still leave it below the minimum shape, and the hard
-// duration cap has not yet elapsed. Human conversations and hard-timed-out
-// conversations are never deferred.
+// duration cap has not yet elapsed. Alan-facing human conversations are also
+// deferred: only Alan's explicit leave action should close those chats.
 export function shouldDeferConversationLeave(
   state: ConversationLeaveState | undefined,
   now: number,
 ): boolean {
-  if (!state || state.hasHumanParticipant) {
+  if (!state) {
     return false;
   }
+  if (state.hasHumanParticipant && state.humanIdleCloseDue) return false;
+  if (state.hasHumanParticipant) return true;
   if (state.currentMessageCount + 1 >= minAutonomousConversationMessages()) {
     return false;
   }
@@ -617,6 +648,7 @@ async function loadConversationLeaveState(
   ctx: MutationCtx,
   worldId: Id<'worlds'>,
   conversationIdValue: string,
+  now: number,
 ): Promise<ConversationLeaveState | undefined> {
   const world = await ctx.db.get(worldId);
   const conversation = world?.conversations.find((item: any) => item.id === conversationIdValue);
@@ -627,8 +659,17 @@ async function loadConversationLeaveState(
     .map((member: any) => (typeof member === 'string' ? member : member?.playerId))
     .filter((id: unknown): id is string => typeof id === 'string')
     .some((id: string) => world.players.some((p: any) => p.id === id && p.human));
+  const humanIdleCloseDue = conversation.participants
+    .map((member: any) => (typeof member === 'string' ? member : member?.playerId))
+    .filter((id: unknown): id is string => typeof id === 'string')
+    .some((id: string) =>
+      world.players.some(
+        (p: any) => p.id === id && p.human && p.lastInput < now - HUMAN_CONVERSATION_IDLE_CLOSE_AFTER,
+      ),
+    );
   return {
     hasHumanParticipant,
+    humanIdleCloseDue,
     currentMessageCount: conversation.numMessages,
     conversationCreated: conversation.created,
   };
@@ -674,7 +715,7 @@ export const agentSendMessage = internalMutation({
     const leaveConversation =
       args.leaveConversation &&
       !shouldDeferConversationLeave(
-        await loadConversationLeaveState(ctx, args.worldId, args.conversationId),
+        await loadConversationLeaveState(ctx, args.worldId, args.conversationId, now),
         now,
       );
     await insertInput(ctx, args.worldId, 'agentFinishSendingMessage', {
@@ -806,12 +847,17 @@ function displayConversationName(name: string) {
     case 'Umi':
     case '朝凪海':
       return '海';
-    case 'Asuna':
-    case '結城明日奈':
-      return '明日奈';
-    case 'Mai':
-    case '櫻島麻衣':
-      return '麻衣';
+    case 'Tianze':
+    case '天澤':
+    case '天擇':
+    case '天擇一夏':
+    case '天澤一夏':
+      return '天澤';
+    case 'Ichinose':
+    case '一之瀨':
+    case '一之瀨帆波':
+    case '黑化一之瀨':
+      return '一之瀨';
     case 'Mahiru':
     case 'Mahiru Shiina':
     case '椎名真晝':
@@ -833,8 +879,8 @@ function conversationNameAliasesFor(name: string) {
   const displayName = displayConversationName(name);
   const aliases = new Set([name, displayName]);
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
-  if (displayName === '明日奈') aliases.add('Asuna').add('結城明日奈');
-  if (displayName === '麻衣') aliases.add('Mai').add('櫻島麻衣');
+  if (displayName === '天澤') aliases.add('Tianze').add('天澤').add('天澤').add('天擇').add('天擇一夏').add('天澤一夏');
+  if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨').add('一之瀨').add('一之瀨帆波').add('黑化一之瀨');
   if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
   if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
   if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
@@ -886,7 +932,7 @@ export const findConversationCandidate = internalQuery({
       const focusPair = soulTriadFocusPairNames();
       if (focusPair && !(playerName && focusPair.includes(playerName))) {
         // A specific dyad is being collected this run; players outside it stay idle
-        // so the rotation can guarantee coverage (e.g. Mahiru<->Asuna).
+        // so the rotation can guarantee coverage (e.g. Mahiru<->Tianze).
         return undefined;
       }
       if (focusPair && playerName !== focusPair[0]) {
@@ -898,9 +944,9 @@ export const findConversationCandidate = internalQuery({
       const preferredTargets = focusPair
         ? focusPair.filter((name) => name !== playerName)
         : playerName === 'Umi'
-          ? ['Asuna', 'Mahiru']
+          ? ['Tianze', 'Mahiru']
           : playerName === 'Mahiru'
-            ? ['Asuna', 'Umi']
+            ? ['Tianze', 'Umi']
             : ['Umi', 'Mahiru'];
       for (const targetName of preferredTargets) {
         const target = otherFreePlayers.find(

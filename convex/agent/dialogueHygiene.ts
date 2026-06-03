@@ -47,6 +47,34 @@ export function hasDialogueSystemPhraseLeak(line: string) {
   );
 }
 
+export function hasCompanionSemanticDrift(line: string, lastInput?: string) {
+  const input = normalizeCompact(lastInput ?? '');
+  const reply = normalizeCompact(line);
+  if (!input || !reply) return false;
+
+  // Alan can be talking about his feeling toward Umi. In that mode, invented
+  // physical analogies are more harmful than helpful because they dodge the
+  // actual sentence Alan just gave her.
+  if (
+    /喜歡|依賴|靠近|重要/.test(input) &&
+    /如果.{0,30}(餐桌|椅子|吃得太多|放不下|餐盤|便當|咖哩|三明治)/.test(reply)
+  ) {
+    return true;
+  }
+
+  // If Alan explicitly corrected "不是依賴，是喜歡", do not ask again whether
+  // the issue is dependence. That is a binding failure, not a useful follow-up.
+  if (/不是依賴.*喜歡|喜歡.*不是依賴/.test(input) && /依賴[嗎呢啊？?]|關於依賴/.test(reply)) {
+    return true;
+  }
+
+  return false;
+}
+
+function normalizeCompact(value: string) {
+  return value.replace(/\s+/g, '').trim();
+}
+
 function isStageDirectionClause(clause: string) {
   const trimmed = clause
     .trim()
@@ -57,7 +85,7 @@ function isStageDirectionClause(clause: string) {
     .replace(/^那(?=我)/g, '');
   if (!withoutLeadIn) return false;
   return (
-    /^(?:我)(?:輕輕|慢慢|先|再|又|剛|剛剛|剛才|剛才只是|默默|順手|得去)?(?:合上|放下|看向|走到|靠回|拿起|起身|伸手|握住|推開|按住|移開|坐下|站起|轉身|低頭|抬頭|停下|停住|靠近|退開|盯著|把手機|把[^，,。！？!?；;]{0,18}(?:放下|轉過去|拿起|推開|按住|移開|合上|收起|遞過去|蓋好|劃掉|圈掉|收進|放進|推到))/.test(
+    /^(?:我)(?:輕輕|慢慢|先|再|又|剛|剛剛|剛才|剛才只是|默默|順手|得去|去)?(?:合上|放下|看向|走到|靠回|拿起|起身|伸手|握住|推開|按住|移開|坐下|站起|轉身|低頭|抬頭|停下|停住|靠近|退開|盯著|把手機|把[^，,。！？!?；;]{0,18}(?:放下|轉過去|拿起|推開|按住|移開|合上|收起|遞過去|蓋好|劃掉|圈掉|收進|放進|推到|倒了|倒掉|倒出|拉上|拉開|端過來|端來))/.test(
       withoutLeadIn,
     ) ||
     /^看(?:你|妳|著|向)/.test(withoutLeadIn) ||
@@ -73,7 +101,7 @@ function isStageDirectionClause(clause: string) {
 
 function knownCharacterStageDirectionClause(line: string) {
   const trimmed = line.trim();
-  return /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$))/.test(
+  return /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$))/.test(
     trimmed,
   );
 }
@@ -81,7 +109,7 @@ function knownCharacterStageDirectionClause(line: string) {
 function quotedSpeechFromThirdPersonNarration(line: string) {
   const trimmed = line.trim();
   const match = trimmed.match(
-    /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「([^」]{1,240})」[。.!！?？]*$/,
+    /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「([^」]{1,240})」[。.!！?？]*$/,
   );
   return match?.[1]?.trim() ?? '';
 }
@@ -89,7 +117,7 @@ function quotedSpeechFromThirdPersonNarration(line: string) {
 function firstPersonFromUnquotedThirdPersonSelfNarration(line: string) {
   const trimmed = line.trim();
   const match = trimmed.match(
-    /^(?:海|真晝|明晝|阿真晝|明日奈|麻衣|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Asuna|Mai|CaoCao|Liu Bei)\s*(注意到|覺得|感覺|想起|知道|聽見|看見|看到)(.{2,260})$/,
+    /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(注意到|覺得|感覺|想起|知道|聽見|看見|看到)(.{2,260})$/,
   );
   if (!match) return undefined;
   return `我${match[1]}${match[2]}`.trim();

@@ -101,6 +101,21 @@ export const writeMessage = mutation({
   handler: async (ctx, args) => {
     const mutationStart = Date.now();
     const now = Date.now();
+    const existingMessage = await ctx.db
+      .query('messages')
+      .withIndex('messageUuid', (q) =>
+        q.eq('conversationId', args.conversationId).eq('messageUuid', args.messageUuid),
+      )
+      .first();
+    if (existingMessage) {
+      logGiisTiming({
+        action: 'writeMessage',
+        phase: 'duplicateMessageUuidSkipped',
+        ms: Date.now() - mutationStart,
+        playerId: args.playerId,
+      });
+      return;
+    }
     const authorDescription = await ctx.db
       .query('playerDescriptions')
       .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
@@ -155,6 +170,7 @@ export const writeMessage = mutation({
         worldId: args.worldId,
         eventId: `alan_chat_${now}_${Math.random().toString(36).slice(2, 8)}`,
         type: 'chatMessage',
+        conversationId: args.conversationId,
         actorPlayerId: args.playerId,
         targetPlayerId,
         actorName: 'Alan',

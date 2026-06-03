@@ -20,7 +20,7 @@ const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'soul-loop-latest.md');
 const PROPOSAL_DIR = join(REPO_ROOT, 'umi', 'proposals');
 const GOLDEN_DIR = join(REPO_ROOT, 'evals', 'conversations', 'golden');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
+const TRIAD_NAMES = new Set(['海', '真晝', '天澤', 'Umi', 'Mahiru', 'Tianze']);
 
 const args = new Map(
   process.argv
@@ -41,9 +41,9 @@ const SAMPLE_TIMEOUT_MS = Number(args.get('sample-timeout-ms') ?? 240_000);
 const SAMPLE_POLL_MS = Number(args.get('sample-poll-ms') ?? 7_000);
 
 // Rotate the collected dyad across samples so every triad pair is exercised and
-// Mahiru is not starved by the Umi<->Asuna mutual-first-choice attractor.
+// Mahiru is not starved by the Umi<->Tianze mutual-first-choice attractor.
 // Mahiru appears in 2 of every 3 samples. Disable with --no-focus-rotation.
-const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Asuna', 'Umi:Asuna'];
+const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Tianze', 'Umi:Tianze'];
 const FOCUS_ROTATION_ENABLED = args.get('no-focus-rotation') !== 'true';
 
 async function main() {
@@ -274,7 +274,7 @@ function topFailureCategory(report, collectionResults) {
   if (/System penalty/.test(report) && /心理機制|情緒層|角色設定|系統|模型/.test(report)) {
     return 'over_explanation';
   }
-  if (/No Umi\/Mahiru\/Asuna triad samples found|sample pending/i.test(report)) return 'sample_pending';
+  if (/No Umi\/Mahiru\/Tianze triad samples found|sample pending/i.test(report)) return 'sample_pending';
   return 'needs_more_evidence';
 }
 

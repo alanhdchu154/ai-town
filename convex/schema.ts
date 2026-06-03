@@ -166,6 +166,7 @@ export default defineSchema({
     worldId: v.id('worlds'),
     eventId: v.string(),
     type: v.string(),
+    conversationId: v.optional(conversationId),
     actorPlayerId: v.optional(playerId),
     targetPlayerId: v.optional(playerId),
     actorName: v.optional(v.string()),

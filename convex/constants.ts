@@ -67,6 +67,7 @@ export const VACUUM_MAX_AGE = 2 * 7 * 24 * 60 * 60 * 1000;
 export const DELETE_BATCH_SIZE = 64;
 
 export const HUMAN_IDLE_TOO_LONG = 5 * 60 * 1000;
+export const HUMAN_CONVERSATION_IDLE_CLOSE_AFTER = 8 * 60 * 1000;
 
 export const ACTIVITIES = [
   { description: 'preparing class notes', emoji: '📖', duration: 60_000 },

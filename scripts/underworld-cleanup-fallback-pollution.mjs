@@ -19,10 +19,11 @@ const args = parseArgs(process.argv.slice(2));
 const APPLY = args.get('apply') === 'true';
 const LIMIT = numberArg('limit', 1000, 50, 1000);
 const INCLUDE_ARCHIVED = args.get('include-archived-conversations') === 'true';
+const SCOPE = args.get('scope') ?? 'active';
 
 async function main() {
   const dryRun = !APPLY;
-  console.log(`[fallback-cleanup] ${dryRun ? 'dry-run' : 'APPLY'} limit=${LIMIT}`);
+  console.log(`[fallback-cleanup] ${dryRun ? 'dry-run' : 'APPLY'} limit=${LIMIT} scope=${SCOPE}`);
   if (!dryRun) {
     console.log('[fallback-cleanup] destructive cleanup requested; make sure Alan approved this run.');
   }
@@ -34,6 +35,7 @@ async function main() {
     dryRun,
     limit: LIMIT,
     includeArchivedConversations: INCLUDE_ARCHIVED,
+    scope: SCOPE,
   });
 
   await writeReport(result, audit, dryRun);
@@ -67,6 +69,7 @@ async function writeReport(result, audit, dryRun) {
     '',
     `Generated: ${new Date().toISOString()}`,
     `Mode: ${dryRun ? 'dry-run' : 'apply'}`,
+    `Scope: ${result.scope ?? 'active'}`,
     `World: ${result.worldId ?? 'unknown'}`,
     '',
     '## Counts',
@@ -99,15 +102,23 @@ async function writeReport(result, audit, dryRun) {
     '',
     '### Notifications',
     '',
-    ...exampleLines(audit.fallbackNotifications, (item) =>
-      `- ${item.notificationDocId} · ${item.relatedCharacterName} · ${trim(item.contentZh ?? '', 160)}`,
-    ),
+    ...(audit.fallbackNotificationCount === 0
+      ? ['None.']
+      : result.notificationDocs > 0
+      ? exampleLines(audit.fallbackNotifications, (item) =>
+          `- ${item.notificationDocId} · ${item.relatedCharacterName} · ${trim(item.contentZh ?? '', 160)}`,
+        )
+      : ['Retained by scope. Notifications were not cleanup targets in this run.']),
     '',
     '### Profiles',
     '',
-    ...exampleLines(audit.pollutedProfiles, (item) =>
-      `- ${item.profileId} · ${item.playerName} · intentions=${(item.pollutedIntentions ?? []).map((line) => trim(line, 120)).join(' / ') || 'none'} shortMemory=${(item.pollutedShortMemory ?? []).length} longMemory=${(item.pollutedLongMemory ?? []).length} beliefs=${(item.pollutedBeliefs ?? []).length}`,
-    ),
+    ...(audit.pollutedProfileCount === 0
+      ? ['None.']
+      : result.profileDocs > 0
+      ? exampleLines(audit.pollutedProfiles, (item) =>
+          `- ${item.profileId} · ${item.playerName} · intentions=${(item.pollutedIntentions ?? []).map((line) => trim(line, 120)).join(' / ') || 'none'} shortMemory=${(item.pollutedShortMemory ?? []).length} longMemory=${(item.pollutedLongMemory ?? []).length} beliefs=${(item.pollutedBeliefs ?? []).length}`,
+        )
+      : ['Retained by scope. Profiles were not cleanup targets in this run.']),
     '',
     '## Retained Historical Evidence',
     '',

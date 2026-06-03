@@ -21,7 +21,12 @@ const WATCHED_CONVERSATION_SOURCE_PATHS = [
   join(__dirname, '..', '..', 'convex', 'constants.ts'),
 ];
 const RECENT_LIMIT = Number(process.env.CONVERSATION_EVAL_RECENT_LIMIT ?? 12);
-const CONVEX_TIMEOUT_MS = Number(process.env.CONVERSATION_EVAL_CONVEX_TIMEOUT_MS ?? 30_000);
+const CONVEX_TIMEOUT_MS = Number(process.env.CONVERSATION_EVAL_CONVEX_TIMEOUT_MS ?? 180_000);
+const COMMAND_ENV = {
+  ...process.env,
+  CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:
+    process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? '180',
+};
 const SQLITE_RETRY_COUNT = Number(process.env.CONVERSATION_EVAL_SQLITE_RETRIES ?? 5);
 const SQLITE_RETRY_DELAY_MS = Number(process.env.CONVERSATION_EVAL_SQLITE_RETRY_DELAY_MS ?? 700);
 const SINCE_LAST_CHANGE = process.argv.includes('--since-last-change');
@@ -56,6 +61,8 @@ type TimelineEntry = {
 
 type RecentConversationEvalResponse = {
   conversations?: TimelineEntry[];
+  orphanChatSessions?: TimelineEntry[];
+  orphanChatEventCount?: number;
 };
 
 type RecentEvalItem = {
@@ -70,6 +77,7 @@ async function main() {
   const sinceLastChangeAt = SINCE_CREATED_AT ?? (SINCE_LAST_CHANGE ? await latestConversationSourceMtime() : undefined);
   const fetchLimit = RECENT_LIMIT;
   const data = await fetchRecentConversations(fetchLimit, sinceLastChangeAt);
+  const orphanChatSessions = data.orphanChatSessions ?? [];
   const conversations = (data.conversations ?? [])
     .filter((entry) => entry.kind === 'conversation' && entry.transcriptMessages?.length)
     .slice(0, fetchLimit);
@@ -90,8 +98,8 @@ async function main() {
     };
   });
   const activeItems = SINCE_LAST_CHANGE ? items.filter((item) => item.cohort === 'post_fix') : items.slice(0, RECENT_LIMIT);
-  printRecentSummary(activeItems, items, sinceLastChangeAt);
-  await writeReport(activeItems, items, sinceLastChangeAt);
+  printRecentSummary(activeItems, items, sinceLastChangeAt, orphanChatSessions);
+  await writeReport(activeItems, items, sinceLastChangeAt, orphanChatSessions);
 }
 
 function argNumber(name: string) {
@@ -129,6 +137,7 @@ async function fetchRecentConversations(
         cwd: REPO_ROOT,
         maxBuffer: 1024 * 1024 * 8,
         timeout: CONVEX_TIMEOUT_MS,
+        env: COMMAND_ENV,
       },
     );
     return parseJsonFromStdout(stdout);
@@ -377,6 +386,7 @@ function printRecentSummary(
   items: RecentEvalItem[],
   allItems: RecentEvalItem[] = items,
   sinceLastChangeAt?: number,
+  orphanChatSessions: TimelineEntry[] = [],
 ) {
   const rows = items.map((item) => ({
     conversation: item.entry.id,
@@ -404,6 +414,11 @@ function printRecentSummary(
   } else {
     console.log('No post-fix archived conversations found yet. Generate or wait for 5-10 new conversations before judging the fix.');
   }
+  if (orphanChatSessions.length) {
+    console.log(
+      `Diagnostic orphan Alan chat sessions: ${orphanChatSessions.length} (timeline/messages existed without a matching archived conversation).`,
+    );
+  }
   const counts = countStatuses(items.map((item) => item.result));
   const historicalCounts = countStatuses(
     allItems.filter((item) => item.cohort === 'legacy_noise').map((item) => item.result),
@@ -419,6 +434,7 @@ async function writeReport(
   items: RecentEvalItem[],
   allItems: RecentEvalItem[] = items,
   sinceLastChangeAt?: number,
+  orphanChatSessions: TimelineEntry[] = [],
 ) {
   await mkdir(dirname(REPORT_PATH), { recursive: true });
   const counts = countStatuses(items.map((item) => item.result));
@@ -452,10 +468,20 @@ async function writeReport(
     '',
     `Historical archived quality (legacy_noise): ${historicalCounts.PASS} PASS / ${historicalCounts.WARN} WARN / ${historicalCounts.FAIL} FAIL`,
     '',
+    `Diagnostic orphan Alan chat sessions: ${orphanChatSessions.length}`,
+    '',
     items.length < 5 && sinceLastChangeAt !== undefined
       ? 'Status: WAITING_FOR_NEW_CONVERSATIONS. Do not treat old archived failures as proof that the anti-repeat selector failed.'
       : 'Status: enough post-fix samples for a directional read.',
     '',
+    ...(orphanChatSessions.length ? [
+      '## Diagnostic Orphan Alan Chat Sessions',
+      '',
+      'These are Alan chat events that were visible in the timeline but did not have a matching archived conversation. They are backend persistence diagnostics, not direct character-quality scores.',
+      '',
+      ...orphanChatSessions.slice(0, 5).flatMap(renderOrphanChatSession),
+      '',
+    ] : []),
     '## Post-Fix Worst 5 Examples',
     '',
     ...(worst.length ? worst.flatMap(renderWorstItem) : ['No post-fix conversations available yet.', '']),
@@ -486,6 +512,25 @@ async function writeReport(
     '',
   ].join('\n');
   await writeFile(REPORT_PATH, markdown, 'utf8');
+}
+
+function renderOrphanChatSession(entry: TimelineEntry) {
+  const messages = entry.transcriptMessages ?? [];
+  const excerpt = messages
+    .slice(-8)
+    .map((message) => `> ${message.timestampLabelZh ?? ''} ${message.author}: ${message.text.replace(/\n/g, ' / ')}`)
+    .join('\n');
+  return [
+    `### ${entry.id}`,
+    '',
+    `Participants: ${(entry.involvedCharacters ?? []).join(' / ') || 'unknown'}`,
+    '',
+    `Messages: ${entry.transcriptMessages?.length ?? entry.previewMessages?.length ?? 0}`,
+    '',
+    'Excerpt:',
+    excerpt || '> No transcript excerpt available.',
+    '',
+  ];
 }
 
 function renderWorstItem(item: RecentEvalItem) {
@@ -567,8 +612,8 @@ function reasonFor(error: unknown) {
 function displayNameZh(name: string) {
   if (name === 'Alan') return 'Alan';
   if (name === 'Umi' || name === '海' || name === '朝凪海') return '海';
-  if (name === 'Asuna' || name === '明日奈' || name === '結城明日奈') return '明日奈';
-  if (name === 'Mai' || name === '麻衣' || name === '櫻島麻衣') return '麻衣';
+  if (name === 'Tianze' || name === '天澤' || name === '天澤一夏' || name === '天擇' || name === '天擇一夏' || name === '天澤' || name === '天澤') return '天澤';
+  if (name === 'Ichinose' || name === '一之瀨' || name === '一之瀨帆波' || name === '黑化一之瀨' || name === '一之瀨' || name === '一之瀨') return '一之瀨';
   if (name === 'Mahiru' || name === 'Mahiru Shiina' || name === '真晝' || name === '椎名真晝') return '真晝';
   if (name === 'CaoCao' || name === 'Cao Cao') return '曹操';
   if (name === 'Liu Bei' || name === 'LiuBei') return '劉備';
@@ -579,17 +624,17 @@ function naturalizeSchoolText(text: string) {
   return text
     .replaceAll('Mahiru Shiina', displayNameZh('Mahiru Shiina'))
     .replaceAll('椎名真晝', displayNameZh('椎名真晝'))
-    .replaceAll('結城明日奈', displayNameZh('結城明日奈'))
-    .replaceAll('櫻島麻衣', displayNameZh('櫻島麻衣'))
+    .replaceAll('天澤', displayNameZh('天澤'))
+    .replaceAll('一之瀨', displayNameZh('一之瀨'))
     .replaceAll('朝凪海', displayNameZh('朝凪海'))
     .replaceAll('Mahiru', displayNameZh('Mahiru'))
     .replaceAll('Cao Cao', displayNameZh('Cao Cao'))
     .replaceAll('CaoCao', displayNameZh('CaoCao'))
     .replaceAll('Liu Bei', displayNameZh('Liu Bei'))
     .replaceAll('LiuBei', displayNameZh('LiuBei'))
-    .replaceAll('Asuna', displayNameZh('Asuna'))
+    .replaceAll('Tianze', displayNameZh('Tianze'))
     .replaceAll('Umi', displayNameZh('Umi'))
-    .replaceAll('Mai', displayNameZh('Mai'));
+    .replaceAll('Ichinose', displayNameZh('Ichinose'));
 }
 
 function formatTimeLabel(createdAt: number) {

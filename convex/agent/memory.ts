@@ -42,7 +42,7 @@ type MemoryRetentionDecision = {
 };
 
 const RESIDUE_PREFIX = '殘留：';
-const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '明日奈']);
+const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '天澤']);
 const MEMORY_POST_PROCESSING_DRIFT_CUES = [
   'AI 社',
   'AI社',
@@ -146,10 +146,13 @@ function deterministicConversationSummary(
   messages: Doc<'messages'>[],
 ) {
   const anchorText = memoryAnchorTextForMessages(messages);
+  const commitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages);
   const preview = anchorText
     ? `留下的情緒重點是：「${anchorText.slice(0, 96)}${anchorText.length > 96 ? '...' : ''}」`
     : '這段對話沒有留下明確訊息。';
-  return `${player.name} 和 ${otherPlayer.name} 進行了一段短暫對話；${preview}`;
+  return [commitment, `${player.name} 和 ${otherPlayer.name} 進行了一段短暫對話；${preview}`]
+    .filter(Boolean)
+    .join('；');
 }
 
 export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
@@ -165,6 +168,62 @@ export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
   const best = scored[0];
   if (best.score <= 0) return candidates.at(-1)?.text ?? '';
   return best.text;
+}
+
+export function concreteCommitmentSummaryForMessages(
+  player: { id?: string; name: string },
+  otherPlayer: { id?: string; name: string },
+  messages: Array<{ author?: string; text: string }>,
+) {
+  const normalizedMessages = messages.map((message) => ({
+    ...message,
+    text: normalizeTraditionalFoodText(message.text.trim()),
+  }));
+  const speakerName = (message: { author?: string }) =>
+    message.author === player.id ? player.name : message.author === otherPlayer.id ? otherPlayer.name : '';
+
+  for (let index = 0; index < normalizedMessages.length; index += 1) {
+    const message = normalizedMessages[index];
+    if (!looksLikeCommitmentResponse(message.text)) continue;
+    const windowText = normalizedMessages
+      .slice(Math.max(0, index - 4), index + 1)
+      .map((item) => item.text)
+      .join('\n');
+    const object = commitmentObjectFromText(windowText);
+    const time = commitmentTimeFromText(windowText);
+    if (!object || !time) continue;
+    const speaker = speakerName(message);
+    if (!speaker) continue;
+    const target = speaker === player.name ? otherPlayer.name : player.name;
+    return `具體承諾：${speaker}答應${time}為${target}準備${object}`;
+  }
+  return '';
+}
+
+function normalizeTraditionalFoodText(text: string) {
+  return text.replace(/咖喱/g, '咖哩').replace(/麻/g, '嗎');
+}
+
+function looksLikeCommitmentResponse(text: string) {
+  if (/[？?]|嗎/.test(text)) return false;
+  if (!/(好|可以|我會|我試試|我来|我來|記得|答應|做一份|準備|帶過去|帶給你)/.test(text)) {
+    return false;
+  }
+  return !/(不行|不要|不能|不會|算了|先別|先不要)/.test(text);
+}
+
+function commitmentObjectFromText(text: string) {
+  if (/咖哩(?:飯)?/.test(text)) return '咖哩飯';
+  return '';
+}
+
+function commitmentTimeFromText(text: string) {
+  if (/下週末|下周末/.test(text)) return '下週末';
+  if (/週末|周末/.test(text)) return '週末';
+  if (/明天|明日/.test(text)) return '明天';
+  const weekday = text.match(/(?:下週|下周|週|周|星期|禮拜)([一二三四五六日天])/);
+  if (weekday) return `週${weekday[1] === '天' ? '日' : weekday[1]}`;
+  return '';
 }
 
 function memoryAnchorScore(text: string) {
@@ -214,7 +273,8 @@ function memoryAnchorScore(text: string) {
 function displayResidueName(name: string) {
   if (name === 'Umi' || name === '朝凪海') return '海';
   if (name === 'Mahiru' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
-  if (name === 'Asuna' || name === '結城明日奈') return '明日奈';
+  if (name === 'Tianze' || name === '天澤' || name === '天澤一夏' || name === '天擇' || name === '天擇一夏' || name === '天澤' || name === '天澤') return '天澤';
+  if (name === 'Ichinose' || name === '一之瀨' || name === '一之瀨帆波' || name === '黑化一之瀨' || name === '一之瀨') return '一之瀨';
   return name;
 }
 
@@ -233,11 +293,14 @@ export function shouldPersistConversationMemoryShape(
   meaningfulMessageCount: number,
   meaningfulAuthorCount: number,
   humanInConversation: boolean,
+  allowShortAutonomousSoulMemory = false,
 ) {
   if (meaningfulMessageCount < 2 || meaningfulAuthorCount < 2) return false;
   // Autonomous NPC conversations need enough exchange to prove there was a
   // real turn-by-turn moment. Two-line exchanges often become generic residue.
-  if (!humanInConversation && meaningfulMessageCount < 4) return false;
+  if (!humanInConversation && meaningfulMessageCount < 4 && !allowShortAutonomousSoulMemory) {
+    return false;
+  }
   return true;
 }
 
@@ -298,7 +361,8 @@ function soulResonanceTokens(name: string) {
   const coreByName: Record<string, string[]> = {
     海: ['Alan', '校長', '簡報', '整理', '有用', '工具', '世界', '休息', '累', '扛', '負責'],
     真晝: ['安靜', '沒事', '累', '休息', '看見', '照顧', '宿舍', '小聲', '說完', '不問'],
-    明日奈: ['清單', 'checklist', '任務', '責任', '負責', '接走', '交接', '取消', '幫忙', '壓力'],
+    天澤: ['測試', '底線', '規則', '破綻', '挑釁', '停手', '笑', '壓力'],
+    一之瀨: ['善意', '邊界', '信任', '信任債', '欠', '記帳', '佔有', '拒絕', '溫柔', '收債'],
   };
   const profileTokens = [
     'Alan',
@@ -347,9 +411,10 @@ function deterministicResidueSentence(
   otherPlayer: { name: string },
   messages: Doc<'messages'>[],
   summary: string,
+  allowShortAutonomousSoulMemory = false,
 ) {
   if (!emotionalResidueEnabled() || !pilotResiduePair(player.name, otherPlayer.name)) return '';
-  if (messages.length < RESIDUE_MIN_MESSAGES) return '';
+  if (messages.length < RESIDUE_MIN_MESSAGES && !allowShortAutonomousSoulMemory) return '';
   const self = displayResidueName(player.name);
   const other = displayResidueName(otherPlayer.name);
   const transcript = messages.map((message) => message.text).join('\n');
@@ -370,16 +435,16 @@ function deterministicResidueSentence(
   } else if (self === '真晝') {
     if (other === '海') {
       residue = `真晝還記得海聽起來很有用，但不像真的休息過。`;
-    } else if (other === '明日奈') {
-      residue = `真晝還記得明日奈把話說得很平，好像又準備自己接走。`;
+    } else if (other === '天澤') {
+      residue = `真晝還記得天澤笑得太輕，好像差一點就把問題推過界線。`;
     } else {
       residue = `真晝還記得${other}說得很輕，但還有一點沒說完。`;
     }
-  } else if (self === '明日奈') {
-    if (/責任|負責|交接|清單|checklist|下一步|任務|接走|少接/.test(text)) {
-      residue = `明日奈還記得${other}沒有把責任全推給她，這讓她停了一下。`;
+  } else if (self === '天澤') {
+    if (/測試|底線|規則|破綻|挑釁|停手|笑/.test(text)) {
+      residue = `天澤還記得${other}被問到底線時沒有立刻逃開，這讓她停了一下。`;
     } else {
-      residue = `明日奈還記得${other}注意到她的平靜其實有重量。`;
+      residue = `天澤還記得${other}讓她差一點把玩笑收起來。`;
     }
   }
 
@@ -508,11 +573,19 @@ export async function rememberConversation(
   const meaningfulMessages = messages.filter((message) => message.text.trim().length > 0);
   const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
   const humanInConversation = Boolean(player.human || otherPlayer.human);
+  const participantNames = [player.name, otherPlayer.name];
+  const meaningfulMessageTexts = meaningfulMessages.map((message) => message.text);
+  const allowShortAutonomousSoulMemory =
+    !humanInConversation &&
+    meaningfulMessages.length >= 3 &&
+    pilotResiduePair(player.name, otherPlayer.name) &&
+    shouldPersistCharacterSoulTranscript(participantNames, meaningfulMessageTexts);
   if (
     !shouldPersistConversationMemoryShape(
       meaningfulMessages.length,
       meaningfulAuthors.size,
       humanInConversation,
+      allowShortAutonomousSoulMemory,
     )
   ) {
     logGiisTiming({
@@ -602,6 +675,11 @@ export async function rememberConversation(
         },
         fallbackSummary,
       );
+  const concreteCommitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages);
+  const contentWithCommitment =
+    concreteCommitment && !content.includes(concreteCommitment)
+      ? `${concreteCommitment}；${content}`
+      : content;
   logGiisTiming({
     action: 'rememberConversation',
     phase: 'memorySummaryTime',
@@ -615,8 +693,14 @@ export async function rememberConversation(
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(data.conversation._creationTime))} 的對話：${content}`;
-  const candidateResidue = deterministicResidueSentence(player, otherPlayer, messages, content);
+  }).format(new Date(data.conversation._creationTime))} 的對話：${contentWithCommitment}`;
+  const candidateResidue = deterministicResidueSentence(
+    player,
+    otherPlayer,
+    messages,
+    content,
+    allowShortAutonomousSoulMemory,
+  );
   let residue = candidateResidue;
   if (candidateResidue) {
     // Repeat-pattern gate: if the same pair's last two residues already

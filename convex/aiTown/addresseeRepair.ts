@@ -3,13 +3,13 @@ const CONVERSATION_NAME_ALIASES = [
   'Umi',
   '海',
   '朝凪海',
-  'Asuna',
-  '明日奈',
+  'Tianze',
+  '天澤',
   '明天奈',
-  '結城明日奈',
-  'Mai',
-  '麻衣',
-  '櫻島麻衣',
+  '天澤',
+  'Ichinose',
+  '一之瀨',
+  '一之瀨',
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
@@ -25,6 +25,7 @@ const CONVERSATION_NAME_ALIASES = [
   '曉夢同學',
   '曉夢',
 ];
+const REPAIRED_LEADING_ADDRESSEE_MARKER = '__repaired_leading_addressee__';
 
 export function repairConversationAddresseeText(
   text: string,
@@ -47,7 +48,7 @@ export function repairConversationAddresseeText(
     leadingName,
     (match, lineStart: string, prefix: string, name: string, punctuation: string) => {
       if (allowed.has(name) && !authorAliases.has(name)) return match;
-      return `${lineStart}${prefix}${displayConversationName(otherName)}${punctuation}`;
+      return `${lineStart}${prefix}${REPAIRED_LEADING_ADDRESSEE_MARKER}${displayConversationName(otherName)}${punctuation}`;
     },
   );
   return stripLeadingConversationVocatives(
@@ -57,7 +58,7 @@ export function repairConversationAddresseeText(
       authorAliases,
       otherName,
     ),
-  );
+  ).replaceAll(REPAIRED_LEADING_ADDRESSEE_MARKER, '');
 }
 
 function stripLeadingConversationVocatives(text: string) {
@@ -121,12 +122,17 @@ function displayConversationName(name: string) {
     case 'Umi':
     case '朝凪海':
       return '海';
-    case 'Asuna':
-    case '結城明日奈':
-      return '明日奈';
-    case 'Mai':
-    case '櫻島麻衣':
-      return '麻衣';
+    case 'Tianze':
+    case '天澤':
+    case '天擇':
+    case '天擇一夏':
+    case '天澤一夏':
+      return '天澤';
+    case 'Ichinose':
+    case '一之瀨':
+    case '一之瀨帆波':
+    case '黑化一之瀨':
+      return '一之瀨';
     case 'Mahiru':
     case 'Mahiru Shiina':
     case '椎名真晝':
@@ -148,8 +154,8 @@ function conversationNameAliasesFor(name: string) {
   const displayName = displayConversationName(name);
   const aliases = new Set([name, displayName]);
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
-  if (displayName === '明日奈') aliases.add('Asuna').add('結城明日奈').add('明天奈');
-  if (displayName === '麻衣') aliases.add('Mai').add('櫻島麻衣');
+  if (displayName === '天澤') aliases.add('Tianze').add('天澤').add('明天奈').add('天擇').add('天擇一夏').add('天澤一夏');
+  if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨').add('一之瀨帆波').add('黑化一之瀨');
   if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
   if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
   if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');

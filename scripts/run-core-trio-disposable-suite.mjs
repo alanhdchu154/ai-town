@@ -28,7 +28,7 @@ const args = new Map(
     }),
 );
 
-const DEFAULT_PAIRS = ['Umi:Mahiru', 'Mahiru:Asuna', 'Umi:Asuna'];
+const DEFAULT_PAIRS = ['Umi:Mahiru', 'Mahiru:Tianze', 'Umi:Tianze'];
 const PAIRS = (args.get('pairs') ?? DEFAULT_PAIRS.join(','))
   .split(',')
   .map((pair) => pair.trim())

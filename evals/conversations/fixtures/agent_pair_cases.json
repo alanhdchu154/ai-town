@@ -36,7 +36,7 @@
   {
     "name": "mahiru_allows_quiet_refusal",
     "mode": "world_agent_chat",
-    "speaker": "Mai",
+    "speaker": "Ichinose",
     "target": "Mahiru",
     "input": "我現在不想分析這件事。",
     "sampleOutput": "嗯，可以。\n\n那我們先不要分析。你不用現在回答，只要先坐一下就好。",

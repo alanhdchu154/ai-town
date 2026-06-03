@@ -156,6 +156,8 @@ function chooseNextAction({
       'scene_diversity_thin',
       'daily_rhythm_thin',
       'soul_style_flat',
+      'pilot_role_actions_flat',
+      'pilot_role_action_collapse',
     ].includes(lifeSignals.decision ?? '')
   ) {
     return {
@@ -210,6 +212,7 @@ Night quiet: ${timing.isNight ? 'yes' : 'no'}
 - AM→PM report age: ${formatReportAge(reportFreshness.amPm)}
 - Life signals: ${lifeSignals.status ?? 'unknown'} / ${lifeSignals.decision ?? 'unknown'}
 - Life samples: conversations ${lifeSignals.conversationCount ?? 'unknown'}, repeated lines ${lifeSignals.repeatedLineFlags ?? 'unknown'}, prop echo ${lifeSignals.propEchoFlags ?? 'unknown'}, shape flags ${lifeSignals.conversationShapeFlags ?? 'unknown'}, one-line ${lifeSignals.singleMessageConversations ?? 'unknown'}, ordinary scenes ${lifeSignals.ordinarySceneDiversity ?? 'unknown'}, daily rhythm ${lifeSignals.dailyRhythmConversations ?? 'unknown'}, soul style ${lifeSignals.soulStyleConversations ?? 'unknown'}, admin drift ${lifeSignals.administrativeDriftFlags ?? 'unknown'}
+- Pilot role-action: expected matches ${lifeSignals.pilotExpectedActionMatches ?? 'unknown'}, match rate ${pilotActionRateLabel(lifeSignals)}, collapse flags ${lifeSignals.pilotActionCollapseFlags ?? 'unknown'}
 - Life-signals report age: ${formatReportAge(reportFreshness.lifeSignals)}
 
 ## Safest Next Action
@@ -357,8 +360,19 @@ function parseLifeSignalsSummary(report) {
     dailyRhythmDiversity: numberLineValue(report, 'Daily rhythm diversity'),
     soulStyleConversations: numberLineValue(report, 'Soul-style conversations'),
     soulStyleDiversity: numberLineValue(report, 'Soul-style diversity'),
+    pilotExpectedActionMatches: lineValue(report, 'Pilot expected action matches'),
+    pilotExpectedActionMatchRate: lineValue(report, 'Pilot expected action match rate'),
+    pilotActionCollapseFlags: numberLineValue(report, 'Pilot action collapse flags'),
     administrativeDriftFlags: numberLineValue(report, 'Administrative drift flags'),
   };
+}
+
+function pilotActionRateLabel(lifeSignals) {
+  const checks = typeof lifeSignals.pilotExpectedActionMatches === 'string'
+    ? Number(lifeSignals.pilotExpectedActionMatches.split('/')[1])
+    : Number.NaN;
+  if (Number.isFinite(checks) && checks === 0) return 'no_data (0/0)';
+  return lifeSignals.pilotExpectedActionMatchRate ?? 'unknown';
 }
 
 function reportFreshnessFor(report) {

@@ -27,6 +27,7 @@ import {
   sceneSpawnPoint,
   schoolLocationForHour,
 } from '../data/schoolLocations';
+import { schoolDayRhythmContext } from '../data/schoolCalendar';
 import { DEFAULT_NAME } from './constants';
 
 const DEFAULT_CLOCK = {
@@ -120,8 +121,8 @@ type QuietState = 'idle' | 'resting' | 'observing' | 'thinking' | 'unavailable' 
 const GIIS_MAIN_CHARACTER_NAMES = [
   DEFAULT_NAME,
   'Umi',
-  'Asuna',
-  'Mai',
+  'Tianze',
+  'Ichinose',
   'Mahiru',
   'CaoCao',
   'Liu Bei',
@@ -212,13 +213,15 @@ function clockTimeValue(clock: Clock | number) {
   return { hour: clock.hour, minute: clock.minute ?? 0 };
 }
 
-function scheduleLabel(clock: Clock | number) {
-  return schoolLocationForClock(clock).scheduleZh;
+function scheduleLabel(clock: Clock | number, timeZone = 'America/Chicago', now = Date.now()) {
+  const rhythm = schoolDayRhythmContext(now, timeZone);
+  if (rhythm.isWeekend) return rhythm.scheduleLabelZh;
+  return schoolLocationForClock(clock, timeZone, now).scheduleZh;
 }
 
-function schoolLocationForClock(clock: Clock | number) {
+function schoolLocationForClock(clock: Clock | number, timeZone = 'America/Chicago', now = Date.now()) {
   const { hour, minute } = clockTimeValue(clock);
-  return schoolLocationForHour(hour, minute);
+  return schoolLocationForHour(hour, minute, schoolDayRhythmContext(now, timeZone));
 }
 
 function rhythmName(hour: number) {
@@ -308,11 +311,11 @@ function availabilityForCharacter(
   if (sleepState === 'winding_down') return 'resting';
   if (sleepState === 'secretly_awake') return 'busy';
   if (pressure.mood === 'emotionally_exhausted') {
-    if (name === 'Mahiru' || name === 'Mai') return 'resting';
-    if (name === 'Asuna') return 'busy';
+    if (name === 'Mahiru' || name === 'Ichinose') return 'resting';
+    if (name === 'Tianze') return 'busy';
   }
   if (pressure.mood === 'divided') {
-    if (name === 'Mai') return 'avoiding';
+    if (name === 'Ichinose') return 'avoiding';
     if (name === 'CaoCao') return 'busy';
   }
   if (pressure.mood === 'politically_tense' && name === 'CaoCao') return 'busy';
@@ -339,7 +342,7 @@ function quietStateForCharacter(
   if (availability === 'avoiding') return 'silent';
   if (availability === 'in_conversation') return 'idle';
   if (pressure.mood === 'emotionally_exhausted') return 'resting';
-  if (name === 'Mai') return 'thinking';
+  if (name === 'Ichinose') return 'thinking';
   if (name === 'CaoCao') return 'observing';
   if (name === 'Umi') return 'thinking';
   return 'idle';
@@ -350,10 +353,10 @@ function quietLineForCharacter(name: string, quietState: QuietState, locationId?
   if (quietState === 'resting') {
     if (name === 'Mahiru') return '真晝似乎有點累，但還是留意著誰沒有說話。';
     if (name === 'Umi') return '海暫時放慢節奏，像是在等 Alan 也喘一口氣。';
-    return `${displayNameZh(name)}把東西先放在一旁，沒有急著接下一件事。`;
+    return `${displayNameZh(name)}暫時把話收住，像是在確認下一句會不會真的傷到人。`;
   }
   if (quietState === 'silent') {
-    if (name === 'Mai') return '麻衣安靜地看著窗外，像是在等問題自己露出形狀。';
+    if (name === 'Ichinose') return '一之瀨安靜地看著窗外，像是在等問題自己露出形狀。';
     return `${displayNameZh(name)}停在${place ?? '原地'}，暫時沒有接話。`;
   }
   if (quietState === 'observing') {
@@ -363,8 +366,8 @@ function quietLineForCharacter(name: string, quietState: QuietState, locationId?
   }
   if (quietState === 'thinking') {
     if (name === 'Umi') return '海正在整理給 Alan 的簡報。';
-    if (name === 'Asuna') return '明日奈正在把混亂整理成下一步。';
-    if (name === 'Mai') return '麻衣沒有急著開口，像是在檢查哪裡還沒被說清楚。';
+    if (name === 'Tianze') return '天澤正在看哪條規則被輕輕一推就會裂開。';
+    if (name === 'Ichinose') return '一之瀨沒有急著開口，像是在檢查哪裡還沒被說清楚。';
     return `${displayNameZh(name)}把手邊的事放慢了一點。`;
   }
   return `${displayNameZh(name)}留在${place ?? '校園'}，沒有急著換地方。`;
@@ -533,11 +536,19 @@ export const worldClock = query({
     const clock = currentClockForStatus(worldStatus, timeZone);
     const worldLabel = worldTimeLabelZh(clock);
     const realLabel = displayTimeLabel(now, timeZone);
+    const schoolRhythm = schoolDayRhythmContext(now, timeZone);
     return {
       clock,
-      schedule: scheduleLabel(clock),
-      location: schoolLocationForClock(clock),
+      schedule: scheduleLabel(clock, timeZone, now),
+      location: schoolLocationForClock(clock, timeZone, now),
       periodLabelZh: rhythmName(clock.hour),
+      schoolDayTypeZh: schoolRhythm.schoolDayTypeZh,
+      isWeekend: schoolRhythm.isWeekend,
+      isTomorrowWeekend: schoolRhythm.isTomorrowWeekend,
+      tomorrowWeekdayZh: schoolRhythm.tomorrowWeekdayZh,
+      tomorrowLabelZh: schoolRhythm.tomorrowLabelZh,
+      calendarHintZh: schoolRhythm.calendarHintZh,
+      schoolScheduleLabelZh: schoolRhythm.scheduleLabelZh,
       realTimeLabelZh: realLabel,
       worldTimeLabelZh: worldLabel,
       dayClockLabelZh: worldLabel,
@@ -560,6 +571,35 @@ async function defaultWorld(ctx: { db: DatabaseReader }) {
   if (!world) throw new Error(`World ${worldStatus.worldId} not found`);
   return { worldStatus, world };
 }
+
+export const debugInputQueue = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { worldStatus } = await defaultWorld(ctx);
+    const engine = await ctx.db.get(worldStatus.engineId);
+    const limit = Math.max(1, Math.min(args.limit ?? 8, 20));
+    const latestInputs = await ctx.db
+      .query('inputs')
+      .withIndex('byInputNumber', (q) => q.eq('engineId', worldStatus.engineId))
+      .order('desc')
+      .take(limit);
+    return {
+      worldId: worldStatus.worldId,
+      engineId: worldStatus.engineId,
+      worldStatus: worldStatus.status,
+      engineRunning: engine?.running,
+      generationNumber: engine?.generationNumber,
+      processedInputNumber: engine?.processedInputNumber,
+      latestInputs: latestInputs.map((input) => ({
+        id: input._id,
+        number: input.number,
+        name: input.name,
+        received: input.received,
+        completed: input.returnValue !== undefined,
+      })),
+    };
+  },
+});
 
 async function descriptionsByPlayer(db: DatabaseReader, worldId: Id<'worlds'>) {
   const descriptions = await db
@@ -710,13 +750,13 @@ function behaviorSignalForEmotion(name: string, emotion: PortraitEmotion, reason
   if (emotion === 'worried') {
     if (name === 'Mahiru') return `${displayName}開始注意誰沒有把話說完：${reasonZh}`;
     if (name === 'Umi') return `${displayName}把簡報縮短了一點，先看人的狀態：${reasonZh}`;
-    if (name === 'Asuna') return `${displayName}沒有立刻接下新事情，先停了一下：${reasonZh}`;
+    if (name === 'Tianze') return `${displayName}沒有立刻繼續追問，先停了一下：${reasonZh}`;
     return `${displayName}說話變得更小心：${reasonZh}`;
   }
   if (emotion === 'serious') {
     if (name === 'Umi') return `${displayName}先收斂成幾個可處理的重點：${reasonZh}`;
-    if (name === 'Asuna') return `${displayName}把下一步說得更短，也更實際：${reasonZh}`;
-    if (name === 'Mai') return `${displayName}開始挑出那句太快說出口的「沒事」：${reasonZh}`;
+    if (name === 'Tianze') return `${displayName}把問題問得更短，也更危險：${reasonZh}`;
+    if (name === 'Ichinose') return `${displayName}開始挑出那句太快說出口的「沒事」：${reasonZh}`;
     if (name === 'CaoCao') return `${displayName}開始整理房間裡的位置和秩序：${reasonZh}`;
     return `${displayName}開始放慢語氣，先確認狀況：${reasonZh}`;
   }
@@ -786,7 +826,7 @@ async function updateSocialLayerForEvent(
       contentZh: rumorContent,
       sourceEventId: event.eventId,
       spreadLevel: Math.min(5, Math.max(1, Math.ceil(event.importance / 2))),
-      affectedCharacters: ['Umi', 'Mahiru', 'Liu Bei', 'Mai', 'CaoCao'].filter(
+      affectedCharacters: ['Umi', 'Mahiru', 'Liu Bei', 'Ichinose', 'CaoCao'].filter(
         (name) => name !== event.actorName,
       ),
       locationId: event.locationId,
@@ -823,14 +863,14 @@ async function updateSocialLayerForEvent(
     await updateEmotionByName(ctx, worldId, descriptions, 'CaoCao', 'serious', '有人需要秩序才能把話說出口', event.clock);
   }
   if (text.includes('AI 社') || text.includes('規格') || text.includes('風險')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Mai', 'serious', '模糊的話需要被講清楚', event.clock);
+    await updateEmotionByName(ctx, worldId, descriptions, 'Ichinose', 'serious', '模糊的話需要被講清楚', event.clock);
     await updateEmotionByName(ctx, worldId, descriptions, 'Umi', 'serious', 'Alan 需要先看見人的狀態再推進', event.clock);
   }
   if (text.includes('排除') || text.includes('操控')) {
     await updateEmotionByName(ctx, worldId, descriptions, 'Liu Bei', 'worried', '學生可能被排除在討論之外', event.clock);
   }
-  if (text.includes('負責人') || text.includes('執行')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Asuna', 'serious', '有人又在等明日奈先把事情接住', event.clock);
+  if (text.includes('底線') || text.includes('規則') || text.includes('破綻') || text.includes('測試')) {
+    await updateEmotionByName(ctx, worldId, descriptions, 'Tianze', 'serious', '有人把規則說得太穩，天澤想看看它會不會裂開', event.clock);
   }
 }
 
@@ -847,9 +887,9 @@ function rumorFromEvent(event: { type: string; descriptionZh: string; actorName?
 function displayNameZh(name: string) {
   if (name === 'Alan') return 'Alan';
   if (name === 'Umi' || name === '海' || name === '朝凪海') return '海';
-  if (name === 'Asuna' || name === '明日奈' || name === '結城明日奈') return '明日奈';
-  if (name === 'Mai' || name === '麻衣' || name === '櫻島麻衣') return '麻衣';
-  if (name === 'Mahiru' || name === 'Mahiru' || name === '真晝' || name === '椎名真晝') return '真晝';
+  if (name === 'Tianze' || name === '天澤') return '天澤';
+  if (name === 'Ichinose' || name === '一之瀨') return '一之瀨';
+  if (name === 'Mahiru' || name === '真晝' || name === '椎名真晝') return '真晝';
   if (name === 'CaoCao') return '曹操';
   if (name === 'Cao Cao') return '曹操';
   if (name === 'Liu Bei' || name === 'LiuBei') return '劉備';
@@ -979,17 +1019,16 @@ function displayTextZh(text: string) {
   return text
     .replaceAll('Mahiru', displayNameZh('Mahiru'))
     .replaceAll('椎名真晝', displayNameZh('椎名真晝'))
-    .replaceAll('結城明日奈', displayNameZh('結城明日奈'))
-    .replaceAll('櫻島麻衣', displayNameZh('櫻島麻衣'))
+    .replaceAll('天澤', displayNameZh('天澤'))
+    .replaceAll('一之瀨', displayNameZh('一之瀨'))
     .replaceAll('朝凪海', displayNameZh('朝凪海'))
-    .replaceAll('Mahiru', displayNameZh('Mahiru'))
     .replaceAll('Cao Cao', displayNameZh('Cao Cao'))
     .replaceAll('CaoCao', displayNameZh('CaoCao'))
     .replaceAll('Liu Bei', displayNameZh('Liu Bei'))
     .replaceAll('LiuBei', displayNameZh('LiuBei'))
-    .replaceAll('Asuna', displayNameZh('Asuna'))
+    .replaceAll('Tianze', displayNameZh('Tianze'))
     .replaceAll('Umi', displayNameZh('Umi'))
-    .replaceAll('Mai', displayNameZh('Mai'));
+    .replaceAll('Ichinose', displayNameZh('Ichinose'));
 }
 
 function actionTypeLabelZh(actionType: string) {
@@ -1080,7 +1119,7 @@ async function buildAlanBehaviorProfile(
       incrementMap(traitScores, 'reflective', 3);
       supportSignals.add('Alan 逐漸習慣先找海整理世界，而不是立刻衝下一步。');
     }
-    if (event.targetName === 'Mai' || text.includes('規格') || text.includes('邊界') || text.includes('風險')) {
+    if (event.targetName === 'Ichinose' || text.includes('規格') || text.includes('邊界') || text.includes('風險')) {
       incrementMap(traitScores, 'analytical', 3);
       supportSignals.add('Alan 對邊界、規格與風險的注意力正在增加。');
     }
@@ -1126,7 +1165,7 @@ async function buildAlanBehaviorProfile(
     if (name === 'CaoCao') incrementMap(traitScores, 'strategic', count);
     if (name === 'Mahiru') incrementMap(traitScores, 'emotionally_supportive', count);
     if (name === 'Umi') incrementMap(traitScores, 'reflective', count);
-    if (name === 'Mai') incrementMap(traitScores, 'analytical', count);
+    if (name === 'Ichinose') incrementMap(traitScores, 'analytical', count);
   }
 
   const traits = sortedCounts(traitScores, 8)
@@ -1143,7 +1182,7 @@ async function buildAlanBehaviorProfile(
             : trait === 'reflective'
               ? '常和海、簡報、整理脈絡相關。'
               : trait === 'analytical'
-                ? '常和麻衣、規格、風險或邊界相關。'
+                ? '常和一之瀨、規格、風險或邊界相關。'
                 : undefined,
     }));
   const strongest = traits[0];
@@ -1362,6 +1401,141 @@ function dailyCampusFocusItems(
   return items.slice(0, 3);
 }
 
+type CampusEventThread = {
+  titleZh: string;
+  locationId: string;
+  locationZh: string;
+  involvedNames: string[];
+  descriptionZh: string;
+  interpretationZh: string;
+  reactionDialogueZh: string;
+  futureImplicationsZh: string;
+};
+
+function campusEventThreadForClock(clock: Clock, timeZone = 'America/Chicago', now = Date.now()): CampusEventThread | undefined {
+  const rhythm = schoolDayRhythmContext(now, timeZone);
+  const location = schoolLocationForClock(clock, timeZone, now);
+  const eventIndex = Math.max(0, (clock.day + clock.hour) % Math.max(1, location.moodEvents.length));
+  const moodEvent = location.moodEvents[eventIndex];
+  if (!moodEvent) return undefined;
+  const involvedNames = campusThreadInvolvedNames(moodEvent.titleZh, moodEvent.emotionHintZh, rhythm.isWeekend);
+  const weekendClause = rhythm.isWeekend
+    ? '今天是週末，所以這件事會更像自由活動裡的閒聊、邀約、回避或休息安排。'
+    : '今天仍在校園日程裡，所以這件事會從課堂、午餐、放學後的小互動慢慢擴散。';
+  return {
+    titleZh: moodEvent.titleZh,
+    locationId: location.id,
+    locationZh: location.labelZh,
+    involvedNames,
+    descriptionZh: `今日事件線：${location.labelZh}出現「${moodEvent.titleZh}」。${weekendClause}`,
+    interpretationZh: `${moodEvent.emotionHintZh} 這不是全校主線，而是一個會被不同角色用自己的方式提起的生活事件。`,
+    reactionDialogueZh: campusThreadReactionLine(moodEvent.titleZh, involvedNames),
+    futureImplicationsZh: `相關角色：${involvedNames.map(displayNameZh).join('、')}。之後對話若自然碰到這件事，應該各自帶出不同關心方式，而不是重複同一句事件摘要。`,
+  };
+}
+
+function campusThreadInvolvedNames(titleZh: string, hintZh: string, isWeekend: boolean) {
+  const text = `${titleZh} ${hintZh}`;
+  const names = new Set<string>();
+  if (/海|Alan|校長|簡報|清單|休息|午餐/.test(text)) names.add('Umi');
+  if (/真晝|安靜|照顧|沒說完|疲|哭|告白|秘密|一個人/.test(text)) names.add('Mahiru');
+  if (/天澤|作業|小考|底線|規則|破綻|測試|挑釁/.test(text)) names.add('Tianze');
+  if (/一之瀨|秘密|傳聞|太工整|玩笑|假裝/.test(text)) names.add('Ichinose');
+  if (/曹操|公平|作弊|秩序|位置|排開/.test(text)) names.add('CaoCao');
+  if (/劉備|邀請|一個人吃飯|留座位|被排除|共同/.test(text)) names.add('Liu Bei');
+  if (isWeekend && names.size < 3) {
+    names.add('Mahiru');
+    names.add('Umi');
+  }
+  if (names.size === 0) {
+    names.add('Umi');
+    names.add('Mahiru');
+    names.add('Tianze');
+  }
+  return [...names].slice(0, 3);
+}
+
+function campusThreadReactionLine(titleZh: string, involvedNames: string[]) {
+  if (titleZh.includes('週末')) return '週末你打算怎麼過？不要又把休息講成待辦。';
+  if (titleZh.includes('小考')) return '考差不是世界末日，但也不要急著說沒事。';
+  if (titleZh.includes('作弊')) return '先別公開定罪。先確認誰害怕、誰被拖進來。';
+  if (titleZh.includes('作業')) return '這次不要又默默丟給同一個人。';
+  if (titleZh.includes('告白')) return '沒說完的話，也會留下來。';
+  if (titleZh.includes('秘密')) return '你聽見了，不代表你就有權利替他說出去。';
+  if (titleZh.includes('午餐') || titleZh.includes('座位')) return '先坐下吧。不用一開口就解釋。';
+  if (titleZh.includes('求助')) return '能開口已經很不容易了，先不要把它變成流程。';
+  return `${displayNameZh(involvedNames[0] ?? 'Umi')}先記住這件事，不急著把它變成結論。`;
+}
+
+async function maybeSeedCampusEventThread(
+  ctx: MutationCtx,
+  world: Doc<'worlds'>,
+  descriptions: Map<string, Doc<'playerDescriptions'>>,
+  clock: Clock,
+  observerPlayerIds: string[],
+  presenceDuringSimulation: AlanPresenceStatus,
+  activities: string[],
+  implications: string[],
+) {
+  const thread = campusEventThreadForClock(clock, undefined, clock.lastUpdated);
+  if (!thread) return;
+  const recentSimilar = (
+    await ctx.db
+      .query('worldEvents')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(80)
+  ).find(
+    (event) =>
+      event.type === 'campusEventThread' &&
+      event.clock?.day === clock.day &&
+      event.locationId === thread.locationId &&
+      event.descriptionZh.includes(`「${thread.titleZh}」`),
+  );
+  if (recentSimilar) {
+    if (!activities.some((activity) => activity.includes(thread.titleZh))) {
+      activities.push(`今日事件線仍在延續：「${thread.titleZh}」還沒有變成新的結論。`);
+    }
+    if (!implications.some((implication) => implication.includes(thread.titleZh))) {
+      implications.push(thread.futureImplicationsZh);
+    }
+    return;
+  }
+  const primaryName = thread.involvedNames[0] ?? 'Umi';
+  const primary = findPlayerByName(world.players, descriptions, primaryName);
+  await appendRecentEvent(ctx, world._id, {
+    type: 'campusEventThread',
+    actorPlayerId: primary?.id,
+    actorName: primaryName,
+    source: 'world_simulation_event',
+    happenedDuringAlanPresence: presenceDuringSimulation,
+    observerPlayerIds,
+    descriptionZh: thread.descriptionZh,
+    descriptionEn: `Campus event thread: ${thread.titleZh}`,
+    locationId: thread.locationId,
+    locationZh: thread.locationZh,
+    interpretationZh: thread.interpretationZh,
+    reactionDialogueZh: thread.reactionDialogueZh,
+    futureImplicationsZh: thread.futureImplicationsZh,
+    outcomeQuality: 'meaningful_new_information',
+    importance: 7,
+    clock,
+  });
+  for (const name of thread.involvedNames) {
+    const player = findPlayerByName(world.players, descriptions, name);
+    if (!player) continue;
+    await appendMemory(
+      ctx,
+      world._id,
+      player.id,
+      `${displayNameZh(name)}今天聽見${thread.locationZh}的「${thread.titleZh}」；這件事可能會在之後的聊天裡被不同人用不同角度提起。`,
+      `今日事件線不是任務清單，而是角色可以從自己關心方式切入的生活脈絡。`,
+    );
+  }
+  activities.push(thread.descriptionZh);
+  implications.push(thread.futureImplicationsZh);
+}
+
 function storyDigestFromActivities(activities: string[], pressure: WorldPressure): StoryDigestItem[] {
   const digest: StoryDigestItem[] = [];
   const pushUnique = (item: StoryDigestItem) => {
@@ -1414,12 +1588,12 @@ function storyDigestFromActivities(activities: string[], pressure: WorldPressure
         whyItMattersZh: '曹操真正關心的不是誰贏，而是安靜的人會不會被混亂吞掉。',
         suggestedActionZh: '找曹操聊聊誰站在門口沒有進來。',
       });
-    } else if (activity.includes('麻衣') || activity.includes('Mai') || activity.includes('規格') || activity.includes('風險')) {
+    } else if (activity.includes('一之瀨') || activity.includes('Ichinose') || activity.includes('規格') || activity.includes('風險')) {
       pushUnique({
         happenedZh: activity,
-        changedZh: `有些話太工整，麻衣開始注意背後誰在付出代價；目前焦慮 ${pressure.studentAnxiety}。`,
-        whyItMattersZh: '如果代價沒有被說清楚，最可靠或最安靜的人會默默承受。',
-        suggestedActionZh: '找麻衣確認哪一句話聽起來太漂亮。',
+        changedZh: `有些話太工整，一之瀨開始注意背後誰在付出代價；目前焦慮 ${pressure.studentAnxiety}。`,
+        whyItMattersZh: '如果代價沒有被說清楚，最安靜或最會照顧人的人會默默承受。',
+        suggestedActionZh: '找一之瀨確認哪一句話聽起來太漂亮。',
       });
     } else if (activity.includes('劉備') || activity.includes('公開討論')) {
       pushUnique({
@@ -1428,12 +1602,12 @@ function storyDigestFromActivities(activities: string[], pressure: WorldPressure
         whyItMattersZh: '劉備在避免學生因立場不同變得孤立。',
         suggestedActionZh: '陪劉備先找一位安靜的學生聊聊，別急著把一切變成正式會議。',
       });
-    } else if (activity.includes('明日奈') || activity.includes('Asuna') || activity.includes('執行')) {
+    } else if (activity.includes('天澤') || activity.includes('Tianze') || activity.includes('底線') || activity.includes('破綻')) {
       pushUnique({
         happenedZh: activity,
-        changedZh: `校務負擔變得更明確；目前校園穩定 ${pressure.schoolStability}。`,
-        whyItMattersZh: '明日奈不是只在整理，她在練習不要把所有責任自動接走。',
-        suggestedActionZh: '先問明日奈哪一件事可以不用今天接。',
+        changedZh: `有人的底線被測了一下；目前校園穩定 ${pressure.schoolStability}。`,
+        whyItMattersZh: '天澤不是在收拾，她在確認規則和溫柔被推半步後會不會斷。',
+        suggestedActionZh: '先問天澤這次打算在哪裡停手。',
       });
     }
   }
@@ -1527,7 +1701,7 @@ function pressureDeltaForEvent(event: {
     add('schoolStability', 4);
     add('trustInLeadership', 3);
   }
-  if (event.actorName === 'Mai' || text.includes('規格') || text.includes('邊界') || text.includes('風險')) {
+  if (event.actorName === 'Ichinose' || text.includes('規格') || text.includes('邊界') || text.includes('風險')) {
     add('schoolStability', 2);
     add('studentAnxiety', -2);
   }
@@ -1724,15 +1898,15 @@ function pressureDrivenCharacterNotes(pressure: WorldPressure) {
     };
   }
   if (pressure.aiClubInfluence >= 55 || pressure.rumorIntensity >= 45) {
-    notes.Mai = {
+    notes.Ichinose = {
       emotion: 'serious',
       intention: '先找出哪句沒事說得太工整，避免傳聞替大家決定心情',
     };
   }
   if (pressure.trustInLeadership <= 45) {
-    notes.Asuna = {
+    notes.Tianze = {
       emotion: 'serious',
-      intention: '先問誰能一起分擔，而不是自己把事情接走',
+      intention: '先測哪條規則撐不住，再決定要不要停手',
     };
     notes.Umi = {
       emotion: 'serious',
@@ -1936,7 +2110,7 @@ function alanActionEmotionalDelta(targetName: string, eventType: string, descrip
   if (eventType === 'assignRole') {
     return {
       delta: { trust: 2, admiration: 3, emotionalTension: -1 },
-      narrative: `${displayNameZh(targetName)}感覺 Alan 願意把責任交給自己；信任不是口號，而是被交付後慢慢變重的東西。`,
+      narrative: `${displayNameZh(targetName)}感覺 Alan 願意讓自己靠近真正的底線；信任不是口號，而是被測試後仍然不逃開的東西。`,
     };
   }
   if (eventType === 'announce' || eventType === 'createClub') {
@@ -1973,13 +2147,13 @@ function emotionalTendencyFor(targetName: string, mode: 'attention' | 'care' | '
           : '真晝感覺 Alan 願意停下來聽人說話，這讓她對他的世界多了一點安心感。',
     };
   }
-  if (targetName === 'Mai') {
+  if (targetName === 'Ichinose') {
     return {
       delta:
         mode === 'deepTalk'
           ? { curiosity: 5, admiration: 3, emotionalCloseness: 2 }
           : { curiosity: 3, admiration: 2, emotionalTension: 1 },
-      narrative: '麻衣沒有直接表現親近，但她開始對 Alan 為什麼總是走得這麼快產生更私人、更難忽略的好奇。',
+      narrative: '一之瀨沒有直接表現親近，但她開始對 Alan 為什麼總是走得這麼快產生更私人、更難忽略的好奇。',
     };
   }
   if (targetName === 'CaoCao') {
@@ -1994,10 +2168,10 @@ function emotionalTendencyFor(targetName: string, mode: 'attention' | 'care' | '
       narrative: '劉備更願意相信 Alan 會把人放進決策裡，也更在意 Alan 是否能維持共同體的溫度。',
     };
   }
-  if (targetName === 'Asuna') {
+  if (targetName === 'Tianze') {
     return {
       delta: { trust: 2, admiration: 2, concern: 2, dependency: 1 },
-      narrative: '明日奈感覺 Alan 開始看見執行負擔；她不會多說，但那讓她比較願意把壓力攤開。',
+      narrative: '天澤感覺 Alan 開始看見她不是只想拆人；她不會多說，但那讓她比較願意在傷到人之前停手。',
     };
   }
   return {
@@ -2025,7 +2199,7 @@ function emotionalSignalForRelationship(
   const tension = dimensions.emotionalTension ?? dimensions.fear;
   if (subjectName === 'Umi' && concern >= 18) return '海似乎比以前更常注意 Alan 有沒有休息。';
   if (subjectName === 'Mahiru' && comfort >= 76) return '真晝在 Alan 面前比較容易放下防備。';
-  if (subjectName === 'Mai' && curiosity >= 62) return '麻衣停留在對話裡的時間，比她嘴上承認的更久。';
+  if (subjectName === 'Ichinose' && curiosity >= 62) return '一之瀨停留在對話裡的時間，比她嘴上承認的更久。';
   if (subjectName === 'CaoCao' && admiration >= 76 && tension >= 28)
     return '曹操對 Alan 的尊重和理念張力正在同時升高。';
   if (subjectName === 'Liu Bei' && dimensions.trust >= 76) return '劉備更願意相信 Alan 會把人放進決策裡。';
@@ -2144,7 +2318,7 @@ function normalizeDebugEventText(text: string) {
   return text
     .replace(/談到 AI 社時，幾個人會先停一下，像是在確認自己能不能說真話。/g, '有人說「沒事」時，會先停一下，像是在確認自己能不能說真話。')
     .replace(/確認誰因 AI 社、傳聞或派系壓力而不敢說真心話/g, '確認誰因傳聞、壓力或太快說沒事而不敢說真心話')
-    .replace(/海會建議 Alan 先關心學生狀態，麻衣會把問題連到規則不清，曹操會看見秩序空缺，劉備會想聽見安靜學生的聲音。/g, '海會建議 Alan 先關心學生狀態，麻衣會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。')
+    .replace(/海會建議 Alan 先關心學生狀態，一之瀨會把問題連到規則不清，曹操會看見秩序空缺，劉備會想聽見安靜學生的聲音。/g, '海會建議 Alan 先關心學生狀態，一之瀨會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。')
     .replace(
       /(.+?) 結束與 (.+?) 的對話後，形成意圖：「(.+?)」。/g,
       (_match, actor, _target, intention) => `${displayNameZh(actor)}把一段對話收斂成下一步：${intention}。`,
@@ -2214,9 +2388,9 @@ function compactDailyMemoryDescription(text: string) {
     .filter(Boolean);
   const named = [
     fragments.find((item) => item.includes('真晝') && (item.includes('安靜') || item.includes('真心話'))),
-    fragments.find((item) => item.includes('麻衣') && (item.includes('風險') || item.includes('理解'))),
+    fragments.find((item) => item.includes('一之瀨') && (item.includes('風險') || item.includes('理解'))),
     fragments.find((item) => item.includes('曹操') && item.includes('邊界')),
-    fragments.find((item) => item.includes('明日奈') && (item.includes('負擔') || item.includes('下一步'))),
+    fragments.find((item) => item.includes('天澤') && (item.includes('底線') || item.includes('破綻'))),
     fragments.find((item) => item.includes('劉備') && (item.includes('排除') || item.includes('午餐'))),
   ].filter((item): item is string => Boolean(item));
   const picked = compactUnique(named.length ? named : fragments, 3);
@@ -2241,7 +2415,7 @@ function naturalizeBriefingRisk(text?: string) {
     cleaned.includes('海會建議 Alan 先關心學生狀態') &&
     cleaned.includes('劉備會想聽見安靜學生的聲音')
   ) {
-    return '學生的安靜可能正在變成壓力；我想先讓你看見這點，麻衣會戳破太快說出口的沒事，曹操會注意房間裡的位置，劉備則會在意那些不敢開口的人';
+    return '學生的安靜可能正在變成壓力；我想先讓你看見這點，一之瀨會戳破太快說出口的沒事，曹操會注意房間裡的位置，劉備則會在意那些不敢開口的人';
   }
   return cleaned;
 }
@@ -2311,6 +2485,10 @@ function normalizeLegacyProfileText(text: string) {
     .replace(/拉回公開合作/g, '拉回彼此願意說真話的狀態')
     .replace(/把對話結論整理成 Alan 能理解的世界脈絡、情緒風險與下一步/g, '把真正需要 Alan 先看見的情緒風險整理出來')
     .replace(/海把這段對話整理成校長簡報：Alan 下一步不能只加功能，要先處理人心和規則。/g, '海決定先提醒 Alan：功能可以慢慢加，但學生的不安要先被看見。')
+    .replace(/先交出一件不該只由自己接住的事/g, '用一句安全小惡魔式的問題測出誰在躲，並在傷到人之前停手')
+    .replace(/先找出哪句沒事說得太工整，避免傳聞替大家決定心情/g, '用可愛大姊姊式的甜，讓那句沒事親口承認背後想要的照顧和條件')
+    .replace(/整理一個今天被說得太輕的代價/g, '找出今天誰把溫柔當成免費資源，並用一句甜的拒絕收回主導權')
+    .replace(/我把意圖轉成行動：先找出哪句沒事說得太工整，避免傳聞替大家決定心情/g, '我把意圖轉成行動：用可愛大姊姊式的甜，讓那句沒事親口承認背後想要的照顧和條件')
     .trim() ?? '';
 }
 
@@ -2326,26 +2504,31 @@ function uniqueTextItems(items: string[]) {
   return result;
 }
 
+const legacyProfileRoles = new Set([
+  'Student',
+  'Assistant Principal',
+  'Assistant Principal / 助理校長',
+  'Executive Assistant',
+  'Executive Assistant / 執行助理',
+  'Strategy Advisor',
+  'Strategy Advisor / 策略顧問',
+  'Student Politician',
+  'Student Politician / 學生政治家',
+  'Principal / Student',
+  'Reliability Anchor / 責任承接者',
+  'Hidden Cost Reader / 隱藏成本讀者',
+  'Student Affairs Assistant / 溫柔型學生事務助理',
+]);
+
 function resolvedRole(currentRole: string, defaultRole: string) {
-  const legacyRoles = new Set([
-    'Student',
-    'Assistant Principal',
-    'Assistant Principal / 助理校長',
-    'Executive Assistant',
-    'Executive Assistant / 執行助理',
-    'Strategy Advisor',
-    'Strategy Advisor / 策略顧問',
-    'Student Politician',
-    'Student Politician / 學生政治家',
-    'Principal / Student',
-  ]);
   const knownProfileRoles = new Set(GiisProfiles.map((profile) => profile.role));
-  if (legacyRoles.has(currentRole)) return defaultRole;
+  if (legacyProfileRoles.has(currentRole)) return defaultRole;
   if (knownProfileRoles.has(currentRole) && currentRole !== defaultRole) return defaultRole;
   return currentRole;
 }
 
 function looksLikeDifferentProfile(profile: Doc<'schoolProfiles'>, defaultRole: string) {
+  if (profile.role !== defaultRole && legacyProfileRoles.has(profile.role)) return true;
   return GiisProfiles.some(
     (knownProfile) => knownProfile.role === profile.role && knownProfile.role !== defaultRole,
   );
@@ -2459,6 +2642,7 @@ async function ensureGiisRoster(ctx: MutationCtx, worldId: Id<'worlds'>, world: 
       .first();
     if (profile) {
       const defaults = defaultProfile(description.name);
+      const profileChangedIdentity = looksLikeDifferentProfile(profile, defaults.role);
       const beliefSet = new Set([...defaults.beliefs, ...profile.beliefs]);
       await ctx.db.patch(profile._id, {
         persona: defaults.persona,
@@ -2466,9 +2650,10 @@ async function ensureGiisRoster(ctx: MutationCtx, worldId: Id<'worlds'>, world: 
         coreValues: defaults.coreValues,
         communicationStyle: defaults.communicationStyle,
         goals: defaults.goals,
-        beliefs: cleanLegacyMemories([...beliefSet]).slice(0, 12),
-        shortTermMemory: cleanLegacyMemories(profile.shortTermMemory),
-        longTermMemory: cleanLegacyMemories(profile.longTermMemory),
+        beliefs: profileChangedIdentity ? defaults.beliefs : cleanLegacyMemories([...beliefSet]).slice(0, 12),
+        shortTermIntentions: profileChangedIdentity ? [] : cleanLegacyIntentions(profile.shortTermIntentions),
+        shortTermMemory: profileChangedIdentity ? [] : cleanLegacyMemories(profile.shortTermMemory),
+        longTermMemory: profileChangedIdentity ? [] : cleanLegacyMemories(profile.longTermMemory),
         initialRelationships: defaults.initialRelationships,
       });
     }
@@ -2543,13 +2728,27 @@ function scheduledLocationForName(name: string, clock: Clock): Parameters<typeof
   ) {
     return 'dormitory';
   }
+  if (schoolDayRhythmContext(clock.lastUpdated).isWeekend) {
+    if (clock.hour >= 21 || clock.hour < 6) return 'dormitory';
+    if (clock.hour >= 6 && clock.hour < 10) return 'dormitory';
+    if (clock.hour >= 10 && clock.hour < 13.5) return 'aiClubRoom';
+    if (clock.hour >= 13.5 && clock.hour < 17) {
+      if (name === 'Ichinose' || name === 'Mahiru') return 'dormitory';
+      return 'courtyard';
+    }
+    if (clock.hour >= 17 && clock.hour < 21) {
+      if (name === 'CaoCao' || name === 'Liu Bei') return 'courtyard';
+      return 'aiClubRoom';
+    }
+    return defaultLocation;
+  }
   if (clock.hour >= 21 || clock.hour < 6) return 'dormitory';
-  if (clock.hour >= 6 && clock.hour < 9) return name === 'Asuna' ? 'classroom' : 'dormitory';
+  if (clock.hour >= 6 && clock.hour < 9) return name === 'Tianze' ? 'classroom' : 'dormitory';
   if (clock.hour >= 9 && clock.hour < 12) return 'classroom';
   if (clock.hour === 12 || (clock.hour === 13 && (clock.minute ?? 0) < 30)) return 'courtyard';
   if (clock.hour >= 13 && clock.hour < 17) {
     if (name === 'Umi') return 'studentCouncilRoom';
-    if (name === 'Mai' || name === 'Asuna') return 'aiClubRoom';
+    if (name === 'Ichinose' || name === 'Tianze') return 'aiClubRoom';
     if (name === 'CaoCao') return 'courtyard';
     if (name === 'Liu Bei') return 'courtyard';
     if (name === 'Mahiru') return 'dormitory';
@@ -2874,16 +3073,18 @@ function conversationIntentionFor(name: string, otherName: string, summary: stri
       return '觀察誰站在門口卻沒有進來，先替那個人留出位置';
     case 'Liu Bei':
       return '先找被排除的學生聊聊，避免沉默變成孤立';
-    case 'Mai':
-      return lower.includes('沒事') || lower.includes('工整') || lower.includes('累')
-        ? '記下哪句沒事說得太漂亮，明天問清楚背後的代價'
-        : '整理一個今天被說得太輕的代價';
+    case 'Ichinose':
+      return lower.includes('沒事') || lower.includes('工整') || lower.includes('累') || lower.includes('照顧')
+        ? '用可愛大姊姊式的甜，讓那句沒事親口承認背後想要的照顧和代價'
+        : '找出今天誰把溫柔當成免費資源，並用一句甜的拒絕收回主導權';
     case 'Umi':
       return '把 Alan 今天最需要先看見的三個生活狀態整理出來';
     case 'Mahiru':
       return '確認誰因傳聞、作業壓力或太快說沒事而不敢說真心話';
-    case 'Asuna':
-      return '先交出一件不該只由自己接住的事';
+    case 'Tianze':
+      return lower.includes('臉紅') || lower.includes('躲') || lower.includes('玩笑')
+        ? '用一句安全小惡魔式的玩笑測出誰在躲，然後在第二句前停手'
+        : '把一條規則往前推半步，確認誰的底線是真的，並在傷到人之前停手';
     default:
       return `延伸與 ${otherName} 的對話結論`;
   }
@@ -2895,10 +3096,10 @@ function outcomeTypeFor(name: string) {
       return 'alliance';
     case 'Liu Bei':
       return 'invitation';
-    case 'Mai':
+    case 'Ichinose':
       return 'eventProposal';
     case 'Umi':
-    case 'Asuna':
+    case 'Tianze':
       return 'plan';
     case 'Mahiru':
       return 'intention';
@@ -3003,11 +3204,11 @@ export function conversationDecisionPhrase(name: string, otherName: string, inte
       '劉備決定下次看見空位時先坐近一點，確認對方願不願意一起吃飯。',
     ]);
   }
-  if (name === 'Mai') {
+  if (name === 'Ichinose') {
     return chooseOutcomeVariant(seed, [
-      '麻衣暫時不表態；她決定明天先找出哪句「沒事」其實說得太工整。',
-      '麻衣決定今天先不拆穿所有話，只記下誰把擔心說得太漂亮。',
-      '麻衣決定晚點再問一次，確認那句太合理的回答背後是不是有人在躲。',
+      '一之瀨暫時不表態；她決定明天先用很甜的一句話，讓那句「沒事」承認自己想被照顧。',
+      '一之瀨決定今天先不拆穿所有話，只記下誰把擔心說得太漂亮，等對方親口說出想要什麼。',
+      '一之瀨決定晚點再問一次，確認那句太合理的回答背後，是不是有人把她的溫柔當成免費出口。',
     ]);
   }
   if (name === 'Umi') {
@@ -3030,11 +3231,11 @@ export function conversationDecisionPhrase(name: string, otherName: string, inte
       '真晝決定晚點先靠近那個太快說沒事的人，問一句很小的話就好。',
     ]);
   }
-  if (name === 'Asuna') {
+  if (name === 'Tianze') {
     return chooseOutcomeVariant(seed, [
-      '明日奈決定明天先交出一件事，而不是立刻把所有清單接回自己手上。',
-      '明日奈決定今天先把一半資料分出去，確認自己沒有又默默接完整份工作。',
-      '明日奈決定下次會議前先問誰能分走一段，而不是直接拿起筆開始排。',
+      '天澤決定明天先問哪條規則最怕被推半步，順便看誰會臉紅著承認自己在躲。',
+      '天澤決定今天只拆到一半，確認自己不是為了贏才繼續問下去，也不是為了把人弄壞。',
+      '天澤決定下次開口前先看對方有沒有真的受傷，再決定要不要追第二句小惡魔問題。',
     ]);
   }
   return `${displayNameZh(name)} 將對話收斂成下一步：${intention}`;
@@ -3198,9 +3399,15 @@ async function moveCharactersForWorldTime(
   descriptions: Map<string, Doc<'playerDescriptions'>>,
   clock: Clock,
 ) {
+  const conversationPlayerIds = new Set(
+    world.conversations.flatMap((conversation) =>
+      conversation.participants.map((participant) => participant.playerId),
+    ),
+  );
   const locationCounters = new Map<string, number>();
   await ctx.db.patch(world._id, {
     players: world.players.map((player) => {
+      if (conversationPlayerIds.has(player.id)) return player;
       const { pathfinding: _pathfinding, ...rest } = player;
       const name = descriptions.get(player.id)?.name ?? '';
       const locationId = scheduledLocationForName(name, clock);
@@ -3267,7 +3474,7 @@ async function ensureDailyOpeningEvent(
     locationZh: location.labelZh,
     interpretationZh: '這不是危機，但它是今天的情緒起點：校園開始需要安全感，而不只是更多功能。',
     reactionDialogueZh: '我有點在意……大家不是反對，只是好像變得比較小心了。',
-    futureImplicationsZh: '海會建議 Alan 先關心學生狀態，麻衣會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。',
+    futureImplicationsZh: '海會建議 Alan 先關心學生狀態，一之瀨會戳破太快說出口的沒事，曹操會看見房間秩序，劉備會想聽見安靜學生的聲音。',
     importance: 8,
     clock,
   });
@@ -3324,8 +3531,8 @@ export const spreadAcrossSchoolScenes = mutation({
     const locationByName = new Map<string, Parameters<typeof sceneSpawnPoint>[0]>([
       ['Alan', 'classroom'],
       ['Umi', 'studentCouncilRoom'],
-      ['Asuna', 'aiClubRoom'],
-      ['Mai', 'aiClubRoom'],
+      ['Tianze', 'aiClubRoom'],
+      ['Ichinose', 'aiClubRoom'],
       ['CaoCao', 'courtyard'],
       ['Liu Bei', 'courtyard'],
       ['Mahiru', 'dormitory'],
@@ -3429,16 +3636,16 @@ export const coLocateSoulTriadForPilot = mutation({
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const umi = findPlayerByName(world.players, descriptions, 'Umi');
     const mahiru = findPlayerByName(world.players, descriptions, 'Mahiru');
-    const asuna = findPlayerByName(world.players, descriptions, 'Asuna');
-    if (!umi || !mahiru || !asuna) {
-      throw new Error('Could not find Umi, Mahiru, and Asuna for the soul triad pilot co-location.');
+    const tianze = findPlayerByName(world.players, descriptions, 'Tianze');
+    if (!umi || !mahiru || !tianze) {
+      throw new Error('Could not find Umi, Mahiru, and Tianze for the soul triad pilot co-location.');
     }
-    const pilotPlayerIds = new Set([umi.id, mahiru.id, asuna.id]);
+    const pilotPlayerIds = new Set([umi.id, mahiru.id, tianze.id]);
     const pilotLocationId = 'studentCouncilRoom' as const;
     const pilotPositions = new Map([
       [umi.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 0, 'Umi'))],
       [mahiru.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 1, 'Mahiru'))],
-      [asuna.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 2, 'Asuna'))],
+      [tianze.id, clampToClassroom(sceneSpawnPointWithPresence(pilotLocationId, 2, 'Tianze'))],
     ]);
     const engineBeforePatch = await ctx.db.get(worldStatus.engineId);
     if (engineBeforePatch?.running) {
@@ -3484,12 +3691,12 @@ export const coLocateSoulTriadForPilot = mutation({
     }
 
     return {
-      descriptionZh: '海已邀請真晝與明日奈進校長室做一段安靜談話，作為 character-soul triad Qwen pilot 的 co-location 壓力測試。',
+      descriptionZh: '海已邀請真晝與天澤進校長室做一段安靜談話，作為 character-soul triad Qwen pilot 的 co-location 壓力測試。',
       locationId: pilotLocationId,
       pairs: [
         { name: 'Umi', playerId: umi.id, position: pilotPositions.get(umi.id) },
         { name: 'Mahiru', playerId: mahiru.id, position: pilotPositions.get(mahiru.id) },
-        { name: 'Asuna', playerId: asuna.id, position: pilotPositions.get(asuna.id) },
+        { name: 'Tianze', playerId: tianze.id, position: pilotPositions.get(tianze.id) },
       ],
     };
   },
@@ -3500,6 +3707,7 @@ export const coLocateCharactersForTest = mutation({
     leftName: v.string(),
     rightName: v.string(),
     locationId: v.optional(v.string()),
+    kick: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { worldStatus, world } = await defaultWorld(ctx);
@@ -3524,7 +3732,7 @@ export const coLocateCharactersForTest = mutation({
       [right.id, clampToClassroom(sceneSpawnPointWithPresence(locationId, 1, args.rightName))],
     ]);
     const engineBeforePatch = await ctx.db.get(worldStatus.engineId);
-    if (engineBeforePatch?.running) {
+    if (engineBeforePatch?.running && args.kick !== false) {
       await ctx.db.patch(engineBeforePatch._id, {
         running: false,
         generationNumber: engineBeforePatch.generationNumber + 1,
@@ -3558,7 +3766,7 @@ export const coLocateCharactersForTest = mutation({
       }),
     });
     const engineAfterPatch = await ctx.db.get(worldStatus.engineId);
-    if (engineAfterPatch) {
+    if (engineAfterPatch && args.kick !== false) {
       if (!engineAfterPatch.running) {
         await startEngine(ctx, world._id);
       } else {
@@ -3582,6 +3790,97 @@ export const startConversationByCharacterNamesForTest = mutation({
   args: {
     leftName: v.string(),
     rightName: v.string(),
+    locationId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const left = findPlayerByName(world.players, descriptions, args.leftName);
+    const right = findPlayerByName(world.players, descriptions, args.rightName);
+    if (!left || !right) {
+      throw new Error(`Could not find ${args.leftName} and ${args.rightName} in the default world.`);
+    }
+    const includesUmi = args.leftName === 'Umi' || args.rightName === 'Umi';
+    const defaultLocationId = includesUmi ? 'studentCouncilRoom' : 'aiClubRoom';
+    const requestedLocation =
+      SchoolLocations.find((location) => location.id === args.locationId) ??
+      SchoolLocations.find((location) => location.id === defaultLocationId);
+    if (!requestedLocation) {
+      throw new Error(`Could not find test conversation location ${args.locationId ?? defaultLocationId}.`);
+    }
+    const testPlayerIds = new Set([left.id, right.id]);
+    const testPositions = new Map([
+      [left.id, clampToClassroom(sceneSpawnPointWithPresence(requestedLocation.id, 0, args.leftName))],
+      [right.id, clampToClassroom(sceneSpawnPointWithPresence(requestedLocation.id, 1, args.rightName))],
+    ]);
+    await ctx.db.patch(world._id, {
+      conversations: world.conversations.filter(
+        (conversation) =>
+          !conversation.participants.some((participant) => testPlayerIds.has(participant.playerId)),
+      ),
+      agents: world.agents.map((agent) => {
+        if (!testPlayerIds.has(agent.playerId)) return agent;
+        const {
+          inProgressOperation: _inProgressOperation,
+          lastInviteAttempt: _lastInviteAttempt,
+          lastConversation: _lastConversation,
+          toRemember: _toRemember,
+          ...rest
+        } = agent;
+        return rest;
+      }),
+      players: world.players.map((player) => {
+        const testPosition = testPositions.get(player.id);
+        if (!testPosition) return player;
+        const { pathfinding: _pathfinding, activity: _activity, ...rest } = player;
+        return {
+          ...rest,
+          position: testPosition,
+          speed: 0,
+        };
+      }),
+    });
+    const inputId = await insertInput(ctx, world._id, 'startConversation', {
+      playerId: left.id,
+      invitee: right.id,
+    });
+    const engine = await ctx.db.get(worldStatus.engineId);
+    let engineKick: 'started' | 'kicked' | 'skipped' | 'failed' = 'skipped';
+    let engineKickError: string | undefined;
+    if (engine) {
+      try {
+        if (worldStatus.status !== 'running') {
+          await ctx.db.patch(worldStatus._id, { status: 'running' });
+        }
+        if (!engine.running) {
+          await startEngine(ctx, world._id);
+          engineKick = 'started';
+        } else {
+          await kickEngine(ctx, world._id);
+          engineKick = 'kicked';
+        }
+      } catch (error) {
+        engineKick = 'failed';
+        engineKickError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    return {
+      inputId,
+      engineKick,
+      engineKickError,
+      locationId: requestedLocation.id,
+      locationZh: requestedLocation.labelZh,
+      left: { name: args.leftName, playerId: left.id },
+      right: { name: args.rightName, playerId: right.id },
+    };
+  },
+});
+
+export const enqueueConversationByCharacterNamesForTest = mutation({
+  args: {
+    leftName: v.string(),
+    rightName: v.string(),
+    kick: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { worldStatus, world } = await defaultWorld(ctx);
@@ -3596,20 +3895,970 @@ export const startConversationByCharacterNamesForTest = mutation({
       invitee: right.id,
     });
     const engine = await ctx.db.get(worldStatus.engineId);
-    if (engine) {
-      if (worldStatus.status !== 'running') {
-        await ctx.db.patch(worldStatus._id, { status: 'running' });
-      }
-      if (!engine.running) {
-        await startEngine(ctx, world._id);
-      } else {
-        await kickEngine(ctx, world._id);
+    let engineKick: 'started' | 'kicked' | 'skipped' | 'failed' = 'skipped';
+    let engineKickError: string | undefined;
+    if (engine && args.kick !== false) {
+      try {
+        if (worldStatus.status !== 'running') {
+          await ctx.db.patch(worldStatus._id, { status: 'running' });
+        }
+        if (!engine.running) {
+          await startEngine(ctx, world._id);
+          engineKick = 'started';
+        } else {
+          await kickEngine(ctx, world._id);
+          engineKick = 'kicked';
+        }
+      } catch (error) {
+        engineKick = 'failed';
+        engineKickError = error instanceof Error ? error.message : String(error);
       }
     }
     return {
       inputId,
+      engineKick,
+      engineKickError,
       left: { name: args.leftName, playerId: left.id },
       right: { name: args.rightName, playerId: right.id },
+    };
+  },
+});
+
+export const syncCharacterProfilesFromSource = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    resetLegacyState: v.optional(v.boolean()),
+    targetName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const resetLegacyState = args.resetLegacyState === true;
+    const targetName = args.targetName?.trim();
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const agentsByPlayerId = new Map(world.agents.map((agent) => [agent.playerId, agent]));
+    const changedProfiles = [];
+    const changedPlayerDescriptions = [];
+    const changedAgentDescriptions = [];
+
+    const profileDocs = await ctx.db
+      .query('schoolProfiles')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+
+    for (const profile of profileDocs) {
+      const name = descriptions.get(profile.playerId)?.name;
+      if (!name) continue;
+      if (targetName && name !== targetName) continue;
+      const defaults = defaultProfile(name);
+      const knownName = name === DEFAULT_NAME || GiisProfiles.some((item) => item.name === name);
+      if (!knownName) continue;
+      const changedIdentity = looksLikeDifferentProfile(profile, defaults.role);
+      const shouldResetState = resetLegacyState && changedIdentity;
+      const beliefSet = new Set([...defaults.beliefs, ...profile.beliefs]);
+      const patch = {
+        persona: defaults.persona,
+        role: resolvedRole(profile.role, defaults.role),
+        coreValues: defaults.coreValues,
+        communicationStyle: defaults.communicationStyle,
+        goals: defaults.goals,
+        beliefs: shouldResetState ? defaults.beliefs : cleanLegacyMemories([...beliefSet]).slice(0, 12),
+        shortTermIntentions: shouldResetState ? [] : cleanLegacyIntentions(profile.shortTermIntentions),
+        shortTermMemory: shouldResetState ? [] : cleanLegacyMemories(profile.shortTermMemory),
+        longTermMemory: shouldResetState ? [] : cleanLegacyMemories(profile.longTermMemory),
+        initialRelationships: defaults.initialRelationships,
+      };
+      const changed =
+        profile.persona !== patch.persona ||
+        profile.role !== patch.role ||
+        JSON.stringify(profile.coreValues) !== JSON.stringify(patch.coreValues) ||
+        profile.communicationStyle !== patch.communicationStyle ||
+        JSON.stringify(profile.goals) !== JSON.stringify(patch.goals) ||
+        JSON.stringify(profile.beliefs) !== JSON.stringify(patch.beliefs) ||
+        JSON.stringify(profile.shortTermIntentions ?? []) !== JSON.stringify(patch.shortTermIntentions) ||
+        JSON.stringify(profile.shortTermMemory) !== JSON.stringify(patch.shortTermMemory) ||
+        JSON.stringify(profile.longTermMemory) !== JSON.stringify(patch.longTermMemory) ||
+        JSON.stringify(profile.initialRelationships ?? []) !== JSON.stringify(patch.initialRelationships);
+      if (!changed) continue;
+      changedProfiles.push({
+        name,
+        playerId: profile.playerId,
+        changedIdentity,
+        stateReset: shouldResetState,
+        beforeRole: profile.role,
+        afterRole: patch.role,
+        beforePersona: profile.persona,
+        afterPersona: patch.persona,
+        removedIntentions: shouldResetState ? (profile.shortTermIntentions ?? []).length : 0,
+        removedShortMemories: shouldResetState ? profile.shortTermMemory.length : 0,
+        removedLongMemories: shouldResetState ? profile.longTermMemory.length : 0,
+      });
+      if (!dryRun) await ctx.db.patch(profile._id, patch);
+    }
+
+    const playerDescriptionDocs = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const description of playerDescriptionDocs) {
+      const sourceProfile =
+        description.name === DEFAULT_NAME
+          ? AlanProfile
+          : GiisProfiles.find((profile) => profile.name === description.name);
+      if (!sourceProfile) continue;
+      if (targetName && description.name !== targetName) continue;
+      const sourceDescription =
+        description.name === DEFAULT_NAME ? AlanProfile.persona : sourceProfile.identity;
+      const patch = {
+        character: sourceProfile.character,
+        description: sourceDescription,
+      };
+      const changed =
+        description.character !== patch.character ||
+        description.description !== patch.description;
+      if (!changed) continue;
+      changedPlayerDescriptions.push({
+        name: description.name,
+        playerId: description.playerId,
+        beforeCharacter: description.character,
+        afterCharacter: patch.character,
+      });
+      if (!dryRun) await ctx.db.patch(description._id, patch);
+    }
+
+    const agentDescriptionDocs = await ctx.db
+      .query('agentDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const agentDescription of agentDescriptionDocs) {
+      const playerIdValue = agentsByPlayerId.get(
+        world.agents.find((agent) => agent.id === agentDescription.agentId)?.playerId ?? '',
+      )?.playerId;
+      const name = playerIdValue ? descriptions.get(playerIdValue)?.name : undefined;
+      const sourceProfile = name ? GiisProfiles.find((profile) => profile.name === name) : undefined;
+      if (!sourceProfile) continue;
+      if (targetName && name !== targetName) continue;
+      const patch = {
+        identity: sourceProfile.identity,
+        plan: sourceProfile.plan,
+      };
+      const changed =
+        agentDescription.identity !== patch.identity ||
+        agentDescription.plan !== patch.plan;
+      if (!changed) continue;
+      changedAgentDescriptions.push({
+        name,
+        agentId: agentDescription.agentId,
+      });
+      if (!dryRun) await ctx.db.patch(agentDescription._id, patch);
+    }
+
+    return {
+      worldId: world._id,
+      dryRun,
+      resetLegacyState,
+      targetName,
+      profileDocs: changedProfiles.length,
+      playerDescriptionDocs: changedPlayerDescriptions.length,
+      agentDescriptionDocs: changedAgentDescriptions.length,
+      changedProfiles,
+      changedPlayerDescriptions,
+      changedAgentDescriptions,
+    };
+  },
+});
+
+function trajectoryAliasSetFor(name: string) {
+  const display = displayNameZh(name);
+  const aliases = new Set([name, display]);
+  if (display === '天澤') {
+    aliases.add('Tianze').add('天澤一夏').add('天擇').add('天擇一夏');
+  }
+  if (display === '一之瀨') {
+    aliases.add('Ichinose').add('一之瀨帆波').add('黑化一之瀨');
+  }
+  return aliases;
+}
+
+function textMentionsAnyAlias(text: string | undefined, aliases: Set<string>) {
+  if (!text) return false;
+  return [...aliases].some((alias) => alias && text.includes(alias));
+}
+
+export const migrateCharacterRuntimeNames = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    worldId: v.optional(v.id('worlds')),
+    renames: v.array(v.object({ from: v.string(), to: v.string() })),
+    aliases: v.optional(v.array(v.string())),
+    clearHistory: v.optional(v.boolean()),
+    scope: v.optional(
+      v.union(
+        v.literal('all'),
+        v.literal('profiles'),
+        v.literal('conversations'),
+        v.literal('memories'),
+        v.literal('relationships'),
+        v.literal('timeline'),
+      ),
+    ),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const scope = args.scope ?? 'all';
+    const clearHistory = args.clearHistory !== false && scope !== 'profiles';
+    const cleanupConversations = clearHistory && (scope === 'all' || scope === 'conversations');
+    const cleanupMemories = clearHistory && (scope === 'all' || scope === 'memories');
+    const cleanupRelationships = clearHistory && (scope === 'all' || scope === 'relationships');
+    const cleanupTimeline = clearHistory && (scope === 'all' || scope === 'timeline');
+    const limit = Math.max(1, Math.min(args.limit ?? 400, 1200));
+    const renameMap = new Map(
+      args.renames
+        .map((item) => [item.from.trim(), item.to.trim()] as const)
+        .filter(([from, to]) => from && to && from !== to),
+    );
+    if (renameMap.size === 0) {
+      return { dryRun, clearHistory, renamedPlayers: 0, note: 'No valid rename pairs provided.' };
+    }
+
+    const world = args.worldId ? await ctx.db.get(args.worldId) : (await defaultWorld(ctx)).world;
+    if (!world) throw new Error(`World ${args.worldId} not found`);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const targetPlayerIds = new Set<string>();
+    const targetAliases = new Set<string>();
+    for (const [from, to] of renameMap) {
+      targetAliases.add(from);
+      targetAliases.add(to);
+      targetAliases.add(displayNameZh(from));
+      targetAliases.add(displayNameZh(to));
+      for (const alias of trajectoryAliasSetFor(to)) targetAliases.add(alias);
+    }
+    for (const alias of args.aliases ?? []) {
+      if (alias.trim()) targetAliases.add(alias.trim());
+    }
+    for (const [playerIdValue, description] of descriptions) {
+      if (renameMap.has(description.name) || [...renameMap.values()].includes(description.name)) {
+        targetPlayerIds.add(playerIdValue);
+      }
+    }
+
+    const conversationIdsToDelete = new Set<string>();
+    const messageIdsToDelete = new Set<Id<'messages'>>();
+    const archivedConversationIdsToDelete = new Set<Id<'archivedConversations'>>();
+    const participatedTogetherIdsToDelete = new Set<Id<'participatedTogether'>>();
+    const memoryIdsToDelete = new Set<Id<'memories'>>();
+    const embeddingIdsToDelete = new Set<Id<'memoryEmbeddings'>>();
+    const relationshipIdsToDelete = new Set<Id<'schoolRelationships'>>();
+    const eventIdsToDelete = new Set<Id<'worldEvents'>>();
+    const notificationIdsToDelete = new Set<Id<'schoolNotifications'>>();
+    const rumorIdsToDelete = new Set<Id<'schoolRumors'>>();
+    const playerDescriptionPatches: Array<{ id: Id<'playerDescriptions'>; patch: any }> = [];
+    const agentDescriptionPatches: Array<{ id: Id<'agentDescriptions'>; patch: any }> = [];
+    const profilePatches: Array<{ id: Id<'schoolProfiles'>; patch: any }> = [];
+    const examples = {
+      conversations: [] as any[],
+      memories: [] as any[],
+      events: [] as any[],
+    };
+
+    const playerDescriptions = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const description of playerDescriptions) {
+      const nextName = renameMap.get(description.name);
+      if (!nextName && !targetPlayerIds.has(description.playerId)) continue;
+      const sourceProfile = GiisProfiles.find((profile) => profile.name === (nextName ?? description.name));
+      if (!sourceProfile) continue;
+      targetPlayerIds.add(description.playerId);
+      playerDescriptionPatches.push({
+        id: description._id,
+        patch: {
+          name: sourceProfile.name,
+          character: sourceProfile.character,
+          description: sourceProfile.identity,
+        },
+      });
+    }
+
+    const agentIdsByPlayerId = new Map(world.agents.map((agent) => [agent.playerId, agent.id]));
+    const agentDescriptions = await ctx.db
+      .query('agentDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const playerIdValue of targetPlayerIds) {
+      const currentName = descriptions.get(playerIdValue)?.name;
+      const nextName = currentName ? renameMap.get(currentName) ?? currentName : undefined;
+      const sourceProfile = nextName ? GiisProfiles.find((profile) => profile.name === nextName) : undefined;
+      const agentId = agentIdsByPlayerId.get(playerIdValue);
+      const agentDescription = agentId ? agentDescriptions.find((item) => item.agentId === agentId) : undefined;
+      if (agentDescription && sourceProfile) {
+        agentDescriptionPatches.push({
+          id: agentDescription._id,
+          patch: { identity: sourceProfile.identity, plan: sourceProfile.plan },
+        });
+      }
+    }
+
+    const profiles = await ctx.db
+      .query('schoolProfiles')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const profile of profiles) {
+      if (!targetPlayerIds.has(profile.playerId)) continue;
+      const currentName = descriptions.get(profile.playerId)?.name;
+      const nextName = currentName ? renameMap.get(currentName) ?? currentName : undefined;
+      if (!nextName) continue;
+      const defaults = defaultProfile(nextName);
+      profilePatches.push({
+        id: profile._id,
+        patch: {
+          persona: defaults.persona,
+          role: defaults.role,
+          coreValues: defaults.coreValues,
+          communicationStyle: defaults.communicationStyle,
+          goals: defaults.goals,
+          beliefs: defaults.beliefs,
+          shortTermIntentions: [],
+          shortTermMemory: [],
+          longTermMemory: [],
+          currentEmotion: emotionForProfile(nextName),
+          initialRelationships: defaults.initialRelationships,
+        },
+      });
+    }
+    for (const profile of profiles) {
+      const currentName = descriptions.get(profile.playerId)?.name;
+      const sourceProfile = currentName ? GiisProfiles.find((item) => item.name === currentName) : undefined;
+      const cleanedShortTermIntentions = (profile.shortTermIntentions ?? []).filter(
+        (item) => !textMentionsAnyAlias(item, targetAliases),
+      );
+      const cleanedShortTermMemory = profile.shortTermMemory.filter(
+        (item) => !textMentionsAnyAlias(item, targetAliases),
+      );
+      const cleanedLongTermMemory = profile.longTermMemory.filter(
+        (item) => !textMentionsAnyAlias(item, targetAliases),
+      );
+      const needsPatch =
+        cleanedShortTermIntentions.length !== (profile.shortTermIntentions ?? []).length ||
+        cleanedShortTermMemory.length !== profile.shortTermMemory.length ||
+        cleanedLongTermMemory.length !== profile.longTermMemory.length;
+      if (!needsPatch && !sourceProfile) continue;
+      const existing = profilePatches.find((item) => item.id === profile._id);
+      const patch = {
+        ...(sourceProfile ? { initialRelationships: defaultProfile(sourceProfile.name).initialRelationships } : {}),
+        ...(needsPatch
+          ? {
+              shortTermIntentions: cleanedShortTermIntentions,
+              shortTermMemory: cleanedShortTermMemory,
+              longTermMemory: cleanedLongTermMemory,
+            }
+          : {}),
+      };
+      if (existing) {
+        existing.patch = { ...existing.patch, ...patch };
+      } else if (Object.keys(patch).length > 0) {
+        profilePatches.push({ id: profile._id, patch });
+      }
+    }
+
+    if (cleanupConversations) {
+      for (const conversation of world.conversations) {
+        const participantIds = conversation.participants.map((participant: any) =>
+          typeof participant === 'string' ? participant : participant.playerId,
+        );
+        const messages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) => q.eq('worldId', world._id).eq('conversationId', conversation.id))
+          .collect();
+        if (
+          !participantIds.some((id: string) => targetPlayerIds.has(id)) &&
+          !messages.some((message) => textMentionsAnyAlias(message.text, targetAliases))
+        ) {
+          continue;
+        }
+        conversationIdsToDelete.add(conversation.id);
+        for (const message of messages) messageIdsToDelete.add(message._id);
+        if (examples.conversations.length < 8) {
+          examples.conversations.push({ id: conversation.id, source: 'active' });
+        }
+      }
+    }
+
+    if (cleanupConversations || cleanupMemories) {
+      for (const playerIdValue of targetPlayerIds) {
+        if (cleanupConversations) {
+          const edges = await ctx.db
+            .query('participatedTogether')
+            .withIndex('playerHistory', (q) => q.eq('worldId', world._id).eq('player1', playerIdValue))
+            .take(limit);
+          for (const edge of edges) {
+            participatedTogetherIdsToDelete.add(edge._id);
+            conversationIdsToDelete.add(edge.conversationId);
+          }
+        }
+
+        if (cleanupMemories) {
+          const ownMemories = await ctx.db
+            .query('memories')
+            .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
+            .take(limit);
+          for (const item of ownMemories) {
+            memoryIdsToDelete.add(item._id);
+            embeddingIdsToDelete.add(item.embeddingId);
+            if (examples.memories.length < 8) {
+              examples.memories.push({ owner: descriptions.get(playerIdValue)?.name, description: item.description.slice(0, 180) });
+            }
+          }
+        }
+      }
+    }
+
+    if (cleanupConversations) {
+      const archivedConversations = await ctx.db
+        .query('archivedConversations')
+        .withIndex('ended', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(limit);
+      for (const conversation of archivedConversations) {
+        const messages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) => q.eq('worldId', world._id).eq('conversationId', conversation.id))
+          .collect();
+        const textMatch = messages.some((message) => textMentionsAnyAlias(message.text, targetAliases));
+        if (
+          !conversation.participants.some((id) => targetPlayerIds.has(id)) &&
+          !conversationIdsToDelete.has(conversation.id) &&
+          !textMatch
+        ) {
+          continue;
+        }
+        archivedConversationIdsToDelete.add(conversation._id);
+        conversationIdsToDelete.add(conversation.id);
+        for (const message of messages) messageIdsToDelete.add(message._id);
+        if (examples.conversations.length < 8) {
+          examples.conversations.push({ id: conversation.id, source: 'archive', ended: conversation.ended });
+        }
+      }
+
+      for (const conversationId of conversationIdsToDelete) {
+        const archivedConversation = await ctx.db
+          .query('archivedConversations')
+          .withIndex('worldId', (q) => q.eq('worldId', world._id).eq('id', conversationId))
+          .first();
+        if (archivedConversation) archivedConversationIdsToDelete.add(archivedConversation._id);
+        const messages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) => q.eq('worldId', world._id).eq('conversationId', conversationId))
+          .collect();
+        for (const message of messages) messageIdsToDelete.add(message._id);
+      }
+    }
+
+    if (cleanupMemories) {
+      for (const [playerIdValue] of descriptions) {
+        if (targetPlayerIds.has(playerIdValue)) continue;
+        const memories = await ctx.db
+          .query('memories')
+          .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
+          .take(limit);
+        for (const item of memories) {
+          const related =
+            (item.data.type === 'relationship' && targetPlayerIds.has(item.data.playerId)) ||
+            (item.data.type === 'conversation' &&
+              (conversationIdsToDelete.has(item.data.conversationId) ||
+                item.data.playerIds.some((id) => targetPlayerIds.has(id)))) ||
+            textMentionsAnyAlias(item.description, targetAliases);
+          if (!related) continue;
+          memoryIdsToDelete.add(item._id);
+          embeddingIdsToDelete.add(item.embeddingId);
+          if (examples.memories.length < 8) {
+            examples.memories.push({ owner: descriptions.get(playerIdValue)?.name, description: item.description.slice(0, 180) });
+          }
+        }
+      }
+    }
+
+    if (cleanupRelationships) {
+      const relationships = await ctx.db
+        .query('schoolRelationships')
+        .withIndex('subject', (q) => q.eq('worldId', world._id))
+        .collect();
+      for (const relationship of relationships) {
+        if (targetPlayerIds.has(relationship.subjectPlayerId) || targetPlayerIds.has(relationship.objectPlayerId)) {
+          relationshipIdsToDelete.add(relationship._id);
+        }
+      }
+    }
+
+    if (cleanupTimeline) {
+      const events = await ctx.db
+        .query('worldEvents')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(limit);
+      for (const event of events) {
+        const text = `${event.actorName ?? ''}\n${event.targetName ?? ''}\n${event.descriptionZh}\n${event.descriptionEn}\n${event.interpretationZh ?? ''}\n${event.reactionDialogueZh ?? ''}\n${event.futureImplicationsZh ?? ''}`;
+        if (
+          (event.actorPlayerId && targetPlayerIds.has(event.actorPlayerId)) ||
+          (event.targetPlayerId && targetPlayerIds.has(event.targetPlayerId)) ||
+          event.observerPlayerIds.some((id) => targetPlayerIds.has(id)) ||
+          textMentionsAnyAlias(text, targetAliases)
+        ) {
+          eventIdsToDelete.add(event._id);
+          if (examples.events.length < 8) examples.events.push({ eventId: event.eventId, descriptionZh: event.descriptionZh.slice(0, 180) });
+        }
+      }
+
+      const notifications = await ctx.db
+        .query('schoolNotifications')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(limit);
+      for (const item of notifications) {
+        if (textMentionsAnyAlias(`${item.relatedCharacterName ?? ''}\n${item.titleZh}\n${item.contentZh}`, targetAliases)) {
+          notificationIdsToDelete.add(item._id);
+        }
+      }
+
+      const rumors = await ctx.db
+        .query('schoolRumors')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(limit);
+      for (const item of rumors) {
+        if (textMentionsAnyAlias(`${item.affectedCharacters.join('\n')}\n${item.contentZh}`, targetAliases)) {
+          rumorIdsToDelete.add(item._id);
+        }
+      }
+    }
+
+    if (!dryRun) {
+      const activeConversationIds = new Set(conversationIdsToDelete);
+      const nextAgents = world.agents.map((agent) => {
+        if (!targetPlayerIds.has(agent.playerId) && (!agent.toRemember || !activeConversationIds.has(agent.toRemember))) {
+          return agent;
+        }
+        const nextAgent = { ...agent };
+        delete nextAgent.inProgressOperation;
+        delete nextAgent.toRemember;
+        return nextAgent;
+      });
+      await ctx.db.patch(world._id, {
+        conversations: world.conversations.filter((conversation) => !activeConversationIds.has(conversation.id)),
+        agents: nextAgents,
+      });
+      for (const id of messageIdsToDelete) await ctx.db.delete(id);
+      for (const id of archivedConversationIdsToDelete) await ctx.db.delete(id);
+      for (const id of participatedTogetherIdsToDelete) await ctx.db.delete(id);
+      for (const id of memoryIdsToDelete) await ctx.db.delete(id);
+      for (const id of embeddingIdsToDelete) await ctx.db.delete(id);
+      for (const id of relationshipIdsToDelete) await ctx.db.delete(id);
+      for (const id of eventIdsToDelete) await ctx.db.delete(id);
+      for (const id of notificationIdsToDelete) await ctx.db.delete(id);
+      for (const id of rumorIdsToDelete) await ctx.db.delete(id);
+      for (const item of playerDescriptionPatches) await ctx.db.patch(item.id, item.patch);
+      for (const item of agentDescriptionPatches) await ctx.db.patch(item.id, item.patch);
+      for (const item of profilePatches) await ctx.db.patch(item.id, item.patch);
+
+      const refreshedDescriptions = await descriptionsByPlayer(ctx.db, world._id);
+      await ensureInitialRelationships(ctx, world._id, refreshedDescriptions);
+      await upsertAlanBehaviorProfile(ctx, world._id, refreshedDescriptions);
+    }
+
+    return {
+      dryRun,
+      clearHistory,
+      scope,
+      renamePairs: [...renameMap.entries()].map(([from, to]) => ({ from, to })),
+      targetPlayerIds: [...targetPlayerIds],
+      playerDescriptionDocs: playerDescriptionPatches.length,
+      agentDescriptionDocs: agentDescriptionPatches.length,
+      profileDocs: profilePatches.length,
+      activeOrArchivedConversations: conversationIdsToDelete.size,
+      archivedConversationDocs: archivedConversationIdsToDelete.size,
+      messageDocs: messageIdsToDelete.size,
+      participatedTogetherDocs: participatedTogetherIdsToDelete.size,
+      memoryDocs: memoryIdsToDelete.size,
+      embeddingDocs: embeddingIdsToDelete.size,
+      relationshipDocs: relationshipIdsToDelete.size,
+      worldEventDocs: eventIdsToDelete.size,
+      notificationDocs: notificationIdsToDelete.size,
+      rumorDocs: rumorIdsToDelete.size,
+      limit,
+      examples,
+    };
+  },
+});
+
+export const resetCharacterTrajectoryHistory = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    targetNames: v.optional(v.array(v.string())),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const limit = Math.max(100, Math.min(args.limit ?? 1500, 3000));
+    const requestedNames = (args.targetNames?.length ? args.targetNames : ['Tianze', 'Ichinose'])
+      .map((name) => name.trim())
+      .filter(Boolean);
+    const targetAliases = new Set<string>();
+    for (const name of requestedNames) {
+      for (const alias of trajectoryAliasSetFor(name)) targetAliases.add(alias);
+    }
+
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
+    const targetPlayerIds = new Set(
+      [...descriptions.entries()]
+        .filter(([, description]) => textMentionsAnyAlias(description.name, targetAliases))
+        .map(([id]) => id),
+    );
+    const agentIdsByPlayerId = new Map(world.agents.map((agent) => [agent.playerId, agent.id]));
+
+    const conversationIdsToDelete = new Set<string>();
+    const archivedConversationDocIdsToDelete = new Set<Id<'archivedConversations'>>();
+    const messageIdsToDelete = new Set<Id<'messages'>>();
+    const participatedTogetherIdsToDelete = new Set<Id<'participatedTogether'>>();
+    const memoryIdsToDelete = new Set<Id<'memories'>>();
+    const embeddingIdsToDelete = new Set<Id<'memoryEmbeddings'>>();
+    const relationshipIdsToDelete = new Set<Id<'schoolRelationships'>>();
+    const eventIdsToDelete = new Set<Id<'worldEvents'>>();
+    const notificationIdsToDelete = new Set<Id<'schoolNotifications'>>();
+    const rumorIdsToDelete = new Set<Id<'schoolRumors'>>();
+    const profilePatches: Array<{ profileId: Id<'schoolProfiles'>; name: string; patch: any }> = [];
+    const descriptionPatches: Array<{ descriptionId: Id<'playerDescriptions'>; name: string; patch: any }> = [];
+    const agentDescriptionPatches: Array<{ agentDescriptionId: Id<'agentDescriptions'>; name: string; patch: any }> = [];
+    const activeConversationIdsToRemove = new Set<string>();
+    const examples = {
+      archivedConversations: [] as any[],
+      memories: [] as any[],
+      events: [] as any[],
+      notifications: [] as any[],
+      rumors: [] as any[],
+      relationships: [] as any[],
+    };
+
+    const archivedConversations = await ctx.db
+      .query('archivedConversations')
+      .withIndex('ended', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(limit);
+    for (const conversation of archivedConversations) {
+      const participantNames = conversation.participants.map(nameForPlayer);
+      const participantMatch = conversation.participants.some((id) => targetPlayerIds.has(id));
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      const textMatch = messages.some((message) => textMentionsAnyAlias(message.text, targetAliases));
+      if (!participantMatch && !textMatch) continue;
+      archivedConversationDocIdsToDelete.add(conversation._id);
+      conversationIdsToDelete.add(conversation.id);
+      for (const message of messages) messageIdsToDelete.add(message._id);
+      if (examples.archivedConversations.length < 12) {
+        examples.archivedConversations.push({
+          conversationId: conversation.id,
+          ended: conversation.ended,
+          participantNames,
+          messageCount: messages.length,
+          preview: messages.map((message) => displayTextZh(message.text)).join(' / ').slice(0, 180),
+        });
+      }
+    }
+
+    for (const conversation of world.conversations) {
+      const participantIds = conversation.participants.map((participant: any) =>
+        typeof participant === 'string' ? participant : participant.playerId,
+      );
+      if (!participantIds.some((id: string) => targetPlayerIds.has(id))) continue;
+      activeConversationIdsToRemove.add(conversation.id);
+      conversationIdsToDelete.add(conversation.id);
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      for (const message of messages) messageIdsToDelete.add(message._id);
+    }
+
+    for (const playerIdValue of descriptions.keys()) {
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
+        .collect();
+      for (const memory of memories) {
+        const relatedToTarget =
+          targetPlayerIds.has(memory.playerId) ||
+          (memory.data.type === 'conversation' &&
+            (conversationIdsToDelete.has(memory.data.conversationId) ||
+              memory.data.playerIds.some((id) => targetPlayerIds.has(id)))) ||
+          (memory.data.type === 'relationship' && targetPlayerIds.has(memory.data.playerId)) ||
+          textMentionsAnyAlias(memory.description, targetAliases);
+        if (!relatedToTarget) continue;
+        memoryIdsToDelete.add(memory._id);
+        embeddingIdsToDelete.add(memory.embeddingId);
+        if (examples.memories.length < 12) {
+          examples.memories.push({
+            playerName: nameForPlayer(memory.playerId),
+            type: memory.data.type,
+            description: displayTextZh(memory.description).slice(0, 180),
+          });
+        }
+      }
+
+      const edges = await ctx.db
+        .query('participatedTogether')
+        .withIndex('playerHistory', (q) => q.eq('worldId', world._id).eq('player1', playerIdValue))
+        .collect();
+      for (const edge of edges) {
+        if (
+          targetPlayerIds.has(edge.player1) ||
+          targetPlayerIds.has(edge.player2) ||
+          conversationIdsToDelete.has(edge.conversationId)
+        ) {
+          participatedTogetherIdsToDelete.add(edge._id);
+        }
+      }
+    }
+
+    const relationships = await ctx.db
+      .query('schoolRelationships')
+      .withIndex('subject', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const relationship of relationships) {
+      if (
+        !targetPlayerIds.has(relationship.subjectPlayerId) &&
+        !targetPlayerIds.has(relationship.objectPlayerId)
+      ) {
+        continue;
+      }
+      relationshipIdsToDelete.add(relationship._id);
+      if (examples.relationships.length < 12) {
+        examples.relationships.push({
+          subjectName: nameForPlayer(relationship.subjectPlayerId),
+          objectName: nameForPlayer(relationship.objectPlayerId),
+          narrative: displayTextZh(relationship.narrative).slice(0, 160),
+        });
+      }
+    }
+
+    const events = await ctx.db
+      .query('worldEvents')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(limit * 2);
+    for (const event of events) {
+      const actorOrTargetMatch =
+        (event.actorPlayerId && targetPlayerIds.has(event.actorPlayerId)) ||
+        (event.targetPlayerId && targetPlayerIds.has(event.targetPlayerId)) ||
+        textMentionsAnyAlias(event.actorName, targetAliases) ||
+        textMentionsAnyAlias(event.targetName, targetAliases) ||
+        event.observerPlayerIds.some((id) => targetPlayerIds.has(id));
+      const textMatch = textMentionsAnyAlias(
+        `${event.descriptionZh}\n${event.descriptionEn}\n${event.interpretationZh ?? ''}\n${event.reactionDialogueZh ?? ''}\n${event.futureImplicationsZh ?? ''}`,
+        targetAliases,
+      );
+      if (!actorOrTargetMatch && !textMatch) continue;
+      eventIdsToDelete.add(event._id);
+      if (examples.events.length < 12) {
+        examples.events.push({
+          eventId: event.eventId,
+          type: event.type,
+          actorName: displayNameZh(event.actorName ?? ''),
+          targetName: displayNameZh(event.targetName ?? ''),
+          descriptionZh: displayTextZh(event.descriptionZh).slice(0, 180),
+        });
+      }
+    }
+
+    const notifications = await ctx.db
+      .query('schoolNotifications')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(limit * 2);
+    for (const notification of notifications) {
+      if (
+        !textMentionsAnyAlias(notification.relatedCharacterName, targetAliases) &&
+        !textMentionsAnyAlias(
+          `${notification.titleZh}\n${notification.contentZh}`,
+          targetAliases,
+        )
+      ) {
+        continue;
+      }
+      notificationIdsToDelete.add(notification._id);
+      if (examples.notifications.length < 12) {
+        examples.notifications.push({
+          notificationId: notification.notificationId,
+          relatedCharacterName: displayNameZh(notification.relatedCharacterName ?? ''),
+          contentZh: displayTextZh(notification.contentZh).slice(0, 180),
+        });
+      }
+    }
+
+    const rumors = await ctx.db
+      .query('schoolRumors')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(limit * 2);
+    for (const rumor of rumors) {
+      if (
+        !rumor.affectedCharacters.some((name) => textMentionsAnyAlias(name, targetAliases)) &&
+        !textMentionsAnyAlias(rumor.contentZh, targetAliases)
+      ) {
+        continue;
+      }
+      rumorIdsToDelete.add(rumor._id);
+      if (examples.rumors.length < 12) {
+        examples.rumors.push({
+          rumorId: rumor.rumorId,
+          affectedCharacters: rumor.affectedCharacters.map(displayNameZh),
+          contentZh: displayTextZh(rumor.contentZh).slice(0, 180),
+        });
+      }
+    }
+
+    const profileDocs = await ctx.db
+      .query('schoolProfiles')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const profile of profileDocs) {
+      const name = descriptions.get(profile.playerId)?.name;
+      if (!name || !targetPlayerIds.has(profile.playerId)) continue;
+      const defaults = defaultProfile(name);
+      profilePatches.push({
+        profileId: profile._id,
+        name,
+        patch: {
+          persona: defaults.persona,
+          role: defaults.role,
+          coreValues: defaults.coreValues,
+          communicationStyle: defaults.communicationStyle,
+          goals: defaults.goals,
+          beliefs: defaults.beliefs,
+          shortTermIntentions: [],
+          shortTermMemory: [],
+          longTermMemory: [],
+          currentEmotion: emotionForProfile(name),
+          initialRelationships: defaults.initialRelationships,
+        },
+      });
+    }
+
+    const playerDescriptionDocs = await ctx.db
+      .query('playerDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const description of playerDescriptionDocs) {
+      if (!targetPlayerIds.has(description.playerId)) continue;
+      const sourceProfile = GiisProfiles.find((profile) => profile.name === description.name);
+      if (!sourceProfile) continue;
+      descriptionPatches.push({
+        descriptionId: description._id,
+        name: description.name,
+        patch: {
+          character: sourceProfile.character,
+          description: sourceProfile.identity,
+        },
+      });
+    }
+
+    const agentDescriptionDocs = await ctx.db
+      .query('agentDescriptions')
+      .withIndex('worldId', (q) => q.eq('worldId', world._id))
+      .collect();
+    for (const [targetPlayerId, agentId] of agentIdsByPlayerId.entries()) {
+      if (!targetPlayerIds.has(targetPlayerId)) continue;
+      const name = descriptions.get(targetPlayerId)?.name;
+      const sourceProfile = name ? GiisProfiles.find((profile) => profile.name === name) : undefined;
+      if (!name || !sourceProfile) continue;
+      const agentDescription = agentDescriptionDocs.find((item) => item.agentId === agentId);
+      if (!agentDescription) continue;
+      agentDescriptionPatches.push({
+        agentDescriptionId: agentDescription._id,
+        name,
+        patch: {
+          identity: sourceProfile.identity,
+          plan: sourceProfile.plan,
+        },
+      });
+    }
+
+    if (!dryRun) {
+      const patchedAgents = world.agents.map((agent) => {
+        const nextAgent = { ...agent };
+        if (targetPlayerIds.has(agent.playerId)) {
+          delete nextAgent.inProgressOperation;
+          delete nextAgent.toRemember;
+        } else if (
+          agent.toRemember &&
+          (activeConversationIdsToRemove.has(agent.toRemember) ||
+            conversationIdsToDelete.has(agent.toRemember))
+        ) {
+          delete nextAgent.toRemember;
+        }
+        return nextAgent;
+      });
+      if (activeConversationIdsToRemove.size > 0) {
+        await ctx.db.patch(world._id, {
+          conversations: world.conversations.filter(
+            (conversation) => !activeConversationIdsToRemove.has(conversation.id),
+          ),
+          agents: patchedAgents,
+        });
+      } else if (patchedAgents.some((agent, index) => agent !== world.agents[index])) {
+        await ctx.db.patch(world._id, { agents: patchedAgents });
+      }
+
+      for (const messageId of messageIdsToDelete) await ctx.db.delete(messageId);
+      for (const conversationDocId of archivedConversationDocIdsToDelete) await ctx.db.delete(conversationDocId);
+      for (const edgeId of participatedTogetherIdsToDelete) await ctx.db.delete(edgeId);
+      for (const memoryId of memoryIdsToDelete) await ctx.db.delete(memoryId);
+      for (const embeddingId of embeddingIdsToDelete) await ctx.db.delete(embeddingId);
+      for (const relationshipId of relationshipIdsToDelete) await ctx.db.delete(relationshipId);
+      for (const eventId of eventIdsToDelete) await ctx.db.delete(eventId);
+      for (const notificationId of notificationIdsToDelete) await ctx.db.delete(notificationId);
+      for (const rumorId of rumorIdsToDelete) await ctx.db.delete(rumorId);
+      for (const item of profilePatches) await ctx.db.patch(item.profileId, item.patch);
+      for (const item of descriptionPatches) await ctx.db.patch(item.descriptionId, item.patch);
+      for (const item of agentDescriptionPatches) await ctx.db.patch(item.agentDescriptionId, item.patch);
+
+      const refreshedDescriptions = await descriptionsByPlayer(ctx.db, world._id);
+      await ensureInitialRelationships(ctx, world._id, refreshedDescriptions);
+      await upsertAlanBehaviorProfile(ctx, world._id, refreshedDescriptions);
+    }
+
+    return {
+      worldId: world._id,
+      dryRun,
+      requestedNames,
+      targetPlayerIds: [...targetPlayerIds],
+      targetNames: [...targetPlayerIds].map(nameForPlayer),
+      scannedArchivedConversations: archivedConversations.length,
+      scannedEvents: events.length,
+      scannedNotifications: notifications.length,
+      scannedRumors: rumors.length,
+      activeConversationDocs: activeConversationIdsToRemove.size,
+      archivedConversationDocs: archivedConversationDocIdsToDelete.size,
+      messageDocs: messageIdsToDelete.size,
+      participatedTogetherDocs: participatedTogetherIdsToDelete.size,
+      memoryDocs: memoryIdsToDelete.size,
+      embeddingDocs: embeddingIdsToDelete.size,
+      relationshipDocs: relationshipIdsToDelete.size,
+      worldEventDocs: eventIdsToDelete.size,
+      notificationDocs: notificationIdsToDelete.size,
+      rumorDocs: rumorIdsToDelete.size,
+      profileDocs: profilePatches.length,
+      playerDescriptionDocs: descriptionPatches.length,
+      agentDescriptionDocs: agentDescriptionPatches.length,
+      examples,
     };
   },
 });
@@ -4311,7 +5560,7 @@ export const umiBriefing = query({
         return (
           text.includes('真晝') ||
           text.includes('海') ||
-          text.includes('明日奈') ||
+          text.includes('天澤') ||
           text.includes('安靜') ||
           text.includes('疲憊') ||
           text.includes('睡') ||
@@ -4469,8 +5718,8 @@ function suggestedNextActions(events: Array<{ descriptionZh: string; type: strin
   if (events.some((event) => event.descriptionZh.includes('曹操'))) {
     return ['先找曹操談談，他可能是在用秩序保護不敢開口的人', '請海判斷要不要安排一段校長室個別談話'];
   }
-  if (events.some((event) => event.descriptionZh.includes('麻衣') || event.descriptionZh.includes('Mai'))) {
-    return ['找麻衣確認她到底在刺哪個假答案', '請麻衣把今天最不自然的地方講清楚'];
+  if (events.some((event) => event.descriptionZh.includes('一之瀨') || event.descriptionZh.includes('Ichinose'))) {
+    return ['找一之瀨確認她到底在刺哪個假答案', '請一之瀨把今天最不自然的地方講清楚'];
   }
   if (
     events.some(
@@ -4581,9 +5830,9 @@ function principalTasksFromEvents(events: Array<{ descriptionZh: string; type: s
   }
   if (events.some((event) => event.descriptionZh.includes('作業') || event.descriptionZh.includes('小考'))) {
     tasks.push({
-      title: '問明日奈今天是不是又接太多',
-      reason: '課堂與作業壓力容易默默落在最可靠的人身上。',
-      targetCharacter: 'Asuna',
+      title: '問天澤今天測到哪條底線',
+      reason: '課堂與作業壓力容易逼出最假的安慰和最脆的規則。',
+      targetCharacter: 'Tianze',
       targetScene: '教室',
       urgency: 'medium',
       suggestedActionType: 'chat',
@@ -5017,8 +6266,8 @@ async function simulateAutonomousSchoolLife(
   const liuBei = byName('Liu Bei');
   const mahiru = byName('Mahiru');
   const umi = byName('Umi');
-  const mai = byName('Mai');
-  const asuna = byName('Asuna');
+  const ichinose = byName('Ichinose');
+  const tianze = byName('Tianze');
   const location = schoolLocationForClock(clock);
   const observerPlayerIds = world.players.map((p) => p.id);
   const activities: string[] = [];
@@ -5030,6 +6279,16 @@ async function simulateAutonomousSchoolLife(
   }
   const presenceDuringSimulation: AlanPresenceStatus = alan ? 'online' : 'away';
   await executeQueuedIntentions(ctx, world, descriptions, clock, activities, implications, 1, presenceDuringSimulation);
+  await maybeSeedCampusEventThread(
+    ctx,
+    world,
+    descriptions,
+    clock,
+    observerPlayerIds,
+    presenceDuringSimulation,
+    activities,
+    implications,
+  );
 
   const addActivity = async (
     player: PlayerDoc | undefined,
@@ -5087,15 +6346,15 @@ async function simulateAutonomousSchoolLife(
       );
       if (activities.length < targetCount) {
         await addActivity(
-          mai,
+          ichinose,
           'everydayDormSilence',
-          'Mai',
-          `麻衣在${location.labelZh}窗邊待了很久，沒有主動說話；她只是看著外面，像是在避開某個還沒準備好回答的問題。`,
+          'Ichinose',
+          `一之瀨在${location.labelZh}窗邊待了很久，沒有主動說話；她只是看著外面，像是在避開某個還沒準備好回答的問題。`,
           '沉默不是空白，它可能代表疲憊、距離，或一個人還不想被分析。',
           '有些事不是不說，是現在說了也沒人接得住。',
-          'Alan 如果找麻衣談，可以先問她今天累不累，而不是直接問她在反對什麼。',
+          'Alan 如果找一之瀨談，可以先問她今天累不累，而不是直接問她在反對什麼。',
           5,
-          '麻衣有時候會用沉默保護自己，不是每次都想立刻分析世界。',
+          '一之瀨有時候會用沉默保護自己，不是每次都想立刻分析世界。',
         );
       }
     } else if (location.id === 'courtyard') {
@@ -5125,15 +6384,15 @@ async function simulateAutonomousSchoolLife(
       }
     } else if (location.id === 'classroom') {
       await addActivity(
-        asuna,
+        tianze,
         'everydayClassroomFatigue',
-        'Asuna',
-        `明日奈在${location.labelZh}發現自己把同一張待辦表整理了三次，才承認她其實也有點累。`,
-        '可靠的人也會耗損；校園不能永遠把執行壓力丟給最會收拾的人。',
-        '我沒事。只是……算了，先把今天的課表排完。',
-        'Alan 可以找明日奈確認執行負擔，而不只是要求更多功能。',
+        'Tianze',
+        `天澤在${location.labelZh}把同一道小考題往前推半步，發現全班最怕的不是錯題，是承認自己其實不懂。`,
+        '她不是在收拾課堂壓力，而是在測哪一句「沒關係」其實最容易裂開。',
+        '欸，這題不是難，是你們太急著假裝會。',
+        'Alan 可以找天澤確認她今天測到哪條底線，以及她打算在哪裡停手。',
         6,
-        '責任感如果沒有被看見，久了會變成疲憊。',
+        '底線如果只能靠假裝沒事維持，久了會先傷到最安靜的人。',
       );
       if (activities.length < targetCount) {
         await addActivity(
@@ -5150,13 +6409,13 @@ async function simulateAutonomousSchoolLife(
       }
     } else if (location.id === 'aiClubRoom') {
       await addActivity(
-        mai,
+        ichinose,
         'everydayCafeteriaAwkwardness',
-        'Mai',
-        `麻衣在${location.labelZh}看著一桌沒收好的餐盤，淡淡吐槽：連午餐都吃得像會議，難怪大家累。`,
+        'Ichinose',
+        `一之瀨在${location.labelZh}看著一桌沒收好的餐盤，淡淡吐槽：連午餐都吃得像會議，難怪大家累。`,
         '她把過大的議題拉回普通細節，提醒大家世界是由日常維護撐起來的。',
         'Alan，先把飯吃完。不是每個問題都需要結論。',
-        '如果 Alan 明天找麻衣談，可以從她到底在刺哪個假裝沒事的人開始。',
+        '如果 Alan 明天找一之瀨談，可以從她到底在刺哪個假裝沒事的人開始。',
         6,
         '小混亂會累積成文化；好好吃飯也是讓世界不要失控的一部分。',
       );
@@ -5165,12 +6424,12 @@ async function simulateAutonomousSchoolLife(
           umi,
           'everydayCafeteriaOverwork',
           'Umi',
-          `海在${location.labelZh}發現明日奈又一邊吃飯一邊改清單，便把她的筆收走了一分鐘。`,
-          '過度負責不一定是可靠，也可能是大家不知道該怎麼讓她停下來。',
-          '先吃飯。清單不會因為你咬一口飯就逃走。',
+          `海在${location.labelZh}發現天澤把一句玩笑推得太靠近痛點，便用眼神提醒她先吃一口飯。`,
+          '測試不是欺負；真正危險的地方，是她差一點想繼續問。',
+          '先吃飯。你再問下去，就不是測試，是把人拆壞了。',
           'Alan 如果明天回來，海可能會先問他是不是也忘了休息。',
           5,
-          '休息也是界線的一部分，不是所有責任都要在午餐時間完成。',
+          '休息也是界線的一部分，不是所有測試都要在午餐時間推到底。',
         );
       }
     } else if (location.id === 'studentCouncilRoom') {
@@ -5200,15 +6459,15 @@ async function simulateAutonomousSchoolLife(
       }
       if (activities.length < targetCount) {
         await addActivity(
-          asuna,
+          tianze,
           'everydayPrincipalOfficeResponsibility',
-          'Asuna',
-          `明日奈被海叫進${location.labelZh}後，沒有馬上接下新事，只把筆放在桌邊，等別人先說完。`,
-          '可靠的人最容易被默默加上更多責任，而不被任何人注意。',
-          '我可以聽。但先不要把下一件事丟給我。',
-          'Alan 可以找明日奈談談執行負擔，而不是只看事情有沒有完成。',
+          'Tianze',
+          `天澤被海叫進${location.labelZh}後，沒有馬上拆人，只把筆放在桌邊，等對方先說完。`,
+          '她開始學會：測出破綻不難，難的是在對方真的受傷前停下。',
+          '我可以問。但先說好，這次我只拆到你自己承認為止。',
+          'Alan 可以找天澤談談她今天在哪裡停手，而不是只看她拆出了什麼。',
           5,
-          '責任如果總是落在同一個人身上，信任也會慢慢變形。',
+          '測試如果沒有停手線，信任也會慢慢變形成恐懼。',
         );
       }
     }
@@ -5219,13 +6478,13 @@ async function simulateAutonomousSchoolLife(
 
   if (location.id === 'classroom') {
     await addActivity(
-      asuna,
+      tianze,
       'lessonOperations',
-      'Asuna',
-      `Asuna 在${location.labelZh}把 Alan 留下的校務事項整理成可執行清單。`,
-      '她把混亂轉成下一步，降低校園失控風險。',
-      '先把負責人和時限釐清。',
-      'Alan 回來後可以直接檢查待辦，而不是重新猜狀況。',
+      'Tianze',
+      `天澤在${location.labelZh}把 Alan 留下的校務事項推了一下，確認哪條規則只是看起來很穩。`,
+      '她把混亂變成一個壓力測試，看看校園是不是真的撐得住。',
+      '先別急著說沒問題。我只問一句：如果這條規則斷了，誰第一個裝沒事？',
+      'Alan 回來後可以先問天澤哪條規則最脆，而不是只檢查事情有沒有完成。',
       6,
     );
     await addActivity(
@@ -5262,10 +6521,10 @@ async function simulateAutonomousSchoolLife(
     );
   } else if (location.id === 'aiClubRoom') {
     await addActivity(
-      mai,
+      ichinose,
       'cafeteriaAwkwardTruth',
-      'Mai',
-      `麻衣在${location.labelZh}聽見有人把「沒考好」講得太輕鬆，忍不住提醒對方不要把難過包成玩笑。`,
+      'Ichinose',
+      `一之瀨在${location.labelZh}聽見有人把「沒考好」講得太輕鬆，忍不住提醒對方不要把難過包成玩笑。`,
       '她不反對玩笑，但會拆掉用來躲避真心話的假輕鬆。',
       '你可以說沒考好，不用急著把它講成段子。',
       'Alan 可以把這當成今天的情緒線索：有人在用玩笑躲難過。',
@@ -5378,10 +6637,10 @@ async function simulateAutonomousSchoolLife(
   }
   if (startingPressure.rumorIntensity >= 55 || startingPressure.aiClubInfluence >= 65) {
     await addActivity(
-      mai,
+      ichinose,
       'rumorPlainTruthReview',
-      'Mai',
-      `麻衣把今天的傳聞拆成兩句白話：有人怕被責怪，有人怕自己其實沒有被需要。`,
+      'Ichinose',
+      `一之瀨把今天的傳聞拆成兩句白話：有人怕被責怪，有人怕自己其實沒有被需要。`,
       '她把模糊傳聞拆回普通害怕，避免大家用大話遮住真正的情緒。',
       'Alan，你這不是缺想像力，是有人話沒說完。',
       '一段清楚的道歉或確認，會比開大會更快降低傳聞。',
@@ -5496,7 +6755,7 @@ async function simulateNightRest(
     '海深夜未眠，安靜整理明天給 Alan 的校長簡報，把誰變安靜、誰太快說沒事、誰可能沒休息排成三個重點。',
     '她沒有讓校園更吵，而是把今天的混亂整理成明天可以處理的順序。',
     '校長睡醒之前，我先把世界整理到不會一打開就爆炸的程度。',
-    '明天早上，Alan 應該先聽海簡報，再決定要找曹操、真晝或麻衣談。',
+    '明天早上，Alan 應該先聽海簡報，再決定要找曹操、真晝或一之瀨談。',
     8,
   );
 
@@ -5553,7 +6812,7 @@ function nightStoryDigest(activities: string[], pressure: WorldPressure): StoryD
       happenedZh: mainEvent,
       changedZh: `海把明天的主線整理出來；目前校園氣氛是${moodZh(pressure.mood)}。`,
       whyItMattersZh: 'Alan 回來時需要先理解世界狀態，而不是直接追加新功能。',
-      suggestedActionZh: '先查看海簡報，再決定要找曹操、真晝或麻衣談。',
+      suggestedActionZh: '先查看海簡報，再決定要找曹操、真晝或一之瀨談。',
     },
     {
       happenedZh: '明天早上，誰的沉默還留著，會成為校園最清楚的焦點。',
@@ -5760,7 +7019,7 @@ function buildDailyCharacterMemories(
 function conversationMemorySummary(previewZh: string) {
   const text = displayTextZh(previewZh);
   if (text.includes('取消') || text.includes('不要落在我身上') || text.includes('負責') || text.includes('任務')) {
-    return '他們談到執行負擔與誰不該再默默接住所有事情。';
+    return '他們談到誰正在被默默推去接住後果，以及那件事該不該被說破。';
   }
   if (text.includes('門口') || text.includes('位置') || text.includes('排除') || text.includes('吃飯')) {
     return '他們談到誰被留在外面，以及明天能不能用一個小邀請把人帶回來。';
@@ -5780,8 +7039,8 @@ function conversationMemorySummary(previewZh: string) {
 function defaultDailyMemoryForName(name: string, pressure: WorldPressure) {
   if (name === DEFAULT_NAME) return 'Alan 離校處理其他公司的事情；校園仍會把他今天留下的節奏記住。';
   if (name === 'Umi') return '海把今天整理成明天能讀懂的簡報，並注意 Alan 需要先看人，不是先加功能。';
-  if (name === 'Asuna') return '明日奈記得今天的執行壓力沒有完全消失，明天不能再默默接下所有事情。';
-  if (name === 'Mai') return '麻衣記得今天仍有一些沒有說清楚的邊界，明天需要把模糊感變得更具體。';
+  if (name === 'Tianze') return '天澤記得今天有一條規則差點被她推斷，明天要先看自己能不能在傷到人之前停手。';
+  if (name === 'Ichinose') return '一之瀨記得今天仍有一些沒有說清楚的邊界，明天需要把模糊感變得更具體。';
   if (name === 'Mahiru') return '真晝記得學生的安靜不是空白，可能是疲憊或不敢說錯話。';
   if (name === 'CaoCao') return '曹操記得秩序不只是一套規則，也可能是一張留給安靜學生的椅子。';
   if (name === 'Liu Bei') return '劉備記得共同體不是從會議開始，而是從有人願意多留一個位置開始。';
@@ -5835,10 +7094,10 @@ function compactUnique(items: string[], limit: number) {
 function dailyBeliefForName(name: string, memory: string) {
   if (name === 'Umi') return '我不是只做即時簡報；我會把 Alan 不在時的世界變化整理成明天能延續的記憶。';
   if (name === 'Mahiru') return '安靜、疲憊和說不出口的話，都應該被當成真實訊號。';
-  if (name === 'Mai') return '世界如果長得比理解還快，模糊感就會變成別人的負擔。';
+  if (name === 'Ichinose') return '世界如果長得比理解還快，模糊感就會變成別人的負擔。';
   if (name === 'CaoCao') return '秩序如果有意義，必須讓不敢進來的人也有位置。';
   if (name === 'Liu Bei') return '共同體需要靠小邀請和日常陪伴維持，不只是靠公開討論。';
-  if (name === 'Asuna') return '執行負擔如果一直沒被看見，可靠也會變成疲憊。';
+  if (name === 'Tianze') return '測試如果沒有停手線，聰明也會變成傷人。';
   if (name === DEFAULT_NAME) return `Alan 的一天會被世界記住：${memory}`;
   return undefined;
 }
@@ -5907,20 +7166,20 @@ function actionFromIntention(name: string, intention: string, locationZh: string
   if (name === 'Liu Bei') {
     return {
       type: 'intentionInvitation',
-      descriptionZh: `劉備在${locationZh}決定明天午餐邀請真晝和麻衣一起坐一下；他擔心沉默的學生正在被大家的忙碌推到邊緣。`,
+      descriptionZh: `劉備在${locationZh}決定明天午餐邀請真晝和一之瀨一起坐一下；他擔心沉默的學生正在被大家的忙碌推到邊緣。`,
       interpretationZh: '他用關係與公平降低排除感。',
       reactionDialogueZh: '大家一起談，才不會有人被推到角落。',
       futureImplicationsZh: '劉備可能更早發現誰需要被邀請，而不是等事情變成問題。',
       importance: 7,
     };
   }
-  if (name === 'Mai') {
+  if (name === 'Ichinose') {
     return {
       type: 'intentionPlainTruth',
-      descriptionZh: `麻衣在${locationZh}寫下三句今天最不自然的話：太快說沒事、太快說可以、太快把難過講成玩笑。`,
+      descriptionZh: `一之瀨在${locationZh}寫下三句今天最不自然的話：太快說沒事、太快說可以、太快把難過講成玩笑。`,
       interpretationZh: '她把抽象擔憂轉成可被看見的生活細節。',
       reactionDialogueZh: '先把話講清楚，再談怎麼辦。',
-      futureImplicationsZh: 'Alan 可以用這份清單找出今天真正需要被關心的人。',
+      futureImplicationsZh: 'Alan 可以用這三句話找出今天真正需要被關心的人。',
       importance: 7,
     };
   }
@@ -6187,7 +7446,7 @@ export const campusSocialState = query({
           })
           .filter((item) => item.signalZh)
       : [];
-    const residuePilotNames = new Set(['海', '真晝', '明日奈']);
+    const residuePilotNames = new Set(['海', '真晝', '天澤']);
     const latestResiduesByPlayerId = new Map<string, { lineZh: string; timestampLabelZh: string }>();
     for (const profile of profiles.filter((item) => activePlayerIds.has(item.playerId))) {
       const name = displayNameZh(descriptions.get(profile.playerId)?.name ?? profile.playerId);
@@ -6622,8 +7881,21 @@ export const recentConversationEvalData = query({
       }
       return memoryCacheByPlayerId.get(participantId)?.get(conversationId);
     };
+    const archivedMessageKeys = new Set<string>();
+    const archivedConversationIds = new Set<string>();
+    const archivedMessageKey = (author: string, text: string, createdAt: number) =>
+      `${author}|${text.trim()}|${Math.floor(createdAt / 60_000)}`;
+    const hasNearbyArchivedMessage = (author: string, text: string, createdAt: number) => {
+      const minute = Math.floor(createdAt / 60_000);
+      return (
+        archivedMessageKeys.has(`${author}|${text.trim()}|${minute}`) ||
+        archivedMessageKeys.has(`${author}|${text.trim()}|${minute - 1}`) ||
+        archivedMessageKeys.has(`${author}|${text.trim()}|${minute + 1}`)
+      );
+    };
     const conversations = [];
     for (const conversation of archivedConversations) {
+      archivedConversationIds.add(String(conversation.id));
       if (args.sinceCreatedAt && conversation.ended < args.sinceCreatedAt) continue;
       const messages = await ctx.db
         .query('messages')
@@ -6642,6 +7914,9 @@ export const recentConversationEvalData = query({
         timestampLabelZh: displayTimeLabel(message._creationTime, timeZone),
         createdAt: message._creationTime,
       }));
+      for (const message of messageEntries) {
+        archivedMessageKeys.add(archivedMessageKey(message.author, message.text, message.createdAt));
+      }
       const transcriptEntries = messageEntries.sort(
         (a, b) => a.createdAt - b.createdAt,
       );
@@ -6700,13 +7975,165 @@ export const recentConversationEvalData = query({
       if (conversations.length >= limit) break;
     }
 
+    const chatEventTake = Math.max(limit * 20, 120);
+    const chatEvents = await ctx.db
+      .query('worldEvents')
+      .withIndex('type', (q) => {
+        const scoped = q.eq('worldId', world._id).eq('type', 'chatMessage');
+        if (args.startAt !== undefined && args.endAt !== undefined) {
+          return scoped.gte('createdAt', args.startAt).lt('createdAt', args.endAt);
+        }
+        if (args.startAt !== undefined) return scoped.gte('createdAt', args.startAt);
+        if (args.endAt !== undefined) return scoped.lt('createdAt', args.endAt);
+        return scoped;
+      })
+      .order('desc')
+      .take(chatEventTake);
+    const orphanChatEvents = chatEvents
+      .filter((event) => !args.sinceCreatedAt || event.createdAt >= args.sinceCreatedAt)
+      .filter((event) => {
+        if (event.conversationId && archivedConversationIds.has(String(event.conversationId))) {
+          return false;
+        }
+        const actor = displayNameZh(event.actorName ?? DEFAULT_NAME);
+        const text = chatMessageTextFromWorldEvent(event);
+        if (!text) return false;
+        return !hasNearbyArchivedMessage(actor, text, event.createdAt);
+      })
+      .sort((a, b) => a.createdAt - b.createdAt);
+    const orphanChatSessions = buildOrphanChatSessionsForEval(orphanChatEvents, timeZone)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit)
+      .map((session) => {
+        const transcriptMessages = session.transcriptMessages.map((message) => ({
+          author: message.author,
+          text: message.text,
+          timestampLabelZh: message.timestampLabelZh,
+        }));
+        const previewMessages = transcriptMessages.slice(-3);
+        return args.compact ? {
+          id: session.id,
+          kind: 'orphan_chat_session',
+          diagnosticKind: 'human_chat_not_archived',
+          createdAt: session.createdAt,
+          involvedCharacters: session.involvedCharacters,
+          transcriptMessages,
+          messageCount: session.messageCount,
+          summaryZh: session.summaryZh,
+        } : {
+          id: session.id,
+          kind: 'orphan_chat_session',
+          diagnosticKind: 'human_chat_not_archived',
+          createdAt: session.createdAt,
+          timestampLabelZh: displayTimeLabel(session.createdAt, timeZone),
+          involvedCharacters: session.involvedCharacters,
+          summaryZh: session.summaryZh,
+          previewMessages,
+          transcriptMessages,
+          messageCount: session.messageCount,
+        };
+      });
+
     return {
       conversations,
+      orphanChatSessions,
+      orphanChatEventCount: orphanChatEvents.length,
       checkedAt: Date.now(),
       timeZone,
     };
   },
 });
+
+function chatMessageTextFromWorldEvent(event: Doc<'worldEvents'>) {
+  const match = event.descriptionZh.match(/^Alan 說：「([\s\S]*)」$/);
+  if (match) return match[1].trim();
+  const fallback = event.descriptionZh.replace(/^Alan 說[:：]?\s*/, '').trim();
+  return fallback || undefined;
+}
+
+function buildOrphanChatSessionsForEval(events: Doc<'worldEvents'>[], timeZone: string) {
+  const sessions: Array<{
+    id: string;
+    kind: 'orphan_chat_session';
+    diagnosticKind: 'human_chat_not_archived';
+    createdAt: number;
+    involvedCharacters: string[];
+    summaryZh: string;
+    transcriptMessages: Array<{
+      author: string;
+      text: string;
+      timestampLabelZh: string;
+      createdAt: number;
+    }>;
+    messageCount: number;
+  }> = [];
+  const SESSION_GAP_MS = 10 * 60_000;
+  let current:
+    | {
+        key: string;
+        startedAt: number;
+        endedAt: number;
+        actorName: string;
+        targetName?: string;
+        messages: Array<{
+          author: string;
+          text: string;
+          timestampLabelZh: string;
+          createdAt: number;
+        }>;
+      }
+    | undefined;
+
+  const flush = () => {
+    if (!current || current.messages.length === 0) return;
+    const participants = [current.actorName, current.targetName]
+      .filter((name): name is string => typeof name === 'string' && name.length > 0)
+      .map(displayNameZh);
+    const lastText = current.messages.at(-1)?.text ?? '';
+    sessions.push({
+      id: `orphan-chat-${current.startedAt}-${current.key.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+      kind: 'orphan_chat_session',
+      diagnosticKind: 'human_chat_not_archived',
+      createdAt: current.endedAt,
+      involvedCharacters: [...new Set(participants)],
+      summaryZh: `${[...new Set(participants)].join('、')} 有未封存的 Alan 對話片段：「${lastText.slice(
+        0,
+        48,
+      )}${lastText.length > 48 ? '...' : ''}」`,
+      transcriptMessages: current.messages,
+      messageCount: current.messages.length,
+    });
+    current = undefined;
+  };
+
+  for (const event of events) {
+    const actorName = displayNameZh(event.actorName ?? DEFAULT_NAME);
+    const targetName = event.targetName ? displayNameZh(event.targetName) : undefined;
+    const key = `${actorName}->${targetName ?? 'unknown'}`;
+    const text = chatMessageTextFromWorldEvent(event);
+    if (!text) continue;
+    if (!current || current.key !== key || event.createdAt - current.endedAt > SESSION_GAP_MS) {
+      flush();
+      current = {
+        key,
+        startedAt: event.createdAt,
+        endedAt: event.createdAt,
+        actorName,
+        targetName,
+        messages: [],
+      };
+    }
+    current.endedAt = event.createdAt;
+    current.messages.push({
+      author: actorName,
+      text,
+      timestampLabelZh: displayTimeLabel(event.createdAt, timeZone),
+      createdAt: event.createdAt,
+    });
+  }
+  flush();
+  return sessions;
+}
 
 const FALLBACK_MEMORY_MARKERS = [
   '這段先停在這裡',
@@ -6887,11 +8314,25 @@ export const cleanupFallbackPollution = mutation({
     dryRun: v.optional(v.boolean()),
     limit: v.optional(v.number()),
     includeArchivedConversations: v.optional(v.boolean()),
+    scope: v.optional(
+      v.union(
+        v.literal('active'),
+        v.literal('memories'),
+        v.literal('events'),
+        v.literal('notifications'),
+        v.literal('profiles'),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const dryRun = args.dryRun !== false;
     const limit = Math.max(50, Math.min(args.limit ?? 500, 1000));
     const includeArchivedConversations = args.includeArchivedConversations === true;
+    const scope = args.scope ?? 'active';
+    const cleanupMemories = scope === 'active' || scope === 'memories';
+    const cleanupEvents = scope === 'active' || scope === 'events';
+    const cleanupNotifications = scope === 'active' || scope === 'notifications';
+    const cleanupProfiles = scope === 'active' || scope === 'profiles';
     const { world } = await defaultWorld(ctx);
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
@@ -6938,71 +8379,78 @@ export const cleanupFallbackPollution = mutation({
       }
     }
 
-    for (const playerIdValue of targetPlayerIds) {
-      const memories = await ctx.db
-        .query('memories')
-        .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
-        .collect();
-      for (const memory of memories) {
-        if (!hasFallbackMarker(memory.description)) continue;
-        memoryIdsToDelete.add(memory._id);
-        embeddingIdsToDelete.add(memory.embeddingId);
+    if (cleanupMemories) {
+      for (const playerIdValue of targetPlayerIds) {
+        const memories = await ctx.db
+          .query('memories')
+          .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
+          .collect();
+        for (const memory of memories) {
+          if (!hasFallbackMarker(memory.description)) continue;
+          memoryIdsToDelete.add(memory._id);
+          embeddingIdsToDelete.add(memory.embeddingId);
+        }
       }
     }
 
-    const eventIdsToDelete = (
-      await ctx.db
-        .query('worldEvents')
-        .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'conversationOutcome'))
-        .order('desc')
-        .take(limit * 2)
-    )
-      .filter((event) =>
-        hasFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
-      )
-      .map((event) => event._id);
+    const eventIdsToDelete = cleanupEvents
+      ? (
+          await ctx.db
+            .query('worldEvents')
+            .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'conversationOutcome'))
+            .order('desc')
+            .take(limit * 2)
+        )
+          .filter((event) =>
+            hasFallbackMarker(`${event.descriptionZh}\n${event.futureImplicationsZh ?? ''}`),
+          )
+          .map((event) => event._id)
+      : [];
 
-    const notificationIdsToDelete = (
-      await ctx.db
-        .query('schoolNotifications')
-        .withIndex('worldId', (q) => q.eq('worldId', world._id))
-        .order('desc')
-        .take(limit * 2)
-    )
-      .filter((notification) =>
-        notification.type === 'relationship_change' &&
-        hasFallbackMarker(notification.contentZh),
-      )
-      .map((notification) => notification._id);
+    const notificationIdsToDelete = cleanupNotifications
+      ? (
+          await ctx.db
+            .query('schoolNotifications')
+            .withIndex('worldId', (q) => q.eq('worldId', world._id))
+            .order('desc')
+            .take(limit * 2)
+        )
+          .filter((notification) =>
+            notification.type === 'relationship_change' &&
+            hasFallbackMarker(notification.contentZh),
+          )
+          .map((notification) => notification._id)
+      : [];
 
     const profilePatches = [];
-    const profiles = await ctx.db
-      .query('schoolProfiles')
-      .withIndex('worldId', (q) => q.eq('worldId', world._id))
-      .collect();
-    for (const profile of profiles) {
-      const profileName = nameForPlayer(profile.playerId);
-      const shortTermIntentions = (profile.shortTermIntentions ?? []).filter(
-        (item) => !hasFallbackMarker(item),
-      );
-      const shortTermMemory = profile.shortTermMemory.filter((item) => !hasFallbackMarker(item));
-      const longTermMemory = profile.longTermMemory.filter((item) => !hasFallbackMarker(item));
-      const beliefs = profile.beliefs.filter((item) => !hasFallbackMarker(item));
-      const changed =
-        shortTermIntentions.length !== (profile.shortTermIntentions ?? []).length ||
-        shortTermMemory.length !== profile.shortTermMemory.length ||
-        longTermMemory.length !== profile.longTermMemory.length ||
-        beliefs.length !== profile.beliefs.length;
-      if (changed) {
-        profilePatches.push({
-          profileId: profile._id,
-          patch: {
-            shortTermIntentions,
-            shortTermMemory,
-            longTermMemory,
-            beliefs,
-          },
-        });
+    if (cleanupProfiles) {
+      const profiles = await ctx.db
+        .query('schoolProfiles')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id))
+        .collect();
+      for (const profile of profiles) {
+        const shortTermIntentions = (profile.shortTermIntentions ?? []).filter(
+          (item) => !hasFallbackMarker(item),
+        );
+        const shortTermMemory = profile.shortTermMemory.filter((item) => !hasFallbackMarker(item));
+        const longTermMemory = profile.longTermMemory.filter((item) => !hasFallbackMarker(item));
+        const beliefs = profile.beliefs.filter((item) => !hasFallbackMarker(item));
+        const changed =
+          shortTermIntentions.length !== (profile.shortTermIntentions ?? []).length ||
+          shortTermMemory.length !== profile.shortTermMemory.length ||
+          longTermMemory.length !== profile.longTermMemory.length ||
+          beliefs.length !== profile.beliefs.length;
+        if (changed) {
+          profilePatches.push({
+            profileId: profile._id,
+            patch: {
+              shortTermIntentions,
+              shortTermMemory,
+              longTermMemory,
+              beliefs,
+            },
+          });
+        }
       }
     }
 
@@ -7036,6 +8484,7 @@ export const cleanupFallbackPollution = mutation({
     return {
       worldId: world._id,
       dryRun,
+      scope,
       includeArchivedConversations,
       archivedConversationDocs: archivedConversationDocIdsToDelete.size,
       messageDocs: messageIdsToDelete.size,
@@ -7394,10 +8843,74 @@ export const cleanupActiveUmiMahiruFallbackConversation = mutation({
   },
 });
 
+export const cleanupActiveConversationsByCharacterNamesForTest = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    targetNames: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const targetNames = new Set(args.targetNames.map((name) => displayNameZh(name)));
+    const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
+    const targetPlayerIds = new Set(
+      [...descriptions.entries()]
+        .filter(([, description]) => targetNames.has(displayNameZh(description.name)))
+        .map(([id]) => id),
+    );
+    const activeConversationIdsToRemove = new Set<string>();
+    const messageIdsToDelete = new Set<Id<'messages'>>();
+
+    for (const conversation of world.conversations) {
+      const participantIds = conversation.participants.map((participant) => participant.playerId);
+      if (!participantIds.some((id) => targetPlayerIds.has(id))) continue;
+      activeConversationIdsToRemove.add(conversation.id);
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      for (const message of messages) messageIdsToDelete.add(message._id);
+    }
+
+    const patchedAgents = world.agents.map((agent) => {
+      if (!targetPlayerIds.has(agent.playerId)) return agent;
+      const nextAgent = { ...agent };
+      delete nextAgent.inProgressOperation;
+      delete nextAgent.toRemember;
+      delete nextAgent.lastInviteAttempt;
+      return nextAgent;
+    });
+
+    if (!dryRun && activeConversationIdsToRemove.size > 0) {
+      await ctx.db.patch(world._id, {
+        conversations: world.conversations.filter(
+          (conversation) => !activeConversationIdsToRemove.has(conversation.id),
+        ),
+        agents: patchedAgents,
+      });
+      for (const messageId of messageIdsToDelete) await ctx.db.delete(messageId);
+    }
+
+    return {
+      worldId: world._id,
+      dryRun,
+      targetNames: [...targetNames],
+      activeConversationDocs: activeConversationIdsToRemove.size,
+      messageDocs: messageIdsToDelete.size,
+      clearedAgentOps: patchedAgents.filter((agent, index) =>
+        world.agents[index]?.inProgressOperation && !agent.inProgressOperation,
+      ).length,
+    };
+  },
+});
+
 function emotionForProfile(name: string): PortraitEmotion {
   if (name === 'Umi' || name === 'CaoCao' || name === 'Liu Bei') return 'smiling';
   if (name === 'Mahiru') return 'worried';
-  if (name === 'Asuna' || name === 'Mai') return 'serious';
+  if (name === 'Tianze' || name === 'Ichinose') return 'serious';
   return 'neutral';
 }
 
@@ -7513,7 +9026,7 @@ export const playerAction = mutation({
         reactionDialogueZh = '所有人都聽見了公告，但每個人會依照今天的疲憊、期待和不安來理解它。';
         interpretationZh = '公告會成為公開事實，容易改變今天誰放鬆、誰緊張、誰想先觀察。';
         futureImplicationsZh =
-          '公開公告可能影響 Umi 的提醒方式、Asuna 願不願意接手，以及 CaoCao 會不會替安靜的人留位置。';
+          '公開公告可能影響海的提醒方式、天澤會先測哪條規則，以及曹操會不會替安靜的人留位置。';
         importance = 7;
         break;
       case 'invite':
@@ -7648,14 +9161,17 @@ export const currentScheduleContext = internalQuery({
     const characterLocationId = characterName ? scheduledLocationForName(characterName, clock) : undefined;
     const location =
       SchoolLocations.find((item) => item.id === characterLocationId) ?? schoolLocationForClock(clock);
+    const rhythm = schoolDayRhythmContext(clock.lastUpdated);
     return {
       clock,
-      schedule: location.scheduleZh,
+      schedule: rhythm.isWeekend ? rhythm.scheduleLabelZh : location.scheduleZh,
       location,
       isSleepHour: isSleepHour(clock),
       isWindingDownHour: isWindingDownHour(clock),
       canStartAutonomousConversations: !isSleepHour(clock) && !isWindingDownHour(clock),
       periodLabelZh: rhythmName(clock.hour),
+      schoolDayTypeZh: rhythm.schoolDayTypeZh,
+      isWeekend: rhythm.isWeekend,
       characterName,
     };
   },

@@ -22,8 +22,8 @@ const LIMIT = numberArg('limit', 120, 1, 200);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
 const SELF_TEST = args.get('self-test') === 'true';
 
-const PRIMARY_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
-const SECONDARY_NAMES = new Set(['曹操', '麻衣', '劉備', 'CaoCao', 'Mai', 'Liu Bei']);
+const PRIMARY_NAMES = new Set(['海', '真晝', '天澤', '天澤', 'Umi', 'Mahiru', 'Tianze']);
+const SECONDARY_NAMES = new Set(['曹操', '一之瀨', '一之瀨', '劉備', 'CaoCao', 'Ichinose', 'Liu Bei']);
 
 const CONCRETE_CUES = [
   'Alan',
@@ -77,17 +77,64 @@ const CONCRETE_CUES = [
 const TEMPORAL_CALLBACK_CUES = [
   '早上',
   '上午',
-  '剛才',
-  '剛剛',
-  '今天',
   '那句',
   '那件',
   '還記得',
   '後來',
   '中午',
-  '下午',
   '上次',
 ];
+
+const EXPLICIT_MORNING_CALLBACK_RE =
+  /今天早上|今天上午|中午前|早些時候|早一點|你早上|你上午|早上你|上午你|還記得早上|還記得上午/;
+
+const BEHAVIOR_CHANGE_RE =
+  /先別|先不要|不要再|不再|少接|少說|少整理|少開|放下|合上|停一下|坐一下|坐兩分鐘|休息一下|留到明天|交給我|換我|分掉|交接|不催|陪你|我陪|晚點再|明天再|先放著|先不/;
+
+const GENERIC_CUES = new Set([
+  'Alan',
+  '校長',
+  '休息',
+  '吃飯',
+  '午餐',
+  '杯',
+  '手',
+  '肩',
+  '筆',
+  '筆電',
+  '安靜',
+  '沉默',
+  '窗',
+  '累',
+  '疲',
+  '擔心',
+  '看見',
+  '照顧',
+  '幫忙',
+  '靠近',
+  '離開',
+]);
+
+const HIGH_SIGNAL_CUES = new Set([
+  '簡報',
+  '清單',
+  '責任',
+  '負責',
+  '交接',
+  '任務',
+  '硬撐',
+  '沒說完',
+  '沒進來',
+  '太快',
+  '太工整',
+  '一個人',
+  '被落下',
+  '作弊',
+  '作業',
+  '小考',
+  '告白',
+  '秘密',
+]);
 
 async function main() {
   if (SELF_TEST) {
@@ -162,16 +209,16 @@ function runSelfTest() {
   ];
   const afternoon = [
     fixtureConversation('conversation-pm-1', '2026-05-27T19:00:00.000Z', ['真晝', '海'], [
-      ['真晝', '早上你說你先少說一點，我下午還是想問，你午餐有吃嗎？'],
+      ['真晝', '早上你整理 Alan 簡報時說你先少說一點，我下午還是想問，你午餐有吃嗎？'],
       ['海', '有。今天不用再替 Alan 加東西了。'],
     ]),
-    fixtureConversation('conversation-pm-2', '2026-05-27T19:10:00.000Z', ['明日奈', '海'], [
-      ['明日奈', '簡報那件事先交接，不要再把責任都放在你手上。'],
+    fixtureConversation('conversation-pm-2', '2026-05-27T19:10:00.000Z', ['天澤', '海'], [
+      ['天澤', '簡報那件事先交接，不要再把責任都放在你手上。'],
       ['海', '好，交接。'],
     ]),
-    fixtureConversation('conversation-pm-3', '2026-05-27T19:20:00.000Z', ['真晝', '明日奈'], [
+    fixtureConversation('conversation-pm-3', '2026-05-27T19:20:00.000Z', ['真晝', '天澤'], [
       ['真晝', '下午餐廳比較安靜。'],
-      ['明日奈', '那先別開清單。'],
+      ['天澤', '這條規則先別推了。'],
     ]),
   ];
   const candidates = extractAmResidueCandidates(morning);
@@ -180,6 +227,25 @@ function runSelfTest() {
   assert(candidates.length > 0, 'extracts AM residue candidates');
   assert(callbacks.some((callback) => callback.strength === 'strong'), 'detects strong PM callback');
   assertEqual(passStatus.decision, 'continuity_observed', 'strong callback passes continuity');
+
+  const genericMotifCallbacks = findPmCallbacks(candidates, [
+    fixtureConversation('conversation-pm-generic-1', '2026-05-27T19:00:00.000Z', ['真晝', '海'], [
+      ['真晝', '今天 Alan 看起來也需要休息。'],
+      ['海', '嗯，手邊的東西晚點再說。'],
+    ]),
+    fixtureConversation('conversation-pm-generic-2', '2026-05-27T19:10:00.000Z', ['真晝', '海'], [
+      ['海', '午餐吃了，簡報也還在。'],
+      ['真晝', '那就好。'],
+    ]),
+    fixtureConversation('conversation-pm-generic-3', '2026-05-27T19:20:00.000Z', ['天澤', '海'], [
+      ['天澤', '今天下午不要再推那條規則。'],
+      ['海', '好。'],
+    ]),
+  ]);
+  assert(
+    !genericMotifCallbacks.some((callback) => callback.strength === 'strong'),
+    'generic recurring motifs do not become strong continuity',
+  );
 
   const pendingStatus = decideStatus({
     morning,
@@ -196,13 +262,13 @@ function runSelfTest() {
         ['曹操', '今天庭院的座位先不要動。'],
         ['劉備', '我去看看誰自己吃飯。'],
       ]),
-      fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['曹操', '麻衣'], [
-        ['麻衣', '你又把問題說得太工整。'],
+      fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['曹操', '一之瀨'], [
+        ['一之瀨', '你又把問題說得太工整。'],
         ['曹操', '規矩先放著。'],
       ]),
-      fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '麻衣'], [
+      fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
         ['劉備', '我先去餐廳。'],
-        ['麻衣', '別繞了。'],
+        ['一之瀨', '別繞了。'],
       ]),
     ],
     amResidueCandidates: candidates,
@@ -316,12 +382,33 @@ function findPmCallbacks(amResidueCandidates, afternoon) {
       );
       const matchedCues = meaningfulCandidateCues.filter((cue) => combinedText.includes(cue));
       const temporal = TEMPORAL_CALLBACK_CUES.filter((cue) => combinedText.includes(cue));
-      const hasTraceCallback = matchedCues.some((cue) => traceText.includes(cue));
+      const specificCues = matchedCues.filter((cue) => isSpecificContinuityCue(cue));
+      const strongCues = matchedCues.filter((cue) => isHighSignalContinuityCue(cue));
+      const hasTraceCallback = specificCues.some((cue) => traceText.includes(cue));
+      const samePair = sameParticipantSet(candidate.participants, conversation.involvedCharacters ?? []);
       const relationshipMatch = sharedParticipants.length > 0;
+      const explicitMorningCallback = EXPLICIT_MORNING_CALLBACK_RE.test(combinedText);
+      const behaviorChange = BEHAVIOR_CHANGE_RE.test(combinedText);
+      const phraseOverlap = hasConcretePhraseOverlap(candidate.line, combinedText);
+      const strictEvidence = {
+        samePair,
+        explicitMorningCallback,
+        behaviorChange,
+        hasTraceCallback,
+        phraseOverlap,
+        specificCueCount: specificCues.length,
+        highSignalCueCount: strongCues.length,
+      };
+      const hasStrictCallback =
+        samePair &&
+        (specificCues.length > 0 || phraseOverlap) &&
+        ((explicitMorningCallback && (behaviorChange || hasTraceCallback || phraseOverlap)) ||
+          (hasTraceCallback && (behaviorChange || phraseOverlap)));
       if (!relationshipMatch && matchedCues.length < 2) continue;
       if (!matchedCues.length) continue;
+      if (!hasStrictCallback && specificCues.length === 0) continue;
 
-      const strength = hasTraceCallback || temporal.length || matchedCues.length >= 2 ? 'strong' : 'weak';
+      const strength = hasStrictCallback ? 'strong' : 'weak';
       callbacks.push({
         strength,
         amConversationId: candidate.conversationId,
@@ -330,7 +417,10 @@ function findPmCallbacks(amResidueCandidates, afternoon) {
         participants: conversation.involvedCharacters ?? [],
         sharedParticipants,
         matchedCues,
+        specificCues,
+        highSignalCues: strongCues,
         temporalCues: temporal,
+        evidence: strictEvidence,
         amLine: candidate.line,
         pmLine: bestPmLine(conversation, matchedCues),
         source: hasTraceCallback ? 'pm_memory_trace' : 'pm_transcript',
@@ -359,8 +449,12 @@ function dedupeCallbacks(callbacks) {
 function callbackScore(callback) {
   return (
     (callback.strength === 'strong' ? 5 : 2) +
-    callback.matchedCues.length +
+    callback.specificCues.length * 2 +
+    callback.highSignalCues.length * 2 +
     callback.temporalCues.length +
+    (callback.evidence?.explicitMorningCallback ? 3 : 0) +
+    (callback.evidence?.behaviorChange ? 2 : 0) +
+    (callback.evidence?.phraseOverlap ? 3 : 0) +
     (callback.primaryScope ? 2 : 0) +
     (callback.source === 'pm_memory_trace' ? 2 : 0)
   );
@@ -399,7 +493,7 @@ function decideStatus({ morning, afternoon, amResidueCandidates, pmCallbacks }) 
       label: 'PASS',
       passWarnFail: '1 / 0 / 0',
       decision: 'continuity_observed',
-      reason: 'At least one afternoon callback strongly connects to a morning residue/cue.',
+      reason: 'At least one afternoon callback explicitly reuses a specific morning residue with relationship and behavior/trace evidence.',
       nextAction: 'Archive the best moment if it feels human; continue natural observation.',
     };
   }
@@ -408,8 +502,8 @@ function decideStatus({ morning, afternoon, amResidueCandidates, pmCallbacks }) 
       label: 'WARN',
       passWarnFail: '0 / 1 / 0',
       decision: 'weak_continuity',
-      reason: 'Afternoon references share cues, but the callback is weak or generic.',
-      nextAction: 'Collect more samples before changing prompt or memory behavior.',
+      reason: 'Afternoon references share specific cues, but not enough explicit morning/behavior/trace evidence.',
+      nextAction: 'Collect more samples; if this repeats, propose a stricter memory retrieval prompt rather than broad architecture changes.',
     };
   }
   return {
@@ -511,7 +605,8 @@ async function writeReport(data) {
         const temporal = callback.temporalCues.length
           ? `; temporal: ${callback.temporalCues.join('、')}`
           : '';
-        return `- ${callback.pmConversationId} · ${callback.pmTimeLabel} · ${callback.strength} · ${callback.source}: matched ${callback.matchedCues.join('、')}${temporal}\n  - AM: "${callback.amLine}"\n  - PM: "${callback.pmLine}"`;
+        const evidence = evidenceSummary(callback);
+        return `- ${callback.pmConversationId} · ${callback.pmTimeLabel} · ${callback.strength} · ${callback.source}: matched ${callback.matchedCues.join('、')}${temporal}\n  - Evidence: ${evidence}\n  - AM: "${callback.amLine}"\n  - PM: "${callback.pmLine}"`;
       }),
       'No PM callbacks found.',
     ),
@@ -635,6 +730,59 @@ function extractCues(text, conversation) {
   return [...cues].slice(0, 8);
 }
 
+function isSpecificContinuityCue(cue) {
+  return !isCharacterNameCue(cue) && !GENERIC_CUES.has(cue);
+}
+
+function isHighSignalContinuityCue(cue) {
+  return HIGH_SIGNAL_CUES.has(cue);
+}
+
+function sameParticipantSet(left, right) {
+  const leftNames = [...new Set(left ?? [])].filter(Boolean).sort();
+  const rightNames = [...new Set(right ?? [])].filter(Boolean).sort();
+  return leftNames.length > 0 && leftNames.length === rightNames.length && leftNames.every((name, index) => name === rightNames[index]);
+}
+
+function hasConcretePhraseOverlap(amLine, pmText) {
+  const am = cleanLine(amLine);
+  const pm = cleanLine(pmText);
+  if (!am || !pm) return false;
+  const fragments = new Set();
+  for (const match of am.matchAll(/[一-龥A-Za-z0-9]{4,}/g)) {
+    const fragment = match[0];
+    if (isLowSignalFragment(fragment)) continue;
+    fragments.add(fragment);
+    for (let start = 0; start <= fragment.length - 4; start += 1) {
+      const chunk = fragment.slice(start, start + 4);
+      if (!isLowSignalFragment(chunk)) fragments.add(chunk);
+    }
+  }
+  return [...fragments].some((fragment) => pm.includes(fragment));
+}
+
+function isLowSignalFragment(fragment) {
+  return (
+    fragment.length < 4 ||
+    /^(今天|下午|早上|上午|中午|剛才|剛剛|我們|你們|是不是|可是|自己|一直|那個|這個|有沒有|我覺得|我先|你先)$/.test(fragment) ||
+    /^(Alan|海|真晝|天澤|一之瀨|天澤|曹操|一之瀨|劉備)$/.test(fragment)
+  );
+}
+
+function evidenceSummary(callback) {
+  const evidence = callback.evidence ?? {};
+  const checks = [
+    evidence.samePair ? 'same_pair' : undefined,
+    evidence.explicitMorningCallback ? 'explicit_morning_callback' : undefined,
+    evidence.behaviorChange ? 'behavior_change' : undefined,
+    evidence.hasTraceCallback ? 'pm_memory_trace' : undefined,
+    evidence.phraseOverlap ? 'phrase_overlap' : undefined,
+    evidence.specificCueCount ? `specific_cues=${evidence.specificCueCount}` : undefined,
+    evidence.highSignalCueCount ? `high_signal=${evidence.highSignalCueCount}` : undefined,
+  ].filter(Boolean);
+  return checks.length ? checks.join(', ') : 'weak shared cue only';
+}
+
 function hasSoulOrLifeSignal(text, conversation) {
   const participants = new Set(conversation.involvedCharacters ?? []);
   const primary = [...participants].some((name) => PRIMARY_NAMES.has(name));
@@ -642,7 +790,7 @@ function hasSoulOrLifeSignal(text, conversation) {
   const lifeSignal = /休息|吃飯|午餐|手|肩|杯|窗|門口|座位|宿舍|餐廳|教室|庭院|校長室|清單|簡報|任務|責任|交接|硬撐|安靜|沒說完|看見|照顧/.test(
     text,
   );
-  const relationSignal = /Alan|海|真晝|明日奈|曹操|麻衣|劉備|你|我們/.test(text);
+  const relationSignal = /Alan|海|真晝|天澤|一之瀨|天澤|曹操|一之瀨|劉備|你|我們/.test(text);
   return (primary || secondary) && lifeSignal && relationSignal;
 }
 

@@ -100,6 +100,29 @@ export const resume = mutation({
   },
 });
 
+export const repairDefaultWorldRunState = mutation({
+  args: {
+    target: v.union(v.literal('running'), v.literal('stopped')),
+  },
+  handler: async (ctx, args) => {
+    const { worldStatus, engine } = await getDefaultWorld(ctx.db);
+    if (args.target === 'running') {
+      await ctx.db.patch(worldStatus._id, { status: 'running' });
+      if (!engine.running) {
+        await startEngine(ctx, worldStatus.worldId);
+        return { status: 'running', engineRunning: true, action: 'started_engine' };
+      }
+      return { status: 'running', engineRunning: true, action: 'patched_status_only' };
+    }
+    await ctx.db.patch(worldStatus._id, { status: 'stoppedByDeveloper' });
+    if (engine.running) {
+      await stopEngine(ctx, worldStatus.worldId);
+      return { status: 'stoppedByDeveloper', engineRunning: false, action: 'stopped_engine' };
+    }
+    return { status: 'stoppedByDeveloper', engineRunning: false, action: 'patched_status_only' };
+  },
+});
+
 export const archive = internalMutation({
   handler: async (ctx) => {
     const { worldStatus, engine } = await getDefaultWorld(ctx.db);

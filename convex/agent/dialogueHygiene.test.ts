@@ -1,4 +1,5 @@
 import {
+  hasCompanionSemanticDrift,
   hasDialogueSystemPhraseLeak,
   hasThirdPersonSelfNarrationLeak,
   stripSeparatorArtifacts,
@@ -20,6 +21,18 @@ describe('dialogue hygiene', () => {
   test('strips first-person physical action while preserving speech', () => {
     expect(stripStageDirectionsFromDialogue('我放下杯子。先不要急。')).toEqual({
       line: '先不要急。',
+      strippedStageDirection: true,
+    });
+    expect(stripStageDirectionsFromDialogue('我去把桌上的冷咖啡倒了，我們換個節奏慢慢弄完剩下的。')).toEqual({
+      line: '我們換個節奏慢慢弄完剩下的。',
+      strippedStageDirection: true,
+    });
+    expect(stripStageDirectionsFromDialogue('我把窗簾拉上一半，你聯絡時若遇到不接電話的，就留張便條。')).toEqual({
+      line: '你聯絡時若遇到不接電話的，就留張便條。',
+      strippedStageDirection: true,
+    });
+    expect(stripStageDirectionsFromDialogue('我先把這杯冷咖啡倒了，換點熱茶再來繼續。')).toEqual({
+      line: '換點熱茶再來繼續。',
       strippedStageDirection: true,
     });
   });
@@ -108,7 +121,7 @@ describe('dialogue hygiene', () => {
   });
 
   test('strips named third-person stage narration and keeps following speech', () => {
-    const line = '劉備看明日奈有點心事重重的樣子，你要不要先問她午餐有沒有吃？';
+    const line = '劉備看天澤有點心事重重的樣子，你要不要先問她午餐有沒有吃？';
 
     expect(stripStageDirectionsFromDialogue(line)).toEqual({
       line: '你要不要先問她午餐有沒有吃？',
@@ -134,6 +147,27 @@ describe('dialogue hygiene', () => {
     expect(hasDialogueSystemPhraseLeak('我剛才突然意識到還有一項緊急的世界協調報告要處理。')).toBe(true);
     expect(hasDialogueSystemPhraseLeak('我得先整理幾份關於校園情緒地圖的報告。')).toBe(true);
     expect(hasDialogueSystemPhraseLeak('我先整理 Alan 的簡報，其他的下午再說。')).toBe(false);
+  });
+
+  test('detects Alan-Umi companion replies that dodge the latest emotional correction', () => {
+    expect(
+      hasCompanionSemanticDrift(
+        '嗯，我懂。如果今天在這裡感到疲倦的原因是在餐桌上吃得太多放不下，那麼它很可能對睡眠和工作有影響。',
+        '應該是喜歡吧',
+      ),
+    ).toBe(true);
+    expect(
+      hasCompanionSemanticDrift(
+        '你的擔心更多的是關於依賴嗎？',
+        '不是依賴，是喜歡',
+      ),
+    ).toBe(true);
+    expect(
+      hasCompanionSemanticDrift(
+        '嗯，是喜歡。那我先不把它審判成危險，我只想陪你把這句話放穩一點。',
+        '不是依賴，是喜歡',
+      ),
+    ).toBe(false);
   });
 
   test('strips standalone markdown separator artifacts from dialogue', () => {

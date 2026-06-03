@@ -18,7 +18,7 @@ A golden conversation should have:
 
 ## Candidate Types
 
-- 明日奈 admits that not everything should be silently handed to her.
+- 天澤 admits that not everything should be silently handed to her.
 - 曹操 talks about order through the image of someone standing at the door.
 - 真晝 talks about students becoming afraid to say the truth.
 - 海 grounds Alan without turning the moment into a briefing.

@@ -31,7 +31,7 @@ describe('agent conversation leave guard', () => {
     ).toBe(false);
   });
 
-  test('does not hold human conversations or hard-timeout conversations', () => {
+  test('holds human conversations for Alan to close explicitly, but not hard-timeout conversations', () => {
     const now = Date.now();
 
     expect(
@@ -39,6 +39,17 @@ describe('agent conversation leave guard', () => {
         {
           hasHumanParticipant: true,
           currentMessageCount: 1,
+          conversationCreated: now - 60_000,
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      shouldDeferConversationLeave(
+        {
+          hasHumanParticipant: true,
+          humanIdleCloseDue: true,
+          currentMessageCount: 4,
           conversationCreated: now - 60_000,
         },
         now,

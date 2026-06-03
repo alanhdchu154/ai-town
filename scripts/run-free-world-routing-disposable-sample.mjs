@@ -3,7 +3,7 @@
 //
 // Purpose:
 // - Verify real world plumbing for the v0.1 routing policy:
-//   main-three speakers (Umi / Mahiru / Asuna) are cloud-first,
+//   main-three speakers (Umi / Mahiru / Tianze) are cloud-first,
 //   other autonomous speakers are local LLM.
 // - Avoid test pollution by cleaning fresh archived conversations/memories
 //   after the run unless --keep=true is passed.
@@ -30,13 +30,14 @@ const args = new Map(
     }),
 );
 
-const FOCUS_PAIR = (args.get('focus-pair') ?? 'Asuna:Liu Bei').trim();
+const FOCUS_PAIR = (args.get('focus-pair') ?? 'Tianze:Liu Bei').trim();
 const [LEFT_NAME, RIGHT_NAME] = FOCUS_PAIR.split(':').map((name) => name.trim());
 const TIMEOUT_MS = Number(args.get('timeout-ms') ?? 180_000);
 const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 7_000);
 const KEEP = args.get('keep') === 'true';
 const RUN_TIMESTAMP = Date.now();
 const LOCAL_LLM_PREFLIGHT_ARG = args.get('local-llm-preflight');
+const CLOUD_PREFLIGHT = args.get('cloud-preflight') !== 'false';
 const RUN_SOUL_TRIAD_EVAL = args.get('soul-triad-eval') !== 'false';
 
 if (!LEFT_NAME || !RIGHT_NAME) {
@@ -44,7 +45,8 @@ if (!LEFT_NAME || !RIGHT_NAME) {
   process.exit(1);
 }
 
-const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahirushiina', 'asuna']);
+const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'tianze', 'ichinose']);
+const ORIGINAL_TRIAD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'tianze']);
 
 function normalizedCharacterName(name) {
   return String(name ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -53,6 +55,20 @@ function normalizedCharacterName(name) {
 function isCoreCloudPair(leftName, rightName) {
   return (
     FREE_WORLD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(leftName)) &&
+    FREE_WORLD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(rightName))
+  );
+}
+
+function isOriginalTriadCloudPair(leftName, rightName) {
+  return (
+    ORIGINAL_TRIAD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(leftName)) &&
+    ORIGINAL_TRIAD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(rightName))
+  );
+}
+
+function pairNeedsCloudPreflight(leftName, rightName) {
+  return (
+    FREE_WORLD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(leftName)) ||
     FREE_WORLD_CLOUD_CHARACTER_NAMES.has(normalizedCharacterName(rightName))
   );
 }
@@ -184,11 +200,16 @@ async function assertLocalLlmReady(localModel) {
 }
 
 async function assertCoreCloudProviderReady(provider) {
-  if (!isCoreCloudPair(LEFT_NAME, RIGHT_NAME)) return;
+  if (!pairNeedsCloudPreflight(LEFT_NAME, RIGHT_NAME)) return;
+  if (!CLOUD_PREFLIGHT) {
+    log('core cloud provider preflight skipped by --cloud-preflight=false');
+    return;
+  }
   const normalizedProvider = String(provider ?? '').toLowerCase();
   if (!normalizedProvider) {
     throw new Error('core cloud pair requires UMI_MAHIRU_PILOT_PROVIDER to be configured.');
   }
+  const configuredModel = await convexEnvGet('UMI_MAHIRU_PILOT_MODEL');
   if (normalizedProvider === 'gemini') {
     const pilotKey = await convexEnvGet('UMI_MAHIRU_PILOT_API_KEY');
     const geminiKey = await convexEnvGet('GEMINI_API_KEY');
@@ -197,6 +218,7 @@ async function assertCoreCloudProviderReady(provider) {
         'core cloud pair uses gemini but no UMI_MAHIRU_PILOT_API_KEY or GEMINI_API_KEY is configured.',
       );
     }
+    await assertGeminiReady(pilotKey || geminiKey, configuredModel);
     log('core cloud provider preflight OK');
     return;
   }
@@ -206,7 +228,101 @@ async function assertCoreCloudProviderReady(provider) {
       `core cloud pair uses ${normalizedProvider} but UMI_MAHIRU_PILOT_API_KEY is not configured.`,
     );
   }
+  await assertOpenAiCompatibleReady(normalizedProvider, pilotKey, configuredModel);
   log('core cloud provider preflight OK');
+}
+
+function representativeSoulPrompt() {
+  return [
+    {
+      role: 'system',
+      content: [
+        'GIIS Underworld v0.1 cloud provider preflight.',
+        'Characters: 海(Umi), 真晝(Mahiru), 天澤(Tianze).',
+        'Goal: spoken dialogue only, Traditional Chinese, natural and short.',
+        'Avoid fallback/template slogans, stage directions, over-analysis, and exact echo.',
+        'Emotion should show through tone, attention, and small behavior.',
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: '天澤又想把關心變成壓力測試。請只回一句海會說的自然台詞，不要動作描寫。',
+    },
+  ];
+}
+
+function qwenModelName(model) {
+  const configured = model || 'qwen3-max';
+  return configured.startsWith('qwen/') ? configured.slice('qwen/'.length) : configured;
+}
+
+function geminiModelName(model) {
+  const configured = model || 'gemini-2.5-flash';
+  return configured.startsWith('gemini/') ? configured.slice('gemini/'.length) : configured;
+}
+
+async function assertOpenAiCompatibleReady(provider, key, configuredModel) {
+  const baseUrl = ((await convexEnvGet('UMI_MAHIRU_PILOT_BASE_URL')) || 'https://api.newcoin.top').replace(/\/+$/, '');
+  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(30_000),
+    body: JSON.stringify({
+      model: qwenModelName(configuredModel),
+      messages: representativeSoulPrompt(),
+      temperature: 0.2,
+      max_tokens: 48,
+    }),
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(
+      `core cloud provider preflight failed: ${provider} HTTP ${response.status}: ${text.slice(0, 300)}`,
+    );
+  }
+  const json = JSON.parse(text);
+  const content = json.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    throw new Error(`core cloud provider preflight failed: ${provider} returned no chat text`);
+  }
+}
+
+async function assertGeminiReady(key, configuredModel) {
+  const prompt = representativeSoulPrompt();
+  const systemText = prompt
+    .filter((message) => message.role === 'system')
+    .map((message) => message.content)
+    .join('\n');
+  const userText = prompt
+    .filter((message) => message.role !== 'system')
+    .map((message) => message.content)
+    .join('\n');
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelName(configuredModel)}:generateContent?key=${key}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemText }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 48 },
+      }),
+    },
+  );
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`core cloud provider preflight failed: Gemini HTTP ${response.status}: ${text.slice(0, 300)}`);
+  }
+  const json = JSON.parse(text);
+  const content =
+    json.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? '')
+      .join('')
+      .trim() ?? '';
+  if (!content) {
+    throw new Error('core cloud provider preflight failed: Gemini returned no chat text');
+  }
 }
 
 function messageText(message) {
@@ -222,9 +338,9 @@ function nameAliases(name) {
   const aliases = new Set([name]);
   if (name === 'Umi') aliases.add('海').add('朝凪海');
   if (name === 'Mahiru') aliases.add('Mahiru').add('真晝').add('椎名真晝');
-  if (name === 'Asuna') aliases.add('明日奈').add('結城明日奈');
+  if (name === 'Tianze') aliases.add('天澤');
   if (name === 'Liu Bei') aliases.add('LiuBei').add('劉備');
-  if (name === 'Mai') aliases.add('麻衣').add('櫻島麻衣');
+  if (name === 'Ichinose') aliases.add('一之瀨');
   if (name === 'CaoCao') aliases.add('Cao Cao').add('曹操');
   return aliases;
 }
@@ -274,6 +390,7 @@ async function main() {
   log(`starting focusPair=${FOCUS_PAIR} keep=${KEEP} timestamp=${RUN_TIMESTAMP}`);
   const previousEnv = {
     AUTONOMOUS_CONVERSATION_LLM: await convexEnvGet('AUTONOMOUS_CONVERSATION_LLM'),
+    AUTONOMOUS_CONVERSATION_LLM_PAIRS: await convexEnvGet('AUTONOMOUS_CONVERSATION_LLM_PAIRS'),
     SOUL_TRIAD_COLOCATION_PILOT: await convexEnvGet('SOUL_TRIAD_COLOCATION_PILOT'),
     SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS: await convexEnvGet('SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS'),
     SOUL_TRIAD_FOCUS_PAIR: await convexEnvGet('SOUL_TRIAD_FOCUS_PAIR'),
@@ -288,7 +405,13 @@ async function main() {
 
   let sample;
   try {
-    await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM', 'true');
+    if (isOriginalTriadCloudPair(LEFT_NAME, RIGHT_NAME)) {
+      await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM', 'false');
+      await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM_PAIRS', 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose');
+    } else {
+      await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM', 'true');
+      await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM_PAIRS', 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose');
+    }
     await convexEnvRemove('SOUL_TRIAD_COLOCATION_PILOT');
     await convexEnvRemove('SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS');
     await convexEnvRemove('SOUL_TRIAD_FOCUS_PAIR');
@@ -301,6 +424,7 @@ async function main() {
     const coLocation = await convexRun('school:coLocateCharactersForTest', {
       leftName: LEFT_NAME,
       rightName: RIGHT_NAME,
+      kick: false,
     });
     if (coLocation?.locationZh) {
       log(`co-located pair at ${coLocation.locationZh}`);
@@ -346,6 +470,18 @@ async function main() {
     let cleanupError;
     await convexRun('testing:stop').catch(() => undefined);
     try {
+      if (!KEEP) {
+        const activeCleanup = await convexRun(
+          'school:cleanupActiveConversationsByCharacterNamesForTest',
+          { dryRun: false, targetNames: [LEFT_NAME, RIGHT_NAME] },
+        ).catch((error) => {
+          console.warn(
+            `[free-world-routing] active-conversation cleanup failed: ${error.message ?? error}`,
+          );
+          return undefined;
+        });
+        if (activeCleanup) log(`active cleanup: ${JSON.stringify(activeCleanup)}`);
+      }
       if (sample?.id && !KEEP) {
         const dryRun = await convexRun('school:cleanupArchivedConversationsById', {
           dryRun: true,

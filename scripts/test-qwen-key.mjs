@@ -1,35 +1,36 @@
 #!/usr/bin/env node
-// Quick connectivity + auth test for the Qwen API key in key.md.
+// Quick connectivity + auth test for the Qwen API key.
 //
 //   node scripts/test-qwen-key.mjs [model] [baseUrl]
 //
 // Defaults: model=qwen3-max, base=https://api.newcoin.top (OpenAI-compatible proxy).
-// - Never prints the key (only prefix + length).
+// - Never prints the key.
 // - Tries "{base}/v1/chat/completions" then "{base}/chat/completions".
 // - Reports HTTP status, latency, token usage, and a sample Umi-voice reply.
 
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const keyPath = join(here, '..', 'key.md');
-
-let key;
-try {
-  key = readFileSync(keyPath, 'utf8').trim();
-} catch (e) {
-  console.error(`✗ 讀不到 ${keyPath}: ${e.message}`);
-  process.exit(1);
-}
+const useBackup = process.argv.includes('--backup');
+const key = useBackup
+  ? process.env.UMI_MAHIRU_PILOT_API_KEY_BACKUP?.trim() ||
+    process.env.QWEN_API_KEY_BACKUP?.trim() ||
+    convexEnvGet('UMI_MAHIRU_PILOT_API_KEY_BACKUP')
+  : process.env.UMI_MAHIRU_PILOT_API_KEY?.trim() ||
+    process.env.QWEN_API_KEY?.trim() ||
+    convexEnvGet('UMI_MAHIRU_PILOT_API_KEY');
 if (!key) {
-  console.error('✗ key.md 是空的');
+  console.error(
+    useBackup
+      ? '✗ 找不到 Qwen backup key。請設定 UMI_MAHIRU_PILOT_API_KEY_BACKUP / QWEN_API_KEY_BACKUP，或 Convex env UMI_MAHIRU_PILOT_API_KEY_BACKUP。'
+      : '✗ 找不到 Qwen key。請設定 UMI_MAHIRU_PILOT_API_KEY / QWEN_API_KEY，或 Convex env UMI_MAHIRU_PILOT_API_KEY。',
+  );
   process.exit(1);
 }
 
-const model = process.argv[2] || 'qwen3-max';
-const base = (process.argv[3] || 'https://api.newcoin.top').replace(/\/$/, '');
-console.log(`key prefix: ${key.slice(0, 3)}…  length: ${key.length}`);
+const positionalArgs = process.argv.slice(2).filter((arg) => arg !== '--backup');
+const model = positionalArgs[0] || 'qwen3-max';
+const base = (positionalArgs[1] || 'https://api.newcoin.top').replace(/\/$/, '');
+console.log(`key: ${useBackup ? 'backup ' : ''}set (${key.length} chars)`);
 console.log(`base: ${base}`);
 console.log(`model: ${model}\n`);
 
@@ -75,8 +76,13 @@ for (const url of urls) {
       /* leave json null */
     }
     const content = json?.choices?.[0]?.message?.content?.trim();
+    if (!json || !Array.isArray(json.choices) || !content) {
+      console.log(`[${url}] HTTP 200 but response was not a valid chat completion (${ms}ms)`);
+      console.log('  ' + text.slice(0, 200).replace(/\s+/g, ' '));
+      continue;
+    }
     console.log(`✓ [${url}] HTTP 200 (${ms}ms)  model=${json?.model ?? model}`);
-    console.log(`  Umi: ${content ?? '(no content) ' + text.slice(0, 200)}`);
+    console.log(`  Umi: ${content}`);
     if (json?.usage) {
       console.log(
         `  tokens: prompt=${json.usage.prompt_tokens} completion=${json.usage.completion_tokens}`,
@@ -98,3 +104,15 @@ if (!ok) {
   process.exit(2);
 }
 console.log('\n✓ key 可用，可以接下一步接進 Mahiru × Umi pilot。');
+
+function convexEnvGet(name) {
+  try {
+    return execFileSync('npx', ['convex', 'env', 'get', name], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 45_000,
+    }).trim();
+  } catch {
+    return '';
+  }
+}

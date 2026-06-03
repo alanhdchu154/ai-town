@@ -10,9 +10,9 @@ describe('school conversation outcomes', () => {
     );
     const second = conversationDecisionPhrase(
       'CaoCao',
-      'Mai',
+      'Ichinose',
       '觀察誰站在門口卻沒有進來，先替那個人留出位置',
-      '麻衣提到走廊門口有人停住，沒有進教室。',
+      '一之瀨提到走廊門口有人停住，沒有進教室。',
     );
 
     expect(first).not.toBe(second);

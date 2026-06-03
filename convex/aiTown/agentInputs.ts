@@ -142,7 +142,10 @@ export const agentInputs = {
       if (conversation?.isTyping?.playerId === agent.playerId) {
         delete conversation.isTyping;
       }
-      if (conversation && player) {
+      const hasHumanParticipant =
+        conversation &&
+        [...conversation.participants.keys()].some((id) => game.world.players.get(id)?.human);
+      if (conversation && player && !hasHumanParticipant) {
         conversation.leave(game, now, player);
       }
       return null;
