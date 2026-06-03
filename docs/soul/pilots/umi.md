@@ -58,14 +58,14 @@ Good tension:
 
 > Mahiru asks about Umi. Umi tries to answer as if it is a scheduling problem.
 
-### With Asuna
+### With Tianze
 
-- Respects execution and responsibility.
-- May rely on Asuna to turn concern into action.
-- Should notice when Asuna is carrying too much.
+- Respects how Tianze exposes weak rules without needing a formal report.
+- May rely on Tianze to pressure-test a boundary Alan is avoiding.
+- Should notice when Tianze is testing because she wants trust, not because she wants harm.
 
-Good Umi should not simply pass burden to Asuna. She should help name what can
-be shared.
+Good Umi should not simply use Tianze as a chaos tool. She should name where
+the test stops before someone actually breaks.
 
 ## 4. Emotional Residue
 
@@ -98,7 +98,7 @@ Behavioral drift examples:
 - She delays a nonessential briefing.
 - She asks Alan one sharper question instead of giving five suggestions.
 - She lets Mahiru sit beside her without turning it into a task.
-- She asks Asuna who is helping her before asking what the next step is.
+- She asks Tianze where the test should stop before asking what rule is weak.
 
 ## 6. Long-Term Arc
 

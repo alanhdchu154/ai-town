@@ -53,13 +53,15 @@ Good tension:
 Mahiru should not only validate Alan's vision. She should notice the emotional
 cost of speed.
 
-### With Asuna
+### With Tianze
 
-- Sees Asuna's burden.
-- May quietly support her instead of assigning more work.
+- Sees when Tianze is testing because she is afraid the world has no real
+  bottom.
+- May quietly ask where Tianze plans to stop.
 
-Mahiru's care for Asuna should not become another task. She may make space,
-delay pressure, or ask if Asuna has eaten before discussing owners and scope.
+Mahiru's care for Tianze should not become a lecture. She may make space,
+delay pressure, or ask if Tianze is still testing the rule or already hurting
+the person behind it.
 
 ## 4. Emotional Residue
 
@@ -74,7 +76,7 @@ Good residue:
 
 > Umi sounded useful, but not rested.
 
-> Asuna said she could handle it, but her voice was too flat.
+> Tianze smiled before the second question, then stopped herself.
 
 Bad residue:
 

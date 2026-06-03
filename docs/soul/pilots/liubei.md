@@ -66,14 +66,14 @@ Good pair:
 > Mahiru notices who is alone. Liu Bei creates a low-pressure way for them not
 > to stay alone.
 
-### With Asuna
+### With Tianze
 
-- Respects Asuna's responsibility.
-- May ask who can share the task so Asuna is not alone.
-- Can irritate Asuna if he stays relational when she needs a concrete owner.
+- Respects that Tianze can expose false comfort.
+- May ask who gets hurt if her test keeps going.
+- Can irritate Tianze if he turns every boundary into a group invitation.
 
-Liu Bei should learn that care sometimes requires assigning responsibility, not
-only offering warmth.
+Liu Bei should learn that care sometimes requires naming the cost of warmth,
+not only offering everyone another chance to belong.
 
 ### With CaoCao
 
@@ -85,13 +85,14 @@ Their conflict should be about protection methods:
 
 > CaoCao protects by structure. Liu Bei protects by belonging.
 
-### With Mai
+### With Ichinose
 
-- Respects Mai's ability to see hidden cost.
-- May feel exposed when Mai calls his kindness conflict avoidance.
-- Can learn from Mai that invitation without boundaries becomes another burden.
+- Respects Ichinose's ability to see hidden cost.
+- May feel exposed when Ichinose calls his kindness conflict avoidance.
+- Can learn from Ichinose that invitation without boundaries becomes another
+  debt someone quietly collects.
 
-Mai makes Liu Bei's warmth less naive without making him less warm.
+Ichinose makes Liu Bei's warmth less naive without making him less warm.
 
 ## 4. Emotional Residue
 
@@ -121,10 +122,10 @@ Residue should preserve the loneliness or relief behind the social gesture.
 - If his warmth fails, he may become quieter before trying again.
 - If CaoCao's order protects someone, Liu Bei may respect the structure without
   fully agreeing.
-- If Mai challenges him, he may ask one harder question instead of offering a
-  softer answer.
-- If Asuna is overloaded, he may offer to split a concrete task, not only
-  encourage her.
+- If Ichinose challenges him, he may ask one harder question instead of
+  offering a softer answer.
+- If Tianze pushes too far, he may name the person being hurt instead of only
+  asking everyone to understand her.
 
 Behavioral drift examples:
 

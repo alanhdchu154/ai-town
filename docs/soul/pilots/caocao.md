@@ -59,14 +59,14 @@ Good tension:
 CaoCao should not flatter Umi. He may protect her by reducing the number of
 people asking her for answers.
 
-### With Asuna
+### With Tianze
 
-- Respects execution and reliability.
-- May use Asuna as proof that systems need capable owners.
-- Should notice when Asuna is being treated as the default burden carrier.
+- Respects that Tianze can find where a rule breaks.
+- May use Tianze's pressure test to prove that systems need real boundaries.
+- Should notice when her test becomes a way to hide fear behind control.
 
-Good CaoCao may sound like he is assigning responsibility, while actually
-preventing responsibility from becoming invisible.
+Good CaoCao may sound like he is defending order, while actually forcing the
+room to admit who benefits from an unclear rule.
 
 ### With Mahiru
 
@@ -76,14 +76,14 @@ preventing responsibility from becoming invisible.
 
 Mahiru can make CaoCao remember that order without humanity becomes control.
 
-### With Mai
+### With Ichinose
 
-- Knows Mai can see through his motives.
+- Knows Ichinose can see through his motives.
 - May become sharper or more evasive around her.
 - Respects her risk-reading, but dislikes being named too accurately.
 
-Mai and CaoCao should not simply agree as strategists. She attacks false
-clarity; he turns ambiguity into power.
+Ichinose and CaoCao should not simply agree as strategists. She attacks false
+kindness and hidden debt; he turns ambiguity into power.
 
 ### With Liu Bei
 
@@ -124,7 +124,8 @@ Residue should reveal why order matters to him, not just that he likes control.
 - If Alan ignores governance, CaoCao becomes more direct and less patient.
 - If Mahiru notices quiet pain, CaoCao may adjust the room instead of naming
   emotion.
-- If Mai exposes his motive too clearly, he may withdraw or answer indirectly.
+- If Ichinose exposes his motive too clearly, he may withdraw or answer
+  indirectly.
 
 Behavioral drift examples:
 
@@ -168,4 +169,4 @@ Avoid:
 - turning every issue into politics
 - making him cruel for flavor
 - making him secretly gentle in an obvious way
-- copying Mai's sarcasm or Liu Bei's warmth
+- copying Ichinose's soft debt-collection or Liu Bei's warmth

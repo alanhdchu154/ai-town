@@ -14,11 +14,11 @@ export type CharacterVisual = {
   palette: Record<string, number>;
 };
 
-// Vite is configured with `base: '/ai-town'` (see vite.config.ts), so any
-// absolute asset URL referenced from React must include that prefix or it
-// will 404 in both dev and production. This is the same pattern used by
-// data/characters.ts for sprite textures.
-const PORTRAIT_BASE = '/ai-town/portraits';
+// Vite is configured with a non-root base in this project. Build asset URLs
+// from BASE_URL so dev, production, and preview all resolve the same files.
+const ASSET_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+const PORTRAIT_BASE = `${ASSET_BASE}/portraits`;
+const SPRITE_BASE = `${ASSET_BASE}/sprites`;
 
 function portraitSet(slug: string): Record<PortraitEmotion, string> {
   return {
@@ -36,7 +36,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     label: 'Alan',
     portraitPath: `${PORTRAIT_BASE}/alan.png`,
     portraitPaths: portraitSet('alan'),
-    spritePath: '/sprites/alan.png',
+    spritePath: `${SPRITE_BASE}/alan.png`,
     archetypeZh: '混亂但冷靜的科技校長',
     artDirection:
       'modern anime male protagonist, black/navy palette, hoodie, school lanyard, laptop, intelligent but slightly sleep-deprived, thoughtful half-smile, chaotic AI builder energy',
@@ -45,46 +45,46 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     palette: { H: 0x5a3926, S: 0xf2b27d, F: 0x181425, T: 0x6a7ee8, C: 0xffd15c, '2': 0xffffff },
   },
   Umi: {
-    tint: 0x8fd3ff,
-    accent: 0x4aa3ff,
+    tint: 0xb9c7df,
+    accent: 0x2f66b2,
     label: '海',
     portraitPath: `${PORTRAIT_BASE}/umi.png`,
     portraitPaths: portraitSet('umi'),
-    spritePath: '/sprites/umi.png',
+    spritePath: `${SPRITE_BASE}/umi.png`,
     archetypeZh: '聰明吐槽系助理校長',
     artDirection:
-      'original anime-style witty assistant principal, teal/blue palette, sharp warm eyes, clever teasing smile, elegant school office outfit, confident posture, emotionally intelligent vibe',
+      'original anime-style full-body Umi companion with short dark navy bob hair, pink-purple eyes, light gray school cardigan or blazer, white blouse, small blue ribbon bow, navy pleated skirt, dark knee-high socks, brown loafers, clever gentle teasing smile, safe non-sexual character reference pose',
     defaultEmotion: 'smiling',
     avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'HS2SS2H.', '.HSTTH..', '..CCCC..'],
-    palette: { H: 0x1d6f8f, S: 0xf4c7a1, F: 0x102a43, T: 0x2dd4bf, C: 0x8fd3ff, '2': 0xffffff },
+    palette: { H: 0x151c3a, S: 0xf4c7a1, F: 0xbb4d8f, T: 0x2f66b2, C: 0xd8dee8, '2': 0xffffff },
   },
-  Asuna: {
-    tint: 0xffb48a,
-    accent: 0xf06d4f,
-    label: '明日奈',
-    portraitPath: `${PORTRAIT_BASE}/asuna.png`,
-    portraitPaths: portraitSet('asuna'),
-    spritePath: '/sprites/asuna.png',
-    archetypeZh: '紀律明快的執行助理',
+  Tianze: {
+    tint: 0xff6f7d,
+    accent: 0xd83a45,
+    label: '天澤',
+    portraitPath: `${PORTRAIT_BASE}/tianze.png`,
+    portraitPaths: portraitSet('tianze'),
+    spritePath: `${SPRITE_BASE}/tianze.png`,
+    archetypeZh: '笑著拆系統的壓力測試者',
     artDirection:
-      'original anime-style disciplined executive assistant, warm orange/red palette, clean uniform jacket, composed confident expression, organized dependable leader energy',
-    defaultEmotion: 'serious',
-    avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'HS2SS2H.', '.HTTTH..', '..CCCC..'],
-    palette: { H: 0xa85b2a, S: 0xf3bc92, F: 0x181425, T: 0xe85f4d, C: 0xfff2df, '2': 0xffffff },
-  },
-  Mai: {
-    tint: 0xd8a7ff,
-    accent: 0x9d6adf,
-    label: '麻衣',
-    portraitPath: `${PORTRAIT_BASE}/mai.png`,
-    portraitPaths: portraitSet('mai'),
-    spritePath: '/sprites/mai.png',
-    archetypeZh: '冷靜成熟的策略顧問',
-    artDirection:
-      'original anime-style mature strategic advisor, purple/black palette, elegant long dark hair, dry humor expression, calm analytical gaze, sophisticated social-sim aura',
+      'original anime-style full-body mischievous elite transfer student, coral red palette, black and white school blazer, teasing sharp eyes, playful dangerous smile, human pressure-test energy, safe non-sexual character reference pose',
     defaultEmotion: 'serious',
     avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'H2SSS2H.', '.HTTTH..', '..CCCC..'],
-    palette: { H: 0x17111f, S: 0xe8b894, F: 0x181425, T: 0x7d5bbf, C: 0xd8a7ff, '2': 0xffffff },
+    palette: { H: 0xd64a4f, S: 0xf1b998, F: 0x181425, T: 0xd83a45, C: 0x111318, '2': 0xffffff },
+  },
+  Ichinose: {
+    tint: 0xff9ec8,
+    accent: 0xd84f8f,
+    label: '一之瀨',
+    portraitPath: `${PORTRAIT_BASE}/ichinose.png`,
+    portraitPaths: portraitSet('ichinose'),
+    spritePath: `${SPRITE_BASE}/ichinose.png`,
+    archetypeZh: '用善意收債的粉紅髮溫柔惡魔',
+    artDirection:
+      'original anime-style full-body pink-haired former class leader with angelic demon aura, short side-swept bangs that keep the full face and both eyes clearly visible, rose and navy palette, warm possessive smile, polished student council aura, weaponized kindness, yandere-like psychological pressure without fantasy horns, safe non-sexual character reference pose',
+    defaultEmotion: 'serious',
+    avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'H2SSS2H.', '.HTTTH..', '..CCCC..'],
+    palette: { H: 0xf07faf, S: 0xf0bea0, F: 0x181425, T: 0xd84f8f, C: 0x20304f, '2': 0xffffff },
   },
   CaoCao: {
     tint: 0xff8f8f,
@@ -92,7 +92,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     label: '曹操',
     portraitPath: `${PORTRAIT_BASE}/caocao.png`,
     portraitPaths: portraitSet('caocao'),
-    spritePath: '/sprites/caocao.png',
+    spritePath: `${SPRITE_BASE}/caocao.png`,
     archetypeZh: '自信野心派學生政治家',
     artDirection:
       'original anime-style ambitious student strategist, red/black palette, confident political smile, sharp eyes, subtle intimidating aura, student council power styling',
@@ -114,7 +114,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     label: '劉備',
     portraitPath: `${PORTRAIT_BASE}/liubei.png`,
     portraitPaths: portraitSet('liubei'),
-    spritePath: '/sprites/liubei.png',
+    spritePath: `${SPRITE_BASE}/liubei.png`,
     archetypeZh: '溫暖凝聚型學生盟友',
     artDirection:
       'original anime-style warm alliance leader, green/gold palette, trustworthy smile, approachable charisma, community-oriented energy, gentle expressive eyes',
@@ -128,10 +128,10 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     label: '真晝',
     portraitPath: `${PORTRAIT_BASE}/mahiru.png`,
     portraitPaths: portraitSet('mahiru'),
-    spritePath: '/sprites/mahiru.png',
+    spritePath: `${SPRITE_BASE}/mahiru.png`,
     archetypeZh: '溫柔治癒系學生事務助理',
     artDirection:
-      'original anime-style gentle student affairs assistant, cream/pink palette, soft warm lighting, cardigan counselor vibe, kind concerned expression, emotionally safe presence',
+      'original anime-style full-body gentle student affairs assistant, cream/pink palette, soft warm lighting, cardigan counselor vibe, kind concerned expression, emotionally safe presence, safe non-sexual character reference pose',
     defaultEmotion: 'worried',
     avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'HS2S2SH.', '.HTTTH..', '..CCCC..'],
     palette: { H: 0xf2cf78, S: 0xf4c6a6, F: 0x181425, T: 0xf28abd, C: 0xfff2d5, '2': 0xffffff },
@@ -141,8 +141,8 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
 export function characterVisualFor(name?: string): CharacterVisual | undefined {
   if (!name) return undefined;
   if (name === '海' || name === '朝凪海') return CharacterVisuals.Umi;
-  if (name === '明日奈' || name === '結城明日奈') return CharacterVisuals.Asuna;
-  if (name === '麻衣' || name === '櫻島麻衣') return CharacterVisuals.Mai;
+  if (name === '天澤' || name === '天澤一夏' || name === '天擇' || name === '天擇一夏') return CharacterVisuals.Tianze;
+  if (name === '一之瀨' || name === '一之瀨帆波' || name === '黑化一之瀨') return CharacterVisuals.Ichinose;
   if (name === 'Mahiru' || name === 'Mahiru Shiina' || name === '真晝' || name === '椎名真晝') return CharacterVisuals['Mahiru'];
   if (name === 'Cao Cao' || name === '曹操') return CharacterVisuals.CaoCao;
   if (name === '劉備') return CharacterVisuals['Liu Bei'];

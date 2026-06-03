@@ -42,9 +42,9 @@ export const SchoolLocations: SchoolLocation[] = [
     ],
     radius: 1.9,
     moodEvents: [
-      { id: 'bad-exam', titleZh: '小考考差', emotionHintZh: '明日奈會把壓力轉成待辦，真晝會先看誰不敢說話。' },
+      { id: 'bad-exam', titleZh: '小考考差', emotionHintZh: '天澤會測哪條安慰太假，真晝會先看誰不敢說話。' },
       { id: 'caught-cheating', titleZh: '作弊被發現', emotionHintZh: '教室會變安靜，曹操會在意公平，海會提醒 Alan 先不要公開羞辱。' },
-      { id: 'late-homework', titleZh: '作業連兩天沒交', emotionHintZh: '可靠的人可能自動接手，照顧型角色會注意背後是不是睡眠或家庭壓力。' },
+      { id: 'late-homework', titleZh: '作業連兩天沒交', emotionHintZh: '天澤會測試這條作業規則到底保護誰，照顧型角色會注意背後是不是睡眠或家庭壓力。' },
     ],
   },
   {
@@ -63,7 +63,7 @@ export const SchoolLocations: SchoolLocation[] = [
     ],
     radius: 1.9,
     moodEvents: [
-      { id: 'overheard-secret', titleZh: '秘密被聽到', emotionHintZh: '傳聞會變成第二層記憶，麻衣會戳破太工整的說法。' },
+      { id: 'overheard-secret', titleZh: '秘密被聽到', emotionHintZh: '傳聞會變成第二層記憶，一之瀨會戳破太工整的說法。' },
       { id: 'confession', titleZh: '沒敢說完的告白', emotionHintZh: '角色會更在意沉默和停頓，而不是只看結果。' },
       { id: 'eating-alone', titleZh: '有人一個人吃飯', emotionHintZh: '劉備會主動邀請，真晝會判斷對方是否想被打擾。' },
     ],
@@ -86,7 +86,7 @@ export const SchoolLocations: SchoolLocation[] = [
     moodEvents: [
       { id: 'forgot-lunch-money', titleZh: '忘記帶午餐錢', emotionHintZh: '尷尬會被包成玩笑，照顧型角色可能用小事保護對方自尊。' },
       { id: 'saved-seat-empty', titleZh: '留好的座位空著', emotionHintZh: '關係的缺席會比事件本身更影響心情。' },
-      { id: 'task-during-lunch', titleZh: '午餐時還在改清單', emotionHintZh: '海會縮短簡報，明日奈可能需要被迫停一分鐘。' },
+      { id: 'task-during-lunch', titleZh: '午餐時還在推規則', emotionHintZh: '海會縮短簡報，天澤會問誰把午餐也變成規則測試。' },
     ],
   },
   {
@@ -107,7 +107,7 @@ export const SchoolLocations: SchoolLocation[] = [
     moodEvents: [
       { id: 'quiet-apology', titleZh: '很小聲的道歉', emotionHintZh: '海會把場面放輕，記下誰願意先低頭。' },
       { id: 'parent-called-in', titleZh: '家長被請來', emotionHintZh: '角色會把正式壓力翻成私人不安。' },
-      { id: 'request-for-help', titleZh: '終於開口求助', emotionHintZh: '明日奈可能不熟練地分擔責任，真晝會保護對方不要被逼問。' },
+      { id: 'request-for-help', titleZh: '終於開口求助', emotionHintZh: '天澤會測求助裡藏了哪個逃避，真晝會保護對方不要被逼問。' },
     ],
   },
   {
@@ -133,8 +133,19 @@ export const SchoolLocations: SchoolLocation[] = [
   },
 ];
 
-export function schoolLocationForHour(hour: number, minute = 0) {
+export function schoolLocationForHour(hour: number, minute = 0, rhythm?: { isWeekend?: boolean }) {
   const time = hour + minute / 60;
+  if (rhythm?.isWeekend) {
+    if (time >= 6 && time < 10)
+      return SchoolLocations.find((location) => location.id === 'dormitory')!;
+    if (time >= 10 && time < 13.5)
+      return SchoolLocations.find((location) => location.id === 'aiClubRoom')!;
+    if (time >= 13.5 && time < 17)
+      return SchoolLocations.find((location) => location.id === 'courtyard')!;
+    if (time >= 17 && time < 21)
+      return SchoolLocations.find((location) => location.id === 'aiClubRoom')!;
+    return SchoolLocations.find((location) => location.id === 'dormitory')!;
+  }
   if (time >= 6 && time < 9)
     return SchoolLocations.find((location) => location.id === 'dormitory')!;
   if (time >= 9 && time <= 12)
