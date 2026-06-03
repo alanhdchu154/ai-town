@@ -32,16 +32,16 @@ function applyClamp(viewport: Viewport, props: ViewportProps) {
   if (clampBounds && screenWidth > 0 && screenHeight > 0) {
     const boundsWidth = clampBounds.right - clampBounds.left;
     const boundsHeight = clampBounds.bottom - clampBounds.top;
-    // At minScale, the bounded region fits in the smaller dimension so the
-    // whole scene is visible without any panning. The larger dimension keeps
-    // some scene-toned padding (the canvas backgroundColor) on the right side,
-    // which is exactly where the right drawer expands from.
-    const minScale = Math.min(screenWidth / boundsWidth, screenHeight / boundsHeight);
+    // Default to an overview fit so Alan can see where people are without
+    // dragging around the room. The Pixi room now draws its own expanded
+    // backdrop, so fitting the bounds no longer exposes a harsh black plate.
+    const minScale =
+      Math.max(screenWidth / boundsWidth, screenHeight / boundsHeight) * 1.01;
     const maxScale = Math.max(3.5, minScale * 2.2);
     viewport
       .clamp({
         direction: 'all',
-        underflow: 'left',
+        underflow: 'center',
         left: clampBounds.left,
         right: clampBounds.right,
         top: clampBounds.top,

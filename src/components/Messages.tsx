@@ -103,10 +103,16 @@ export function Messages({
       (p: { playerId: string }) => p.playerId === currentlyTyping?.playerId,
     )?.name;
 
-  const scrollView = scrollViewRef.current;
+  const conversationLogRef = useRef<HTMLDivElement>(null);
+  const getScrollView = () => conversationLogRef.current ?? scrollViewRef.current;
   const isScrolledToBottom = useRef(false);
   const initializedScroll = useRef(false);
   useEffect(() => {
+    initializedScroll.current = false;
+    isScrolledToBottom.current = true;
+  }, [conversation.doc.id]);
+  useEffect(() => {
+    const scrollView = getScrollView();
     if (!scrollView) return undefined;
 
     const onScroll = () => {
@@ -116,23 +122,26 @@ export function Messages({
     };
     scrollView.addEventListener('scroll', onScroll);
     return () => scrollView.removeEventListener('scroll', onScroll);
-  }, [scrollView]);
+  }, [scrollViewRef]);
   useEffect(() => {
+    const scrollView = getScrollView();
+    if (!scrollView) return;
     if (!initializedScroll.current && messages !== undefined) {
       initializedScroll.current = true;
-      scrollViewRef.current?.scrollTo({
-        top: scrollViewRef.current.scrollHeight,
+      scrollView.scrollTo({
+        top: scrollView.scrollHeight,
         behavior: 'auto',
       });
+      isScrolledToBottom.current = true;
       return;
     }
-    if (isScrolledToBottom.current) {
-      scrollViewRef.current?.scrollTo({
-        top: scrollViewRef.current.scrollHeight,
+    if (isScrolledToBottom.current || awaitingReply) {
+      scrollView.scrollTo({
+        top: scrollView.scrollHeight,
         behavior: 'smooth',
       });
     }
-  }, [messages, currentlyTyping]);
+  }, [messages, currentlyTyping, pendingMessages.length, awaitingReply?.since, conversation.doc.id]);
 
   if (messages === undefined) {
     return null;
@@ -257,7 +266,7 @@ export function Messages({
   nodes.sort((a, b) => a.time - b.time);
   return (
     <div className="chats text-base sm:text-sm">
-      <div className="giis-conversation-log bg-brown-200 text-black p-2">
+      <div ref={conversationLogRef} className="giis-conversation-log bg-brown-200 text-black p-2">
         {nodes.length > 0 && nodes.map((n) => n.node)}
         {currentlyTyping && currentlyTyping.playerId !== humanPlayerId && (
           <div key="typing" className="leading-tight mb-6">
@@ -306,6 +315,7 @@ export function Messages({
             placeholderTargetName={placeholderTargetName}
             onOptimisticMessage={(message) =>
               {
+                isScrolledToBottom.current = true;
                 setPendingMessages((items) => [
                   ...items.filter((item) => item.messageUuid !== message.messageUuid),
                   message,

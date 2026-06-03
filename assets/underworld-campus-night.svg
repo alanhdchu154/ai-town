@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2688 1536" role="img" aria-label="GIIS Underworld quiet campus at night">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#111827"/>
+      <stop offset="0.5" stop-color="#172033"/>
+      <stop offset="1" stop-color="#09111f"/>
+    </linearGradient>
+    <linearGradient id="building" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#243046"/>
+      <stop offset="1" stop-color="#101827"/>
+    </linearGradient>
+    <linearGradient id="walkway" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#1f2937"/>
+      <stop offset="0.5" stop-color="#324154"/>
+      <stop offset="1" stop-color="#1f2937"/>
+    </linearGradient>
+    <pattern id="windowGrid" width="172" height="118" patternUnits="userSpaceOnUse">
+      <rect x="34" y="30" width="54" height="38" rx="4" fill="#f8e7a2" opacity="0.16"/>
+      <rect x="106" y="30" width="36" height="38" rx="4" fill="#93c5fd" opacity="0.09"/>
+    </pattern>
+    <pattern id="floorGrid" width="96" height="64" patternUnits="userSpaceOnUse">
+      <path d="M0 0H96M0 64H96M0 0V64M96 0V64" fill="none" stroke="#93a4bd" stroke-width="1" opacity="0.08"/>
+    </pattern>
+  </defs>
+
+  <rect width="2688" height="1536" fill="url(#sky)"/>
+
+  <path d="M0 635C280 590 476 610 672 648C928 698 1146 688 1368 636C1668 566 1980 604 2232 662C2392 699 2536 704 2688 680V1536H0Z" fill="#0c1625" opacity="0.82"/>
+
+  <g opacity="0.9">
+    <rect x="280" y="520" width="2128" height="510" rx="18" fill="url(#building)"/>
+    <rect x="326" y="572" width="2036" height="388" fill="url(#windowGrid)" opacity="0.95"/>
+    <rect x="248" y="1012" width="2192" height="48" fill="#4b5563" opacity="0.34"/>
+    <rect x="294" y="522" width="2068" height="26" fill="#8b5a2b" opacity="0.42"/>
+    <rect x="1170" y="630" width="348" height="430" rx="10" fill="#0b1220" opacity="0.62"/>
+    <rect x="1222" y="686" width="96" height="144" rx="6" fill="#60a5fa" opacity="0.1"/>
+    <rect x="1370" y="686" width="96" height="144" rx="6" fill="#facc15" opacity="0.12"/>
+  </g>
+
+  <g opacity="0.6">
+    <rect x="0" y="1058" width="2688" height="478" fill="url(#walkway)"/>
+    <rect x="0" y="1058" width="2688" height="478" fill="url(#floorGrid)"/>
+    <path d="M888 1536L1218 1058H1470L1800 1536Z" fill="#475569" opacity="0.38"/>
+    <path d="M1014 1536L1268 1058H1420L1674 1536Z" fill="#111827" opacity="0.22"/>
+  </g>
+
+  <g opacity="0.68">
+    <rect x="120" y="884" width="88" height="342" rx="10" fill="#182338"/>
+    <rect x="96" y="832" width="136" height="74" rx="8" fill="#243046"/>
+    <rect x="2480" y="884" width="88" height="342" rx="10" fill="#182338"/>
+    <rect x="2456" y="832" width="136" height="74" rx="8" fill="#243046"/>
+    <rect x="68" y="1202" width="264" height="24" rx="12" fill="#60a5fa" opacity="0.1"/>
+    <rect x="2356" y="1202" width="264" height="24" rx="12" fill="#60a5fa" opacity="0.1"/>
+  </g>
+
+  <g opacity="0.42">
+    <rect x="0" y="0" width="2688" height="1536" fill="#020617"/>
+    <path d="M0 0H2688V190H0Z" fill="#020617" opacity="0.42"/>
+    <path d="M0 1230H2688V1536H0Z" fill="#020617" opacity="0.34"/>
+  </g>
+</svg>

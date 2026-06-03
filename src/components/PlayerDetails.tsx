@@ -207,7 +207,7 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
     return '自由時間，可能移動到庭院、餐廳或宿舍';
   }
   if (hour >= 13.5) {
-    if (name === 'Mai') return '在餐廳或庭院挑出大家不想承認的尷尬點';
+    if (name === 'Ichinose') return '在餐廳或庭院讓人承認自己欠了哪份善意';
     if (name === 'CaoCao') return '在庭院確認混亂是不是有人被丟下';
     if (name === 'Umi') return '在校長室把 Alan 的想法整理成可執行事項';
     return '補作業、整理課後情緒，或進行小組討論';
@@ -219,8 +219,8 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
   }
   if (hour >= 9) {
     if (name === 'Umi') return '準備校長簡報並觀察課堂秩序';
-    if (name === 'Asuna') return '整理校務待辦與執行責任';
-    if (name === 'Mai') return '觀察課堂討論是否過度模糊';
+    if (name === 'Tianze') return '觀察哪條校園規則最經不起壓力測試';
+    if (name === 'Ichinose') return '觀察課堂裡誰把溫柔當成自己的所有物';
     return '在教室參與課堂或正式討論';
   }
   return '早晨準備，移動到今天第一個主要場景';
@@ -311,6 +311,8 @@ export default function PlayerDetails({
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
   const [activeActionLabel, setActiveActionLabel] = useState('');
   const [runningActionKeys, setRunningActionKeys] = useState<Record<string, string>>({});
+  const runningActionKeysRef = useRef<Record<string, string>>({});
+  const lastConversationStartAtRef = useRef(0);
   const [activeTab, setActiveTab] = useState<PanelTab>('dialogue');
   const [timeAdvanceHours, setTimeAdvanceHours] =
     useState<(typeof timeAdvanceOptions)[number]['hours']>(1);
@@ -534,6 +536,9 @@ export default function PlayerDetails({
     !targetConversation;
   const queueConversationStart = async (label: string, inviteeId: GameId<'players'>) => {
     if (!humanPlayer) return;
+    const now = Date.now();
+    if (now - lastConversationStartAtRef.current < 3000) return;
+    lastConversationStartAtRef.current = now;
     await runWithStatus(label, async () => {
       const queuedAt = performance.now();
       await startConversationQueued({ playerId: humanPlayer.id, invitee: inviteeId });
@@ -583,10 +588,14 @@ export default function PlayerDetails({
   };
 
   const runWithStatus = async <T,>(label: string, work: () => Promise<T>, key: string = selectedAction) => {
+    if (runningActionKeysRef.current[key]) {
+      return undefined as T;
+    }
     const clickStart = performance.now();
     const id = `${Date.now()}_${Math.random().toString(36).slice(2)}`;
     setActiveActionLabel(label);
-    setRunningActionKeys((items) => ({ ...items, [key]: label }));
+    runningActionKeysRef.current = { ...runningActionKeysRef.current, [key]: label };
+    setRunningActionKeys(runningActionKeysRef.current);
     setQueueItems((items) => [...items.slice(-2), { id, key, label, status: 'queued' }]);
     if (import.meta.env.DEV) {
       console.debug('[GIIS timing]', { action: key, phase: 'uiClickLatency', ms: 0, label });
@@ -623,9 +632,10 @@ export default function PlayerDetails({
         items.map((item) => (item.id === id ? { ...item, status: 'done' } : item)),
       );
       setActiveActionLabel('');
-      setRunningActionKeys((items) => {
-        const next = { ...items };
+      setRunningActionKeys(() => {
+        const next = { ...runningActionKeysRef.current };
         delete next[key];
+        runningActionKeysRef.current = next;
         return next;
       });
       window.setTimeout(() => {
@@ -759,6 +769,9 @@ export default function PlayerDetails({
         return;
       }
       if (actionType === 'chat' && humanPlayer && actionTargetPlayer && !humanConversation) {
+        const now = Date.now();
+        if (now - lastConversationStartAtRef.current < 3000) return;
+        lastConversationStartAtRef.current = now;
         await startConversationQueued({ playerId: humanPlayer.id, invitee: actionTargetPlayer.id });
         setActiveTab('dialogue');
       }
@@ -1434,8 +1447,17 @@ function ConversationPanel({
         : '選一位角色開始互動';
 
   return (
-    <section className="giis-side-conversation-panel">
+    <section className={`giis-side-conversation-panel ${humanConversation ? 'giis-side-conversation-panel-active' : ''}`}>
       <header className="giis-side-conversation-header">
+        {humanConversation && targetName ? (
+          <div className="giis-rpg-portrait-stage" aria-hidden={conversationTab !== 'current'}>
+            <CharacterPortrait name={targetName} size="lg" emotion={targetEmotion} />
+            <div className="giis-rpg-portrait-caption">
+              <span>{targetDisplayName}</span>
+              <p>{targetPresence?.quietLineZh ? displayTextWithNames(targetPresence.quietLineZh) : statusText}</p>
+            </div>
+          </div>
+        ) : null}
         <div className="giis-chat-header-row">
           {targetName ? (
             <CharacterPortrait name={targetName} size="sm" showName={false} emotion={targetEmotion} />
@@ -2127,7 +2149,7 @@ function sanitizeCharacterFocus(name: string, text: string) {
   const displayName = displayAgentName(name);
   const cleaned = displayTextWithNames(text).replace(/\s+/g, ' ').trim();
   if (!cleaned) return defaultConcern(name);
-  const otherNames = ['海', '明日奈', '麻衣', '真晝', '曹操', '劉備'].filter(
+  const otherNames = ['海', '天澤', '一之瀨', '天澤', '一之瀨', '真晝', '曹操', '劉備'].filter(
     (item) => item !== displayName,
   );
   const looksLikeOtherCharacterStatus =
@@ -2150,11 +2172,11 @@ function shortConcern(text: string) {
 function defaultConcern(name: string) {
   const displayName = displayAgentName(name);
   if (displayName === '海') return '校長是不是又沒好好休息。';
-  if (displayName === '麻衣') return '今天的沉默比規格更值得注意。';
+  if (displayName === '一之瀨') return '今天誰欠了善意，卻還沒親口承認？';
   if (displayName === '曹操') return '安靜不代表沒有計畫。';
   if (displayName === '真晝') return '有些學生今天比較安靜。';
   if (displayName === '劉備') return '我想聽聽沒開口的人。';
-  if (displayName === '明日奈') return '先確認誰真的扛得住。';
+  if (displayName === '天澤') return '這條規則被推半步後會先斷在哪裡？';
   return '正在觀察今天的校園節奏。';
 }
 

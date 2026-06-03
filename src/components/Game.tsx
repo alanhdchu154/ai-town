@@ -21,7 +21,7 @@ import {
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import InteractButton from './buttons/InteractButton.tsx';
-import { ClassroomBounds, ClassroomWalkBounds } from '../../data/classroomBounds.ts';
+import { ClassroomBounds, ClassroomCenter, ClassroomWalkBounds } from '../../data/classroomBounds.ts';
 
 const ROOM_PADDING_TILES = 0.5;
 const ROOM_VIEW_WIDTH_TILES =
@@ -204,16 +204,24 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     lastAlanFocusKey.current = focusKey;
     const alanScene = nearestSchoolLocation(alanPlayerForFocus.position);
     if (alanScene) setSelectedSceneId(alanScene.id);
-    focusOn(alanPlayerForFocus.position, isFirstFocus ? 2.1 : 1.9);
+    focusOn(alanPlayerForFocus.position, isFirstFocus ? 1.35 : 1.25);
     if (isFirstFocus) {
       setSceneMessage('鏡頭已聚焦 Alan 的校園位置。');
     }
   }, [alanPlayerForFocus?.id, alanPlayerForFocus?.position?.x, alanPlayerForFocus?.position?.y]);
 
   useEffect(() => {
+    if (!game || alanPlayerForFocus?.position) return;
+    const timeout = window.setTimeout(() => {
+      focusOn(ClassroomCenter, 1.02);
+    }, 80);
+    return () => window.clearTimeout(timeout);
+  }, [game, alanPlayerForFocus?.position]);
+
+  useEffect(() => {
     const onActionCinematic = (event: Event) => {
       const detail = (event as CustomEvent<{ label?: string }>).detail;
-      focusOn(alanPlayerForFocus?.position, 2.08);
+      focusOn(alanPlayerForFocus?.position, 1.45);
       setSceneMessage(detail?.label ? `Alan 行動：${detail.label}` : 'Alan 的行動已影響校園。');
     };
     const onSceneMessage = (event: Event) => {
@@ -299,7 +307,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       } else {
         setSceneMessage(`已找到 ${targetName}。`);
       }
-      window.setTimeout(() => focusOn(target.position, detail.travel ? 1.95 : 2.15), 60);
+      window.setTimeout(() => focusOn(target.position, detail.travel ? 1.35 : 1.5), 60);
     };
     window.addEventListener('giis:navigate-character', onCharacterNavigation);
     return () => window.removeEventListener('giis:navigate-character', onCharacterNavigation);
@@ -379,6 +387,13 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const selectedStatus = selectedPlayer?.pathfinding
     ? `正在前往${selectedDestination?.labelZh ?? '目的地'}`
     : selectedPlayer?.activity?.description ?? '正在觀察今天的校園心情';
+  const measuredWorldWidth = width ?? 0;
+  const measuredWorldHeight = height ?? 0;
+  // Let the canvas fill the whole world window. The bottom action bar and
+  // right panel float above it, so shrinking the canvas left a large dark
+  // backing plate that made the classroom feel boxed-in.
+  const stageWidth = Math.max(360, measuredWorldWidth);
+  const stageHeight = Math.max(320, measuredWorldHeight);
   const alanDestination = alanPlayer?.pathfinding?.destination
     ? nearestSchoolLocation(alanPlayer.pathfinding.destination)
     : undefined;
@@ -412,6 +427,18 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const visibleSceneNames = scenePlayers
     .map((player) => displayAgentName(game.playerDescriptions.get(player.id)?.name))
     .filter(Boolean);
+  const occupiedRoomLabels = sceneGroups
+    .filter((group) => group.occupants.length > 0)
+    .map((group) => `${group.location.labelZh} (${group.occupants.length})`);
+  const emptyRoomTitle =
+    periodLabel === '深夜'
+      ? `${currentScene.labelZh}安靜下來了。`
+      : `「${currentScene.labelZh}」現在沒有人。`;
+  const emptyRoomDetail = occupiedRoomLabels.length
+    ? `大家在：${occupiedRoomLabels.join('、')}`
+    : periodLabel === '深夜'
+      ? '大多數人可能在休息或移動中。'
+      : '大家可能在移動，或正在處理自己的事。';
   const campusFeedItems: CampusNotificationItem[] = [
     ...(campusSocialState?.dailyFocus ?? []).map((item: any, index: number) => ({
       id: feedItemId('daily-focus', item, clockState?.clock?.day ?? 'unknown-day', index),
@@ -569,7 +596,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         setSceneMessage(`無法前往：${nextScene.labelZh}`);
       });
     }
-    focusOn(nextScene.position, 1.65);
+    focusOn(nextScene.position, 1.2);
     setSceneMessage(
       `Alan 前往：${nextScene.labelZh}。此處有 ${nextGroup?.occupants.length ?? 0} 位角色。`,
     );
@@ -588,7 +615,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     scene: SchoolLocation | undefined,
     position: { x: number; y: number } | undefined,
     label: string,
-    scale = 2,
+    scale = 1.35,
   ) => {
     if (!scene || !position) {
       setSceneMessage('找不到角色位置。');
@@ -615,12 +642,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       selectedLocation,
       selectedPlayer.position,
       `已聚焦 ${displayAgentName(selectedName)}`,
-      2.15,
+      1.5,
     );
   };
   const focusSceneCharacters = () => {
     if (!scenePlayers.length) {
-      focusOn(currentScene.position, 1.35);
+      focusOn(currentScene.position, 1.12);
       setSceneMessage('此場景目前沒有角色。');
       return;
     }
@@ -628,7 +655,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       (acc, player) => ({ x: acc.x + player.position.x, y: acc.y + player.position.y }),
       { x: 0, y: 0 },
     );
-    focusOn({ x: center.x / scenePlayers.length, y: center.y / scenePlayers.length }, 1.45);
+    focusOn({ x: center.x / scenePlayers.length, y: center.y / scenePlayers.length }, 1.18);
     setSceneMessage(`已顯示 ${currentScene.labelZh} 的所有角色。`);
   };
   const openPanelTab = (tab: RightPanelTab) => {
@@ -665,7 +692,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
       <div
-        className={`giis-switch-shell ${
+        className={`giis-switch-shell giis-live-room-shell ${
           currentScene.id === 'aiClubRoom'
             ? 'scene-ai'
             : currentScene.id === 'studentCouncilRoom'
@@ -871,10 +898,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
 
         <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
           {width && height ? (
-            <div className="giis-stage-wrapper" style={{ width, height }}>
+            <div className="giis-stage-wrapper" style={{ width: stageWidth, height: stageHeight }}>
               <Stage
-                width={width}
-                height={height}
+                width={stageWidth}
+                height={stageHeight}
                 options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
               >
                 {/* Re-propagate context because contexts are not shared between renderers.
@@ -884,8 +911,8 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                     game={game}
                     worldId={worldId}
                     engineId={engineId}
-                    width={width}
-                    height={height}
+                    width={stageWidth}
+                    height={stageHeight}
                     sceneId={currentScene.id}
                     visiblePlayerIds={scenePlayers.map((player) => player.id)}
                     historicalTime={historicalTime}
@@ -901,6 +928,12 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             {alanMovementHint}
           </div>
           {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
+          {scenePlayers.length === 0 ? (
+            <div className="giis-empty-room-cue" aria-live="polite">
+              <b>{emptyRoomTitle}</b>
+              <span>{emptyRoomDetail}</span>
+            </div>
+          ) : null}
 
           {selectedName ? (
             <div className="giis-focus-card">
@@ -913,7 +946,9 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                 ×
               </button>
               <div className="giis-focus-card-head">
-                <CharacterPortrait name={selectedName} size="lg" />
+                <div className="giis-focus-card-portrait">
+                  <CharacterPortrait name={selectedName} size="lg" showName={false} />
+                </div>
                 <div className="giis-focus-card-meta">
                   <b>{displayAgentName(selectedName)}</b>
                   {selectedLocation?.labelZh ? (

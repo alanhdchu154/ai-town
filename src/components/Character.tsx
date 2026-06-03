@@ -199,6 +199,7 @@ export const Character = ({
       )}
       {pixelAvatar && !customSpriteReady && <PixelAvatar avatar={pixelAvatar.avatar} palette={pixelAvatar.palette} />}
       {accent && <CharacterRing color={accent} />}
+      {isSpeaking && <SpeakingRing color={accent ?? 0x22d3ee} />}
       {isViewer && <ViewerIndicator />}
       {isSelectedTarget && <TargetIndicator color={accent ?? 0x22d3ee} label={nameLabel} />}
       {customSpriteReady && spriteUrl && customSpriteSize ? (
@@ -216,26 +217,15 @@ export const Character = ({
           textures={spriteSheet.animations[direction]}
           animationSpeed={speed}
           anchor={{ x: 0.5, y: 0.5 }}
+          scale={1.18}
           tint={tint}
         />
       )}
       {nameLabel && (
-        <Text
-          x={0}
-          y={20}
-          scale={0.36}
+        <NameLabel
           text={nameLabel}
-          anchor={{ x: 0.5, y: 0.5 }}
-          style={
-            new PIXI.TextStyle({
-              fill: '#fff3d0',
-              fontFamily: 'monospace',
-              fontSize: 18,
-              fontWeight: '700',
-              stroke: '#181425',
-              strokeThickness: 4,
-            })
-          }
+          accent={accent}
+          emphasize={isViewer || isSelectedTarget}
         />
       )}
       {emoji && (
@@ -279,7 +269,7 @@ function CustomCharacterSprite({
     );
   }, [direction, frame, sourceHeight, sourceWidth, spriteUrl]);
 
-  return <Sprite texture={texture} anchor={{ x: 0.5, y: 0.72 }} width={38} height={38} y={4} />;
+  return <Sprite texture={texture} anchor={{ x: 0.5, y: 0.72 }} width={46} height={46} y={3} />;
 }
 
 function MovementTrail({ color }: { color: number }) {
@@ -362,6 +352,71 @@ function TargetIndicator({ color, label }: { color: number; label?: string }) {
       />
     </>
   );
+}
+
+function NameLabel({
+  text,
+  accent,
+  emphasize,
+}: {
+  text: string;
+  accent?: number;
+  emphasize?: boolean;
+}) {
+  const fontSize = 18;
+  // Estimate plate width in local (pre-scale) units. Full-width CJK glyphs
+  // take ~1 em; latin/punctuation are narrower, so weight them lighter.
+  const approxChars = [...text].reduce(
+    (sum, ch) => sum + ((ch.codePointAt(0) ?? 0) > 0x2e7f ? 1 : 0.62),
+    0,
+  );
+  const plateW = Math.max(28, approxChars * fontSize + 16);
+  const plateH = fontSize + 10;
+  const draw = useCallback(
+    (g: PIXI.Graphics) => {
+      g.clear();
+      g.lineStyle(1.5, accent ?? 0x22d3ee, emphasize ? 0.95 : 0.55);
+      g.beginFill(0x12101c, emphasize ? 0.85 : 0.68);
+      g.drawRoundedRect(-plateW / 2, -plateH / 2, plateW, plateH, plateH / 2);
+      g.endFill();
+    },
+    [plateW, plateH, accent, emphasize],
+  );
+
+  return (
+    <Container y={24} scale={0.44}>
+      <Graphics draw={draw} />
+      <Text
+        text={text}
+        anchor={{ x: 0.5, y: 0.5 }}
+        style={
+          new PIXI.TextStyle({
+            fill: '#fff3d0',
+            fontFamily: 'monospace',
+            fontSize,
+            fontWeight: '700',
+            stroke: '#181425',
+            strokeThickness: 3,
+          })
+        }
+      />
+    </Container>
+  );
+}
+
+function SpeakingRing({ color }: { color: number }) {
+  const draw = useCallback(
+    (g: PIXI.Graphics) => {
+      g.clear();
+      g.lineStyle(2.5, color, 0.9);
+      g.beginFill(color, 0.2);
+      g.drawEllipse(0, 12, 19, 8);
+      g.endFill();
+    },
+    [color],
+  );
+
+  return <Graphics draw={draw} />;
 }
 
 function CharacterRing({ color }: { color: number }) {

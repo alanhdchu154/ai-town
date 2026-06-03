@@ -49,7 +49,7 @@ type WallRow =
 
 type FilterMode = 'all' | 'conversations' | 'residual' | 'status' | 'flagged' | 'triad';
 
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈']);
+const TRIAD_NAMES = new Set(['海', '真晝', '天澤']);
 
 export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
@@ -335,7 +335,7 @@ function conversationFlags(conversation: ConversationEntry) {
   if (/你剛說|你剛才說|妳剛說|妳剛才說/.test(transcript)) {
     flags.push('echo');
   }
-  if (/海 to|真晝 to|明日奈 to|Umi to|Mahiru to|Asuna to|你是海|你是真晝|你是明日奈/.test(transcript)) {
+  if (/海 to|真晝 to|天澤 to|天澤 to|Umi to|Mahiru to|Tianze to|你是海|你是真晝|你是天澤|你是天澤/.test(transcript)) {
     flags.push('name');
   }
   return flags;
@@ -376,10 +376,10 @@ function statusEntriesFromCampusState(campusState: any): StatusEntry[] {
 function displayWallName(name: string) {
   if (name === 'Umi') return '海';
   if (name === 'Mahiru' || name === 'Mahiru Shiina') return '真晝';
-  if (name === 'Asuna') return '明日奈';
+  if (name === 'Tianze') return '天澤';
   if (name === 'CaoCao') return '曹操';
   if (name === 'Liu Bei') return '劉備';
-  if (name === 'Mai') return '麻衣';
+  if (name === 'Ichinose') return '一之瀨';
   return name;
 }
 
@@ -387,10 +387,10 @@ function displayWallText(text: string) {
   return text
     .replaceAll('Mahiru Shiina', '真晝')
     .replaceAll('Mahiru', '真晝')
-    .replaceAll('Asuna', '明日奈')
+    .replaceAll('Tianze', '天澤')
     .replaceAll('Liu Bei', '劉備')
     .replaceAll('CaoCao', '曹操')
-    .replaceAll('Mai', '麻衣')
+    .replaceAll('Ichinose', '一之瀨')
     .replaceAll('Umi', '海');
 }
 

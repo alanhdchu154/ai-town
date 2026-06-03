@@ -5,8 +5,8 @@ This folder is for Alan-provided appearance references only.
 Expected reference files:
 - alan-ref.png
 - umi-ref.png
-- asuna-ref.png
-- mai-ref.png
+- tianze-ref.png
+- ichinose-ref.png
 - mahiru-ref.png
 - caocao-ref.png
 - liubei-ref.png

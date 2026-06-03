@@ -6,7 +6,32 @@ import { useSendInputQueued } from '../hooks/sendInput';
 import { Player } from '../../convex/aiTown/player';
 import { Conversation } from '../../convex/aiTown/conversation';
 import { displayAgentName } from '../../data/displayNames';
-import { toastOnError } from '../toasts';
+import { toast } from 'react-toastify';
+
+const WRITE_RETRY_DELAYS_MS = [180, 420, 900];
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
+function isTransientConvexWriteConflict(error: unknown) {
+  const message = errorMessage(error);
+  return (
+    message.includes('Documents read from or written to') ||
+    message.includes('changed while this mutation was being run') ||
+    message.includes('Write conflict')
+  );
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 export function MessageInput({
   worldId,
@@ -36,6 +61,7 @@ export function MessageInput({
   )?.name;
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const inflightUuid = useRef<string | undefined>();
+  const sendingRef = useRef(false);
   const [sending, setSending] = useState(false);
   const [text, setText] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -55,18 +81,15 @@ export function MessageInput({
   }, []);
 
   const sendMessage = async () => {
-    if (sending) {
+    if (sendingRef.current) {
       return;
     }
     const messageText = text.trim();
     if (!messageText) {
       return;
     }
-    let messageUuid = inflightUuid.current;
-    if (currentlyTyping && currentlyTyping.playerId === humanPlayer.id) {
-      messageUuid = currentlyTyping.messageUuid;
-    }
-    messageUuid = messageUuid || crypto.randomUUID();
+    const messageUuid = crypto.randomUUID();
+    sendingRef.current = true;
     setSending(true);
     const clickStart = performance.now();
     if (import.meta.env.DEV) {
@@ -93,26 +116,43 @@ export function MessageInput({
       setText('');
       window.setTimeout(() => inputRef.current?.focus(), 0);
       const mutationStart = performance.now();
-      const writePromise = writeMessage({
+      const writeMessageArgs = {
         worldId,
         playerId: humanPlayer.id,
         conversationId: conversation.id,
         text: messageText,
         messageUuid,
-      });
-      window.setTimeout(() => setSending(false), 250);
-      void toastOnError(writePromise).then(() => {
-        if (import.meta.env.DEV) {
-          console.debug('[GIIS timing]', {
-            action: 'sendMessage',
-            phase: 'convexMutationTime',
-            ms: Math.round(performance.now() - mutationStart),
-          });
+      };
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          await writeMessage(writeMessageArgs);
+          break;
+        } catch (error) {
+          const canRetry =
+            isTransientConvexWriteConflict(error) && attempt < WRITE_RETRY_DELAYS_MS.length;
+          if (!canRetry) {
+            toast.error(errorMessage(error));
+            throw error;
+          }
+          if (import.meta.env.DEV) {
+            console.debug('[GIIS timing]', {
+              action: 'sendMessage',
+              phase: 'convexMutationRetry',
+              attempt: attempt + 1,
+              delayMs: WRITE_RETRY_DELAYS_MS[attempt],
+              message: errorMessage(error),
+            });
+          }
+          await sleep(WRITE_RETRY_DELAYS_MS[attempt]);
         }
-      }).finally(() => {
-        setSending(false);
-        window.setTimeout(() => inputRef.current?.focus(), 0);
-      });
+      }
+      if (import.meta.env.DEV) {
+        console.debug('[GIIS timing]', {
+          action: 'sendMessage',
+          phase: 'convexMutationTime',
+          ms: Math.round(performance.now() - mutationStart),
+        });
+      }
       if (import.meta.env.DEV) {
         console.debug('[GIIS timing]', {
           action: 'sendMessage',
@@ -126,6 +166,8 @@ export function MessageInput({
         }),
       );
     } finally {
+      sendingRef.current = false;
+      setSending(false);
       window.setTimeout(() => inputRef.current?.focus(), 0);
     }
   };
