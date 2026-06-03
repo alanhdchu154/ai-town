@@ -55,6 +55,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Tuned runtime preflight timeouts after live evidence showed
+  local Convex can false-fail with 70-90s per-check timeouts while replaying the
+  large local state. Two preflight runs failed with exactly one timeout while
+  later checks succeeded. Updated all runtime-preflight checks to allow 180s.
+  A live rerun then passed all three checks (`school:worldClock`,
+  `world:defaultWorldStatus`, `school:debugState`), though each took roughly
+  90s. This should reduce false runtime blockers in the 13:05 afternoon gate
+  without collecting samples before the afternoon window.
+  Verification: `npm run underworld:runtime-preflight:self-test`; `npm run
+  underworld:harness:self-test`; `npm run underworld:runtime-preflight` (PASS);
+  `git diff --check`.
 - 2026-06-03 local: Added a read-only runtime preflight as the first real step
   inside the guarded afternoon wrapper. `npm run underworld:runtime-preflight`
   checks `school:worldClock`, `world:defaultWorldStatus`, and

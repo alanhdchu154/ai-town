@@ -79,6 +79,10 @@ The afternoon gate depends on the local Convex backend being responsive. If the
 wrapper exits before collection or reports `runtime_health`, do not treat that
 as character-quality evidence.
 
+The runtime preflight gives each Convex check a 180s timeout because the local
+backend may replay a large state directory before responding. A live 2026-06-03
+11:14-11:19 CDT preflight passed, but each read-only check took roughly 90s.
+
 Use this recovery path:
 
 ```bash

@@ -19,9 +19,9 @@ if (args.get('self-test') === 'true') {
 }
 
 const checks = [
-  { id: 'world_clock', functionName: 'school:worldClock' },
-  { id: 'default_world_status', functionName: 'world:defaultWorldStatus' },
-  { id: 'debug_state', functionName: 'school:debugState' },
+  { id: 'world_clock', functionName: 'school:worldClock', timeoutMs: 180_000 },
+  { id: 'default_world_status', functionName: 'world:defaultWorldStatus', timeoutMs: 180_000 },
+  { id: 'debug_state', functionName: 'school:debugState', timeoutMs: 180_000 },
 ];
 
 const results = [];
@@ -56,11 +56,12 @@ async function convexRunCheck(check) {
           process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? '180',
       },
       maxBuffer: 1024 * 1024 * 4,
-      timeout: 70_000,
+      timeout: check.timeoutMs,
     });
     return {
       id: check.id,
       functionName: check.functionName,
+      timeoutMs: check.timeoutMs,
       startedAt,
       finishedAt: new Date().toISOString(),
       exitCode: 0,
@@ -70,6 +71,7 @@ async function convexRunCheck(check) {
     return {
       id: check.id,
       functionName: check.functionName,
+      timeoutMs: check.timeoutMs,
       startedAt,
       finishedAt: new Date().toISOString(),
       exitCode: typeof error.code === 'number' ? error.code : 1,
@@ -90,12 +92,13 @@ async function writeReport(results) {
     '',
     '## Checks',
     '',
-    '| Check | Function | Exit | Started | Finished | Summary |',
-    '|---|---|---:|---|---|---|',
+    '| Check | Function | Timeout ms | Exit | Started | Finished | Summary |',
+    '|---|---|---:|---:|---|---|---|',
     ...results.map((item) =>
       [
         item.id,
         item.functionName,
+        item.timeoutMs,
         item.exitCode,
         item.startedAt,
         item.finishedAt,
