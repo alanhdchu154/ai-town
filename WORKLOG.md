@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Handoffs
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven. Historical 2026-06-01 v0.1 evidence remains useful, but after the 2026-06-02 Tianze/Ichinose role change the fresh gate is blocked by sample collection/provider-helper reliability: latest rerun collected 0 fresh samples, goal audit FAIL/BLOCKED, and AM->PM continuity WARN/weak_continuity. Do not call the changed-role build v0.1 complete until fresh evidence passes. | Alan / Umi | blocked_sampling |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 morning sampling reliability improved and the gate collected 3 fresh triad samples (`c:90679`, `c:90708`, `c:90736`), but goal audit remains not complete: repair gate says observe-only on repetition/response-binding evidence, and AM->PM continuity is still sample-pending until real afternoon samples exist. Do not call v0.1 complete until afternoon continuity and a fresh requirement-by-requirement audit pass. | Alan / Umi | pending_afternoon_gate |
 
 ## Current State Snapshot
 
@@ -36,10 +36,11 @@ historical evidence is needed.
 - Fallback pollution cleanup previously reached zero across audited surfaces;
   rerun the audit before relying on that as current.
 - v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
-  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the fresh rerun
-  is not yet proven because sampling/provider-helper reliability blocked the
-  fresh sample requirement. Treat 6/1 PASS as historical evidence and 6/2 as
-  blocked_sampling until a new gate passes.
+  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the 2026-06-03
+  morning rerun now meets the fresh sample-count requirement after a harness fix,
+  but it is still not a complete v0.1 pass: fresh recent eval shows repetition /
+  response-binding risk, repair gate says observe-only, and AM->PM continuity is
+  sample-pending until the afternoon window has real samples.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS.
   Latest 2026-05-31 afternoon evidence is `PASS / continuity_observed`, with
   76 morning samples, 61 afternoon samples, and 12 PM callbacks found.
@@ -48,11 +49,37 @@ historical evidence is needed.
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
-- Current code has active uncommitted work; inspect git status and relevant
-  diffs before editing.
+- Current code has active uncommitted harness/report-parser work from the
+  2026-06-03 morning v0.1 pass; inspect git status and relevant diffs before
+  editing.
 
 ## Work Log
 
+- 2026-06-03 local: Continued the post-role-change v0.1 gate from a clean
+  worktree. Local launchd dev stack was auto-restarting but Convex backend 3210
+  was stuck against a 15GB local state directory / 6GB SQLite DB; paused
+  `com.giis.underworld.dev-stack`, started the dev stack manually, and stopped
+  the world engine so Convex queries became responsive. First daytime check
+  reproduced the sampling blocker: `school:startConversationByCharacterNamesForTest`
+  timed out while unrelated world operations produced non-target samples. Applied
+  a narrow harness reliability fix: outer observe no longer hard-resumes the
+  world; the single-sample runner stops the engine, cleans/co-locates the focus
+  pair without kick, enqueues one focus conversation, and restores the previous
+  engine state. Added forced `pair-cooldown-ms=0` / `provider-cooldown-ms=0` for
+  daytime collection and fixed the soul-report parser so an unpiped markdown row
+  no longer shifts `Echo penalty` into `Stage direction leak penalty`. Full
+  morning gate then collected 3 fresh samples (`conversation-c:90679`
+  海/真晝 PASS, `conversation-c:90708` 真晝/天澤 WARN, `conversation-c:90736`
+  海/天澤 PASS), with provider/runtime/fallback/life-signal checks OK. v0.1 is
+  still not complete: recent eval reports repetition/object-loop risks, repair
+  gate says observe-only, and AM->PM continuity is sample-pending because it is
+  still morning.
+  Verification: `npm run underworld:v01-daytime-check` (completed sample
+  collection but goal audit FAIL/PENDING for motif/AM->PM), `npm run
+  underworld:repair-gate`, `npm run underworld:observe:self-test`, `npm run
+  pilot:soul-triad:single-sample:self-test`, `npx tsc --noEmit --pretty false`,
+  `npx convex run --typecheck disable --codegen disable school:debugInputQueue
+  '{"limit":6}'`.
 - 2026-06-02 local: Fixed the Alan playtest record split where a long Alan ->
   Tianze pressure-test chat appeared in `campusTimeline` but not in recent
   archived conversation reports. Root cause was a persistence/reporting gap:

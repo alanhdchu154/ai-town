@@ -141,9 +141,10 @@ async function maybeCollectSamples(timing, health) {
   }
 
   if (shouldResumeWorldBeforeCollection(timing, health.worldEngineStatus)) {
-    console.log(`[underworld-observe] world engine is ${health.worldEngineStatus}; resuming before sample collection`);
-    await convexRunSafe('testing:resume');
-    result.worldEngineResumedBeforeCollection = true;
+    console.log(
+      `[underworld-observe] world engine is ${health.worldEngineStatus}; child sample runner will resume it in a controlled window`,
+    );
+    result.worldEngineResumedBeforeCollection = false;
   }
 
   for (let index = 0; index < TARGET_SAMPLES; index += 1) {
@@ -160,6 +161,8 @@ async function maybeCollectSamples(timing, health) {
       '--',
       `--timeout-ms=${SAMPLE_TIMEOUT_MS}`,
       `--poll-interval-ms=${SAMPLE_POLL_MS}`,
+      '--pair-cooldown-ms=0',
+      '--provider-cooldown-ms=0',
       ...(focusPair ? [`--focus-pair=${focusPair}`] : []),
     ];
     const run = await runCommand('npm', command, { timeout: SAMPLE_TIMEOUT_MS + 120_000 });
@@ -181,9 +184,7 @@ async function maybeCollectSamples(timing, health) {
       ? 'ok'
       : 'unknown';
 
-  if (!timing.isNight) {
-    await convexRunSafe('testing:resume');
-  }
+  await restoreWorldEngineAfterCollection(health.worldEngineStatus);
   return result;
 }
 
@@ -852,6 +853,14 @@ function shouldResumeWorldBeforeCollection(timing, worldEngineStatus) {
   return timing.canStartAutonomousConversations && worldEngineStatus !== 'running';
 }
 
+async function restoreWorldEngineAfterCollection(previousStatus) {
+  if (previousStatus === 'running' || previousStatus === undefined) {
+    await convexRunSafe('testing:resume');
+    return;
+  }
+  await convexRunSafe('testing:stop');
+}
+
 function isModelPolicyEnvReady(values) {
   const pairs = values.AUTONOMOUS_CONVERSATION_LLM_PAIRS ?? '';
   const quota = Number(values.UMI_MAHIRU_PILOT_DAILY_QUOTA);
@@ -1042,6 +1051,21 @@ function runSelfTest() {
     false,
     'skip mode never collects',
   );
+  const soulTableWithUnpipedRows = [
+    '| Conversation | Participants | Messages | Status | Score | Stage direction leak penalty | Echo penalty |',
+    '|---|---|---:|---|---:|---:|---:|',
+    'conversation-c:1 | 海 / 真晝 | 4 | PASS | 1.00 | 0.00 | 1.00',
+  ].join('\n');
+  assertEqual(
+    sumNumericColumn(soulTableWithUnpipedRows, 'Stage direction leak penalty'),
+    0,
+    'soul table parser keeps stage leak column aligned',
+  );
+  assertEqual(
+    sumNumericColumn(soulTableWithUnpipedRows, 'Echo penalty'),
+    1,
+    'soul table parser keeps echo column aligned',
+  );
   console.log('[underworld-observe:self-test] PASS');
 }
 
@@ -1128,12 +1152,18 @@ function parseLifeSignalsSummary(report) {
 function parseSoulRows(report) {
   const lines = report.split('\n');
   const header = lines.find((line) => line.startsWith('| Conversation |'));
-  const headerCells = header?.split('|').map((cell) => cell.trim()) ?? [];
+  const splitTableCells = (line) => {
+    const trimmed = line.trim();
+    const withoutLeftPipe = trimmed.startsWith('|') ? trimmed.slice(1) : trimmed;
+    const withoutRightPipe = withoutLeftPipe.endsWith('|') ? withoutLeftPipe.slice(0, -1) : withoutLeftPipe;
+    return withoutRightPipe.split('|').map((cell) => cell.trim());
+  };
+  const headerCells = header ? splitTableCells(header) : [];
   const indexOf = (name) => headerCells.indexOf(name);
   return lines
     .filter((line) => line.startsWith('conversation-'))
     .map((line) => {
-      const cells = line.split('|').map((cell) => cell.trim());
+      const cells = splitTableCells(line);
       const numberCell = (name) => {
         const index = indexOf(name);
         return index >= 0 ? Number(cells[index]) : Number.NaN;

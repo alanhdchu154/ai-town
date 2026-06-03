@@ -441,19 +441,34 @@ try {
     await convexEnvSet(key, value);
   }
   convexPilotEnvApplied = true;
-  console.log('[soul-triad] calling testing:resume');
-  await convexRun('testing:resume');
+  console.log('[soul-triad] stopping world engine for controlled sample setup');
+  await convexRun('testing:stop');
   resumeCalled = true;
-  await heartbeatDefaultWorld();
 
-  console.log('[soul-triad] calling school:coLocateSoulTriadForPilot');
-  await convexRun('school:coLocateSoulTriadForPilot');
   if (FOCUS_PAIR_NAMES.length === 2) {
-    console.log(`[soul-triad] calling school:startConversationByCharacterNamesForTest (${FOCUS_PAIR_NAMES.join(':')})`);
-    await convexRun('school:startConversationByCharacterNamesForTest', {
+    console.log(`[soul-triad] clearing active focus conversations (${FOCUS_PAIR_NAMES.join(':')})`);
+    const activeCleanup = await convexRun(
+      'school:cleanupActiveConversationsByCharacterNamesForTest',
+      { dryRun: false, targetNames: FOCUS_PAIR_NAMES },
+    );
+    if (activeCleanup) console.log(`[soul-triad] active pre-cleanup: ${JSON.stringify(activeCleanup)}`);
+    console.log(`[soul-triad] co-locating focus pair without engine kick (${FOCUS_PAIR_NAMES.join(':')})`);
+    await convexRun('school:coLocateCharactersForTest', {
       leftName: FOCUS_PAIR_NAMES[0],
       rightName: FOCUS_PAIR_NAMES[1],
+      kick: false,
     });
+    console.log(`[soul-triad] enqueuing focus conversation (${FOCUS_PAIR_NAMES.join(':')})`);
+    await convexRun('school:enqueueConversationByCharacterNamesForTest', {
+      leftName: FOCUS_PAIR_NAMES[0],
+      rightName: FOCUS_PAIR_NAMES[1],
+      kick: true,
+    });
+    await heartbeatDefaultWorld();
+  } else {
+    console.log('[soul-triad] calling school:coLocateSoulTriadForPilot');
+    await convexRun('school:coLocateSoulTriadForPilot');
+    await heartbeatDefaultWorld();
   }
 
   const fresh = await pollForFreshSample();
