@@ -55,6 +55,20 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Added a read-only completion audit command so the afternoon
+  gate can produce a requirement-by-requirement v0.1 completion report instead
+  of relying on manual interpretation of several separate reports. The new
+  `npm run underworld:v01-completion-audit` command writes
+  `umi/reports/v01-completion-audit-latest.md` and stays conservative: the
+  current morning evidence correctly reports FAIL with 3 fail, 1 pending, 0
+  deferred, 4 pass because AM->PM continuity, Alan-facing playtest evidence,
+  and motif/repair gate completion are not yet proven. Updated the preflight
+  afternoon gate plan to include this command. No Convex state or runtime
+  behavior changed.
+  Verification: `npm run underworld:v01-completion-audit:self-test`; `npm run
+  underworld:harness:self-test`; `npx tsc --noEmit --pretty false`; `npm run
+  underworld:v01-completion-audit` (expected non-zero on current incomplete
+  evidence).
 - 2026-06-03 local: Continued the active v0.1 goal at 10:46 CDT. It is still
   before the afternoon continuity window, so no collection was forced and v0.1
   remains pending afternoon evidence. Verified the afternoon gate harness itself

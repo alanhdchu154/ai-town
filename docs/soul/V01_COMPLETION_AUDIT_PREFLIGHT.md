@@ -46,6 +46,7 @@ Run only after the afternoon window has started:
 npm run underworld:v01-daytime-check
 npm run underworld:repair-gate
 npm run underworld:rubric-reconcile
+npm run underworld:v01-completion-audit
 ```
 
 If needed, run the observe-only subchecks directly:
@@ -72,7 +73,8 @@ Do not mark v0.1 complete if any of these are true:
 ## Final Audit Rule
 
 After the afternoon gate, perform a fresh requirement-by-requirement completion
-audit against this file, `docs/giis-v0.1-roadmap.md`,
+audit with `npm run underworld:v01-completion-audit`, then cross-check the
+result against this file, `docs/giis-v0.1-roadmap.md`,
 `docs/soul/AM_PM_CONTINUITY_GOAL.md`, latest `umi/reports/v01-*`, latest
 `am-pm-continuity`, latest `life-signals`, latest `recent-conversation`, and
 `WORKLOG.md`.
