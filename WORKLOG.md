@@ -49,9 +49,9 @@ historical evidence is needed.
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
-- Current code has active uncommitted harness/report-parser work from the
-  2026-06-03 morning v0.1 pass; inspect git status and relevant diffs before
-  editing.
+- Current code is clean after the 2026-06-03 morning harness/report-parser
+  commit; inspect git status before editing because generated reports may change
+  during each gate run.
 
 ## Work Log
 
