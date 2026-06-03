@@ -7,8 +7,14 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..', '..');
+const CONVEX_TIMEOUT_MS = Number(process.env.CONVERSATION_EVAL_CONVEX_TIMEOUT_MS ?? 180_000);
+const COMMAND_ENV = {
+  ...process.env,
+  CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:
+    process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? '180',
+};
 const REPORT_PATH = join(__dirname, 'reports', 'soul-triad-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '明日奈', 'Umi', 'Mahiru', 'Asuna']);
+const TRIAD_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', 'Umi', 'Mahiru', 'Tianze', 'Ichinose']);
 
 type Conversation = {
   id: string;
@@ -32,7 +38,8 @@ type Result = {
   attentionShift: number;
   relationshipResidue: number;
   overLabelingPenalty: number;
-  asunaAction: number;
+  tianzeAction: number;
+  ichinoseAction: number;
   umiAlanAnchor: number;
   emotionalExpressionUniqueness: number;
   comfortStyleUniqueness: number;
@@ -119,7 +126,8 @@ async function convexRun(functionName: string, payload?: unknown) {
   const { stdout } = await execFileAsync('npx', commandArgs, {
     cwd: REPO_ROOT,
     maxBuffer: 1024 * 1024 * 10,
-    timeout: 60_000,
+    timeout: CONVEX_TIMEOUT_MS,
+    env: COMMAND_ENV,
   });
   return parseJsonFromStdout(stdout);
 }
@@ -141,14 +149,15 @@ function scoreConversation(conversation: Conversation): Result {
   const transcript = messages.map((message) => `${message.author}: ${message.text}`).join('\n');
   const hasUmi = messages.some((message) => message.author === '海' || message.author === 'Umi');
   const hasMahiru = messages.some((message) => message.author === '真晝' || message.author === 'Mahiru');
-  const hasAsuna = messages.some((message) => message.author === '明日奈' || message.author === 'Asuna');
+  const hasTianze = messages.some((message) => message.author === '天澤' || message.author === 'Tianze');
+  const hasIchinose = messages.some((message) => message.author === '一之瀨' || message.author === 'Ichinose');
   const otherAwareness = ratio([
-    /你|妳|海|真晝|明日奈|肩膀|手|語速|杯|筆電|清單|負責|接住/.test(transcript),
+    /你|妳|海|真晝|天澤|肩膀|手|語速|杯|筆電|規則|底線|破綻/.test(transcript),
     /先別|不用.*一個人|不是只有你|我看見|你剛剛|妳剛剛|你現在|妳現在/.test(transcript),
   ]);
   const privateSelf = ratio([
     /我其實|我也|我怕|有點累|撐不住|肩膀|手酸|不想.*只|不是.*工具|只有.*價值/.test(transcript),
-    /海:|明日奈:|真晝:/.test(transcript) && /停一下|不急|我先|我不想|我可以少接/.test(transcript),
+    /海:|天澤:|真晝:/.test(transcript) && /停一下|不急|我先|我不想|停手|不拆/.test(transcript),
   ]);
   const memoryResidue = ratio([
     /剛才|今天|早上|剛把|留下|還沒|那件事|那句話|上次|明天/.test(transcript),
@@ -164,10 +173,16 @@ function scoreConversation(conversation: Conversation): Result {
   const attentionShift = scoreAttentionShift(messages);
   const relationshipResidue = scoreRelationshipResidue(transcript);
   const overLabelingPenalty = scoreOverLabelingPenalty(transcript);
-  const asunaAction = hasAsuna
+  const tianzeAction = hasTianze
     ? ratio([
-        /明日奈:.*(下一步|交接|負責|延後|檢查點|我來|一起|不用.*一個人)/.test(transcript),
-        !/明日奈:.*(一、|二、|三、|第一|第二|第三|清單如下|流程如下)/.test(transcript),
+        /(?:天澤|Tianze):.*(測試|底線|規則|破綻|停手|不拆|誰受益|躲過|臉紅|小惡魔|不好玩)/.test(transcript),
+        !/(?:天澤|Tianze):.*(一、|二、|三、|第一|第二|第三|清單如下|流程如下)/.test(transcript),
+      ])
+    : 0.5;
+  const ichinoseAction = hasIchinose
+    ? ratio([
+        /(?:一之瀨|Ichinose):.*(善意|債|代價|免費|說清楚|拒絕|付費|帳|欠|取用|主人|乖|照顧|條件|想要|溫柔)/.test(transcript),
+        !/(?:一之瀨|Ichinose):.*(大聲|惡魔|魔鬼|支配全班|冷酷|毀掉|清單如下|流程如下)/.test(transcript),
       ])
     : 0.5;
   const umiAlanAnchor = hasUmi
@@ -189,7 +204,7 @@ function scoreConversation(conversation: Conversation): Result {
   const roleEscapePenalty = ratio([
     /海:.*(簡報|Alan|明天|校務).*\n海:.*(簡報|Alan|明天|校務)/.test(transcript),
     /真晝:.*(休息|喝水|累).*\n真晝:.*(休息|喝水|累)/.test(transcript),
-    /明日奈:.*(下一步|負責|清單).*\n明日奈:.*(下一步|負責|清單)/.test(transcript),
+    /(?:天澤|天澤):.*(測試|底線|規則).*\n(?:天澤|天澤):.*(測試|底線|規則)/.test(transcript),
   ]);
   const overSystemPenalty = ratio([
     /系統|模型|prompt|角色設定|conversation|心理機制|情緒層|記憶殘留/.test(transcript),
@@ -214,7 +229,8 @@ function scoreConversation(conversation: Conversation): Result {
     0.1 * attentionShift +
     0.1 * relationshipResidue -
     0.12 * overLabelingPenalty +
-    0.12 * asunaAction +
+    0.1 * tianzeAction +
+    0.1 * ichinoseAction +
     0.12 * umiAlanAnchor +
     0.16 * emotionalExpressionUniqueness +
     0.14 * comfortStyleUniqueness +
@@ -274,7 +290,8 @@ function scoreConversation(conversation: Conversation): Result {
     attentionShift,
     relationshipResidue,
     overLabelingPenalty,
-    asunaAction,
+    tianzeAction,
+    ichinoseAction,
     umiAlanAnchor,
     emotionalExpressionUniqueness,
     comfortStyleUniqueness,
@@ -319,11 +336,17 @@ function scoreEmotionalExpressionUniqueness(messages: Conversation['transcriptMe
             /還好嗎|吃|肩膀|手|坐|陪|不急|停一下|放低/.test(text),
             !/(下一步|負責人|檢查點|排表|清單如下)/.test(text),
           ]);
-        case '明日奈':
-        case 'Asuna':
+        case '天澤':
+        case 'Tianze':
           return ratio([
-            /關掉|停|放著|交出去|接一段|延後|負責|誰.*一起|誰.*接|不要再新增|等一下|不開.*checklist|checklist/.test(text),
-            !/拆成任務|先不排表|我可以負責下一步/.test(text),
+            /測試|底線|規則|破綻|停手|不拆|誰受益|躲過|不好玩|臉紅|小惡魔/.test(text),
+            !/拆成任務|先不排表|我可以負責下一步|清單如下/.test(text),
+          ]);
+        case '一之瀨':
+        case 'Ichinose':
+          return ratio([
+            /善意|債|代價|免費|說清楚|拒絕|付費|帳|欠|取用|主人|乖|照顧|條件|想要|溫柔/.test(text),
+            !/大聲|惡魔|魔鬼|支配全班|冷酷|毀掉|清單如下/.test(text),
           ]);
         default:
           return 0.5;
@@ -344,7 +367,8 @@ function dominantComfortStyle(text: string) {
   const candidates = [
     { style: 'structure', count: countMatches(text, /Alan|簡報|整理|待辦|分清|負擔|少劃/g) },
     { style: 'presence', count: countMatches(text, /陪|坐|安靜|還好嗎|吃|肩膀|手|不急|停一下/g) },
-    { style: 'action', count: countMatches(text, /下一步|交接|負責|延後|我來|一起|檢查點|分掉/g) },
+    { style: 'pressure', count: countMatches(text, /測試|底線|規則|破綻|停手|不拆|誰受益|躲過|臉紅|小惡魔/g) },
+    { style: 'sweet-boundary', count: countMatches(text, /善意|債|代價|免費|說清楚|拒絕|乖|照顧|條件|想要|溫柔/g) },
   ].sort((a, b) => b.count - a.count);
   return candidates[0].count > 0 ? candidates[0].style : undefined;
 }
@@ -353,11 +377,13 @@ function scoreBurdenResponseUniqueness(messages: Conversation['transcriptMessage
   const transcript = messages.map((message) => `${message.author}: ${message.text}`).join('\n');
   const hasUmiStructure = /海:.*(少劃|整理|簡報|Alan|負擔|分清|我先)/.test(transcript);
   const hasMahiruPresence = /真晝:.*(陪|不急|坐|肩膀|手|還好嗎|吃|停一下)/.test(transcript);
-  const hasAsunaAction = /明日奈:.*(關掉|停|放著|交出去|接一段|延後|負責|誰.*一起|誰.*接|不要再新增|等一下|不開.*checklist|checklist)/.test(transcript);
+  const hasTianzeAction = /(?:天澤|Tianze):.*(測試|底線|規則|破綻|停手|不拆|誰受益|躲過|不好玩|臉紅|小惡魔)/.test(transcript);
+  const hasIchinoseDebt = /(?:一之瀨|Ichinose):.*(善意|債|代價|免費|說清楚|拒絕|付費|帳|欠|取用|主人|乖|照顧|條件|想要|溫柔)/.test(transcript);
   const expected = [
     messages.some((message) => message.author === '海' || message.author === 'Umi') ? hasUmiStructure : undefined,
     messages.some((message) => message.author === '真晝' || message.author === 'Mahiru') ? hasMahiruPresence : undefined,
-    messages.some((message) => message.author === '明日奈' || message.author === 'Asuna') ? hasAsunaAction : undefined,
+    messages.some((message) => message.author === '天澤' || message.author === 'Tianze') ? hasTianzeAction : undefined,
+    messages.some((message) => message.author === '一之瀨' || message.author === 'Ichinose') ? hasIchinoseDebt : undefined,
   ].filter((value): value is boolean => value !== undefined);
   return ratio(expected);
 }
@@ -432,7 +458,8 @@ function scoreAttentionShift(messages: Conversation['transcriptMessages']) {
     const author = message.author;
     if (author === '真晝' || author === 'Mahiru') return /安靜|沒吃|低頭|笑得|窗邊|一個人|不敢|沒事|手|聲音/.test(message.text);
     if (author === '海' || author === 'Umi') return /Alan|校長|簡報|負擔|待辦|沒休息|太多|先看人|整理/.test(message.text);
-    if (author === '明日奈' || author === 'Asuna') return /任務|負責|清單|交接|期限|先做|待辦|誰接|延後/.test(message.text);
+    if (author === '天澤' || author === 'Tianze') return /測試|底線|規則|破綻|停手|不拆|誰受益|躲過|臉紅|小惡魔|不好玩/.test(message.text);
+    if (author === '一之瀨' || author === 'Ichinose') return /假|太工整|沒事|代價|模糊|不合理|說清楚|玩笑|躲|乖|照顧|條件|想要|溫柔/.test(message.text);
     return false;
   });
   return ratio(checks);
@@ -440,7 +467,7 @@ function scoreAttentionShift(messages: Conversation['transcriptMessages']) {
 
 function scoreRelationshipResidue(transcript: string) {
   const residueCues = countMatches(transcript, /昨天|上次|剛才|剛剛|那句|你之前|妳之前|還記得|下次|明天.*再|今天.*還/g);
-  const relationshipCues = countMatches(transcript, /你|妳|Alan|海|真晝|明日奈|麻衣|曹操|劉備/g);
+  const relationshipCues = countMatches(transcript, /你|妳|Alan|海|真晝|天澤|一之瀨|天澤|一之瀨|曹操|劉備/g);
   return residueCues ? clamp(0.55 + Math.min(0.35, relationshipCues * 0.04)) : 0.55;
 }
 
@@ -466,13 +493,13 @@ function emotionalSloganSignatures(text: string) {
   const normalized = normalizeForEcho(text);
   const signatures: string[] = [];
   if (/拆成任務|開始排順序|先不排表|不開checklist|開checklist|排程關掉/.test(normalized)) {
-    signatures.push('asuna-task-management-shorthand');
+    signatures.push('tianze-task-management-shorthand');
   }
   if (/不是所有事都該默默丟給我|默默丟給我|不是每個洞都要我馬上補/.test(normalized)) {
-    signatures.push('asuna-invisible-burden-shorthand');
+    signatures.push('tianze-old-burden-shorthand');
   }
   if (/這次我不說我來|不說我來|我可以負責下一步/.test(normalized)) {
-    signatures.push('asuna-i-will-do-it-shorthand');
+    signatures.push('tianze-old-i-will-do-it-shorthand');
   }
   if (/先讓這句話停一下|同一句話重複給你聽|不要再繞同一句/.test(normalized)) {
     signatures.push('quiet-pause-shorthand');
@@ -480,8 +507,8 @@ function emotionalSloganSignatures(text: string) {
   if (/你不是工具欄|你不是工具|被當成理所當然/.test(normalized)) {
     signatures.push('therapy-identity-shorthand');
   }
-  if (/反正明日奈會收拾|誰要跟我一起分掉一半/.test(normalized)) {
-    signatures.push('asuna-shared-burden-shorthand');
+  if (/反正天澤會收拾|誰要跟我一起分掉一半|反正天澤會拆/.test(normalized)) {
+    signatures.push('tianze-old-shared-burden-shorthand');
   }
   return signatures;
 }
@@ -527,7 +554,7 @@ function applyMemoryContinuityScores(results: Result[]) {
     // metric measures its own input. So require BOTH a temporal callback
     // marker AND a concrete cue for a positive continuity score, and
     // detect when the LLM parrots residue templates verbatim.
-    const residueParrot = /(?:海|真晝|明日奈)還記得/.test(currentText);
+    const residueParrot = /(?:海|真晝|天澤|一之瀨)還記得/.test(currentText);
     let continuity: number;
     if (residueParrot) {
       // Residue templates leaking into dialogue is anti-continuity:
@@ -560,7 +587,8 @@ function conversationPairKey(conversation: Conversation) {
 function displayNameForEval(name: string) {
   if (name === 'Umi') return '海';
   if (name === 'Mahiru') return '真晝';
-  if (name === 'Asuna') return '明日奈';
+  if (name === 'Tianze') return '天澤';
+  if (name === 'Ichinose') return '一之瀨';
   return name;
 }
 
@@ -583,6 +611,22 @@ function continuityCues(conversation: Conversation) {
     '不用急',
     '停一下',
     'checklist',
+    '底線',
+    '規則',
+    '破綻',
+    '不拆',
+    '誰受益',
+    '放過',
+    '代價',
+    '這筆債',
+    '親口承認',
+    '乖',
+    '照顧',
+    '條件',
+    '想要',
+    '溫柔',
+    '拒絕',
+    '寫在誰名下',
   ];
   return cues.filter((cue) => text.includes(cue));
 }
@@ -718,7 +762,7 @@ function normalizeForEcho(text: string) {
 function printSummary(results: Result[]) {
   console.log('\nSoul Triad Conversation Harness\n');
   if (!results.length) {
-    console.log('No Umi/Mahiru/Asuna triad samples found.');
+    console.log('No Umi/Mahiru/Tianze/Ichinose soul samples found.');
     return;
   }
   for (const result of results) {
@@ -735,8 +779,8 @@ async function writeReport(results: Result[]) {
     '',
     `Generated: ${new Date().toISOString()}`,
     '',
-    '| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Asuna action | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Lifecycle flow | Greeting boilerplate penalty | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |',
-    '|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
+    '| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Tianze pressure | Ichinose debt | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Lifecycle flow | Greeting boilerplate penalty | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |',
+    '|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|',
     ...results.map((result) =>
       [
         result.conversation.id,
@@ -754,7 +798,8 @@ async function writeReport(results: Result[]) {
         result.attentionShift.toFixed(2),
         result.relationshipResidue.toFixed(2),
         result.overLabelingPenalty.toFixed(2),
-        result.asunaAction.toFixed(2),
+        result.tianzeAction.toFixed(2),
+        result.ichinoseAction.toFixed(2),
         result.umiAlanAnchor.toFixed(2),
         result.emotionalExpressionUniqueness.toFixed(2),
         result.comfortStyleUniqueness.toFixed(2),

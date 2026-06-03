@@ -160,12 +160,28 @@ const EVERYDAY_OBJECTS = [
   '魚排',
   '冷茶',
   '茶',
+  '紅茶',
+  '咖啡',
   '飯',
   '杯子',
+  '杯',
   '筆',
   '清單',
+  '名單',
+  '表單',
+  '文件',
+  '資料',
+  '數據',
+  '便條',
+  '紀錄表',
+  '簡報',
+  '燈',
+  '門縫',
+  '窗',
+  '角落',
   '桌子',
   '椅子',
+  '座位',
   '空位',
 ];
 
@@ -432,7 +448,7 @@ function everydayObjectLoopScore(testCase: ConversationEvalCase): MetricResult {
     const count = countMatches(text, new RegExp(escapeRegex(object), 'g'));
     return count >= 3 ? [{ object, count }] : [];
   });
-  const penalty = repeated.reduce((sum, item) => sum + (item.count - 2) * 0.18, 0);
+  const penalty = repeated.reduce((sum, item) => sum + (item.count - 2) * 0.24, 0);
   const score = clamp01(1 - penalty);
   return metric('everydayObjectLoopScore', score, [
     repeated.length
@@ -526,9 +542,9 @@ function memoryContinuityScore(testCase: ConversationEvalCase): MetricResult {
   );
   const concreteHits = countMatches(
     text,
-    /Alan|簡報|清單|杯子|吃飯|肩膀|責任|負責|交接|少接|不用急|停一下|checklist|窗邊|午餐/g,
+    /Alan|簡報|清單|杯子|吃飯|肩膀|責任|負責|交接|少接|不用急|停一下|checklist|窗邊|午餐|底線|規則|破綻|不拆|誰受益|放過|代價|這筆債|親口承認|乖|照顧|條件|想要|溫柔|拒絕|寫在誰名下/g,
   );
-  const residueParrot = /(?:海|真晝|明日奈)還記得/.test(text);
+  const residueParrot = /(?:海|真晝|天澤|一之瀨)還記得/.test(text);
   const score = clamp01(
     residueParrot
       ? 0.3
@@ -601,8 +617,8 @@ function attentionShift(testCase: ConversationEvalCase): MetricResult {
         const author = displayNameZh(row.author);
         if (author === '真晝') return /安靜|沒吃|低頭|笑得|窗邊|一個人|不敢|沒事|手|聲音/.test(row.body);
         if (author === '海') return /Alan|校長|簡報|負擔|待辦|沒休息|太多|先看人|整理/.test(row.body);
-        if (author === '明日奈') return /任務|負責|清單|交接|期限|先做|待辦|誰接|延後/.test(row.body);
-        if (author === '麻衣') return /假|太工整|沒事|代價|模糊|不合理|說清楚|玩笑|躲/.test(row.body);
+        if (author === '天澤') return /測試|底線|規則|破綻|停手|不拆|誰受益|躲過|不好玩|臉紅|小惡魔/.test(row.body);
+        if (author === '一之瀨') return /假|太工整|沒事|代價|模糊|不合理|說清楚|玩笑|躲|乖|照顧|條件|想要|溫柔/.test(row.body);
         if (author === '曹操') return /秩序|位置|門口|誰被|混亂|坐下|規則|不敢|失控|站出來/.test(row.body);
         if (author === '劉備') return /一起|邀請|午餐|角落|一個人|排除|坐/.test(row.body);
         return false;
@@ -621,7 +637,7 @@ function relationshipResidue(testCase: ConversationEvalCase): MetricResult {
     text,
     /昨天|上次|剛才|剛剛|那句|你之前|妳之前|還記得|下次|明天.*再|我會.*提醒|你有沒有.*又|今天.*還/g,
   );
-  const relationshipHits = countMatches(text, /你|妳|Alan|海|真晝|明日奈|麻衣|曹操|劉備/g);
+  const relationshipHits = countMatches(text, /你|妳|Alan|海|真晝|天澤|一之瀨|曹操|劉備/g);
   const score = residueHits ? clamp01(0.55 + Math.min(0.35, relationshipHits * 0.04)) : 0.55;
   return metric('relationship_residue', score, [
     residueHits ? `${residueHits} previous-moment residue cue(s)` : 'no previous emotional residue cue',
@@ -704,12 +720,12 @@ const KNOWN_NAME_ALIASES = [
   'Umi',
   '海',
   '朝凪海',
-  'Asuna',
-  '明日奈',
-  '結城明日奈',
-  'Mai',
-  '麻衣',
-  '櫻島麻衣',
+  'Tianze',
+  '天澤',
+  '天澤',
+  'Ichinose',
+  '一之瀨',
+  '一之瀨',
   'Mahiru',
   'Mahiru Shiina',
   '真晝',
@@ -755,8 +771,8 @@ function leadingAddressedNames(text: string) {
 function displayNameZh(name: string) {
   if (name === 'Alan') return 'Alan';
   if (name === 'Umi' || name === '海' || name === '朝凪海') return '海';
-  if (name === 'Asuna' || name === '明日奈' || name === '結城明日奈') return '明日奈';
-  if (name === 'Mai' || name === '麻衣' || name === '櫻島麻衣') return '麻衣';
+  if (name === 'Tianze' || name === '天澤' || name === '天澤') return '天澤';
+  if (name === 'Ichinose' || name === '一之瀨' || name === '一之瀨') return '一之瀨';
   if (
     name === 'Mahiru' ||
     name === 'Mahiru Shiina' ||
@@ -782,10 +798,10 @@ function defaultVoiceCues(target: string) {
   if (name === '曹操') {
     return ['秩序', '底牌', '負責', '失控', '站出來', '門口', '位置', '座位', '椅子', '走廊', '回房', '燈'];
   }
-  if (name === '麻衣') return ['分析', '風險', '害怕', '模糊', '不合理', '代價', '太工整'];
+  if (name === '一之瀨') return ['代價', '太工整', '乖', '照顧', '條件', '想要', '溫柔', '拒絕'];
   if (name === '真晝') return ['嗯', '茶', '外套', '你吃了嗎', '不用', '先坐', '不催', '阿海'];
   if (name === '劉備') return ['一起', '看見', '午餐'];
-  if (name === '明日奈') return ['關掉', '停', '放著', '交出去', '延後', '負責', '等一下', 'checklist'];
+  if (name === '天澤') return ['測試', '底線', '規則', '破綻', '停手', '不拆', '誰受益', '躲過', '不好玩', '臉紅', '小惡魔'];
   return [];
 }
 
@@ -841,13 +857,13 @@ function emotionalSloganSignatures(text: string) {
   const normalized = normalize(text);
   const signatures: string[] = [];
   if (/拆成任務|開始排順序|先不排表|不開checklist|開checklist|排程關掉/.test(normalized)) {
-    signatures.push('asuna-task-management-shorthand');
+    signatures.push('tianze-task-management-shorthand');
   }
   if (/不是所有事都該默默丟給我|默默丟給我|不是每個洞都要我馬上補/.test(normalized)) {
-    signatures.push('asuna-invisible-burden-shorthand');
+    signatures.push('tianze-invisible-burden-shorthand');
   }
   if (/這次我不說我來|不說我來|我可以負責下一步/.test(normalized)) {
-    signatures.push('asuna-i-will-do-it-shorthand');
+    signatures.push('tianze-i-will-do-it-shorthand');
   }
   if (/先讓這句話停一下|同一句話重複給你聽|不要再繞同一句/.test(normalized)) {
     signatures.push('quiet-pause-shorthand');
@@ -855,8 +871,8 @@ function emotionalSloganSignatures(text: string) {
   if (/你不是工具欄|你不是工具|被當成理所當然/.test(normalized)) {
     signatures.push('therapy-identity-shorthand');
   }
-  if (/反正明日奈會收拾|誰要跟我一起分掉一半/.test(normalized)) {
-    signatures.push('asuna-shared-burden-shorthand');
+  if (/反正天澤會收拾|誰要跟我一起分掉一半/.test(normalized)) {
+    signatures.push('tianze-shared-burden-shorthand');
   }
   return signatures;
 }

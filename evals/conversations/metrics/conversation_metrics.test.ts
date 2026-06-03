@@ -5,7 +5,7 @@ function metricStatus(sampleOutput: string, metricName: string) {
     name: 'metric-test',
     mode: 'world_agent_chat',
     speaker: 'Mahiru',
-    target: 'Asuna',
+    target: 'Tianze',
     input: '',
     sampleOutput,
   });
@@ -17,7 +17,7 @@ describe('conversation quality metrics', () => {
     const metric = metricStatus(
       [
         '真晝: 你便當還沒吃完。',
-        '明日奈: 我先把緊急校務和校園情緒地圖的報告核對完，再看會議流程。',
+        '天澤: 我先把緊急校務和校園情緒地圖的報告核對完，再看會議流程。',
       ].join('\n'),
       'administrativeLanguageScore',
     );
@@ -29,7 +29,7 @@ describe('conversation quality metrics', () => {
   it('flags task-manager phrasing that makes free-world dialogue feel nonliving', () => {
     const metric = metricStatus(
       [
-        '明日奈: 我把便條放在桌角。',
+        '天澤: 我把便條放在桌角。',
         '劉備: 太好了，謝謝你的建議！我會開始掃描教室，確保所有人都有任務和支援。',
       ].join('\n'),
       'administrativeLanguageScore',
@@ -38,7 +38,7 @@ describe('conversation quality metrics', () => {
     expect(metric?.notes.join(' ')).toContain('掃描教室');
     expect(metric?.notes.join(' ')).toContain('任務和支援');
     expect(
-      metricStatus('明日奈: 名單已交接清楚，混亂暫時止住了。我累了，需要去整理明天的流程。', 'bannedPhraseCount')?.status,
+      metricStatus('天澤: 名單已交接清楚，混亂暫時止住了。我累了，需要去整理明天的流程。', 'bannedPhraseCount')?.status,
     ).toBe('FAIL');
     expect(
       metricStatus('劉備: 我現在在寫作業。暫時不覺得累。看看窗邊是否有人需要幫助。', 'bannedPhraseCount')?.status,
@@ -47,8 +47,8 @@ describe('conversation quality metrics', () => {
 
   it('flags budget checklist and hidden-cost slogan drift', () => {
     const sample = [
-      '明日奈: 我先把這筆預算的執行清單寫好，這份文件的核對工作你願意分擔一半嗎？',
-      '麻衣: 那就按你說的办，我們商量下一步，別讓那些隱形成本趁虛而入。',
+      '天澤: 我先把這筆預算的執行清單寫好，這份文件的核對工作你願意分擔一半嗎？',
+      '一之瀨: 那就按你說的办，我們商量下一步，別讓那些隱形成本趁虛而入。',
     ].join('\n');
     const admin = metricStatus(sample, 'administrativeLanguageScore');
     const banned = metricStatus(sample, 'bannedPhraseCount');
@@ -64,7 +64,7 @@ describe('conversation quality metrics', () => {
   it('flags efficiency-collaboration template drift', () => {
     const sample = [
       '曹操: 這樣一起合作看看可行嗎？我們可以互相補充信息。',
-      '麻衣: 我覺得目前還是我自己組織比較好，個人準備更有效率。',
+      '一之瀨: 我覺得目前還是我自己組織比較好，個人準備更有效率。',
     ].join('\n');
     const admin = metricStatus(sample, 'administrativeLanguageScore');
     const banned = metricStatus(sample, 'bannedPhraseCount');
@@ -90,21 +90,34 @@ describe('conversation quality metrics', () => {
     const metric = metricStatus(
       [
         '真晝: 那碗熱湯先放著。',
-        '明日奈: 熱湯不用管。',
+        '天澤: 熱湯不用管。',
         '真晝: 熱湯已經冷了。',
-        '明日奈: 你別再看那碗熱湯。',
+        '天澤: 你別再看那碗熱湯。',
+      ].join('\n'),
+      'everydayObjectLoopScore',
+    );
+    expect(metric?.status).toBe('FAIL');
+    expect(metric?.notes.join(' ')).toContain('熱湯');
+  });
+
+  it('flags repeated school-task objects becoming a loop', () => {
+    const metric = metricStatus(
+      [
+        '天澤: 這份表單我本來想自己填完。',
+        '真晝: 你手邊那三張表單先擱著。',
+        '天澤: 紅茶都快涼了，我還是先填完這三張表單再喝。',
       ].join('\n'),
       'everydayObjectLoopScore',
     );
     expect(metric?.status).toBe('WARN');
-    expect(metric?.notes.join(' ')).toContain('熱湯');
+    expect(metric?.notes.join(' ')).toContain('表單');
   });
 
   it('flags observed hallucinated addressee names outside the participants', () => {
     const metric = metricStatus(
       [
         '劉備: 曉夢同學，你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。',
-        '明日奈: 你是不是叫錯人了？',
+        '天澤: 你是不是叫錯人了？',
       ].join('\n'),
       'wrongAddresseeScore',
     );
@@ -116,7 +129,7 @@ describe('conversation quality metrics', () => {
     const metric = metricStatus(
       [
         '曹操: 明晝，你為什麼那天沒有來？',
-        '明日奈: 你是不是把名字記錯了？我是明日奈。',
+        '天澤: 你是不是把名字記錯了？我是天澤。',
       ].join('\n'),
       'wrongAddresseeScore',
     );
@@ -134,5 +147,34 @@ describe('conversation quality metrics', () => {
     );
 
     expect(metric?.status).toBe('PASS');
+  });
+
+  it('credits Tianze continuity cues such as 底線 / 不拆 alongside a callback marker', () => {
+    const metric = metricStatus(
+      '天澤: 剛才你說的底線，這次我先不拆你。',
+      'memoryContinuityScore',
+    );
+    const notes = metric?.notes.join(' ') ?? '';
+    expect(notes).toContain('continuity callback');
+    expect(notes).toContain('concrete memory cue');
+    expect(notes).not.toContain('callback marker without concrete cue');
+  });
+
+  it('credits Ichinose continuity cues such as 代價 / 條件 alongside a callback marker', () => {
+    const metric = metricStatus(
+      '一之瀨: 剛剛你提到的代價，要寫在誰名下，我想聽你親口承認。',
+      'memoryContinuityScore',
+    );
+    const notes = metric?.notes.join(' ') ?? '';
+    expect(notes).toContain('continuity callback');
+    expect(notes).toContain('concrete memory cue');
+  });
+
+  it('penalizes Ichinose residue-template parroting via the residueParrot guard', () => {
+    const metric = metricStatus(
+      '一之瀨: 一之瀨還記得你昨天願意承認的那一點溫柔。',
+      'memoryContinuityScore',
+    );
+    expect(metric?.notes.join(' ')).toContain('residue template parroted');
   });
 });
