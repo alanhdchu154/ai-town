@@ -20,6 +20,18 @@ if (args.get('self-test') === 'true') {
   process.exit(0);
 }
 
+const chicagoWindow = currentChicagoWindow(new Date());
+if (!chicagoWindow.isAfternoon && args.get('allow-outside-afternoon') !== 'true') {
+  await writeSummary([], {
+    overall: 'SKIPPED',
+    reason: `Current Chicago time ${chicagoWindow.label} is outside the afternoon collection window 13:00-16:59.`,
+  });
+  console.error(
+    `[underworld-v01-afternoon-gate] skipped: current Chicago time ${chicagoWindow.label} is outside 13:00-16:59. Use --allow-outside-afternoon only for explicit manual recovery.`,
+  );
+  process.exit(2);
+}
+
 const steps = [
   step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
   step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
@@ -84,15 +96,19 @@ function runStep(item) {
   });
 }
 
-async function writeSummary(results) {
+async function writeSummary(results, override = {}) {
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   const failed = results.filter((item) => item.exitCode !== 0);
+  const overall = override.overall ?? (failed.length === 0 ? 'PASS' : 'NOT_COMPLETE');
+  const reason = override.reason ?? `${failed.length} non-zero step(s).`;
   const lines = [
     '# GIIS Underworld v0.1 Afternoon Gate',
     '',
     `Generated: ${new Date().toISOString()}`,
-    `Overall: ${failed.length === 0 ? 'PASS' : 'NOT_COMPLETE'}`,
-    `Reason: ${failed.length} non-zero step(s).`,
+    `Chicago time: ${currentChicagoWindow(new Date()).label}`,
+    `Afternoon window: 13:00-16:59 America/Chicago`,
+    `Overall: ${overall}`,
+    `Reason: ${reason}`,
     '',
     '## Steps',
     '',
@@ -112,6 +128,30 @@ async function writeSummary(results) {
     '',
   ];
   await writeFile(OUTPUT_PATH, `${lines.join('\n')}\n`, 'utf8');
+}
+
+function currentChicagoWindow(date) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  );
+  const hour = Number(parts.hour);
+  return {
+    hour,
+    isAfternoon: hour >= 13 && hour <= 16,
+    label: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} America/Chicago`,
+  };
 }
 
 function parseArgs(values) {
@@ -135,6 +175,12 @@ function relative(path) {
 }
 
 function runSelfTest() {
+  if (!currentChicagoWindow(new Date('2026-06-03T18:05:00.000Z')).isAfternoon) {
+    throw new Error('self-test expected 13:05 CDT to be inside afternoon window');
+  }
+  if (currentChicagoWindow(new Date('2026-06-03T15:57:00.000Z')).isAfternoon) {
+    throw new Error('self-test expected 10:57 CDT to be outside afternoon window');
+  }
   const sample = [
     {
       id: 'completion_audit',

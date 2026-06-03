@@ -55,6 +55,15 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Hardened the one-command afternoon gate wrapper with an
+  internal Chicago-time guard. `npm run underworld:v01-afternoon-gate` now
+  refuses to collect outside 13:00-16:59 America/Chicago unless explicitly run
+  with `--allow-outside-afternoon`; a pre-afternoon run at 10:58 CDT wrote a
+  `SKIPPED` summary and did not execute collection steps. This protects AM->PM
+  continuity evidence from accidental morning collection.
+  Verification: `npm run underworld:v01-afternoon-gate:self-test`; `npm run
+  underworld:v01-afternoon-gate` (expected exit 2 / SKIPPED before afternoon);
+  `npm run underworld:harness:self-test`; `git diff --check`.
 - 2026-06-03 local: Added a one-command afternoon gate wrapper so the 13:05
   heartbeat can run the full v0.1 gate without stopping halfway on an expected
   non-zero audit result. `npm run underworld:v01-afternoon-gate` runs the

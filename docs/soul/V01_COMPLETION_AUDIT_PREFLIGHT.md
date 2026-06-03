@@ -39,7 +39,9 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 - Latest rubric reconciliation is stale from 2026-06-02 evening and should be rerun after the afternoon gate.
 - `npm run underworld:v01-afternoon-gate` is the preferred one-command wrapper
   for the afternoon run. It continues through reporting steps after non-zero
-  audit results and writes `umi/reports/v01-afternoon-gate-latest.md`.
+  audit results and writes `umi/reports/v01-afternoon-gate-latest.md`. It
+  refuses to collect outside 13:00-16:59 America/Chicago unless an operator uses
+  the explicit `--allow-outside-afternoon` recovery flag.
 
 ## Afternoon Gate Plan
 
@@ -48,6 +50,9 @@ Run only after the afternoon window has started:
 ```bash
 npm run underworld:v01-afternoon-gate
 ```
+
+The wrapper has its own Chicago afternoon guard. A pre-afternoon run should
+write a `SKIPPED` summary and exit without collecting samples.
 
 If the wrapper fails before writing a summary, run the steps directly:
 
