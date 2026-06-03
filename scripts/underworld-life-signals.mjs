@@ -23,6 +23,7 @@ const LIMIT = numberArg('limit', 160, 1, 200);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
 const SINCE_CREATED_AT = optionalNumberArg('since-created-at');
 const SELF_TEST = args.get('self-test') === 'true';
+const MIN_LIFE_PATTERN_JUDGMENT_SAMPLES = 5;
 
 const PILOT_NAMES = new Set(['海', '真晝', '天澤', 'Umi', 'Mahiru', 'Tianze']);
 
@@ -235,6 +236,14 @@ function runSelfTest() {
     fixtureConversation('conversation-test-3', ['天澤', '真晝'], [
       ['天澤', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
       ['真晝', '你今天先坐一下。'],
+    ]),
+    fixtureConversation('conversation-test-4', ['海', '劉備'], [
+      ['海', '今天午餐先別變成清單。'],
+      ['劉備', '我去留一個座位。'],
+    ]),
+    fixtureConversation('conversation-test-5', ['曹操', '一之瀨'], [
+      ['曹操', '門口那邊先安靜。'],
+      ['一之瀨', '你終於沒有把人排成表格。'],
     ]),
   ];
   const repeatedSummary = summarize(
@@ -482,6 +491,14 @@ function runSelfTest() {
       ['劉備', '那我午餐多帶一份。'],
       ['曹操', '別問太快。'],
       ['劉備', '我知道。'],
+    ]),
+    fixtureConversation('conversation-prop-4', ['真晝', '劉備'], [
+      ['真晝', '中午先喝一口湯。'],
+      ['劉備', '我坐遠一點陪著。'],
+    ]),
+    fixtureConversation('conversation-prop-5', ['海', '天澤'], [
+      ['海', '今天先少接一件。'],
+      ['天澤', '那條規則下午再測。'],
     ]),
   ];
   const propEchoSummary = summarize(propEchoConversations.map(analyzeConversation), []);
@@ -735,6 +752,18 @@ function decideStatus(summary) {
       decision: 'hygiene_failure',
       reason: 'At least one conversation has fallback/incomplete-format hygiene risk.',
       nextAction: 'Use repair gate only if the flagged item is fresh and specific.',
+    };
+  }
+  if (
+    summary.count < MIN_LIFE_PATTERN_JUDGMENT_SAMPLES &&
+    (summary.repeatedLineFlags > 0 || summary.propEchoFlags > 0)
+  ) {
+    return {
+      label: 'WARN',
+      passWarnFail: '0 / 1 / 0',
+      decision: 'sample_pending',
+      reason: `Fresh life-pattern sample count is below ${MIN_LIFE_PATTERN_JUDGMENT_SAMPLES}.`,
+      nextAction: `Collect at least ${MIN_LIFE_PATTERN_JUDGMENT_SAMPLES} comparable conversations before treating repeated lines or prop echoes as a pattern.`,
     };
   }
   if (summary.repeatedLineFlags > 0) {

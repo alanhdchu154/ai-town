@@ -24,6 +24,7 @@ const PATHS = {
 };
 
 const args = parseArgs(process.argv.slice(2));
+const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 5;
 if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
@@ -98,13 +99,19 @@ function auditSources(sources, options = {}) {
     ),
     requirement(
       'memory_continuity_yesterday_matters',
-      amPmStatus === 'PASS' && amPmDecision === 'continuity_observed' && afternoonSamples >= 3 && pmCallbacks > 0,
+      amPmStatus === 'PASS' &&
+        amPmDecision === 'continuity_observed' &&
+        afternoonSamples >= MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES &&
+        pmCallbacks > 0,
       `amPm=${amPmStatus}/${amPmDecision}, afternoonSamples=${afternoonSamples}, pmCallbacks=${pmCallbacks}`,
-      afternoonSamples < 3
-        ? 'Afternoon sample count is below 3.'
+      afternoonSamples < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES || amPmDecision === 'sample_pending'
+        ? `Afternoon sample count is below ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES}; continuity is sample-pending, not proven failed.`
         : pmCallbacks === 0
           ? 'No PM callbacks found.'
           : 'AM->PM continuity is not a PASS / continuity_observed result.',
+      afternoonSamples < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES || amPmDecision === 'sample_pending'
+        ? 'PENDING'
+        : 'FAIL',
     ),
     requirement(
       'event_thread_continuity',
@@ -384,8 +391,8 @@ Overall: PENDING
 
   assert(pendingAudit.overall === 'FAIL', 'pending audit should fail before afternoon continuity');
   assert(
-    pendingAudit.requirements.find((item) => item.id === 'memory_continuity_yesterday_matters')?.status === 'FAIL',
-    'AM->PM sample_pending should fail memory continuity',
+    pendingAudit.requirements.find((item) => item.id === 'memory_continuity_yesterday_matters')?.status === 'PENDING',
+    'AM->PM sample_pending should keep memory continuity pending',
   );
   assert(
     pendingAudit.requirements.find((item) => item.id === 'human_alan_conversation_quality')?.status === 'PENDING',
@@ -420,7 +427,7 @@ Overall: PASS
 
 - Status: PASS
 - Decision: continuity_observed
-- Afternoon sample count: 3
+- Afternoon sample count: 5
 - AM residue candidates: 5
 - PM callbacks found: 1
 `,
@@ -478,7 +485,7 @@ Overall: PASS
 
 - Status: PASS
 - Decision: continuity_observed
-- Afternoon sample count: 3
+- Afternoon sample count: 5
 - AM residue candidates: 5
 - PM callbacks found: 1
 `,

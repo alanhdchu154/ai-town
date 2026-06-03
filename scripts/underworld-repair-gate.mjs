@@ -602,7 +602,12 @@ function diagnoseReport(report, requestedCategory) {
   const hasWrongAddressee = /wrong addressee|wrongAddressee/i.test(report);
   const hasFallback = /Fresh fallback markers:\s*(?!0\b)\d+|fallback contamination|fallback_contamination/i.test(report);
   const hasEcho = /Echo penalty sum:\s*(?!0\.00)[0-9.]+|echo_repetition|repeats input verbatim|你剛說|你剛才說/.test(report);
-  const hasProviderIssue = /Provider health:\s*unavailable|provider_failure_handling|429|quota|timeout|model_not_found/i.test(report);
+  const providerHealth = summary['Provider health'] ?? 'unknown';
+  const hasProviderIssue =
+    /^(unavailable|failed|error)$/i.test(providerHealth) ||
+    /provider_failure_handling|provider_unavailable=true|cloud provider preflight failed|(?:^|\b)(?:429|insufficient_quota|quota exceeded|rate limit)(?:\b|$)|model_not_found|Your request timed out/i.test(
+      report,
+    );
   const hasVoiceOrSoulGap = /restore character-specific voice|too abstract|character voice|soul_quality_gap|relationship|aftertaste|behavior drift/i.test(report);
 
   let conversationCategory = 'none';

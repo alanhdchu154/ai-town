@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 morning sampling reliability improved and the gate collected 3 fresh triad samples (`c:90679`, `c:90708`, `c:90736`), but goal audit remains not complete: repair gate says observe-only on repetition/response-binding evidence, and AM->PM continuity is still sample-pending until real afternoon samples exist. Do not call v0.1 complete until afternoon continuity and a fresh requirement-by-requirement audit pass. | Alan / Umi | pending_afternoon_gate |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 afternoon gate ran with a recovered local Convex backend and collected 3 fresh triad samples (`c:90763`, `c:90785`, `c:90809`), but completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass. Current blockers are product/evidence, not runtime: day-window role-action/prop-loop evidence, recent-vs-soul rubric disagreement, AM->PM sample-pending until >=5 afternoon samples, and Alan-facing playtest still pending. Do not call v0.1 complete until those pass or Alan explicitly defers the playtest gate. | Alan / Umi | pending_product_evidence |
 
 ## Current State Snapshot
 
@@ -37,10 +37,11 @@ historical evidence is needed.
   rerun the audit before relying on that as current.
 - v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
   not perfect. After the 2026-06-02 Tianze/Ichinose role change, the 2026-06-03
-  morning rerun now meets the fresh sample-count requirement after a harness fix,
-  but it is still not a complete v0.1 pass: fresh recent eval shows repetition /
-  response-binding risk, repair gate says observe-only, and AM->PM continuity is
-  sample-pending until the afternoon window has real samples.
+  afternoon gate recovered runtime, collected 3 fresh triad samples, and proved
+  fallback/provider hygiene, but it is still not a complete v0.1 pass. Latest
+  completion audit reports `FAIL` with 3 fail, 2 pending, 0 deferred, 3 pass:
+  character-soul expression, event-thread continuity, and motif/repair/rubric
+  remain failing; AM->PM continuity and Alan-facing playtest remain pending.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS.
   Latest 2026-05-31 afternoon evidence is `PASS / continuity_observed`, with
   76 morning samples, 61 afternoon samples, and 12 PM callbacks found.
@@ -49,12 +50,38 @@ historical evidence is needed.
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
-- Current code is clean after the 2026-06-03 morning harness/report-parser
-  commit; inspect git status before editing because generated reports may change
-  during each gate run.
+- Current code has a small runtime/eval hygiene patch pending from the
+  2026-06-03 afternoon gate: npm dev timeout env passthrough, stricter AM->PM /
+  life-signal sample-pending thresholds, and repair-gate provider regex cleanup.
+  Generated reports may change during each gate run.
 
 ## Work Log
 
+- 2026-06-03 local: Ran the 13:05 CDT v0.1 afternoon gate after recovering the
+  local runtime. The LaunchAgent dev stack was stuck in a 180s restart loop with
+  Vite listening on 5173 but no Convex backend on 3210; stopped the stale
+  `com.giis.underworld.dev-stack` run, fixed `package.json` so `dev:backend`
+  respects external `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS`, and started a
+  manual 360s stack. Runtime preflight passed, the gate collected 3 fresh
+  afternoon samples (`c:90763` 海/真晝 WARN, `c:90785` 真晝/天澤 PASS,
+  `c:90809` 海/天澤 PASS), and fallback/provider hygiene stayed clean. The gate
+  is still not complete: recent eval is 0 PASS / 1 WARN / 2 FAIL, AM->PM is
+  `WARN / sample_pending` with 3 afternoon samples against the new >=5 threshold,
+  day-window life signals remain `WARN / prop_echo_repeated` with role-action
+  collapse flags, and Alan-facing Umi playtest is still pending. Made only
+  report/runtime hygiene fixes: AM->PM continuity and life-signal prop/repeat
+  patterns now stay sample-pending below threshold, completion audit treats
+  insufficient PM evidence as pending, and repair gate no longer misclassifies
+  `UMI_MAHIRU_PILOT_DAILY_QUOTA` or sample timeout flags as provider failure.
+  Verification: `npm run underworld:runtime-preflight`;
+  `npm run underworld:v01-afternoon-gate` (expected NOT_COMPLETE on current
+  evidence); `npm run underworld:am-pm-continuity:self-test`; `npm run
+  underworld:life-signals:self-test`; `npm run underworld:repair-gate:self-test`;
+  `npm run underworld:v01-completion-audit:self-test`; `npm run underworld:observe
+  -- --cc=skip --collect=skip --target-samples=0 --since-created-at=1780511972630`;
+  `npm run underworld:v01-goal-audit`; `npm run underworld:repair-gate`;
+  `npm run underworld:rubric-reconcile` (expected BLOCKED); `npm run
+  underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-03 local: Tuned runtime preflight timeouts after live evidence showed
   local Convex can false-fail with 70-90s per-check timeouts while replaying the
   large local state. Two preflight runs failed with exactly one timeout while

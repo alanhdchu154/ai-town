@@ -21,6 +21,7 @@ const TARGET_DATE = args.get('date') ?? dateKeyFor(Date.now(), TIME_ZONE);
 const LIMIT = numberArg('limit', 120, 1, 200);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
 const SELF_TEST = args.get('self-test') === 'true';
+const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 5;
 
 const PRIMARY_NAMES = new Set(['海', '真晝', '天澤', '天澤', 'Umi', 'Mahiru', 'Tianze']);
 const SECONDARY_NAMES = new Set(['曹操', '一之瀨', '一之瀨', '劉備', 'CaoCao', 'Ichinose', 'Liu Bei']);
@@ -220,6 +221,14 @@ function runSelfTest() {
       ['真晝', '下午餐廳比較安靜。'],
       ['天澤', '這條規則先別推了。'],
     ]),
+    fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['曹操', '劉備'], [
+      ['曹操', '庭院那張椅子先不要動。'],
+      ['劉備', '我去看看誰自己吃飯。'],
+    ]),
+    fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['一之瀨', '曹操'], [
+      ['一之瀨', '你又把問題說得太工整。'],
+      ['曹操', '規矩先放著。'],
+    ]),
   ];
   const candidates = extractAmResidueCandidates(morning);
   const callbacks = findPmCallbacks(candidates, afternoon);
@@ -249,11 +258,11 @@ function runSelfTest() {
 
   const pendingStatus = decideStatus({
     morning,
-    afternoon: afternoon.slice(0, 2),
+    afternoon: afternoon.slice(0, MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES - 1),
     amResidueCandidates: candidates,
     pmCallbacks: [],
   });
-  assertEqual(pendingStatus.decision, 'sample_pending', 'afternoon count below 3 stays sample_pending');
+  assertEqual(pendingStatus.decision, 'sample_pending', 'afternoon count below threshold stays sample_pending');
 
   const noCallbackStatus = decideStatus({
     morning,
@@ -269,6 +278,14 @@ function runSelfTest() {
       fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
         ['劉備', '我先去餐廳。'],
         ['一之瀨', '別繞了。'],
+      ]),
+      fixtureConversation('conversation-pm-7', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
+        ['真晝', '下午餐廳比較安靜。'],
+        ['劉備', '我先去看看座位。'],
+      ]),
+      fixtureConversation('conversation-pm-8', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
+        ['曹操', '庭院那邊先不要公開問。'],
+        ['真晝', '嗯，慢一點。'],
       ]),
     ],
     amResidueCandidates: candidates,
@@ -470,13 +487,13 @@ function decideStatus({ morning, afternoon, amResidueCandidates, pmCallbacks }) 
       nextAction: 'Keep the world running during the morning window; do not repair prompts.',
     };
   }
-  if (afternoon.length < 3) {
+  if (afternoon.length < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES) {
     return {
       label: 'WARN',
       passWarnFail: '0 / 1 / 0',
       decision: 'sample_pending',
-      reason: 'Afternoon sample count is below 3.',
-      nextAction: 'Wait until the afternoon window has at least 3 archived samples.',
+      reason: `Afternoon sample count is below ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES}.`,
+      nextAction: `Wait until the afternoon window has at least ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES} archived samples before judging callbacks.`,
     };
   }
   if (amResidueCandidates.length === 0) {
@@ -519,8 +536,10 @@ function buildFailures(amResidueCandidates, pmCallbacks, morning, afternoon) {
   if (!morning.length) {
     return ['No morning archived conversations were available for the target window.'];
   }
-  if (afternoon.length < 3) {
-    return [`Afternoon sample count is ${afternoon.length}; threshold is 3, so this is sample_pending.`];
+  if (afternoon.length < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES) {
+    return [
+      `Afternoon sample count is ${afternoon.length}; threshold is ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES}, so this is sample_pending.`,
+    ];
   }
   if (!amResidueCandidates.length) {
     return ['Morning conversations existed, but no memoryTraces or concrete residue candidates were found.'];
@@ -626,7 +645,7 @@ async function writeReport(data) {
     '## Policy',
     '',
     '- Observe-only report. This script did not trigger conversations or write to Convex.',
-    '- If afternoon samples are fewer than 3, do not repair prompt or runtime behavior.',
+    `- If afternoon samples are fewer than ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES}, do not repair prompt or runtime behavior.`,
     '- Large continuity or memory changes remain proposal-only.',
     '',
   ]
