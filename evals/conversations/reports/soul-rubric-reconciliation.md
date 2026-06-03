@@ -4,7 +4,7 @@ Created: 2026-05-25
 
 ## Context
 
-The first semi-autonomous Soul QA loop produced three fresh Umi / Asuna samples:
+The first semi-autonomous Soul QA loop produced three fresh Umi / Tianze samples:
 
 - `conversation-c:38904`
 - `conversation-c:38895`
@@ -13,9 +13,9 @@ The first semi-autonomous Soul QA loop produced three fresh Umi / Asuna samples:
 After the short-sample guard fix, `eval:soul-triad` reports:
 
 ```text
-PASS 0.96 conversation-c:38904 messages=4 participants=海/明日奈
-FAIL 0.55 conversation-c:38895 messages=2 participants=海/明日奈
-FAIL 0.36 conversation-c:38883 messages=2 participants=海/明日奈
+PASS 0.96 conversation-c:38904 messages=4 participants=海/天澤
+FAIL 0.55 conversation-c:38895 messages=2 participants=海/天澤
+FAIL 0.36 conversation-c:38883 messages=2 participants=海/天澤
 ```
 
 At the same time, `eval:conversation:recent -- --since-last-change` reports all
@@ -36,7 +36,7 @@ The mismatch is not a single bug.
 It is a split between two evaluation purposes:
 
 - `eval:soul-triad` measures pilot soul signals: other awareness, private self,
-  memory residue, behavior signal, Asuna action, Umi/Alan anchor,
+  memory residue, behavior signal, Tianze action, Umi/Alan anchor,
   differentiation, aftertaste, and echo/template penalties.
 - `eval:conversation:recent` measures broader conversation hygiene:
   character-specific voice cues, response move diversity, emotional
@@ -108,13 +108,13 @@ Why:
 - `eval:soul-triad` gives it strong pilot-soul score.
 - `eval:conversation:recent` flags weak character voice / response move
   diversity.
-- The transcript has a plausible Umi / Asuna burden-sharing direction, but the
+- The transcript has a plausible Umi / Tianze burden-sharing direction, but the
   action vocabulary is narrow:
   - files
   - split burden
   - do not carry alone
   - drink water
-- Asuna and Umi still echo each other's burden-sharing moves too closely.
+- Tianze and Umi still echo each other's burden-sharing moves too closely.
 
 It is useful as evidence, not yet as a taste anchor.
 
@@ -138,7 +138,7 @@ This can be done in reports/archive policy before touching generation.
 
 - Should `eval:soul-triad` include a response-move diversity metric, or should
   that remain owned by `eval:conversation:recent`?
-- Should `characterVoiceScore` be updated for Umi / Asuna soul-pilot language,
+- Should `characterVoiceScore` be updated for Umi / Tianze soul-pilot language,
   or is it correctly catching that the current samples sound too similar?
 - Should golden archive entries include a required field:
   `status: provisional | accepted | rejected`?
