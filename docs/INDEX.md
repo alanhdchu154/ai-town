@@ -5,7 +5,7 @@ looking for something and it is not here, ask before grepping — adding a
 new doc location without updating this index is how the project
 accumulates 3 contradictory sources of truth.
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-31.
 
 ---
 
@@ -13,10 +13,10 @@ Last updated: 2026-05-25.
 
 | Document | Purpose | When to read / update |
 |---|---|---|
-| [docs/giis-v0.1-roadmap.md](giis-v0.1-roadmap.md) | **The** v0.1 contract. Scope, acceptance criteria, fresh-sample rule, weekly plan, dated implementation phases. | Update on every significant scope decision or phase completion. |
+| [docs/giis-v0.1-roadmap.md](giis-v0.1-roadmap.md) | **The** v0.1 contract. North-star scope, current foregrounding rules, Phase 1 residue contract, dangerous-scope guardrail, open Codex handoffs, recent-context entries (2026-05-28+). Earlier phases live in git log only (use `git log -p docs/giis-v0.1-roadmap.md` to recover historical content). | Update on every significant scope decision or phase completion. |
 | [../README.md](../README.md) | Outward-facing project overview, v0.1 goal, screenshots, what's-next gate. | Keep in sync with roadmap when v0.1 scope shifts. |
 | [../AGENTS.md](../AGENTS.md) | Working agreement: how Codex / CC / Umi collaborate, secrets policy, where keys live. | Update only when collaboration rules actually change. |
-| [../WORKLOG.md](../WORKLOG.md) | Append-only chronological log of work done, by whom, with verification. New entries on top. | After every meaningful session. |
+| [../WORKLOG.md](../WORKLOG.md) | Append-only chronological log of work done, by whom, with verification. New entries on top. Shipped older entries get trimmed; only entries with active follow-ups or recent v0.1 context remain. | After every meaningful session. |
 
 ## Soul / character architecture
 
@@ -25,9 +25,14 @@ Last updated: 2026-05-25.
 | [soul/UNDERWORLD_SOUL_ARCHITECTURE.md](soul/UNDERWORLD_SOUL_ARCHITECTURE.md) | The five-layer soul model. |
 | [soul/SOUL_PROGRESSION_PLAN.md](soul/SOUL_PROGRESSION_PLAN.md) | How soul depth deepens across v0.1 → v0.2+. |
 | [soul/AUTONOMOUS_DIRECTOR_LOOP.md](soul/AUTONOMOUS_DIRECTOR_LOOP.md) | The observe → propose → repair loop design. |
-| [soul/pilots/umi.md](soul/pilots/umi.md) | Umi pilot soul definition. |
-| [soul/pilots/mahiru.md](soul/pilots/mahiru.md) | Mahiru pilot soul definition. |
-| [soul/pilots/asuna.md](soul/pilots/asuna.md) | Asuna pilot soul definition. |
+| [soul/EVENT_THREAD_CONTINUITY_PLAN.md](soul/EVENT_THREAD_CONTINUITY_PLAN.md) | Event-thread continuity plan: school events become shared context without becoming scripts. |
+| [soul/pilots/umi.md](soul/pilots/umi.md) | Umi pilot soul definition (v0.1 primary). |
+| [soul/pilots/mahiru.md](soul/pilots/mahiru.md) | Mahiru pilot soul definition (v0.1 primary). |
+| [soul/pilots/tianze.md](soul/pilots/tianze.md) | Tianze pilot soul definition (v0.1 primary, Convex runtime key `Tianze`). |
+| [soul/pilots/caocao.md](soul/pilots/caocao.md) | Cao Cao soul definition (secondary local-LLM). |
+| [soul/pilots/ichinose.md](soul/pilots/ichinose.md) | Ichinose soul definition (secondary local-LLM, Convex runtime key `Ichinose`). |
+| [soul/pilots/liubei.md](soul/pilots/liubei.md) | Liu Bei soul definition (secondary local-LLM). |
+| [soul/AM_PM_CONTINUITY_GOAL.md](soul/AM_PM_CONTINUITY_GOAL.md) | AM→PM continuity contract; strict gate currently treats motif-only callbacks as WARN. |
 | [soul/README.md](soul/README.md) | Soul docs sub-index. |
 
 ## Design notes (deeper than the roadmap, may decay)
@@ -37,12 +42,13 @@ Last updated: 2026-05-25.
 | [giis-memory-architecture.md](giis-memory-architecture.md) | Working design note for memory storage. Not yet migrated — kept as reference. | Deferred to v0.2+. |
 | [giis-soul-systems-revisit-plan.md](giis-soul-systems-revisit-plan.md) | Five soul markers and how to score them. | Mostly absorbed into `evals/conversations/runSoulTriadEval.ts`. |
 | [umi-emotional-response-examples.md](umi-emotional-response-examples.md) | Voice references for Umi. | Active. |
+| [giis-ui-directions.md](giis-ui-directions.md) | UI direction note: make residue visible, separate player value from dev tooling, briefing as front door, freeze-don't-churn. Judged against the north star, not a contract. | Active (may decay). |
 
 ## Eval output (machine-generated, gets overwritten)
 
 | Path | What it contains |
 |---|---|
-| [../evals/conversations/reports/soul-triad-latest.md](../evals/conversations/reports/soul-triad-latest.md) | Latest Umi / Mahiru / Asuna triad eval result. Overwritten by `npm run eval:soul-triad`. |
+| [../evals/conversations/reports/soul-triad-latest.md](../evals/conversations/reports/soul-triad-latest.md) | Latest Umi / Mahiru / Tianze triad eval result. Overwritten by `npm run eval:soul-triad`. |
 | [../evals/conversations/reports/latest.md](../evals/conversations/reports/latest.md) | Latest general conversation eval. |
 | [../evals/conversations/reports/soul-rubric-reconciliation.md](../evals/conversations/reports/soul-rubric-reconciliation.md) | Analysis of soul-marker scoring decisions. |
 | `../evals/conversations/golden/` | Hand-curated conversations as quality references / future eval fixtures. |

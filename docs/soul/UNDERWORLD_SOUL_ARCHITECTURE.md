@@ -84,8 +84,8 @@ Examples:
 - Umi may organize Alan's overload, but deflect care when Mahiru notices her.
 - Mahiru may gently check Umi, but become quieter around someone who refuses
   care.
-- Asuna may turn Alan's vision into scope and owners, but with Umi she may
-  notice coordination pressure.
+- Tianze may turn Alan's vision into a pressure test, but with Umi she may
+  notice when testing starts becoming harm.
 
 Relational Self is the main tool for preventing emotional sameness. If two
 characters share the same concern, they still need different care languages.
@@ -100,7 +100,7 @@ Good residue:
 
 - "Mahiru noticed I was still awake before I did."
 - "Umi sounded useful, but not rested."
-- "They said someone would do it. Asuna knew they meant her."
+- "They said the rule was safe. Tianze heard who would be hurt first."
 
 Bad residue:
 
@@ -122,8 +122,8 @@ Examples:
 
 - If Alan repeatedly ignores rest, Umi becomes more direct.
 - If Mahiru keeps checking on Umi, Umi becomes quieter and more honest.
-- If Asuna is overburdened, her replies become shorter and she delays tasks
-  instead of instantly taking them.
+- If Tianze pushes too close to a wound, her replies become shorter and she
+  stops before the second question.
 - If a character is hurt, they may avoid a large meeting and seek a one-on-one
   conversation instead.
 
@@ -175,8 +175,8 @@ Umi protects by reducing overload.
 
 Mahiru protects by staying near and noticing quiet pain.
 
-Asuna protects by carrying the next concrete burden, then slowly learning not to
-carry it alone.
+Tianze protects by testing whether a rule has a real bottom, then slowly
+learning to stop before the test becomes cruelty.
 
 ## Behavioral Consequence Rule
 
@@ -202,7 +202,7 @@ scripts, but quality references for prompt and eval work.
 
 Examples:
 
-- 明日奈：「不是所有事都該默默丟給我。」
+- 天澤：「不是所有事都該默默丟給我。」
 - 曹操 using order to protect people who hesitate at the door.
 - 真晝 noticing Umi is tired before Umi admits it.
 - Umi shortening a briefing because she realizes Alan is overloaded.
@@ -216,7 +216,7 @@ The current soul pilot focuses on:
 
 - Umi / 海
 - Mahiru / 真晝
-- Asuna / 明日奈
+- Tianze / 天澤
 
 The goal is not to expand v0.1 acceptance to every character immediately. The
 goal is to prove that a small group can carry differentiated emotional
@@ -230,13 +230,13 @@ large all-character systems yet.
 Secondary soul profiles:
 
 - CaoCao / 曹操: order as protection
-- Mai / 麻衣: hidden cost and false clarity detection
+- Ichinose / 一之瀨: angelic warmth that turns kindness into named debt
 - Liu Bei / 劉備: invitation as protection
 
 v0.1 success:
 
 > Alan returns tomorrow and feels: yesterday mattered, and Umi, Mahiru, and
-> Asuna are not exactly the same.
+> Tianze are not exactly the same.
 
 ## What Not To Do Yet
 

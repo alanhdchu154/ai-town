@@ -27,7 +27,7 @@ That sentence is the whole v0.1 scope. Not bigger worlds, more characters, prett
 
 For v0.1 we only optimize three things:
 
-1. **Character soul authenticity** — does Umi sound like Umi, Mahiru like Mahiru, Asuna like Asuna, even when they care about the same thing?
+1. **Character soul authenticity** — does Umi sound like Umi, Mahiru like Mahiru, Tianze like Tianze, even when they care about the same thing?
 2. **Conversation → emotional residue** — a conversation leaves one short human trace (e.g. *"Mahiru still remembers Umi sounded tired."*), not a number like `sadness +3`.
 3. **Emotional residue → memory continuity** — the next conversation between the same pair quietly feels the residue without quoting it as a slogan.
 
@@ -35,19 +35,22 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
 
 ## Status
 
-**v0.1 candidate · 2026-05-25.** Soul triad (Umi / Mahiru / Asuna) is live with cloud-gated Qwen; **Phase 1 emotional residue loop (write → prompt read → eval) shipped 2026-05-26**. Currently collecting fresh post-change samples before any further prompt or memory tuning.
+**v0.1 candidate · 2026-05-29.** Soul triad (Umi / Mahiru / Tianze; Convex runtime key `Tianze`) is live with cloud-gated Qwen; **Phase 1 emotional residue loop shipped 2026-05-26**; **cloud Qwen door opened + fallback pollution cleaned 2026-05-29**. Currently collecting fresh post-cleanup samples before declaring v0.1 ship.
 
 **What works today:**
 
 - Player enters/leaves with persistent identity; Day N project clock anchored to 2026-05-19
 - Umi briefs the daily focus, recent events, and Alan's open threads
 - Soul triad speak in differentiated voices — prompt + eval markers penalize echo and stage-direction leakage
-- Qualified triad conversations append one bounded `殘留：…` line to memory; the next same-pair prompt reads up to 2 residue lines as emotional pressure (never quoted verbatim)
+- Qualified triad conversations append one bounded `殘留：…` line to memory; the next same-pair prompt reads up to 2 residue lines as emotional pressure (never quoted verbatim). 3-message real cloud transcripts now qualify.
 - Conversation eval (`eval:soul-triad`, `eval:conversation:recent`) measures soul uniqueness + memory continuity and rejects numeric emotion-meter language
-- Local [Ollama](https://ollama.com/) (`qwen3:8b`) handles most NPC turns; cloud Qwen `qwen3-max` only gates the triad pilot
+- Local [Ollama](https://ollama.com/) (`qwen2.5:1.5b`) handles most NPC turns; cloud Qwen `qwen3-max` gates the triad pilot. **First four cloud triad samples archived fallback-free 2026-05-29** (`c:55297`, `c:55379`, `c:55392`, `c:55424` — the last one PASS 1.00 after hygiene fix).
+- AM→PM continuity verified: 12 afternoon callbacks to morning residue (`npm run underworld:am-pm-continuity` PASS / continuity_observed).
 - Day / night rhythm changes who is around and how they speak
 - Action results narrate `yourAction → characterReactions → worldChanges → futureImplications` after each player move
-- New `ConversationWall` (對話牆) archive surface for scanning fresh samples and spotting slogan leakage
+- 2D RPG classroom view (Pixi) + VN-style active dialogue mode; floating live-room shell with topbar / left pills / bottom action dock layered over a single map surface
+- `ConversationWall` (對話牆) archive surface for scanning fresh samples and spotting slogan leakage
+- Fallback pollution cleanup verified at 0 across all surfaces (memories / archived conversations / world events / notifications / profiles)
 
 **Phase 1 rollback knobs:** set `UNDERWORLD_RESIDUE_WRITE=false` or `UNDERWORLD_RESIDUE_READ=false`. No data migration needed — residue lives as a bounded line in `memories.description`.
 
@@ -75,9 +78,9 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
       <i>Quiet noticing, emotional safety presence.</i>
     </td>
     <td align="center" width="33%">
-      <img src="public/portraits/asuna.png" width="180" alt="Asuna"/><br/>
-      <b>Asuna 明日奈</b><br/>
-      <i>Carries the physical execution, asks awkwardly.</i>
+      <img src="public/portraits/tianze.png" width="180" alt="Tianze"/><br/>
+      <b>Tianze 天澤</b><br/>
+      <i>Pressure-tests rules and stops before the joke becomes harm.</i>
     </td>
   </tr>
   <tr>
@@ -92,9 +95,9 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
       <i>Includes the people other characters overlook.</i>
     </td>
     <td align="center" width="33%">
-      <img src="public/portraits/mai.png" width="180" alt="Mai"/><br/>
-      <b>Mai 麻衣</b><br/>
-      <i>Worries on behalf of others before herself.</i>
+      <img src="public/portraits/ichinose.png" width="180" alt="Ichinose"/><br/>
+      <b>Ichinose 一之瀨</b><br/>
+      <i>Smiles while turning kindness into a debt people admit aloud.</i>
     </td>
   </tr>
 </table>
@@ -144,13 +147,13 @@ Start here:
 - [Soul Progression Plan](./docs/soul/SOUL_PROGRESSION_PLAN.md)
 - [Umi pilot soul definition](./docs/soul/pilots/umi.md)
 - [Mahiru pilot soul definition](./docs/soul/pilots/mahiru.md)
-- [Asuna pilot soul definition](./docs/soul/pilots/asuna.md)
+- [Tianze pilot soul definition](./docs/soul/pilots/tianze.md)
 
 ## Golden moments
 
 Golden moments are examples of the world feeling alive. They are not mandatory scripts — they are quality references for future prompt and eval work.
 
-- 明日奈：「不是所有事都該默默丟給我。」  *(Asuna: "Not everything should be silently handed to me.")*
+- 天澤：「你剛剛躲過去了。放心，我只拆到這裡。」
 - 曹操 using order to protect people who hesitate at the door.
 - 真晝 noticing Umi is tired before Umi admits it.
 - Umi shortening a briefing because she realizes Alan is overloaded.
@@ -194,7 +197,7 @@ umi/                          persistent local automation scripts
 ## Eval harness
 
 ```bash
-npm run eval:soul-triad           # measure soul markers on recent Umi/Mahiru/Asuna conversations
+npm run eval:soul-triad           # measure soul markers on recent Umi/Mahiru/Tianze conversations
 npm run eval:conversation:recent  # general dialogue hygiene
 npm run underworld:observe        # snapshot world state + recent events
 npm run underworld:approach:v01   # one director-loop iteration
@@ -281,22 +284,80 @@ Reports are written to:
 - `umi/reports/life-signals-latest.md`
 - `umi/reports/v01-approach-loop.log` (when using the local launcher)
 
+## Local morning healthcheck
+
+Underworld has a local macOS LaunchAgent registered at:
+
+```bash
+~/Library/LaunchAgents/com.giis.underworld.morning-healthcheck.plist
+```
+
+When the healthcheck has to restart the app, it delegates the long-running dev
+stack to a second LaunchAgent:
+
+```bash
+~/Library/LaunchAgents/com.giis.underworld.dev-stack.plist
+```
+
+It runs every day at local Mac time 06:00 and calls:
+
+```bash
+bash umi/underworld_morning_healthcheck.sh
+```
+
+Behavior:
+
+- check `http://localhost:5173/ai-town`
+- check local Convex at `http://localhost:3210/version`
+- run `npx convex run school:worldClock`
+- if healthy, do nothing except update the latest report
+- if unhealthy, restart the local stack through `com.giis.underworld.dev-stack`
+- wait until frontend, backend, and `school:worldClock` are healthy again
+- if the world engine is stopped/inactive in the morning, run `testing:resume`
+
+Manual commands:
+
+```bash
+# run the same healthcheck now
+bash umi/underworld_morning_healthcheck.sh
+
+# see whether launchd loaded it
+launchctl print gui/$(id -u)/com.giis.underworld.morning-healthcheck
+launchctl print gui/$(id -u)/com.giis.underworld.dev-stack
+
+# stop the daily automation
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.giis.underworld.morning-healthcheck.plist
+
+# stop the restarted dev stack
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.giis.underworld.dev-stack.plist
+
+# start/reload it
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.giis.underworld.morning-healthcheck.plist
+```
+
+Reports/logs:
+
+- `umi/reports/underworld-morning-healthcheck-latest.md`
+- `umi/reports/underworld-morning-healthcheck.log`
+- `umi/reports/underworld-dev-stack.log`
+
 The observe step never modifies code. The repair gate only classifies small allowed fixes versus proposal-only changes. If provider health is bad or fresh samples are insufficient, the gate stays observe-only even when the issue would normally be a small-fix category.
 
 ## What's next
 
-**Now → 2026-05-30 — collect Phase 1 evidence, not more code.** The residue write/read/eval loop shipped 2026-05-26. The open question is empirical: do fresh post-change triad conversations naturally *feel* prior residue without quoting it?
+**Now → v0.1 ship — collect daytime samples, not more code.** The cloud door is open, fallback pollution is cleaned, and the 3-message residue gap is closed. The remaining ship gate is empirical: do fresh post-cleanup triad conversations naturally *feel* prior residue without quoting it?
 
-- Run `npm run eval:soul-qa-loop` during quiet hours to accumulate fresh same-pair samples
-- Watch the new `Memory continuity` column in `eval:soul-triad`; manual-read 3+ fresh samples per pair via the 對話牆
-- **Fresh-sample rule (active):** if fresh post-change samples for a pair are fewer than 3, do not tune prompt or memory behavior — keep collecting
+- Run `npm run underworld:v01-daytime-check` during daytime to gather samples + audit
+- Watch `Memory continuity` in `eval:soul-triad` and re-read fresh samples per pair via the 對話牆
+- **Fresh-sample rule (active):** if fresh post-cleanup samples for a pair are fewer than 3, do not tune prompt or memory behavior — keep collecting. Goal audit prints PENDING until each pair has ≥3.
 - Only patch if fresh samples repeat the same failure class (residue collapses into a slogan, or never surfaces). One targeted prompt edit at a time; re-sample before the next edit.
 
-**Then — v0.1 ship gate.** v0.1 ships when:
+**v0.1 ship gate.** v0.1 ships when:
 
-- Triad pairs show genuine residue callbacks (not echoed phrasing) across 3+ fresh same-pair samples
-- `Memory continuity` warns rather than fails on the recent corpus
-- One longer live playtest confirms Alan feels yesterday inside today's conversation
+- Triad pairs show genuine residue callbacks (not echoed phrasing) across **3+ fresh same-pair samples per pair**. Current: Umi↔Mahiru 2 / Umi↔Tianze 1 / Mahiru↔Tianze 1 (runtime pair key `Tianze`).
+- `Memory continuity` warns rather than fails on the recent corpus. Current: WARN 0.91 (previous-speaker binding).
+- One longer live playtest confirms Alan feels yesterday inside today's conversation.
+- AM→PM continuity remains PASS. **Achieved 2026-05-29** (12 PM callbacks to AM residue).
 
 **v0.2+ (deferred — do not pull forward):** full-cast residue rollout, Soul Layer 6 (long-term arc), per-character memory profiles, schema split for speech vs. stage direction, second cloud-gated NPC pair, mobile/tablet layouts.
 

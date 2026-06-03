@@ -22,7 +22,7 @@ characters to remember, care, change, and leave emotional traces over time.
 
 - [Umi / 海](./pilots/umi.md)
 - [Mahiru / 真晝](./pilots/mahiru.md)
-- [Asuna / 明日奈](./pilots/asuna.md)
+- [Tianze / 天澤](./pilots/tianze.md)
 
 ## Secondary Local-LLM Soul Profiles
 
@@ -32,7 +32,7 @@ use them for character identity, contrast, and background continuity, but do not
 expand the main v0.1 acceptance target beyond the emotional continuity loop.
 
 - [CaoCao / 曹操](./pilots/caocao.md)
-- [Mai / 麻衣](./pilots/mai.md)
+- [Ichinose / 一之瀨](./pilots/ichinose.md)
 - [Liu Bei / 劉備](./pilots/liubei.md)
 
 ## Current Principle
@@ -104,7 +104,7 @@ Keep runtime soul work limited to the pilot trio:
 
 - Umi
 - Mahiru
-- Asuna
+- Tianze
 
 Do not expand to every character yet. Do not create high-frequency emotional
 writes. Do not make every emotional change dialogue-only. Do not turn emotion

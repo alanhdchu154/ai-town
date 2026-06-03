@@ -9,7 +9,14 @@ This repo follows the global Central Umi coordination contract in `/Users/alanhd
 - Central Umi remains Alan's primary interface and cross-project coordinator.
 - `underworld-manager` is the project manager for this repo, not a separate Umi persona.
 - Claude Code / cc is a senior technical worker for bounded implementation, debugging, smoke-test, playtest-review, and edge-case tasks.
+- Read `/Users/alanhdchu/umi-central/goals.md` before local planning. The central `underworld` row is the v0.1 / weekly / daily routing layer; this repo's `WORKLOG.md` is local evidence, and `umi/workload.md` is one scoped worker handoff.
+- If the central daily goal conflicts with `umi/workload.md`, pause and escalate to `underworld-manager` / Central Umi instead of reconciling silently.
 - For substantial coding problems, prefer `cc-first` or `Split-work` after reading `WORKLOG.md` and current handoffs. Coding-heavy or cc-strong work should go to cc first to balance token usage and use the right agent for the job. Umi still owns scope, acceptance, and the final Alan-facing summary.
+- For assigned implementation, debugging, tests, refactor cleanup, repo-local docs, or other cc-strong execution tasks, cc has edit access from the first pass inside the allowed scope. Codex/Umi reviews the diff and accepts/rejects/revises before treating it as done.
+- Do not require a numeric token/budget cap by default for cc. Use bounded scope, allowed files, expected output, and stop conditions; ask for a hard cap only if extra paid usage is enabled, external paid services are involved, Alan requests one, or the task is too broad to checkpoint safely.
+- Prevent cc timeout by assigning one-pass tasks with exact allowed files and commands. Do not ask cc to run watch mode, long dev servers, full generation jobs, broad eval/browser suites, or full test suites unless explicitly scoped. If cc times out or the root cause is outside scope, stop and report a narrower retry instead of silently deciding or editing broadly.
+- Translate Alan's shorthand into repo terms before assigning cc. For example, if Alan says "we opened character settings; check whether code and goals align," first identify the current Underworld goal, `WORKLOG.md` state, changed files, likely character/settings directories, and whether cc should do all-current-diff alignment review, targeted file review, diagnosis, implementation, or verification.
+- Time-aware continuity applies. Old playtests, handoffs, and memory reports are historical evidence. When Alan asks about today, now, recently, or resumes an old thread, anchor to the current date/time and read current `WORKLOG.md`, handoffs, runtime evidence, or fresh eval output before answering as current.
 - Project-local rules in this file control the AI Town product behavior, Convex/Vite architecture, playtest ritual, and repo-specific verification.
 
 ## Local Product Voice

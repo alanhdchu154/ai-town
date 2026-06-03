@@ -169,7 +169,7 @@ The director loop should stay focused on the current pilot:
 
 - Umi / 海
 - Mahiru / 真晝
-- Asuna / 明日奈
+- Tianze / 天澤
 
 Do not expand to new characters, factions, lore, or big UI as part of the
 autonomous loop.

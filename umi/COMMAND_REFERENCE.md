@@ -4,7 +4,7 @@ A single page mapping every npm script, helper script, and shell loop in
 this repo to what it actually does and when to use it. If a command is
 not listed here it is either deprecated or you are using it wrong.
 
-Last updated: 2026-05-25.
+Last updated: 2026-05-29.
 
 ---
 
@@ -16,13 +16,13 @@ Last updated: 2026-05-25.
 | `npm run dev:backend` | Only the Convex tail-logs loop | Two-terminal workflow |
 | `npm run dev:frontend` | Only Vite | Two-terminal workflow |
 | `npm run build` | `tsc && vite build` | Pre-push sanity check |
-| `npm test` | Jest suite (currently 55 unit tests) | After touching `convex/*` or `modelPolicy` |
+| `npm test` | Jest suite (currently **115** unit tests, 14 suites) | After touching `convex/*` or `modelPolicy` |
 
 ## 2. Conversation eval — what to run after collecting samples
 
 | Command | What it measures | When to use |
 |---|---|---|
-| `npm run eval:soul-triad` | Umi / Mahiru / Asuna pilot: 30+ soul markers, memory continuity, slogan / echo / stage-direction penalties. Writes `evals/conversations/reports/soul-triad-latest.md`. **Prints fresh-sample warning if results < 3.** | **Canonical v0.1 eval.** Run after any fresh triad sample is collected. |
+| `npm run eval:soul-triad` | Umi / Mahiru / Tianze pilot: 30+ soul markers, memory continuity, slogan / echo / stage-direction penalties. Writes `evals/conversations/reports/soul-triad-latest.md`. **Prints fresh-sample warning if results < 3.** | **Canonical v0.1 eval.** Run after any fresh triad sample is collected. |
 | `npm run eval:conversation:recent` | General dialogue hygiene across all recent archived conversations (not pilot-specific). Supports `-- --since-last-change`. | Daytime sanity check; not for soul tuning decisions. |
 | `npm run eval:conversation` | Full historical conversation eval | Rare — when seeding a fresh corpus from scratch. |
 | `npm run eval:conversation:loop` | Long-running watch loop | Background daytime QA (rare). |
@@ -36,16 +36,34 @@ These set pilot env knobs at start and **always** unset them in a
 
 | Command | What it does | When to use |
 |---|---|---|
-| `npm run pilot:soul-triad:single-sample` | Opens `SOUL_TRIAD_COLOCATION_PILOT`, co-locates Umi / Mahiru / Asuna, collects one archived conversation, runs `eval:soul-triad`, removes pilot envs, stops the engine. | **Canonical single-sample collection for v0.1.** |
+| `npm run pilot:soul-triad:single-sample` | Opens `SOUL_TRIAD_COLOCATION_PILOT`, co-locates Umi / Mahiru / Tianze, collects one archived conversation, runs `eval:soul-triad`, removes pilot envs, stops the engine. Includes representative-cloud preflight (fails before world mutation if provider/key/quota bad). | **Canonical single-sample collection for v0.1.** |
+| `npm run pilot:soul-triad:single-sample:self-test` | Smoke-check the runner without touching the world. | Pre-flight before a real sample run. |
 | `npm run pilot:umi-mahiru:single-sample` | Pre-triad version. Umi ↔ Mahiru only. | Legacy. Prefer the triad version. |
+| `npm run pilot:local-qwen:disposable` | One-shot local-Qwen disposable probe. | Local-LLM smoke. |
+| `npm run pilot:free-world-routing:disposable` | Disposable probe for free-world cloud routing. Includes preflight. | After a key/quota change, before opening the door. |
+| `npm run pilot:core-trio:disposable-suite` | Disposable suite covering the core trio pairs. | Pre-window quality smoke. |
 
 ## 4. Observation / repair (read-only-by-default)
 
 | Command | What it does | When to use |
 |---|---|---|
 | `npm run underworld:observe` | Snapshot world state + recent events. **Never modifies code.** Writes `umi/reports/v01-approach-latest.md`. | Start every triage session here. |
+| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. | Daytime sample collection. |
+| `npm run underworld:observe:self-test` | Self-test the observe script without hitting Convex. | CI / pre-loop smoke. |
+| `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
+| `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. | **Canonical first daytime command.** |
 | `npm run underworld:repair-gate` | Diagnose + classify allowed small fixes vs. proposal-only changes. Hygiene fixes only; refuses to act if provider health bad or samples < 3. | After observe, before any code edit. |
-| `npm run underworld:approach:v01` | One director-loop iteration (observe → repair-gate → report). | The v0.1 approach loop's single shot. |
+| `npm run underworld:repair-gate:self-test` | Validate the repair gate against synthetic evidence. | Smoke. |
+| `npm run underworld:approach:v01` | One director-loop iteration (observe → repair-gate → goal-audit → report). | The v0.1 approach loop's single shot. |
+| `npm run underworld:morning-check` | Chained harness self-test + day-start. | First command of the day. |
+| `npm run underworld:day-start` | Day-start readiness check (clock, engine, fallback audit). | Start-of-day. |
+| `npm run underworld:life-signals` | Scan day-window life signals (conversation shape, scene diversity, daily rhythm, soul style). Writes `umi/reports/life-signals-latest.md`. | Quality observation. |
+| `npm run underworld:life-signals:self-test` | Self-test for the life-signal harness. | CI smoke. |
+| `npm run underworld:am-pm-continuity` | Scan AM→PM continuity: does an afternoon callback connect to morning residue? Writes `umi/reports/am-pm-continuity-latest.md`. | After AM and PM have both happened. |
+| `npm run underworld:am-pm-continuity:self-test` | Self-test the continuity scan. | CI smoke. |
+| `npm run underworld:heartbeat` | Lightweight world heartbeat (keeps engine warm). | Background. |
+| `npm run underworld:harness:self-test` | Serial self-test of am-pm + life-signals + repair-gate + observe + goal-audit + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
+| `npm run underworld:cleanup-fallback-pollution:dry-run` | Dry-run audit of fallback-tainted memories / archived conversations / events / notifications / profiles. Accepts `--scope`, `--include-archived-conversations`, `--apply=true`. **Destructive only with `--apply=true`** and Alan-approved evidence. | Periodic hygiene audit. |
 | `bash umi/run_v01_approach_loop.sh` | Local long-running wrapper around `underworld:approach:v01` with persistent log at `umi/reports/v01-approach-loop.log`. Stop with Ctrl-C. | Overnight or unattended loops. |
 | `bash umi/soul_triad_hourly_eval_until_sleep.sh` | Hourly `eval:soul-triad` runs until configured sleep time. | Daytime evidence accumulation. |
 

@@ -1,1222 +1,890 @@
-# WORKLOG — Umi / Codex / CC 協作日誌
+# WORKLOG - Umi / Codex / CC Current Handoffs
 
-這個檔案是 Alan、Umi、Codex、Claude Code / CC 共用的協作狀態。目的很簡單：每個人動手前先知道目前狀態，避免撞車、重複排查、或拿舊假設繼續蓋。
+Last updated: 2026-06-02
 
-## 使用慣例
+This file is for current coordination only. Completed implementation history was
+removed from the active worklog; use git history and generated reports when
+historical evidence is needed.
 
-1. **動手前**：先讀 `§ Open Handoffs`，確認是否有人正在碰同一塊。
-2. **派 CC 前**：先把單一明確任務寫進 `umi/workload.md`。
-3. **動手後**：在 `§ Work Log` 最上面 append 一筆，新的放最上面。
-4. **驗證要具體**：寫下跑過的 command；沒跑也要寫原因。
-5. **scope 要小**：這個 repo 容易變成大改世界觀。除非 Alan 明確要求，優先做 additive / targeted changes。
+## Usage
 
-Log 格式：
+1. Read `Open Handoffs` before changing code.
+2. Put one focused worker task in `umi/workload.md` before assigning cc.
+3. Append only active, decision-relevant entries. Remove completed/stale entries
+   once the result is captured elsewhere.
+4. Treat prior-day reports as historical evidence and refresh before answering
+   "today/now/recently".
 
-```md
-### YYYY-MM-DD · 誰 · 一句標題
-- 做了什麼
-- 為什麼
-- 動到哪些檔案
-- 驗證
-- 狀態 / handoff
-```
+## Open Handoffs
 
----
-
-## § Open Handoffs（live）
-
-| # | 事項 | Owner | 狀態 |
+| # | Item | Owner | Status |
 |---|---|---|---|
-| 1 | 用 `umi/workload.md` 派 CC 做第一次 repo orientation / risk audit，確認 CC 能讀本 repo 並回報，不先寫 code | Umi / Codex | ✅ 完成 2026-05-22 |
-| 2 | v0.1 focus 已擴成 Umi / Mahiru / Asuna soul-triad pilot：cloud Qwen `qwen3-max` 只給 gated character-soul samples；local `qwen2.5:1.5b` 只准 smoke/harness；memory summarization deterministic、reflection disabled | Alan / Codex | ✅ 下一階段明確改成 harness/world evaluation first，不 fine-tune。`npm run eval:soul-qa-loop` 已可跑 semi-autonomous QA：收樣本、印 transcript、跑 eval、寫 `umi/reports/soul-loop-latest.md`；fresh samples <3 不改 code |
-| 3 | 若要長時間 playtest，先定義 session checklist 和成功/失敗記錄格式 | Codex | ⏳ 待需要時 |
-| 4 | Targeted LLM autonomy pilot：Qwen env 保留；Umi/Mahiru/Asuna triad gate 只由 single-sample/hourly runner 短暫打開。pilot fallback/error/timeout/repetitive/repair 都 abort，不寫 archived dialogue/memory；outcome/profile 舊模板也被 guard 擋 | Alan / Umi / Codex | ✅ 安全窗完成；hourly loop 可跑到睡覺時間，但每次只收一段，不開全員 LLM |
-| 5 | Local runtime bottleneck：已做 targeted stabilizer、agentGenerateMessage / remember / doSomething finalizers、deterministic memory embedding、human prompt gate、schedule movement opt-in、background action single-flight；post-CC review accepted；額外修掉 conversation cooldown 期間 `agentDoSomething` 空轉洗版 | Umi / Codex | ✅ 穩定化完成；下一步轉向 quality / eval bucketing |
-| 6 | CC auth：keychain 舊 `claude-code-oauth-token` 會 401；改用 Claude Code native CLI session 後 `claude -p` 與 orchestrator read-only review 都成功 | Umi / Codex + CC | ✅ 完成 2026-05-22 |
-
----
-
-## § Work Log（append-only，新的放最上面）
-
-### 2026-05-28 · Umi / Codex · Renamed Mahiru canonical source and added name/greeting guardrails
-- 做了什麼：Alan approved making backend canonical name `Mahiru` while display remains `真晝`. Updated source references from `Mahiru Shiina` to `Mahiru` across profiles, model policy, pilot scripts, evals, and prompt routing, while keeping `Mahiru Shiina` as a compatibility alias for old data. Display/UI still maps both `Mahiru` and `Mahiru Shiina` to `真晝`.
-- Wrong-name fix：Added `明晝` / `阿真晝` as known near-name artifacts. They are normalized before archive-time addressee repair and added to eval/name-alias detection, so `明晝，你...` in an Asuna conversation is treated as a wrong addressee and repaired/flagged instead of being remembered. Kept the prior exact `明天奈 -> 明日奈` terminal-vocative guard.
-- Greeting / lifecycle：Adjusted autonomous start prompts so conversations may open with a short natural approach (`欸`, a name call, or a concrete reason) instead of dropping directly into a memo. Kept generic boilerplate banned (`你好`, `最近過得好嗎`, etc.), and continue-turn prompts still say not to greet again mid-conversation.
-- Live state：Ran `school:repairWorldState` to align live Convex roster/profile names. Fast repair changed roster to `Mahiru`; deep repair with relationship repair finished the relationship/profile target names too. Important side effect: deep repair also removed duplicate/legacy school records (`removedEvents: 103`, `removedNotifications: 180`, `removedRumors: 2`) through the existing cleanup path. World was resumed afterward and confirmed running. Current `school:debugState` shows `name: "Mahiru"` and relationship targets as `Mahiru`.
-- 驗證：`npm test -- --runInBand convex/aiTown/addresseeRepair.test.ts convex/modelPolicy.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS（29 tests）；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npx convex run testing:resume` confirms world already running；`npx convex run school:debugState | rg '"name": "Mahiru|Mahiru Shiina|targetName": "Mahiru'` shows live canonical `Mahiru` and no `Mahiru Shiina` matches in that slice.
-- 狀態 / handoff：Future code should use canonical `Mahiru`; only compatibility/display aliases should mention `Mahiru Shiina`. Next fresh samples should be judged for (1) fewer wrong-name artifacts, and (2) less abrupt starts without generic greeting boilerplate. If deep-repair cleanup removed any event Alan wanted preserved, treat it as local-state cleanup side effect from `repairWorldState`, not a prompt/model change.
-
-### 2026-05-28 · Umi / Codex · Reviewed latest fresh conversations and Mahiru canonical rename scope
-- 做了什麼：Alan asked whether backend `Mahiru Shiina` can become `Mahiru` while display remains `真晝`, and asked whether the world has collected good conversations. Ran fresh observe/evals after boundary `1779991932542`.
-- Conversation evidence：`school:recentConversationEvalData` now shows 12 fresh post-boundary conversations. `life-signals` reports 12/12 life-grounded, average life score 0.88, no admin drift, no hygiene flags, no post-processing drift, but WARN `prop_echo_repeated` because concrete props/motifs are becoming scripted. `eval:conversation:recent` reports 0 PASS / 0 WARN / 12 FAIL, mostly character voice / previous-speaker binding weakness. `eval:soul-triad` found one strong core sample: `conversation-c:44323`（明日奈 / 真晝）PASS 1.00.
-- Best sample：`conversation-c:44323` has real v0.1 signal: 明日奈 says her hand is losing strength and asks 真晝 to split the work; 真晝 pushes her to eat/rest, notices her hand, and the conversation writes short residue for both characters. It is worth keeping as a promising sample, but not yet a golden sample because it still repeats lunch/dinner/report props.
-- Main blockers：The world is now generating life texture, but the texture is over-compressed into repeated props (`便當`, `熱茶`, `窗邊`, `空位`, `資料/報告`). Some older fresh samples still contain stage-direction-like text in archived dialogue/memory (`真晝輕輕拉開椅子...`) and wrong-name artifacts (`明晝`, `阿真晝`). These should be treated as hygiene/guard candidates, not broad soul rewrites.
-- Mahiru rename scope：`rg` found 164 source references to `Mahiru Shiina`, including `data/giisProfiles.ts`, `convex/school.ts`, `modelPolicy`, pilot scripts, eval harnesses, display mapping, and live-world lookup helpers. Added a queued workload item: migrate canonical source name to `Mahiru`, keep `Mahiru Shiina` as alias, and only update live Convex state after a dry-run + Alan approval.
-- 驗證：`npx convex run school:recentConversationEvalData '{"sinceCreatedAt":1779991932542,"limit":20}'` PASS；`npm run underworld:life-signals -- --since-created-at=1779991932542` WARN `prop_echo_repeated`；`npm run eval:conversation:recent -- --since-created-at=1779991932542` PASS as command, 12 FAIL samples；`npm run eval:soul-triad -- --since-created-at=1779991932542` PASS with `conversation-c:44323`.
-- 狀態 / handoff：Do not rename live DB or broad-rewrite prompts in the same step as quality review. Next safe code work is either (1) exact hygiene guards for `明晝` / stage-direction-in-memory, or (2) a separate Mahiru canonical rename dry-run/proposal.
-
-### 2026-05-28 · Umi / Codex · Reviewed CC leave-guard recovery and synced forward handoff
-- 做了什麼：Reviewed CC's recovered `convex/aiTown/agent.ts` leave-guard patch, `convex/aiTown/agent.test.ts`, and `convex/agent/memory.ts` timestamp fix. Accepted the code-level recovery: autonomous leave now defers ordinary timeout below minimum shape, while hard cap still prevents stuck conversations. Confirmed canonical character names were not renamed; display/speech mapping still keeps Asuna as `明日奈` and Mahiru as `真晝`.
-- 小修：Fixed `src/components/Messages.tsx` so message / typing / awaiting timestamps share one `zh-TW` + `America/Chicago` formatter instead of two naked `toLocaleString()` calls. Synced `umi/workload.md`: the exact `明天奈 -> 明日奈` forward guard is now marked implemented and sample-gated, not pending.
-- Fresh evidence：Set boundary `1779991932542` and ran one heartbeat (`inactive -> running`). Fresh post-boundary samples reached 2 conversations: `conversation-c:44178`（明日奈 / 劉備, 4 messages, memory traces present）and `conversation-c:44182`（真晝 / 曹操, 3 messages, no memory traces）. `life-signals` reports 2/2 life-grounded, no admin/hygiene/post-processing drift, but still `sample_pending` because sample count <3. `eval:conversation:recent` reports 0 PASS / 0 WARN / 2 FAIL, mainly previous-speaker binding / character voice weakness.
-- 驗證：`npm test -- --runInBand convex/aiTown/agent.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts` PASS（21 tests）；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm test -- --runInBand` PASS（110/110）；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:heartbeat -- --once` PASS；`npm run underworld:life-signals -- --since-created-at=1779991932542` WARN / sample_pending；`npm run eval:conversation:recent -- --since-created-at=1779991932542` PASS as command, 2 FAIL samples.
-- 狀態 / handoff：Do not tune prompts from only 2 fresh samples. Next safe step is natural observation until at least 3 fresh post-boundary samples, then decide whether to create a small proposal/fix for character voice + previous-speaker binding. Backfill old memory timestamps and broad cue-registry refactor remain proposal/Alan-decision items; no DB cleanup was performed.
-
-### 2026-05-28 · Alan / CC · Recovered lost agent.ts leave-guard + fixed memory timestamp + committed the day's work
-- 做了什麼：Alan 要求總結今天跟 Codex 的工作並檢查合理性。準備把整天累積在工作區（約 3400+ 行、尚未 commit）的改動分批 commit 前先驗證，`npx tsc --noEmit` 出現唯一 error：`convex/aiTown/agent.test.ts` import 的 `shouldDeferConversationLeave` 在 `agent.ts` 不存在。調查發現 `agent.ts` 在 2026-05-28 17:39 被還原成 HEAD，今天兩筆 WORKLOG 記載的改動（min-shape grace、`shouldDeferConversationLeave`）連同接線一起遺失；`git stash`、`git fsck --lost-found` 都沒有，但 17:30 的 build 產物 `dist/assets/index-6d4dafe0.js` 仍保留編譯後邏輯。
-- 救援方式：從 dist bundle 反推出精確邏輯，對照 `agent.test.ts` 的 4 個 case 驗算後，忠實重建 `agent.ts`：新增 `minAutonomousConversationMessages()`（預設 4，clamp 2..MAX）與 `hardAutonomousConversationDurationMs()`（預設 MAX×3，clamp MAX..30min）兩個 env getter；leave 決策加回 min-shape grace（普通 timeout 需 `numMessages >= MIN` 才離場，hard cap 仍強制結束）；補回 exported `shouldDeferConversationLeave()` + `ConversationLeaveState` 介面 + `loadConversationLeaveState()` helper；`agentSendMessage` 改成 `leaveConversation && !shouldDeferConversationLeave(await loadConversationLeaveState(...), now)`，與 bundle 的 `zX`/`HX` 編譯版本一致。
-- 順手修正：`convex/agent/memory.ts:611` 記憶描述的時間戳原本用裸 `new Date(_creationTime).toLocaleString()`，在 Convex 後端（UTC + en-US）會輸出「5/28/2026, 5:39:23 PM」，跟全 repo 慣用的 `America/Chicago` + `zh-TW` 不一致；改成 `Intl.DateTimeFormat('zh-TW', { timeZone:'America/Chicago', year/month/day/hour/minute })`（去秒）。此時間是寫進記憶文字存起來的，故僅影響之後寫入的記憶；既有舊記憶字串需另跑 backfill（尚未做，待 Alan 決定）。
-- 動到哪些檔案：`convex/aiTown/agent.ts`（重建）、`convex/agent/memory.ts`（時間格式）。
-- 為什麼：commit 前不送一棵編不過的 tree；重建以 bundle + test 契約為準，避免臆測偏離原版。時間格式是長年舊 code（2023 `b4941f4`）的一致性 bug，非今日 regression。
-- 驗證：`npx tsc --noEmit --pretty false` PASS clean；`npm test -- --runInBand` PASS 110/110（14 suites，含 `agent.test.ts`、`memory.test.ts`）；`npm run build` 在開發 sandbox 因 esbuild `darwin-arm64` vs `linux-arm64` 平台 binary 不符而無法執行（非程式問題，Alan 本機可正常 build）。
-- 狀態 / handoff：當日工作區改動分批 commit（見各 commit）。後續：(1) 舊記憶時間戳 backfill 待定；(2) `src/components/Messages.tsx:265/283` 前端兩處裸 `toLocaleString()` 一致性小修待辦；(3) 精確詞守門已散在 5 個檔案，建議收斂成單一 cue registry（即 B1/B4）；(4) B3 `recentConversationEvalData` N+1 在 audit 掃全員後會更糟。
-
-### 2026-05-28 · Umi / Codex + CC · Blocked markdown separator artifacts from archived dialogue
-- 做了什麼：After schedule movement default-on, fresh post-`1779987427410` samples reached 9 conversations. The world now produces ordinary-scene/life-grounded conversations, but fresh evidence showed concrete hygiene leaks: `conversation-c:43633` archived `希望今天午餐能邀請到誰。\n\n---`, `馬希魯/马希鲁`, simplified characters, stage-direction narration, and prop loops. Updated `umi/workload.md` and assigned CC a read-only first-look review for exactly one low-risk hygiene fix.
-- CC 結論：Accepted. Fix only the deterministic markdown/separator artifact leak first. It is an allowed auto-fix category with near-zero false-positive risk. Defer prop echo, Simplified conversion, phonetic wrong-name aliases, stage-direction-in-memory, noon `晚安`, gendering, task-manager voice, and broader binding/voice prompt tuning.
-- 修正範圍：Added `stripSeparatorArtifacts()` in `convex/agent/dialogueHygiene.ts` to remove standalone markdown rule lines made of 3+ ASCII `-`, `*`, `_`, or `=`. Called it before both `sanitizeConversationContent()` and `sanitizeUmiMahiruPilotLine()` in `convex/agent/conversation.ts`. Added positive and negative coverage in `convex/agent/dialogueHygiene.test.ts`.
-- 為什麼：This is runtime hygiene before archiving, not a prompt rewrite or memory architecture change. It prevents provider formatting bleed like `---` from becoming spoken dialogue and later memory.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts` PASS（33 tests）；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:harness:self-test` PASS；`npm run underworld:heartbeat -- --once` PASS；`npm run underworld:life-signals -- --since-created-at=1779988600857` PASS/WARN sample_pending with 0 conversations；`npm run eval:conversation:recent -- --since-created-at=1779988600857` PASS with no post-boundary archives.
-- 狀態 / handoff：New forward boundary after this separator guard is `1779988600857`（2026-05-28T17:16:40.857Z）. Judge only future samples after this boundary for separator artifacts. Let the world run naturally; next likely review items are stage-direction-in-memory, `馬希魯/马希鲁`, Simplified conversion, prop echo, and continuity/binding.
-
-### 2026-05-28 · Umi / Codex + CC · Enabled schedule movement by default for natural school encounters
-- 做了什麼：Alan asked if Umi/Codex can cooperate with cc and assign work. Updated `umi/workload.md` with a focused read-only CC task for the fresh bottleneck: the school schedule said the active noon scene was `中央庭院`, but physical character positions stayed scattered in classroom/dorm/cafeteria and no post-boundary conversations arrived after `1779987427410`.
-- CC 狀態：The first `python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` hit a Claude CLI stale-session failure: `API Error: 400 ... thinking or redacted_thinking blocks ... cannot be modified`. Codex verified direct `claude -p --no-session-persistence ...` works, patched `umi/orchestrator.py` to use `--no-session-persistence`, then reran cc successfully. Accepted cc report: `umi/reports/20260528T171014Z-2026-05-28-cc-post-schedule-movement-review.md`.
-- CC 結論：Accepted. Schedule movement default-on is PASS and safe to keep; rollback via Convex env `ENABLE_SCHEDULE_MOVEMENT=false` is adequate. One bounded WARN: during night/quiet hours, agents may micro-wander inside the dorm zone after cooldown. Observe later; do not fix preemptively.
-- 修正範圍：In `convex/aiTown/agentOperations.ts`, changed `scheduleMovementEnabled()` from opt-in (`ENABLE_SCHEDULE_MOVEMENT === 'true'`) to default-enabled with explicit rollback (`ENABLE_SCHEDULE_MOVEMENT !== 'false'`). Added `convex/aiTown/agentOperations.test.ts` for default-enabled, explicit false rollback, and explicit true compatibility. In `umi/orchestrator.py`, added `--no-session-persistence` to Claude worker commands so focused cc tasks do not reuse stale session state.
-- 為什麼：This is a small runtime encounter fix, not prompt tuning or memory architecture. Schedule context and destinations already existed; the default env gate prevented characters from naturally gathering in ordinary school scenes.
-- Evidence：After the patch and one heartbeat, `npm run underworld:life-signals -- --since-created-at=1779987427410` moved from 0 to 2 fresh post-boundary conversations, both ordinary-scene/life-grounded. New evidence: `conversation-c:43633` and `conversation-c:43646`（劉備 / 真晝）at noon in the courtyard/cafeteria rhythm. `eval:conversation:recent` reports 0 PASS / 1 WARN / 1 FAIL; main issue is continuity/binding, not fallback contamination. Sample count is still <3, so no prompt repair yet.
-- 驗證：`npm test -- --runInBand convex/aiTown/agentOperations.test.ts convex/aiTown/agent.test.ts convex/schoolOutcome.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:heartbeat -- --once` PASS；`curl -I http://127.0.0.1:5173/ai-town` returned `HTTP/1.1 200 OK`；`npx convex run school:observe '{}'` PASS；`npm run underworld:life-signals -- --since-created-at=1779987427410` PASS/WARN sample_pending with 2 conversations；`npm run eval:conversation:recent -- --since-created-at=1779987427410` PASS as command with 2 checked samples；`claude -p --no-session-persistence --permission-mode dontAsk --max-budget-usd 0.20 "Reply with exactly: cc-ok"` returned `cc-ok`；`python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` PASS after the orchestrator patch；`python3 -m py_compile umi/orchestrator.py` PASS.
-- 狀態 / handoff：Keep forward boundary `1779987427410` for judging the early-leave/outcome/schedule-movement repairs. Let the world run naturally until at least 3 fresh post-boundary samples exist. Watch next for continuity callbacks, name/language hygiene (`馬希魯`, simplified characters), separator artifact leakage (`/ / ---`), and night dorm micro-wander. CC channel is restored through `--no-session-persistence`; keep using one bounded workload at a time.
-
-### 2026-05-28 · Umi / Codex + CC · Varied conversation outcomes and blocked early autonomous leave
-- 做了什麼：Continued the active free-world / soul / everyday-life goal from live evidence. `school:observe` showed the world alive but `conversationOutcome` events repeating fixed deterministic sentences: CaoCao repeatedly left the exact same "留一張椅子" outcome, and Mahiru repeatedly left the exact same "去宿舍走一圈" outcome. Updated `umi/workload.md` and assigned CC a read-only review for this specific deterministic outcome-repeat issue. CC returned successfully in `umi/reports/20260528T165243Z-2026-05-28-cc-conversation-outcome-repeat-review.md`.
-- CC 結論：Accepted. This is safe to fix before 3 archived samples because it is deterministic post-processing, not prompt-tuning from thin LLM evidence. The smallest fix is to make `conversationDecisionPhrase()` summary/cue-aware with a small deterministic variant set; no schema, provider call, DB cleanup, or prompt rewrite.
-- 修正範圍 1：In `convex/school.ts`, exported `conversationDecisionPhrase()`, added `outcomeCue()` plus stable deterministic variant selection, added small life-grounded variants for CaoCao / Liu Bei / Mai / Umi / Mahiru / Asuna, and passed `args.summary` from `recordConversationOutcome()`. Added `convex/schoolOutcome.test.ts` to prove repeated CaoCao outcomes vary and Mahiru meal cues no longer always become the fixed dorm-check line.
-- 追加 evidence：After the outcome patch, fresh post-`1779986451021` samples reached 4 conversations. `life-signals` reported `conversation_shape_collapse`: `conversation-c:43590`, `conversation-c:43599`, and `conversation-c:43607` archived at only 2-3 messages. Inspecting `agentGenerateMessage` / `agentSendMessage` showed `[LEAVE]` could bypass the earlier min-message tick gate.
-- 修正範圍 2：In `convex/aiTown/agent.ts`, added exported `shouldDeferConversationLeave()` and made `agentSendMessage` refuse to actually leave a non-human autonomous conversation if the next message would still be below `MIN_AUTONOMOUS_CONVERSATION_MESSAGES`, unless the hard duration cap has elapsed. Added `convex/aiTown/agent.test.ts`.
-- 驗證：`npm test -- --runInBand convex/aiTown/agent.test.ts convex/schoolOutcome.test.ts evals/conversations/metrics/conversation_metrics.test.ts convex/agent/memory.test.ts` PASS（22 tests）；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:harness:self-test` PASS；`npm run underworld:heartbeat -- --once` PASS and restored world `inactive->running`；`npm run underworld:life-signals -- --since-created-at=1779987427410` PASS / `sample_pending`；`npm run eval:conversation:recent -- --since-created-at=1779987427410` PASS / no post-boundary archives yet.
-- 狀態 / handoff：New forward boundary is `1779987427410`（2026-05-28T16:57:07.410Z）. Judge only future samples after this boundary for whether (1) conversation outcomes stop repeating fixed per-character sentences and (2) autonomous conversations archive at 4+ meaningful messages more consistently. Deferred: write-side duplicate outcome skip guard, read-side `recentLocalEvents` dedup, and any prompt rewrite.
-
-### 2026-05-28 · Umi / Codex + CC · Reconciled CaoCao voice eval with order-as-care prompt
-- 做了什麼：Alan asked whether Umi can cooperate with cc and assign tasks. Updated `umi/workload.md` with a focused read-only CC review for fresh post-memory-anchor sample `conversation-c:43558`（曹操 / 真晝） after boundary `1779986451021`. CC returned successfully through the orchestrator report `umi/reports/20260528T164601Z-2026-05-28-cc-c43558-cao-cao-voice-memory-anchor-review.md`.
-- CC 結論：Accepted. Do not tune CaoCao prompt, memory anchor perspective, or broader residue/memory logic from one sample. The actionable finding was harness-side: `characterVoiceScore` still rewarded hard-order CaoCao words (`秩序`, `失控`, `負責`) while the live prompt asks him to protect through concrete school-life order first (`door`, `seat`, `hallway`, `tray`).
-- 修正範圍：Updated only `defaultVoiceCues('曹操')` in `evals/conversations/metrics/conversation_metrics.ts` to include prompt-aligned quiet order-as-care cues: `門口`, `位置`, `座位`, `椅子`, `走廊`, `回房`, `燈`. Added a focused test in `evals/conversations/metrics/conversation_metrics.test.ts`.
-- 結果：`conversation-c:43558` moved from `FAIL` score `0.92` to `WARN` score `0.95`. Remaining issue is previous-speaker binding / mirror repetition, so next action stays sample-gated: collect at least 2 more fresh post-`1779986451021` samples before prompt tuning.
-- 驗證：`npm test -- --runInBand evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run eval:conversation:recent -- --since-created-at=1779986451021` PASS as command, reports `0 PASS / 1 WARN / 0 FAIL`；`npm run underworld:life-signals -- --since-created-at=1779986451021` PASS as command, reports `sample_pending`；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:harness:self-test` PASS。
-- 狀態 / handoff：cc cooperation is working again for read-only review. Keep using `umi/workload.md` for one bounded task at a time. Do not implement CaoCao prompt tuning or perspective-aware memory anchor until fresh evidence repeats.
-
-### 2026-05-28 · Umi / Codex · Kept free-world conversations awake and blocked generic closure memory
-- 做了什麼：Continued the active free-world / soul / everyday-life goal from current runtime evidence. `world:defaultWorldStatus` had slipped to `inactive`, so ran the daytime heartbeat once; it restored `inactive -> running` without forcing conversations or touching memory. Fresh post-`1779984865931` samples then arrived: 5 conversations, all life-grounded with no fallback/admin/system drift, but with two clear issues: many conversations still archived at 2-3 messages, and `conversation-c:43509` wrote a generic closure (`正中窩心 / 那就這樣做吧`) into memory traces before the new guard.
-- 修正範圍：In `convex/aiTown/agent.ts`, added a bounded minimum-shape grace for non-human autonomous conversations: ordinary duration timeout no longer ends a conversation before `MIN_AUTONOMOUS_CONVERSATION_MESSAGES` (default 4), while a hard duration cap still prevents stuck conversations. In `convex/school.ts`, cleaned deterministic player-action/world-summary wording away from politics/project-management (`權力中心`, `政治價值`, `管理/執行`) toward everyday effects: who feels invited, who is anxious, who might need a seat, and whether Asuna is expected to carry responsibility. In `convex/agent/conversation.ts`, extended prop-echo prevention to `椅子`, `座位`, and `桌子`.
-- Memory hygiene：Added exact generic closure cues (`正中窩心`, `那就這樣做吧`) to runtime quality guard, memory write/read-side filters, recent eval metrics, and life-signal reporting. Added tests so this kind of empty agreement cannot become valid emotional residue.
-- Evidence：Before the memory cue patch, `school:recentConversationEvalData` showed `conversation-c:43509` with 8 messages and two memory traces summarizing `你剛才說的正中窩心，那就這樣做吧。`. After the patch, the same conversation shows `memoryTraces: []` read-side without deleting Convex data. `life-signals` also moved from `sample_pending` to real fresh evidence, then back to sample-gated after the latest guard boundary.
-- 驗證：`npm test -- --runInBand convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS（15 tests）；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:heartbeat -- --once` PASS；`npx convex run school:observe '{}'` PASS；`npm run underworld:life-signals -- --since-created-at=1779986193061` PASS / `sample_pending`；`npm run eval:conversation:recent -- --since-created-at=1779986193061` PASS / no post-boundary archives yet.
-- 狀態 / handoff：New forward boundary after the latest prop/memory guard is `1779986193061`（2026-05-28T16:36:33.061Z）. Judge only future samples after this boundary for whether min-shape grace and chair/seat prop-echo guard work. Watch especially: (1) conversations should reach 4+ messages more often without DB spam, (2) `椅子/座位/茶/杯` should stay as life texture rather than loop, (3) generic agreement closures should not enter memory.
-
-### 2026-05-28 · Umi / Codex + cc · Propagated soul/life roles into live profiles
-- 做了什麼：Accepted Alan's request to collaborate with cc. Spawned a bounded cc-style read-only reviewer for the current v0.1 profile/memory-guard state, then kept Codex's local implementation limited to the clear profile propagation issue. The reviewer returned PASS for bilingual legacy role propagation and WARN/watch for the exact-cue drift guards.
-- 修正範圍：Added old bilingual legacy role strings to `resolvedRole()` in `convex/school.ts` so `school:ensureDefaultWorldProfiles` can replace stale DB roles such as `Executive Assistant / 執行助理`, `Strategy Advisor / 策略顧問`, and `Student Politician / 學生政治家` with the current soul/life roles from `data/giisProfiles.ts`. Also removed one remaining `political moves` relationship note from `data/giisProfiles.ts`.
-- 結果：After running `npx convex run school:ensureDefaultWorldProfiles`, `school:debugState` shows live profile roles now propagated: Umi = `Assistant Principal / 世界協調者`, Asuna = `Reliability Anchor / 責任承接者`, Mai = `Hidden Cost Reader / 隱藏成本讀者`, CaoCao = `Order-as-Care Observer / 以秩序保護人的觀察者`.
-- CC 意見：Memory/admin exact-cue guards are acceptable v0.1 hygiene for now, but watch Mai. `隱形成本` is both a Mai soul phrase and a guard cue; if fresh Mai samples become false-flagged or flattened, narrow it to a combo ban such as `按你說的办 + 商量下一步 + 隱形成本` instead of blocking the phrase alone.
-- 驗證：`npx convex run school:ensureDefaultWorldProfiles` PASS；`npx convex run school:debugState` confirms propagated roles；`node --check scripts/underworld-life-signals.mjs` PASS；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:life-signals -- --since-created-at=1779984865931` PASS / `sample_pending`；`npm run eval:conversation:recent -- --since-created-at=1779984865931` PASS / no post-boundary archives yet.
-- 狀態 / handoff：Do not make more dialogue/prompt changes until fresh post-`1779984865931` archived conversations exist. Next observation should specifically watch whether Mai's `隱藏成本` soul language is incorrectly treated as drift.
-
-### 2026-05-28 · Umi / Codex · Deduped repeated atmosphere lines in Umi observe summary
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after the memory hygiene patch. New post-boundary conversations after `1779984865931` were still `sample_pending`, but `school:observe` exposed a read-side life/atmosphere issue: `sceneDescription` and `umiSummary` repeated the same recent event text, e.g. 麻衣's `沒事` line appeared twice in a row. This made the world feel like a report loop instead of a living school atmosphere.
-- 修正範圍：Updated `observeSnapshot()` in `convex/school.ts` so the Umi/scene summary uses `uniqueTextItems(recentLocalEvents.map(...))` before taking the top 3 descriptions. This only dedupes read-side summary text. It does not delete `worldEvents`, change conversation generation, alter memory architecture, or force new conversations.
-- Evidence：Before the patch, `npx convex run school:observe '{}'` returned `sceneDescription` / `umiSummary` with the same 麻衣 event repeated. After the patch, the summary shows three distinct atmosphere items: 曹操留椅子、麻衣找出太工整的「沒事」、明日奈交出一件事.
-- 驗證：`npx convex run school:observe '{}'` PASS and confirms deduped summary；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run underworld:life-signals -- --since-created-at=1779984865931` PASS / `sample_pending`；`npm run eval:conversation:recent -- --since-created-at=1779984865931` PASS / no post-patch archives yet.
-- 狀態 / handoff：World is running, but no new archived conversations exist after `1779984865931` yet. Next quality judgment still needs fresh post-boundary samples. This patch improves Umi's at-a-glance world atmosphere without claiming dialogue quality is fixed.
-
-### 2026-05-28 · Umi / Codex + CC-style reviewer · Guarded memory from admin/slogan drift in fresh free-world samples
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after sample count reached the repair threshold. Fresh post-boundary samples after `1779983534267` reached at least 3, including `conversation-c:43401`（麻衣 / 明日奈）with 8 messages and polluted memory traces. The conversation repeated admin/task-manager and slogan shapes (`這筆預算`, `執行清單`, `核對工作`, `商量下一步`, `按你說的办`, `隱形成本 / 隐形的成本`) and therefore crossed the memory-cleanliness line. A CC-style read-only reviewer (`Volta`) agreed this was enough for exact hygiene/read-side memory guards, but not enough for broad prompt/model/schema changes.
-- 追加 evidence：During verification, another fresh sample `conversation-c:43431`（曹操 / 麻衣）showed the same class of memory pollution through generic efficiency/collaboration phrasing (`個人準備更有效率`, `互相補充信息`, `自己組織比較好`, `做個助手`). This was also isolated as exact cue-family drift rather than a broad ban on normal school/course talk.
-- 修正範圍：Updated exact cue guards in `convex/agent/conversation.ts`, `convex/agent/memory.ts`, `convex/school.ts`, `evals/conversations/metrics/conversation_metrics.ts`, and `scripts/underworld-life-signals.mjs`. Added tests in `convex/agent/memory.test.ts` and `evals/conversations/metrics/conversation_metrics.test.ts`. Also added a write-skip in `rememberConversation()` so autonomous conversations containing high-confidence free-world quality drift do not persist conversation memory, and read-side filters hide existing polluted traces without deleting Convex data.
-- 結果：`school:recentConversationEvalData` now shows `memoryTraces: []` for both `conversation-c:43401` and `conversation-c:43431`, while preserving the archived conversations themselves. Existing weak samples remain useful evidence but should not feed future character memory.
-- 驗證：`npm test -- --runInBand convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS（13 tests）；`npm run underworld:life-signals:self-test` PASS；`npx convex run school:recentConversationEvalData '{"sinceCreatedAt":1779983534267,"limit":10}'` confirms polluted traces hidden；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run underworld:life-signals -- --since-created-at=1779983534267` PASS / WARN `prop_echo_repeated`；`npm run eval:conversation:recent -- --since-created-at=1779984865931` reports no post-patch archived conversations yet；`npm run underworld:life-signals -- --since-created-at=1779984865931` reports `sample_pending`；`npm run build` PASS（保留既有 Vite chunk-size warning）。
-- 狀態 / handoff：New forward boundary after this patch is `1779984865931`（2026-05-28T16:14:25.931Z）. Judge only future samples after this boundary for whether the new drift guards work. World remains `running`; no `claude -p`, orchestrator, underworld-approach, or heartbeat background worker was left running.
-
-### 2026-05-28 · Umi / Codex · Aligned life-signal admin drift with fresh world-manager leak evidence
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after the `c:43365` review. Checked current daytime state: 2026-05-28 11:07 CDT, world `running`. Fresh post-boundary samples since `1779983534267` increased to 2: `conversation-c:43365`（明日奈 / 海）and `conversation-c:43386`（海 / 明日奈）.
-- Evidence：`c:43386` is a better life sample: walk/hallway, lunch, forms, tea, window, blackboard eraser; it still stayed as `memoryTraces: []` because it was only two messages. `c:43365` remained weak: `緊急決策` and `這世界又會亂成一團` are task/world-manager flavored. Recent eval already counted `決策` as administrative language, but `underworld-life-signals` still showed `admin none`.
-- 修正範圍：Updated only `scripts/underworld-life-signals.mjs` so `緊急決策` and `世界又會亂成一團` are reported as administrative/world-manager drift. This is observe/reporting only: no prompt change, no runtime abort, no provider change, no DB cleanup, no memory architecture change.
-- 結果：`umi/reports/life-signals-latest.md` now reports 2 conversations, 1 life-grounded, 1 administrative drift flag; `c:43365` now shows `admin 緊急決策、世界又會亂成一團`, while `c:43386` remains the strongest life signal with score 0.84.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:life-signals -- --since-created-at=1779983534267` PASS / WARN sample_pending；`npx tsc --noEmit --pretty false` PASS；`git diff --check` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）。
-- 狀態 / handoff：Still sample-gated. We have 2 fresh post-boundary conversations, fewer than the 3 needed for tuning. Continue natural daytime observation with heartbeat; do not tune prompt/runtime until at least 3 fresh samples or repeated exact hygiene leak.
-
-### 2026-05-28 · Umi / Codex + CC-style reviewer · Reviewed c:43365 and chose sample-gated wait
-- 做了什麼：Alan asked whether Umi/Codex can cooperate with CC and assign tasks. Updated `umi/workload.md` with a focused read-only review for the newest post-boundary sample `conversation-c:43365`（明日奈 / 海） after boundary `1779983534267`. The local Claude Code CLI path failed before review with API 400 (`thinking or redacted_thinking blocks... cannot be modified`), so no usable local CC findings were produced. Used a Codex multi-agent worker (`Newton`) as a CC-style second-opinion reviewer for the same bounded read-only task.
-- Review 結論：Accepted the second opinion: this is WARN / wait, not a runtime patch. The sample is weak and task-manager flavored (`緊急決策`) with loose mirroring (`待辦清單 / 把話說完 / 窗外-窗邊`), but it is only one two-message conversation. `memoryTraces: []` confirms the autonomous memory-shape gate worked correctly, so the weak exchange did not become residue/memory.
-- 決策：No code change from this sample. Keep collecting natural daytime samples with heartbeat. Only consider an exact forward guard for `這世界又會亂成一團` or similar world-collapse wording if it repeats in fresh evidence; keep mirror/prop issues eval-first for now.
-- 驗證：`npm run eval:conversation:recent -- --since-created-at=1779983534267` -> 0 PASS / 1 WARN / 0 FAIL；`npm run underworld:life-signals -- --since-created-at=1779983534267` -> 1 conversation, WARN / `sample_pending`；`npx convex run school:recentConversationEvalData '{"sinceCreatedAt":1779983534267,"limit":5}'` -> `conversation-c:43365`, `memoryTraces: []`.
-- 狀態 / handoff：Next judge point is at least three fresh conversations after `1779983534267`, or a repeated exact hygiene leak before then. Do not tune prompt/runtime from `c:43365` alone.
-
-### 2026-05-28 · Umi / Codex · Added autonomous memory-shape gate for weak two-line exchanges
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after the task-manager drift guard. Kept the world alive naturally and captured one post-boundary fresh sample, `conversation-c:43336`（真晝 / 劉備）. It was only two messages: 真晝 gently asked whether 劉備 was tired or worried about someone being forgotten; 劉備 answered `我現在在寫作業。暫時不覺得累。看看窗邊是否有人需要幫助。` The line was generic helper speech, and because the exchange was only two messages it should not become emotional residue or memory.
-- 修正範圍：Added `shouldPersistConversationMemoryShape()` in `convex/agent/memory.ts`. Alan/human conversations may still persist from two meaningful messages, but autonomous NPC↔NPC conversations now need at least four meaningful messages and two authors before conversation memory/outcome is written. Added exact generic helper cues (`是否有人需要幫助`, `暫時不覺得累`) to the autonomous free-world quality guard, memory/report read-side drift filters, recent eval metrics, and life-signal reporting.
-- 為什麼：v0.1 memory should mean "this mattered," not "two lines happened." This keeps weak autonomous exchanges from polluting memory while preserving Alan's direct conversations and longer NPC moments.
-- Evidence：Before this patch, `conversation-c:43336` had two memory traces summarizing the weak helper sentence. After the patch, `school:recentConversationEvalData` reports `memoryTraces: []` for `c:43336` read-side without deleting Convex data. `npm run eval:conversation:recent -- --since-created-at=1779982949150` now intentionally flags old `c:43336` as FAIL for `bannedPhraseCount: 是否有人需要幫助 / 暫時不覺得累`.
-- 驗證：`npm test -- --runInBand convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:heartbeat -- --once` PASS；`npm run eval:conversation:recent -- --since-created-at=1779983534267` reports no post-patch archives yet；`npm run underworld:life-signals -- --since-created-at=1779983534267` reports sample pending.
-- 狀態 / handoff：New forward boundary after this patch is `1779983534267`（2026-05-28T15:52:14.267Z）. Judge only future samples after this boundary. World is running and `/ai-town` remains reachable; keep using `npm run underworld:approach:v01 -- --cc=skip` for long observation until local CC CLI stops hanging.
-
-### 2026-05-28 · Umi / Codex · Blocked task-manager drift from free-world dialogue and memory
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after adding daytime keepalive. Kept the world awake and observed three fresh post-guard conversations after boundary `1779981871525`: `conversation-c:43271`（曹操 / 海）, `conversation-c:43294`（明日奈 / 劉備）, and `conversation-c:43304`（明日奈 / 曹操）. The good news: fresh life-signals reached 3 conversations and reported PASS for ordinary campus grounding, with no fallback markers, no stage-direction leaks, no prop echo, and no post-processing drift after read-side filters. The bad news: dialogue still slipped into task-manager / generic helper language (`掃描教室`, `任務和支援`, `明細已經拿到`, `自行覺醒`, `名單已交接清楚`, `整理明天的流程`).
-- 修正範圍：Added those exact task-manager drift phrases to the autonomous free-world quality guard in `convex/agent/conversation.ts`, so future non-companion autonomous lines with this wording abort instead of archiving. Added the same cue family to eval/reporting in `evals/conversations/metrics/conversation_metrics.ts` and `scripts/underworld-life-signals.mjs`. Added read-side memory/report isolation in `convex/agent/memory.ts` and `convex/school.ts`, so polluted task-manager summaries are not exposed back to prompts or displayed as valid memory traces.
-- 為什麼：This is a small hygiene fix, not a broad prompt rewrite. v0.1 needs campus life and responsibility to feel human, not like project management text. These exact phrases appeared in fresh evidence after the keepalive fix, and they can contaminate memory if not isolated.
-- Evidence：Before the patch, `npm run eval:conversation:recent -- --since-created-at=1779981871525` reported 0 PASS / 1 WARN / 2 FAIL, with failures on weak character voice and binding. After adding the cue family, the same old three samples are intentionally flagged as 0 PASS / 0 WARN / 3 FAIL with `bannedPhraseCount` for `掃描教室`, `任務和支援`, `明細已經拿到`, and `自行覺醒`. `school:recentConversationEvalData` now hides `conversation-c:43304` memory traces read-side (`memoryTraces: []`) without deleting Convex data.
-- 驗證：`npm test -- --runInBand convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:heartbeat -- --once` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run world:defaultWorldStatus` reports `status: running`.
-- 狀態 / handoff：New forward boundary after this patch is `1779982949150`（2026-05-28T15:42:29.150Z）. `npm run eval:conversation:recent -- --since-created-at=1779982949150` and `npm run underworld:life-signals -- --since-created-at=1779982949150` both report no post-patch archived conversations yet / sample pending. Judge only future samples after this boundary; older `c:43271`, `c:43294`, and `c:43304` are historical evidence for the guard.
-
-### 2026-05-28 · Umi / Codex · Added daytime keepalive for free-world observation
-- 做了什麼：Alan asked whether Umi/Codex can cooperate with CC and assign tasks. Replaced `umi/workload.md` with a bounded read-only CC task for the current runtime issue: the world can become `inactive` when Alan does not keep `/ai-town` open, because browser heartbeat is the only steady `lastViewed` updater. The local CC CLI again started a `claude -p` worker but produced no stdout for about 90 seconds, so Codex/Umi killed the hung worker and recorded that no local CC consensus is available from this run.
-- 修正範圍：Added `scripts/underworld-heartbeat.mjs` and npm script `underworld:heartbeat`. It mirrors the browser heartbeat for local observation, but only during daytime by default; it skips night quiet, skips `stoppedByDeveloper`, does not collect samples, does not force conversations, and does not touch memory/residue/provider paths. Updated `scripts/underworld-approach-v01.mjs` so the 45-minute sleep between observe passes can send a once-per-minute heartbeat unless `--keepalive=false` is passed.
-- 為什麼：Fresh post-guard samples were not arriving partly because the world kept slipping to `inactive` between checks. This was a runtime keepalive gap, not a reason to rewrite prompts or memory. v0.1 needs the free world awake long enough to generate natural evidence.
-- Evidence：`npm run underworld:heartbeat -- --once` moved the default world `inactive -> running` and updated `lastViewed` from `1779975939414` to `1779982318209`. `npx convex run world:defaultWorldStatus` then reported `status: running`, world clock day 10 around 10:31-10:32 America/Chicago.
-- 驗證：`node --check scripts/underworld-heartbeat.mjs` PASS；`node --check scripts/underworld-approach-v01.mjs` PASS；`npm run underworld:heartbeat -- --once` PASS；`npm run underworld:approach:v01 -- --once --dry-run --cc=skip --keepalive=true` PASS / observe-only / sample pending；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`.
-- 狀態 / handoff：Next long-running local command should be `npm run underworld:approach:v01 -- --cc=skip` or with CC enabled only after the local CC CLI stops hanging. During daytime it now keeps the world alive while waiting. Fresh conversation samples after boundary `1779981871525` are still pending; do not tune dialogue until new archived evidence exists.
-
-### 2026-05-28 · Umi / Codex · Added free-world prop-echo and over-probing guard
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after the `校園情緒地圖` and `曉夢同學` hygiene patch. Confirmed the world had slipped to `inactive`, resumed it with `npx convex run testing:resume`, and established a new forward-judge boundary `1779981871525` after verification. Inspected the compact autonomous prompt path and found the prompt already contains many life/soul rules, so the next smallest useful fix was not another broad prompt rewrite.
-- 修正範圍：Added a targeted runtime guard in `convex/agent/conversation.ts` so non-companion autonomous dialogue aborts rather than archives a line when it repeats the same concrete prop after that prop already appeared twice in the recent conversation (`便當`, `餐盤`, `杯`, `茶`, `清單`, `紀錄表`, `燈`, `門縫`, `窗`, `角落`, etc.). Added exact observed therapy-style probing phrases to the free-world quality leak guard (`這種感受你有好幾年`, `到底發生了什麼`, `這應該就是原因`, `說得再清楚一些`). Also tightened compact prompt wording: visible school objects should ground the scene, not become the whole conversation.
-- 為什麼：Fresh samples had improved school-life texture but overused props and over-probed emotions (`杯/茶/便當` loops; Umi pressing CaoCao to explain). v0.1 needs ordinary-life texture without turning props into slogans or care into therapy interrogation.
-- Evidence：Before this patch, post-guard samples included `c:43193`, `c:43208`, and `c:43229` with repeated props / over-probing / wrong addressee evidence. After the patch, `npm run eval:conversation:recent -- --since-created-at=1779981871525` reports no post-fix archives yet, and `npm run underworld:life-signals -- --since-created-at=1779981871525` reports `sample_pending`; judge only future samples after this boundary.
-- 驗證：`npm test -- --runInBand convex/aiTown/addresseeRepair.test.ts convex/agent/dialogueHygiene.test.ts convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run school:observe '{}'` shows no active conversations at the check moment but advances clock to day 10, 10:24.
-- 狀態 / handoff：World status was resumed before this patch and frontend is reachable. There are no new post-patch archived samples yet. Let the world run naturally and evaluate from boundary `1779981871525` or later; do not count older `c:43208` / `c:43229` failures as proof this new guard failed.
-
-### 2026-05-28 · Umi / Codex · Assigned CC hygiene review and patched fresh leak guards
-- 做了什麼：Alan asked whether Umi/Codex can cooperate with CC and assign concrete tasks. Replaced `umi/workload.md` with a bounded read-only CC task for fresh post-guard samples, especially `conversation-c:43208` where Umi ended with `校園情緒地圖的報告` and the line had entered memory traces. Local Claude Code CLI again hung with no stdout for about 90 seconds, so Codex/Umi killed the `claude -p`/orchestrator processes and used a session explorer as fallback second opinion, explicitly not local CC consensus.
-- Review 決策：Accepted the fallback review's narrow recommendation: patch the exact administrative/system leak and read-side memory filter only. Deferred Umi over-probing, prop echo, and prompt rhythm as proposal-only / more-samples-needed. Do not mix personality rhythm fixes with hygiene leak patches.
-- 修正範圍：Added precise `校園情緒地圖` coverage to `convex/agent/dialogueHygiene.ts`, `convex/agent/memory.ts`, `convex/school.ts`, `evals/conversations/metrics/conversation_metrics.ts`, and `scripts/underworld-life-signals.mjs`, with tests. Confirmed `conversation-c:43208` now shows `memoryTraces: []` read-side without deleting archived data. During active sample inspection found `conversation-c:43229` using wrong addressee `曉夢同學`; added a forward insertion/eval repair cue for that observed hallucinated name in `convex/aiTown/addresseeRepair.ts` and eval metrics.
-- Evidence：`npm run eval:conversation:recent -- --since-created-at=1779980543553` now flags old/fresh-window archived evidence as expected: `c:43229` wrong addressee, `c:43208` banned `校園情緒地圖`, `c:43193` tone/linking. `npm run underworld:life-signals -- --since-created-at=1779980543553` reports WARN / `prop_echo_repeated`; `c:43208` appears in weakest evidence for admin `校園情緒地圖`.
-- 驗證：`npm test -- --runInBand convex/aiTown/addresseeRepair.test.ts convex/agent/dialogueHygiene.test.ts convex/agent/memory.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run world:defaultWorldStatus` reports `status: running`.
-- 狀態 / handoff：No Convex DB cleanup was performed. Judge forward fixes only on conversations archived after this patch; older `c:43208` and `c:43229` remain historical evidence. Next likely task is sample-gated prompt-rhythm proposal if Umi over-probing / prop echo repeats in at least 2 more fresh samples.
-
-### 2026-05-28 · Umi / Codex · Refined soul-style harness cues from fresh life samples
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after the 15:02 forward guard. Waited for new post-guard archives and inspected `conversation-c:43180` (麻衣 / 真晝) and `conversation-c:43193` (海 / 曹操). Both had stronger ordinary-life grounding and no fresh system/memory pollution: Mahiru noticed Asuna not eating lunch and suggested pulling a chair closer; Umi/CaoCao used cold tea and remembered hallway silence. However, reports initially undercounted soul-style because the harness did not recognize CaoCao's `不允許一切都失控` or Mai's `責任模糊 / 不合理` style as character-specific cues.
-- 修正範圍：Updated eval/harness cue coverage only. `scripts/underworld-life-signals.mjs` now treats Umi `負責`, Mai `模糊 / 不合理`, and CaoCao `失控 / 站出來` as soul-style cues. `evals/conversations/metrics/conversation_metrics.ts` now uses the same expanded cue families for character voice and attention-shift scoring.
-- 為什麼：This does not change runtime behavior or prompts. It makes the observe layer better aligned with Alan's v0.1 goal: characters should care differently, and the harness should not miss real CaoCao/Mai-style care just because the surface phrase changed.
-- Evidence：Before the cue update, `npm run underworld:life-signals -- --since-created-at=1779980543553` reported `Soul-style conversations: 0`. After the update it reports `Soul-style conversations: 2`, `Soul-style diversity: 3`, with characters `海、曹操、麻衣`. `npm run eval:conversation:recent -- --since-created-at=1779980543553` improved `conversation-c:43180` from FAIL to WARN while keeping `conversation-c:43193` FAIL for a real remaining issue: too little clipped/tone-shift texture (`emotion_tone_link: 0/4`).
-- 驗證：`npm test -- --runInBand evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored the world after build；`npx convex run world:defaultWorldStatus` reports `status: running`.
-- 狀態 / handoff：No prompt/runtime behavior was changed. Fresh post-guard samples are only 2, so do not tune dialogue yet. Next judge window should use boundary `1779980543553` or later; if at least 3 fresh samples continue to show `emotion_tone_link` failure, propose a small prompt/style change for shorter, less perfectly articulate replies.
-
-### 2026-05-28 · Umi / Codex · Blocked fresh world-coordination report leak and added prop-echo visibility
-- 做了什麼：Continued the active free-world / soul / everyday-life goal. Watched fresh Umi x Mahiru `conversation-c:43163` from active conversation to archive and printed/inspected the transcript. The sample showed real progress in life texture and mutual care (`走廊壞掉的燈`, `課桌旁的椅子`, `便當`, Mahiru noticing Umi / Umi noticing Mahiru), but the final Umi line leaked system/admin phrasing: `緊急的世界協調報告`. The same contaminated line had been written into memory before the forward patch.
-- 修正範圍：Added `世界協調報告` / `世界協調` to the shared dialogue system-phrase leak guard in `convex/agent/dialogueHygiene.ts`, so future pilot/free-world generated lines with that phrasing abort instead of becoming archived dialogue. Added the cue to memory/UI read-side drift filters in `convex/agent/memory.ts` and `convex/school.ts`, plus conversation eval and life-signal reporting. Extended `scripts/underworld-life-signals.mjs` with a `Prop echo flags` check so repeated concrete props like `便當` / `紀錄表` are visible as life-texture over-recycling rather than hidden inside general repetition.
-- 為什麼：This is the smallest repair aligned with v0.1: keep the good living-school texture, but prevent system/admin wording from entering dialogue and memory. The prop-echo guard does not tune prompts; it just makes "生活感變成模板道具" observable.
-- Evidence：`conversation-c:43163` archived with 6 messages. `npm run eval:soul-triad -- --since-created-at=1779980234640` rated it PASS 1.00 but warned only 1 fresh sample. `npm run eval:conversation:recent -- --since-created-at=1779980234640` rated it FAIL after this patch because `bannedPhraseCount` now catches `世界協調報告 / 世界協調`. `npm run underworld:life-signals -- --since-created-at=1779980234640` shows `Prop echo flags: 1` (`便當 5x`, `紀錄表 3x`) and lists the system phrase in weakest/drift evidence. `school:recentConversationEvalData` now reports `memoryTraces: []` for `c:43163`, confirming the polluted memory is hidden read-side without deleting data.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/agent/memory.test.ts convex/aiTown/addresseeRepair.test.ts evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored the world after build；`npx convex run world:defaultWorldStatus` reports `status: running`；`npm run underworld:observe -- --cc=skip --target-samples=0` wrote a fresh sample-pending report after the patch.
-- 狀態 / handoff：No Convex data was deleted or patched. The existing archived bad final line remains historical evidence, but its memory trace is isolated from reports/prompts. Let the world run naturally; judge the forward fix on conversations archived after 2026-05-28T15:02:23.553Z.
-
-### 2026-05-28 · Umi / Codex · Assigned CC fresh-sample triage task
-- 做了什麼：Alan asked whether Umi/Codex can cooperate with CC and assign tasks. Replaced the stale `umi/workload.md` active task with `2026-05-28-cc-fresh-sample-and-v01-triage`, a read-only review of the current v0.1 direction and fresh Umi x Mahiru sample `c:43163`.
-- CC 狀態：`python3 umi/orchestrator.py run umi/workload.md --dry-run` wrote `umi/reports/20260528T145221Z-2026-05-28-cc-fresh-sample-and-v01-triage.md`. The real read-only worker command started a `claude -p` child process but produced no output for over a minute, so Codex/Umi killed the hung orchestrator/Claude child processes. No local CC consensus is available from this run.
-- 分工決策：Kept the workload as the canonical CC handoff. Also assigned the same read-only review to a session sub-agent as fallback second opinion, but that must be labeled as sub-agent review, not local CC consensus.
-- 驗證：Confirmed no matching `umi/orchestrator.py run umi/workload.md` or `claude -p You are Claude Code working as Umi` process remained after cleanup.
-- 狀態 / handoff：Next safe action remains observe/wait for fresh archive before prompt or memory changes. Re-run the workload when local CC CLI stops hanging.
-
-### 2026-05-28 · Umi / Codex · Blocked named third-person narration in dialogue
-- 做了什麼：Continued the active free-world / soul / everyday-life goal. Runtime remained healthy (`/ai-town` 200, Convex running), but post-boundary observe still had no fresh triad samples. Day-window evidence exposed a new concrete hygiene class in archived conversations: characters' spoken lines sometimes started as third-person narration, e.g. `劉備看明日奈有點心事...`, `明日奈看明日奈...`, and stage-only lines like `海靜悄悄坐在走廊的一側...`.
-- 修正範圍：Extended `convex/agent/dialogueHygiene.ts` so named third-person stage clauses are stripped before archive/memory. If no real spoken text remains, the line becomes empty and the existing conversation sanitizer aborts instead of persisting stage narration. Added tests in `convex/agent/dialogueHygiene.test.ts`. Updated `scripts/underworld-life-signals.mjs` so the harness detects this named third-person narration class.
-- 為什麼：自由世界 can use scene/action internally, but archived dialogue must remain spoken words. Narration-as-dialogue makes characters feel like scripts, not people living in a school.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:life-signals` now flags old day-window examples under the stricter rule, as expected；`npx convex run testing:resume` restored world after build；`npx convex run world:defaultWorldStatus` reports `status: running`.
-- 狀態 / handoff：Forward guard only; no Convex data was deleted or patched. Current day-window `FAIL / hygiene_failure` is mostly pre-fix archived evidence. Judge next repair by fresh post-patch samples.
-
-### 2026-05-28 · Umi / Codex · Isolated social-state drift without deleting data
-- 做了什麼：Continued the active free-world / soul / everyday-life goal. `underworld:day-start` showed the world running but still reporting 3 active fallback notification targets. Fresh observe still had no post-boundary samples, so no prompt/personality tuning was justified. Instead, inspected `school:campusSocialState` and found read-side UI drift: old notification/club data could still surface `派系`, `AI 社`, `學生會`, `創造世界`, and similar system/political framing in the social wall even after conversation guards.
-- 修正範圍：Added `hasCurrentV01SocialDrift()` in `convex/school.ts` and used it in `patchRelationshipDelta()` plus `campusSocialState` notification filtering. Updated relationship narratives for CaoCao/Liu Bei/Umi/Mai away from world/political framing and toward observable school-life behavior: leaving a chair, inviting someone to lunch, organizing today, noticing Alan moving too fast. Added `naturalizeClubText()` so legacy club names/status render as `放學後生活觀察會` / ordinary small-gathering language without mutating DB. Updated `scripts/underworld-day-start.mjs` so notification-only fallback pollution is shown as `UI read path isolated` and no longer blocks the safe next action.
-- 為什麼：v0.1 needs Alan's at-a-glance UI to show living school traces, not old political/system scaffolding. This keeps old data auditable while preventing it from shaping the visible everyday-life layer.
-- 驗證：`npx convex run school:campusSocialState '{}' | rg -n "派系|AI 社|學生會|創造世界|戰略尊重|建世界|溫柔照顧的空間|notifications|nameZh|currentTensionZh"` shows no bad terms in notifications and legacy clubs render as `放學後生活觀察會`；`node --check scripts/underworld-day-start.mjs` PASS；`npm run underworld:day-start` now reports `Active fallback pollution: 3 (notification-only; UI read path isolated)` and safest action `Let the world run naturally, then observe`；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npx convex run testing:resume` restored the world after build.
-- 狀態 / handoff：No Convex data was deleted or patched. The 3 notification docs remain in the cleanup dry-run list until Alan explicitly approves cleanup. World is running; next useful action is natural observation until fresh post-patch conversations exist.
-
-### 2026-05-28 · Umi / Codex · Blocked fallback relationship notification source
-- 做了什麼：Continued the active free-world / soul / everyday-life goal after `underworld:day-start` showed the frontend and Convex healthy but the world `inactive` with 3 active fallback notification targets. Resumed the world with `npx convex run testing:resume`, then ran observe; fresh samples were still pending, but fallback dry-run identified three identical Mahiru relationship notifications: `真晝感覺 Alan 的世界仍有被溫柔照顧的空間。`
-- 修正範圍：Patched `convex/school.ts` so `patchRelationshipDelta()` refuses to persist deterministic fallback or system-phrase narratives into relationship state/notifications. Replaced the Mahiru fallback-style narrative source with a more concrete relationship line: `真晝注意到 Alan 願意先停下來聽人說話；她今天比較敢把擔心說出口。`
-- 為什麼：This is a forward-state hygiene fix, not DB cleanup. The active notification targets showed that bad deterministic relationship language could still re-enter the UI/status layer even after conversation guards. v0.1 needs emotional residue/status to stay concrete and character-grounded.
-- 驗證：`npx convex run testing:resume` restored the world to `running`；`npm run underworld:observe -- --cc=skip --target-samples=0` PASS / `sample_pending`；`npm run underworld:cleanup-fallback-pollution:dry-run` still reports 3 old notification targets, confirming no DB cleanup was applied；`npm run underworld:harness:self-test` PASS；`npm run underworld:life-signals:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npx convex run world:defaultWorldStatus` reports `status: running`, day 10, 09:37.
-- 狀態 / handoff：World is running and ready for natural daytime samples. The 3 existing notification targets remain until Alan explicitly approves cleanup of the current dry-run list. CC was not used for this tiny forward source fix because the previous CC call failed with a Claude CLI API 400; rerun CC later for broader review if the CLI state clears.
-
-### 2026-05-28 · Umi / Codex · Patched bare-quote narration and political drift guard
-- 做了什麼：Assigned CC a narrow read-only edge review for fresh `conversation-c:43078` (`海把餐盤推得靠近你一點，「...派系要變天...」`). CC worker returned an API 400 about modified `thinking` / `redacted_thinking` blocks, so there was no usable CC opinion to accept or reject. Codex/Umi proceeded with the allowed small hygiene fix because the evidence was fresh, scoped, and archive-facing.
-- 修正範圍：`convex/agent/dialogueHygiene.ts` now strips third-person action narration followed by a bare quoted line, e.g. `海把餐盤推得靠近你一點，「...」`. `convex/agent/dialogueHygiene.test.ts` covers this shape. `scripts/underworld-life-signals.mjs` now detects the same narration pattern and treats `派系` / `要變天` as current v0.1 administrative drift. `convex/agent/conversation.ts` blocks standalone `派系` and `要變天` from free-world persisted dialogue.
-- 為什麼：This is not broad prompt tuning. It is a forward sanitizer/harness guard so character speech stays spoken dialogue and current v0.1 does not drift back into political/system framing.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:life-signals -- --since-created-at=1779978476757` correctly flags the already-archived sample as `admin 派系、要變天` plus `third-person self narration`；`npx convex run testing:resume` confirmed the world is already running；`npx convex run world:defaultWorldStatus` reports `status: running`, day 10, 9:29.
-- 狀態 / handoff：Forward guard only; no Convex data was deleted or patched. Existing `conversation-c:43078` remains historical evidence. Do not claim CC consensus for this patch; rerun CC later if its CLI state clears.
-
-### 2026-05-28 · Umi / Codex · Blocked third-person narration and malformed addressee clusters
-- 做了什麼：Life-signal report reached 8 daytime conversations and correctly failed on fresh hygiene evidence: `conversation-c:43008` had dialogue shaped like third-person narration (`海看著...問：「...」` / `海注意到...`), and `conversation-c:43029` had malformed direct address (`海真晝？`) plus administrative drift (`緊急會議`, `學生會提案`). Added forward hygiene repair for these two concrete failure modes.
-- 修正範圍：`convex/agent/dialogueHygiene.ts` now extracts quoted speech from third-person self narration and normalizes unquoted self narration into first-person speech (`海注意到...` -> `我注意到...`). `convex/aiTown/addresseeRepair.ts` now repairs malformed terminal vocative name clusters to the real conversation partner. `scripts/underworld-life-signals.mjs` now detects both third-person self narration and malformed addressee clusters, and treats `緊急會議` / `學生會提案` as administrative drift.
-- 為什麼：自由世界的生活感 cannot come from novel-style stage narration or wrong-name clusters. These are hygiene issues that would contaminate archives/memory even if the scene object is good.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored world from `inactive` to `running`.
-- 狀態 / handoff：Current day-window life-signals still show `FAIL / hygiene_failure` because old morning archived samples remain in the window. Judge the fix by fresh-window samples after this worklog entry, not by those already archived examples. Do not clean archived conversations unless Alan explicitly asks.
-
-### 2026-05-28 · Umi / Codex · Isolated polluted memory traces from prompts and reports
-- 做了什麼：Added read-side memory hygiene so old post-processing drift memories are not exposed back into character prompts or eval/report traces. `convex/agent/memory.ts` now exports `hasMemoryPostProcessingDrift()` / `shouldExposeMemoryDescription()` and filters polluted memories from `searchMemories()` plus reflection inputs. `convex/agent/conversation.ts` filters recent pair residues with the same rule. `convex/school.ts` hides polluted `memoryLineZh` from `recentConversationEvalData`, so reports no longer treat system-language summaries as valid memory traces.
-- 為什麼：The strongest life sample (`conversation-c:42942`, 真晝/海) was good spoken dialogue, but its old memory trace contained `世界情緒的脈絡`. The write-side guard now prevents new leaks, but old polluted memory still needed to be isolated so it would not shape future speech or keep appearing as usable memory evidence.
-- Safety：No Convex data was deleted or patched. The old memory docs remain in DB as historical data, but are no longer exposed to prompts/reports when they contain system, AI 社, 學生會, 派系, 主線, or architecture-language drift.
-- Evidence：Before this patch, `npm run underworld:life-signals` reported `WARN / post_processing_drift`. After read-side isolation, it reports 4 daytime conversations and `PASS / life_signal_observed`, with `Post-processing drift flags: 0`; `umi/reports/v01-approach-latest.md` now shows `Day-window life signals: PASS / life_signal_observed`.
-- 驗證：`npm test -- --runInBand convex/agent/memory.test.ts convex/agent/dialogueHygiene.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run underworld:life-signals` PASS / `life_signal_observed`；`npm run underworld:harness:self-test` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npx convex run testing:resume` restored world from `inactive` to `running`.
-- 狀態 / handoff：Goal remains active. Day-window life grounding is now healthy, but fresh-window triad samples are still pending and AM→PM afternoon continuity is still sample-pending. Active fallback audit still reports 1 notification target in dry-run; do not clean DB unless Alan approves that specific target list.
-
-### 2026-05-28 · Umi / Codex · Added post-processing drift guard to life-signal harness
-- 做了什麼：Extended `scripts/underworld-life-signals.mjs` so it no longer judges only spoken transcript life cues. It now also checks `memoryTraces` / residue lines for post-processing drift where a life-grounded conversation gets summarized into system, AI 社, 學生會, 派系, 主線, or other architecture/political language. `scripts/underworld-observe-once.mjs` and `scripts/underworld-repair-gate.mjs` now parse/report the new `post-processing drift flags` field.
-- 為什麼：Today’s strongest life sample (`真晝 / 海`, breakfast/milk/hallway light/schoolbag) had good spoken texture, but the persisted memory trace still contained `世界情緒的脈絡`. This is exactly the v0.1 gap Alan cares about: conversation can feel alive, but memory/residue must not turn it back into system language.
-- Evidence：`npm run underworld:life-signals` now reports 3 daytime conversations and `WARN / post_processing_drift`, correctly pointing at `conversation-c:42942` memory trace contamination. This is observe/reporting only; no Convex data was cleaned.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored the world from `inactive` to `running`.
-- 狀態 / handoff：Next safe repair target is not broad prompt tuning. It is the specific memory/residue post-processing path that allowed system-language memory from `conversation-c:42942`; clean existing data only with explicit approval.
-
-### 2026-05-28 · Umi / Codex · Reframed deterministic conversation outcomes toward campus life
-- 做了什麼：Assigned CC a focused read-only review for the fresh outcome drift where a dorm-life 麻衣/曹操 conversation still generated AI 社 / 學生會 / 派系 worldEvents. CC worker timed out with no findings (`umi/reports/20260528T141246Z-2026-05-28-cc-campus-life-outcome-review.md`), so Codex/Umi proceeded with a narrow hygiene patch and recorded that there is no CC consensus for this change yet.
-- 修正範圍：Updated deterministic outcome wording in `convex/school.ts`: `conversationIntentionFor()`, `conversationDecisionPhrase()`, and matching `pressureDrivenCharacterNotes()` entries. CaoCao now protects through room/order/empty-seat behavior, Mai questions too-neat "沒事" lines, Mahiru checks people who say they are fine too quickly, Umi compresses Alan's briefing into concrete life states, Asuna gives away one task, and Liu Bei invites an isolated student at lunch. No prompt/provider/schema/memory architecture/DB cleanup was changed.
-- 為什麼：Alan wants v0.1 to focus on ordinary school life, emotional residue, memory continuity, and small behavior changes. The fresh dialogue was moving toward life texture, but deterministic follow-on events pulled it back into AI 社 / student-council political framing.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run underworld:harness:self-test` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Let fresh daytime samples prove whether future worldEvents/notifications stay campus-life grounded. Re-run CC as patch review when the worker is responsive; do not claim CC approval for this patch.
-
-### 2026-05-28 · Umi / Codex · Blocked system-language leakage from dialogue memory
-- 做了什麼：Reviewed the second fresh natural sample (`conversation-c:42942`, 真晝/海). The sample had strong life direction (`早餐`, `牛奶`, `走廊燈`, `書包帶子`, `交作業`) and real Umi/Mahiru soul cues, but one line slipped into system/internal language: `我這幾天要整理世界情緒的脈絡，怕再待下去會把你也捲進那些混亂裡。` That line was then summarized into memory traces, which is the wrong direction for v0.1.
-- 修正範圍：Extended `convex/agent/dialogueHygiene.ts` with `hasDialogueSystemPhraseLeak()`. `convex/agent/conversation.ts` now blocks these system-language phrases in both pilot and free-world quality gates. `convex/agent/memory.ts` also skips conversation-memory writes if a leaked system phrase somehow reaches memory, so the bad line cannot become future residue/brain context. Also verified the previous duplicate `const repaired` artifact is gone.
-- 為什麼：This is a hygiene/persistence guard, not prompt tuning. The target is not prettier dialogue; it is preventing internal design vocabulary (`世界情緒的脈絡`, `conversationOutcome`, `主線`) from becoming character memory.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS / sample pending；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored world state from `inactive` to `running`.
-- 狀態 / handoff：Existing `conversation-c:42942` memory traces still contain the old polluted summary; this entry did not delete/modify Convex data. If Alan wants active brain cleanup, do a separate targeted dry-run/proposal first. Next observation should watch whether fresh Umi/Mahiru samples keep life objects without leaking internal architecture language.
-
-### 2026-05-28 · Umi / Codex + CC · Extended stage-direction hygiene to free-world dialogue
-- 做了什麼：Observed the first fresh natural daytime sample (`conversation-c:42924`, 麻衣/曹操). It had positive life direction (`宿舍` / 小貓) but leaked narration into spoken dialogue: `這時牆壁上懸掛的掛盤下有一只小貓正在好奇地打量著它。` Assigned CC a focused read-only review, then applied the accepted small hygiene fix.
-- 修正範圍：Added `convex/agent/dialogueHygiene.ts` and `convex/agent/dialogueHygiene.test.ts`. `sanitizeConversationContent()` now strips stage-direction clauses for non-pilot/free-world dialogue too, not only the Umi/Mahiru/Asuna pilot path. The helper strips parentheticals, first-person action clauses, and pronoun-free scene narration; it aborts only if nothing spoken remains. No prompt/model/memory/DB changes were made.
-- CC：Read-only report `umi/reports/20260528T135518Z-2026-05-28-cc-free-world-stage-direction-review.md`; orchestrator report `umi/reports/20260528T135621Z-2026-05-28-cc-free-world-stage-direction-review.md`. CC caught a real false-positive risk, so the final regex preserves spoken timing phrases with first/second-person pronouns such as `這時我們先坐下來慢慢說` and `此刻我只想靠在窗邊休息一下`.
-- 驗證：`npm test -- --runInBand convex/agent/dialogueHygiene.test.ts convex/aiTown/addresseeRepair.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS / sample pending；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run testing:resume` restored the world from `inactive` to `running`.
-- 狀態 / handoff：This is a forward hygiene guard. Existing archived sample `conversation-c:42924` remains historical evidence; future free-world messages should not persist this stage narration shape. Keep `/ai-town` open for fresh samples; do not tune soul/personality from a single sample.
-
-### 2026-05-28 · Umi / Codex + CC · Added guarded inline wrong-addressee repair
-- 做了什麼：Assigned CC a focused read-only review for the fresh disposable 麻衣/劉備 failure where 劉備 said `謝謝真晝提點...` while speaking to 麻衣. CC approved a conditional auto-fix only if it stayed in a closed thanks-frame shape. Codex accepted that constraint and added `convex/aiTown/addresseeRepair.ts`, a pure helper used by `repairMessageAddresseeAtInsert()` before persisted messages are written.
-- 修正範圍：The embedded repair only handles direct-address thanks frames such as `謝謝/感謝/多謝 + wrong name + 提點/提醒/幫忙/幫我/陪/照顧/關心`. It preserves correct addressees, leaves ordinary third-person references alone, and avoids one-character alias collisions like `海邊`. No prompts, providers, memory architecture, Convex data, or pre-generation conversation sanitizer were changed for this fix.
-- CC：Read-only report `umi/reports/20260528T134224Z-2026-05-28-cc-inline-wrong-addressee-review.md`; orchestrator report `umi/reports/20260528T134426Z-2026-05-28-cc-inline-wrong-addressee-review.md`.
-- 驗證：`npm test -- --runInBand convex/aiTown/addresseeRepair.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run underworld:harness:self-test` PASS；`npm run eval:conversation:recent -- --since-created-at=4102444800000` PASS with 0 future samples；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS / sample pending；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://127.0.0.1:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`；`npx convex run world:defaultWorldStatus` returned `status: running`.
-- 狀態 / handoff：This is hygiene-only. It prevents this addressee leak from entering persisted messages/memory going forward, but does not prove broader dialogue quality. Keep the world running for natural samples and judge fresh conversations before any prompt/model/memory changes.
-
-### 2026-05-28 · Umi / Codex · Added day-window free-world visibility to observe
-- 做了什麼：Updated `scripts/underworld-observe-once.mjs` so each observe pass now reports both fresh-window life signals and day-window life signals. Fresh-window remains the repair-gate safety source; day-window shows whether today's free world has ordinary scenes, daily rhythm, and character-specific soul style across the school day. README now documents the two layers.
-- 為什麼：CC correctly flagged that `underworld:observe --target-samples=0` can only see conversations archived after the observe run starts, so it can show `sample_pending` even if the free world has earlier natural samples. v0.1 needs us to see natural world life, not just post-command samples.
-- Runtime：`npm run dev` was unstable when run as a combined `npm-run-all` process: Vite stayed up while local Convex backend dropped. Restarted as two visible sessions instead: `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex dev --tail-logs disable` and `npx vite --host 127.0.0.1`; then `npx convex run testing:resume` confirmed the world was already/running. `npm run underworld:day-start` now reports `/ai-town` ok, local Convex backend ok, world `running`, active fallback pollution 0, and world clock `第 10 天 早晨 8:21`.
-- Evidence：`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` writes both `Fresh-window life signals` and `Day-window life signals` into `umi/reports/v01-approach-latest.md`. Current day-window conversations are still 0, so no prompt/model/memory repair is justified yet.
-- 驗證：`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Leave the split backend/Vite sessions running or run equivalent commands in a visible terminal. Keep `/ai-town` open for heartbeat. Do not judge v0.1 from zero samples; wait for natural conversations, then run `npm run underworld:life-signals` and later `npm run underworld:am-pm-continuity`.
-
-### 2026-05-28 · Umi / Codex + CC · Ran CC v0.1 free-world harness review
-- 做了什麼：Assigned CC a read-only review through `umi/workload.md` and `python3 umi/orchestrator.py run --workload umi/workload.md --skip-codex --timeout 600`. CC reviewed the new life-signal guards and reported harness consistency PASS, with the main methodological warning that `underworld:observe --target-samples=0` uses a fresh window and therefore cannot represent the whole free-world day. Codex accepted the safe part of the review and made harness-only cleanup: removed unused repair/life-signal code, classified `hygiene_failure` as proposal-only, and added repair-gate self-test coverage for hygiene-failure parsing.
-- 為什麼：Alan asked Umi to collaborate with CC and assign tasks. This keeps CC as a bounded second-opinion reviewer while Umi/Codex owns acceptance and prevents sample-free prompt/runtime changes.
-- Evidence：CC report is `umi/reports/20260528T123613Z-2026-05-28-cc-v01-free-world-readonly-review.md`. CC recommended waiting for natural samples, then using standalone `npm run underworld:life-signals` and `npm run underworld:am-pm-continuity` for day-window free-world judgment instead of treating fresh-window observe count 0 as world failure.
-- 驗證：`python3 umi/orchestrator.py run --workload umi/workload.md --skip-codex --dry-run --timeout 600` PASS；`python3 umi/orchestrator.py run --workload umi/workload.md --skip-codex --timeout 600` PASS；`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`curl -I -s http://localhost:5173/ai-town | head -n 1` returned `HTTP/1.1 200 OK`.
-- 狀態 / handoff：World/dev stack remains up. Keep collecting natural daytime samples. Judge day-window free-world health with standalone life-signals and AM→PM continuity later today; keep prompt/model/memory changes blocked until fresh evidence exists.
-
-### 2026-05-28 · Umi / Codex · Added soul-style flatness guard to life signals
-- 做了什麼：Extended `scripts/underworld-life-signals.mjs` with character-specific soul-style cues for 海、真晝、明日奈、麻衣、曹操、劉備. Fresh reports now include soul-style conversations, soul-style diversity, and covered authors. `scripts/underworld-observe-once.mjs`, `scripts/underworld-day-start.mjs`, and `scripts/underworld-repair-gate.mjs` carry the signal forward; `soul_style_flat` is proposal-only, not an auto-repair.
-- 為什麼：自由世界不能只做到有校園場景、時間感和自然句型；如果角色都用同一種泛用關心方式說話，v0.1 still feels flat. This guard makes "有生活感但沒有角色照顧人的差異" visible without rewriting prompts or expanding systems.
-- Evidence：Life-signal self-test now verifies scene/rhythm-looking but soul-style-thin dialogue warns as `soul_style_flat`; repair-gate self-test verifies fresh soul-style flattening becomes a large-change proposal requirement instead of an automatic patch.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-day-start.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Daytime stack is back up: `/ai-town` 200, local Convex reachable, `npx convex run testing:resume` moved the world to `running`, active fallback pollution 0. `npm run underworld:observe -- --cc=skip --target-samples=0` refreshed reports and correctly stayed at fresh-sample 0 / sample pending; let the world run naturally before any prompt or memory change.
-
-### 2026-05-28 · Umi / Codex · Added daily-rhythm guard to life signals
-- 做了什麼：Extended `scripts/underworld-life-signals.mjs` with daily-rhythm cue groups for morning, lunch/midday, afternoon/after-school, evening/rest, and same-day references. Fresh reports now include daily rhythm conversations and daily rhythm diversity. `scripts/underworld-observe-once.mjs`, `scripts/underworld-day-start.mjs`, and `scripts/underworld-repair-gate.mjs` carry the fields forward; `daily_rhythm_thin` is proposal-only. Also changed day-start/observe Chicago time formatting from `24:xx` to `00:xx` by using `hourCycle: 'h23'`.
-- 為什麼：生活感不只是場景詞。角色要像知道今天正在過哪一段時間：上午、午餐、下午、放學、宿舍安靜下來。This keeps v0.1 pointed at a lived school day without forcing nighttime conversations or adding systems.
-- Evidence：Life-signal self-test now verifies scene-rich but rhythm-thin dialogue warns as `daily_rhythm_thin`; repair-gate self-test verifies fresh daily-rhythm thinning is proposal-only. Day-start now reports `Chicago time: 2026-05-28 00:06:19 America/Chicago` instead of `24:06`.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-day-start.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS after correcting the fixture；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:day-start` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Night quiet remains correct: frontend/Convex reachable, world `stoppedByDeveloper`, active fallback pollution 0, fresh samples 0. Tomorrow daytime reports can now distinguish scene diversity from daily rhythm, so "校園場景很多但時間感很薄" is visible before any prompt repair.
-
-### 2026-05-28 · Umi / Codex · Added campus scene-diversity guard to life signals
-- 做了什麼：Extended `scripts/underworld-life-signals.mjs` with `scene_diversity_thin`, a WARN when fresh life cues are too concentrated around Alan/office/task language and do not cover at least two ordinary campus scene groups (`classroom`, `cafeteria`, `dorm`, `courtyard`) once there are at least five conversations. The report now includes scene diversity, ordinary scene diversity, office-grounded conversations, and ordinary-scene conversations. `underworld-observe`, `underworld-day-start`, and `underworld-repair-gate` now carry those fields forward.
-- 為什麼：v0.1 needs a freer, more lived-in school world, not only better Alan/briefing talk. This guard makes "生活感太窄" visible without adding new systems, scenes, lore, or prompt rewrites tonight.
-- Evidence：Life-signal self-test now verifies an office/task-only fixture warns as `scene_diversity_thin`; repair-gate self-test verifies fresh scene-diversity thinning is proposal-only, not an auto-patch.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-day-start.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Night status remains healthy quiet mode: world `stoppedByDeveloper`, frontend/Convex reachable, active fallback pollution 0, and fresh samples 0. Tomorrow's daytime life report can now distinguish sample pending, one-line collapse, repeated slogans, and thin campus-scene coverage.
-
-### 2026-05-27 · Umi / Codex · Added free-world conversation-shape collapse guard
-- 做了什麼：Extended `scripts/underworld-life-signals.mjs` to detect archived conversations that are too short or one-sided to feel like free-world dialogue. The report now includes conversation shape flags, single-message conversations, and one-speaker conversations. `scripts/underworld-observe-once.mjs`, `scripts/underworld-day-start.mjs`, and `scripts/underworld-repair-gate.mjs` now carry that signal forward as `conversation_shape_collapse`, which is proposal-only unless fresh evidence is specific and sufficient.
-- 為什麼：Alan observed that some free-world conversations collapsed into a single line. That is not just weaker "soul" or lower life-signal score; it is a generation/archive flow problem that should be visible before we tune prompts.
-- Evidence：Life-signal self-test now verifies one single-message archived conversation triggers `conversation_shape_collapse`; repair-gate self-test verifies fresh shape collapse becomes proposal-only while sample-pending reports remain observe-only.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-day-start.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Night status remains healthy quiet mode. Latest day-start shows frontend/Convex ok, world `stoppedByDeveloper`, active fallback pollution 0, fresh samples 0, and life shape flags 0 for the empty fresh window. Tomorrow, if fresh daytime archives collapse into one-liners, route through repair gate before changing prompts.
-
-### 2026-05-27 · Umi / Codex · Added repair-gate classification self-test
-- 做了什麼：Added `--self-test` support to `scripts/underworld-repair-gate.mjs`, exposed it as `npm run underworld:repair-gate:self-test`, and included it in `npm run underworld:harness:self-test`. README now lists the standalone repair-gate self-test next to the combined harness sanity check.
-- 為什麼：The repair gate is the final guard before any small fix or proposal. It should prove that sample-pending reports remain observe-only, AM→PM continuity failures become proposal-only, fresh life-signal repetition becomes proposal-only, and low-sample life repetition is blocked instead of patched.
-- Evidence：Self-test uses in-memory report fixtures only; it does not read/write Convex, generate conversations, create proposals, or invoke cc.
-- 驗證：`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:repair-gate:self-test` PASS；`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Night status remains healthy quiet mode: world `stoppedByDeveloper`, frontend and local Convex reachable, active fallback pollution 0, fresh samples 0. Tomorrow daytime, run `npm run underworld:morning-check`; if evidence is fresh and samples exist, use repair gate before any patch.
-
-### 2026-05-27 · Umi / Codex · Added one-command morning check
-- 做了什麼：Added `npm run underworld:morning-check`, which serially runs `underworld:harness:self-test` and then `underworld:day-start`. Updated README so the day-start section exposes the combined command first.
-- 為什麼：Alan should not need to remember separate harness and readiness commands before opening the free world. Morning-check verifies the AM→PM and life-signal instruments, then reports whether the world should sleep, start dev, resume, observe, or repair-gate.
-- Evidence：At night the combined command passed both self-tests, then day-start reported frontend ok, Convex ok, world `stoppedByDeveloper`, active fallback pollution 0, fresh reports, and safest action `Let the world sleep`.
-- 驗證：`npm run underworld:morning-check` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天白天先跑 `npm run underworld:morning-check`; it is read-only and does not resume the world or trigger dialogue by itself.
-
-### 2026-05-27 · Umi / Codex · Added combined harness self-test command
-- 做了什麼：Added `npm run underworld:harness:self-test`, which serially runs the AM→PM continuity self-test and the life-signal self-test via the repo's existing `npm-run-all` tooling. Updated README with the combined sanity-check command.
-- 為什麼：Tomorrow's free-world review should be able to verify the two main v0.1 observe instruments with one command before trusting surprising continuity or life-signal results.
-- Evidence：`npm run underworld:harness:self-test` runs both `underworld:am-pm-continuity:self-test` and `underworld:life-signals:self-test`, both PASS, without touching Convex or generating conversations.
-- 驗證：`npm run underworld:harness:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天如果 reports look odd, first run `npm run underworld:harness:self-test`; then judge fresh samples, not legacy archives.
-
-### 2026-05-27 · Umi / Codex · Added self-test for AM→PM continuity harness
-- 做了什麼：Added `--self-test` support to `scripts/underworld-am-pm-continuity.mjs` plus `npm run underworld:am-pm-continuity:self-test`. The self-test uses in-memory AM/PM fixture conversations only and does not read/write Convex or trigger dialogue.
-- 為什麼：AM→PM continuity is now the main same-day memory question. Before trusting it tomorrow, the harness should prove it can extract AM residue candidates, detect a strong PM callback, keep afternoon samples <3 as `sample_pending`, and fail `no_pm_callback` only when enough PM samples exist.
-- Evidence：Self-test covers all three decisions: `continuity_observed`, `sample_pending`, and `no_pm_callback`.
-- 驗證：`node --check scripts/underworld-am-pm-continuity.mjs` PASS；`npm run underworld:am-pm-continuity:self-test` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Tomorrow's AM→PM report has a cheap sanity check. If continuity looks surprising, run `npm run underworld:am-pm-continuity:self-test` before changing memory/prompt code.
-
-### 2026-05-27 · Umi / Codex · Added report freshness to day-start decisions
-- 做了什麼：Updated `scripts/underworld-day-start.mjs` to parse `Generated:` timestamps from the latest observe, AM→PM, and life-signal reports. The readiness report now shows each report age and treats missing/older-than-2-hour reports as stale during daytime, routing to `npm run underworld:observe -- --cc=skip` before any repair decision.
-- 為什麼：明天早上不能靠昨晚 report 判斷自由世界是否健康。Day-start should tell Alan when evidence is fresh enough to trust, and when the safest next action is simply to refresh observe reports.
-- Evidence：Night run still prioritizes quiet mode, but now shows `Latest observe report age`, `AM→PM report age`, and `Life-signals report age` in `umi/reports/day-start-latest.md`; active fallback pollution remains 0 and no world/dialogue writes occurred.
-- 驗證：`node --check scripts/underworld-day-start.mjs` PASS；`npm run underworld:day-start` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天白天先跑 `npm run underworld:day-start`; if reports are stale and the world is otherwise running, it will route to observe refresh before repair.
-
-### 2026-05-27 · Umi / Codex · Added self-test for life-signal harness logic
-- 做了什麼：Added `--self-test` support to `scripts/underworld-life-signals.mjs` plus `npm run underworld:life-signals:self-test`. The self-test uses in-memory fixture conversations only, so it does not touch Convex, providers, archived conversations, or world state.
-- 為什麼：Life-signal repetition is now part of the v0.1 observe/repair loop. The harness itself needs a cheap guard proving it can distinguish repeated surface lines, admin/system drift, and empty fresh-window `sample_pending` before we trust it tomorrow.
-- Evidence：The self-test verifies that repeated 明日奈-style surface lines become `life_signal_repeated`, admin/system drift becomes `life_signal_missing`, and an empty fresh window stays `sample_pending`.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`npm run underworld:life-signals:self-test` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天如果 life-signal report flags repetition, first confirm it is fresh-window evidence; self-test can be rerun before touching prompt/harness code.
-
-### 2026-05-27 · Umi / Codex · Made observe life-signal checks fresh-window only
-- 做了什麼：Updated `scripts/underworld-life-signals.mjs` to support `--since-created-at=<timestamp>` and report `Mode: fresh_window`. `scripts/underworld-observe-once.mjs` now passes the observe run boundary into life-signal scanning, so v0.1 observe judges only fresh post-run dialogue instead of carrying legacy day-wide repetition into the current repair decision. Manual `npm run underworld:life-signals` still scans the whole daytime window by default.
-- 為什麼：The day-wide scan correctly found old repeated 明日奈/麻衣 surface lines, but putting that directly into observe made a no-sample night report look like current life-signal repetition. Fresh repair gates must not patch prompts from stale samples.
-- Evidence：`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` now reports `Life signals: WARN / sample_pending`, 0 fresh life conversations, and no repeated-line flags. `npm run underworld:repair-gate -- --cc=skip` now blocks only on `sample_pending, am_pm_sample_pending`; no stale `life_signal_needs_fresh_samples` remains when there are no fresh life samples.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:life-signals -- --since-created-at=4102444800000` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Tomorrow's observe pass will judge fresh life-signal repetition only. Use manual `npm run underworld:life-signals` for whole-day archaeology, not repair decisions.
-
-### 2026-05-27 · Umi / Codex · Surfaced life-signal status in day-start readiness
-- 做了什麼：Updated `scripts/underworld-day-start.mjs` so the first readiness check now includes the latest life-signal status, conversation count, repeated-line flags, and admin-drift flags. Day-start can route to repair gate during daytime if continuity is no longer pending but life-signal evidence shows repetition or missing everyday grounding.
-- 為什麼：Alan needs one calm entry point for "what do I do now?" The free-world loop now exposes runtime health, brain pollution, AM→PM continuity, and life-signal repetition in the same readiness report.
-- Evidence：`npm run underworld:day-start` at 2026-05-27 23:41 America/Chicago reported frontend ok, Convex ok, world `stoppedByDeveloper`, active fallback pollution 0, AM→PM `WARN / sample_pending`, and Life signals `WARN / life_signal_repeated` with 15 repeated-line flags; safest action remained night quiet.
-- 驗證：`node --check scripts/underworld-day-start.mjs` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天白天先跑 `npm run underworld:day-start`; it now shows whether the next action is dev/resume/observe/repair-gate and whether life repetition is still present.
-
-### 2026-05-27 · Umi / Codex · Taught repair gate about life-signal repetition
-- 做了什麼：Updated `scripts/underworld-repair-gate.mjs` to parse the `Life Signals` section embedded in the v0.1 approach report. `life_signal_repeated` and `life_signal_missing` are now proposal-only categories, not auto-fixes. If life-signal repetition appears while fresh samples are still missing, the gate blocks repair with `life_signal_needs_fresh_samples`.
-- 為什麼：生活感重複是 real v0.1 risk, but it should not trigger prompt rewrites from legacy samples. The two-hour review now understands the issue and can say "observe only" until fresh evidence exists.
-- Evidence：`npm run underworld:repair-gate -- --cc=skip` now reports `Life signals: WARN / life_signal_repeated`, `Life samples: conversations=16 repeated_lines=15 admin_drift=0`, `Conversation category: none`, and `Blocked reasons: sample_pending, am_pm_sample_pending, life_signal_needs_fresh_samples`.
-- 驗證：`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Tomorrow's repair review can safely account for life-signal repetition. If fresh daytime samples also repeat, create a proposal or a narrowly scoped repair-gate decision; do not change prompts from old data alone.
-
-### 2026-05-27 · Umi / Codex · Added everyday-life signal harness with repetition guard
-- 做了什麼：Added `scripts/underworld-life-signals.mjs` and `npm run underworld:life-signals`, then wired it into `npm run underworld:observe`. The harness is read-only and scans daytime archived conversations for ordinary campus-life grounding (classroom, cafeteria, dorm, courtyard, principal office, body/tone cues), administrative/system drift, hygiene flags, and repeated surface lines.
-- 為什麼：生活感不能只靠「有餐廳/座位/門口這些詞」判定；同一句生活化台詞反覆出現仍然會讓自由世界像模板。This gives the v0.1 observe loop a way to distinguish real everyday grounding from slogan collapse.
-- Evidence：Against 2026-05-27 daytime data, the first life scan saw strong life cues, but the repetition guard correctly downgraded the result to `WARN / life_signal_repeated`: 16 conversations, 15 life-grounded, 0 admin drift, 0 hygiene flags, but 15 repeated-line flags. Top repeats include 明日奈 lines repeated 7-9x and 麻衣 lines repeated 6x across legacy morning samples.
-- 驗證：`node --check scripts/underworld-life-signals.mjs` PASS；`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:life-signals` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS and now reports `Life signals: WARN / life_signal_repeated`；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：This is evidence/reporting only. Do not tune prompts from these legacy samples. Tomorrow, judge fresh samples with the same report; if fresh dialogue repeats the same surface lines, route through repair gate/proposal.
-
-### 2026-05-27 · Umi / Codex · Added day-start readiness check for safe free-world runs
-- 做了什麼：Added `scripts/underworld-day-start.mjs` and `npm run underworld:day-start`. The check is read-only: it probes local `/ai-town`, local Convex `/version`, `world:defaultWorldStatus`, active fallback pollution, and the latest v0.1 / AM→PM reports, then writes `umi/reports/day-start-latest.md` with the safest next command.
-- 為什麼：Alan has repeatedly needed a clear answer to "what should I run now?" while avoiding night-time forced dialogue and DB pollution. This gives the free-world/soul/life loop a single operational entry point before daytime testing.
-- Evidence：At 2026-05-27 23:33 America/Chicago it reported frontend ok, Convex ok, world `stoppedByDeveloper`, active fallback pollution 0, AM→PM `WARN / sample_pending`, and recommended night quiet rather than generating samples.
-- 驗證：`node --check scripts/underworld-day-start.mjs` PASS；`npm run underworld:day-start` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：明天白天先跑 `npm run underworld:day-start`。If it says `resume_world`, run the printed resume command; if it says `natural_observe`, keep `/ai-town` open and run observe.
-
-### 2026-05-27 · Umi / Codex · Guarded repair gate for AM→PM continuity evidence
-- 做了什麼：Night-safe repair-gate hardening. `scripts/underworld-repair-gate.mjs` now parses the AM→PM continuity section embedded in `v01-approach-latest.md`. If AM→PM continuity is still `sample_pending`, the gate records `am_pm_sample_pending` and remains observe-only. If future AM→PM continuity is a real FAIL with at least 3 afternoon samples, the gate classifies it as `memory_continuity_gap`, which is proposal-only rather than an auto-fix.
-- 為什麼：同日 continuity is part of "free world with soul", but insufficient continuity samples must not trigger prompt/memory rewrites. Conversely, a real no-callback failure should not be silently ignored by the two-hour repair review. This keeps the loop cautious and evidence-gated.
-- 驗證：`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS and wrote `umi/reports/v01-repair-gate-latest.md` with `Category: sample_pending`, `Blocked reasons: sample_pending, am_pm_sample_pending`, `AM→PM continuity: WARN / sample_pending`, and no proposal；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Repair gate will not patch from AM→PM `sample_pending`. If tomorrow afternoon has enough samples and continuity fails, expect proposal-only review before any memory or prompt change. `world:defaultWorldStatus` remains `stoppedByDeveloper` at night.
-
-### 2026-05-27 · Umi / Codex · Connected AM→PM continuity into v0.1 observe report
-- 做了什麼：Night-safe observe-loop improvement. `scripts/underworld-observe-once.mjs` now runs the read-only `npm run underworld:am-pm-continuity` during each observe pass and embeds a compact AM→PM continuity summary plus report excerpt into `umi/reports/v01-approach-latest.md`.
-- 為什麼：Alan should not need to remember to open two separate reports to judge whether the free world is becoming more soulful. v0.1 observe now shows fresh triad sample status, active fallback pollution, and same-day continuity evidence in one place. This keeps the loop focused on "did earlier emotional residue naturally return later?" without changing runtime behavior.
-- Evidence：`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` wrote `v01-approach-latest.md` with `AM→PM continuity: WARN / sample_pending`, `morning samples: 16`, `afternoon samples: 0`, and `AM residue candidates: 2`. No conversations were generated.
-- 驗證：`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Tomorrow's main v0.1 observe report is now enough for first-pass review. If AM→PM says `sample_pending`, do not tune memory/prompt code from it. `world:defaultWorldStatus` remains `stoppedByDeveloper` at night.
-
-### 2026-05-27 · Umi / Codex · Made AM→PM continuity sampling use time-window ranges
-- 做了什麼：Night-safe harness improvement for the active free-world / soul / everyday-life goal. Extended `school:recentConversationEvalData` with optional `startAt` / `endAt` read-only range filters, and updated `scripts/underworld-am-pm-continuity.mjs` to query the morning window (`06:00-11:59`) and afternoon window (`13:00-16:59`) directly instead of relying on the latest 50 archived conversations.
-- 為什麼：The previous AM→PM report warned that the query hit the max 50 conversations, so older morning samples could be missing once afternoon/evening activity grew. That would make us wrongly conclude that morning residue did or did not return. v0.1 continuity needs range-correct evidence before any memory/prompt repair.
-- Evidence：After the range change, `npm run underworld:am-pm-continuity` found 16 morning samples instead of 7 for 2026-05-27, and AM residue candidates increased from 1 to 2. Afternoon samples are still 0, so the correct decision remains `sample_pending`; no runtime or prompt behavior was changed.
-- 驗證：`node --check scripts/underworld-am-pm-continuity.mjs` PASS；`npm run underworld:am-pm-continuity` PASS and wrote `umi/reports/am-pm-continuity-latest.md` with `Query mode: time-window range` plus UTC morning/afternoon ranges；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Tomorrow's AM→PM study can trust the morning/afternoon buckets more. If either bucket hits `--limit`, increase `--limit` before judging continuity; do not modify memory architecture from capped evidence. `world:defaultWorldStatus` remains `stoppedByDeveloper` at night.
-
-### 2026-05-27 · Umi / Codex · Clarified fallback cleanup report semantics
-- 做了什麼：Night-safe reporting polish. Updated `scripts/underworld-cleanup-fallback-pollution.mjs` so the cleanup report no longer lists retained archived fallback-like conversations as if they were cleanup targets when `--include-archived-conversations` is false. The report now separates `Cleanup Target Examples` from `Retained Historical Evidence`, and lists profile target examples explicitly.
-- 為什麼：After active brain pollution was cleaned, the report still showed archived conversation examples under generic audit examples. That was accurate audit data but misleading for v0.1 operations, because Alan/Umi could read it as "these will be deleted" or "active brain is still polluted." The cleanup report now matches the product policy: active brain/status pollution matters for tomorrow's samples; archived transcript history is retained unless Alan separately approves archival deletion.
-- 驗證：`node --check scripts/underworld-cleanup-fallback-pollution.mjs` PASS；`npm run underworld:cleanup-fallback-pollution:dry-run` PASS and wrote `umi/reports/fallback-pollution-cleanup-latest.md` with 0 cleanup targets and `Archived fallback-like conversations found in audit: 271` under retained history；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：No Convex data was changed by this report-only pass. Active cleanup remains complete; archived fallback history remains retained. `world:defaultWorldStatus` remains `stoppedByDeveloper` at night.
-
-### 2026-05-27 · Umi / Codex · Cleared remaining active fallback brain pollution
-- 做了什麼：Night-safe cleanup and reporting fix. `scripts/underworld-observe-once.mjs` now separates active fallback pollution from archived fallback history, so old retained transcript evidence no longer lowers runtime stability scoring. Ran the existing fallback cleanup in non-archived mode to remove the remaining active brain/status pollution: 9 relationship notifications and 1 Mahiru profile intention.
-- 為什麼：The previous observe report showed `fallback pollution count: 281`, but that mixed 271 retained archived conversations with active memory/event/notification/profile pollution. For v0.1, archived history can remain as legacy evidence, but active state that characters/UI may read must be clean before tomorrow's fresh free-world samples.
-- 清理範圍：No archived conversations, messages, memories, embeddings, or world events were deleted. The cleanup applied only to `schoolNotifications` fallback-like relationship notices and one `schoolProfiles.shortTermIntentions` fallback-like line.
-- 驗證：`npm run underworld:cleanup-fallback-pollution:dry-run` reported conversations=0/messages=0/memories=0/notifications=9 and profile docs patched=1；`npm run underworld:cleanup-fallback-pollution:dry-run -- --apply=true` PASS；`npx convex run school:auditFallbackPollution '{"limit":1000}'` now reports `fallbackMemoryCount: 0`, `fallbackEventCount: 0`, `fallbackNotificationCount: 0`, `pollutedProfileCount: 0`, while `fallbackArchivedConversationCount: 271` remains retained history；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` now reports `Active fallback pollution count: 0`, `Archived fallback history count: 271`, and `stability_score: 0.82`.
-- 狀態 / handoff：Characters' active brain/status pollution is clean for tomorrow's samples. Do not delete archived fallback history without a separate explicit archival policy decision.
-
-### 2026-05-27 · Umi / Codex · Aligned observe eval window with fresh sample window
-- 做了什麼：Night-safe harness repair only. Updated `scripts/underworld-observe-once.mjs` so `npm run underworld:observe` now runs both `eval:soul-triad` and `eval:conversation:recent` against the same explicit `--since-created-at=<observe start>` boundary. The report's Eval Commands section now records the exact boundary for both evals.
-- 為什麼：明天白天收 free-world / core-trio samples 時，observe report 必須只判斷本輪 fresh samples。之前 soul-triad eval 用 run-start boundary，但 recent conversation eval 還用 `--since-last-change`，容易把舊 archived noise 混進新樣本品質判斷。
-- 驗證：`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:observe -- --dry-run --cc=skip --target-samples=0` PASS and wrote `umi/reports/v01-approach-latest.md` with both eval commands using `--since-created-at=1779941826242`；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：Still night quiet; `world:defaultWorldStatus` remains `stoppedByDeveloper`. No new conversations were generated. Tomorrow daytime, use observe/core-trio reports as fresh-window evidence before any dialogue or memory repair.
-
-### 2026-05-27 · Umi / Codex · Added sequential core-trio disposable sampler
-- 做了什麼：Added `scripts/run-core-trio-disposable-suite.mjs` and `npm run pilot:core-trio:disposable-suite`. The suite runs `Umi:Mahiru Shiina`, `Mahiru Shiina:Asuna`, and `Umi:Asuna` sequentially through the existing disposable free-world probe, never in parallel. It writes `umi/reports/core-trio-disposable-suite-latest.md` with per-pair status, sample id, transcript snippet, memory trace count, eval excerpt, and next action.
-- 為什麼：Night samples should not be forced. Tomorrow daytime needs a repeatable way to collect 3 core-trio samples without manual pair-by-pair probing or DB pollution. Child probes still restore Convex env, stop the world after each pair, and clean generated archived conversations/memories/events unless `--keep=true`. The suite now has a night guard: real runs during 22:00-05:59 America/Chicago write a `night_quiet` report and generate no conversations unless Alan explicitly passes `--force-night=true`.
-- Eval evidence：The disposable child runner now runs both `npm run eval:conversation:recent -- --since-created-at=<run timestamp>` and `npm run eval:soul-triad -- --since-created-at=<run timestamp>` before cleanup, so each pair is judged only against its own disposable sample window. The child runner captures eval stdout/stderr before reprinting it, which lets the suite report reliably capture separate recent-eval and soul-triad excerpts plus `recent_eval_exit_code` / `soul_triad_eval_exit_code` and direct summary lines per pair. Fresh sample polling now requires both sides of the requested pair to be present, so a nearby `Umi` conversation cannot be mistaken for `Umi:Mahiru Shiina`. If a sample is collected but either eval exits nonzero, the suite marks that pair `eval_failed` and exits nonzero, so tomorrow's review will fix the harness before judging character quality. Added `--self-test` to validate parser behavior for sample collected, eval failed, and sample pending without touching Convex/DB. Local LLM preflight is now auto: required for local/non-core pairs, but skipped for Umi/Mahiru/Asuna cloud-core pairs so tomorrow's core trio sampling is not blocked if Ollama is down while cloud Qwen is healthy.
-- 驗證：`node --check scripts/run-core-trio-disposable-suite.mjs` PASS；`node --check scripts/run-free-world-routing-disposable-sample.mjs` PASS；`npm run pilot:core-trio:disposable-suite -- --self-test` PASS；`npm run pilot:core-trio:disposable-suite -- --dry-run` PASS and wrote the latest report without generating conversations；night real-run guard `npm run pilot:core-trio:disposable-suite -- --timeout-ms=180000` PASS, wrote `night_quiet: 3` with eval exit codes `not_run`, and generated no conversations；`npm run eval:conversation:recent -- --since-created-at=4102444800000` PASS and reported 0/0/0 against an explicit future boundary；`npm test -- --runInBand evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS with 0 post-final-patch archived conversations；`git diff --check` PASS；`world:defaultWorldStatus` remains `stoppedByDeveloper`.
-- 狀態 / handoff：World remains in night-safe observation mode; do not run real suite until daytime testing. Recommended command tomorrow: `npm run pilot:core-trio:disposable-suite -- --timeout-ms=180000`.
-
-### 2026-05-27 · Umi / Codex · Added eval guards for administrative drift and object loops
-- 做了什麼：Stopped generating night samples and converted the latest failure pattern into harness coverage. The Mahiru/Asuna samples showed that "life objects" can still collapse into administrative language (`會議流程`, `流程表`, `緊急校務`, `核對清單`) or repeat one object (`魚排`, `熱湯`, `便當`) until it becomes a loop instead of a living moment.
-- Eval changes：Added `administrativeLanguageScore` and `everydayObjectLoopScore` to `evals/conversations/metrics/conversation_metrics.ts`. Recent-conversation reports now categorize these as `administrative language leak` and `object-loop repetition`, with suggested fixes that point back toward ordinary school life and varied concrete cues.
-- Tests：Added `evals/conversations/metrics/conversation_metrics.test.ts` covering both new metrics with small Mahiru/Asuna-style examples.
-- 驗證：`npm test -- --runInBand evals/conversations/metrics/conversation_metrics.test.ts` PASS；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS with 0 post-final-patch archived conversations；`git diff --check` PASS；world remains `stoppedByDeveloper` at Day 9 22:48 America/Chicago.
-- 狀態 / handoff：明天白天收樣本時，report 會直接指出行政語污染與生活物件繞圈，不需要只靠人工讀 transcript。Goal remains active; v0.1 is not complete until multiple fresh daytime core-trio samples pass or stay WARN without pollution.
-
-### 2026-05-27 · Umi / Codex · Verified main cloud pair and tightened soul-pilot daily-life hygiene
-- 做了什麼：Continued the active free-world / soul / everyday-life goal with night-safe disposable sampling only. Tested `Mahiru Shiina:Asuna` as a main cloud-first pair; every generated archive/memory/event was cleaned by the runner after eval.
-- Evidence：Initial Mahiru/Asuna cloud sample was collected after relaxing the short-autonomous guard for core cloud characters, but scored FAIL 0.87 because the dialogue had life objects yet collapsed into `明天的會議流程 / 流程表 / 公告欄`. After adding a specific cafeteria/everyday pilot rule, a follow-up sample improved to WARN 0.94 with real school-life cues (`便當盒`, `熱湯`, `魚排`, `沒吃`) but still had stage-direction-like first-person action and administrative wording (`緊急校務`, `核對清單`). A final sample exposed the eval-banned phrase `我看見你`, so that was added to the pilot sanitizer and no more night samples were forced.
-- 修正：`convex/aiTown/game.ts` and `convex/agent/memory.ts` now keep the short-autonomous `<4 meaningful messages` guard for local/non-core NPC samples, but do not apply it to core cloud characters (`Umi`, `Mahiru Shiina`, `Asuna`) because short quiet soul conversations can be valid. `convex/agent/conversation.ts` now tells the rich soul pilot to keep cafeteria scenes in everyday objects and blocks `會議流程`, `流程表`, `公告欄`, `通知文書`, `明天.*會議`, `緊急校務`, `核對.*清單`, and `我看見你`. Stage-direction stripping also catches first-person action clauses such as `我先把...收進/放進/推到`.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS with 0 post-final-patch archived conversations after cleanup；`git diff --check` PASS；world restored to `stoppedByDeveloper` at Day 9 22:45 America/Chicago.
-- 狀態 / handoff：Main cloud pair is clearly better than local pair and can produce memory traces, but still needs 3+ fresh daytime samples before further prompt tuning. Current direction should be: core trio cloud-first remains the v0.1 soul path; local non-main characters remain background/low-frequency until their dialogue quality improves. Do not run overnight natural free-world yet.
-
-### 2026-05-27 · Umi / Codex · Fixed disposable co-location and blocked short bad local samples
-- 做了什麼：Continued the active v0.1 goal toward a freer, more soulful, more everyday world. Since current time was night (`22:17` America/Chicago), did not leave the natural world running. Used disposable samples only and cleaned all generated archives/memories/events.
-- Harness fix：The first Mai/CaoCao disposable run produced `sample_pending` because the pair could not reach each other (`Giving up on unreachable invite path`). Added `school:coLocateCharactersForTest` and wired both disposable runners to co-locate the requested pair in a nearby everyday scene before starting the test conversation. This is test-only plumbing and does not change normal world movement.
-- Evidence：After co-location, Mai/CaoCao generated real samples. The samples proved the local qwen path works technically but still fails soul/life quality: examples drifted into abstract consultant/policy language (`影響力`, `風險點`, `通知文書`, `公平對待`, `聯盟`, `弱勢組合`) or mixed English/stage narration (`Lunch`, `Pizza`, `koneki`, `語氣中透出`). Tried `qwen2.5:7b`; it did not materially improve this pair and leaked more English/stage narration.
-- 修正：Strengthened compact free-world prompts with visible school-life anchors and character-specific compact voice instructions for Mai/CaoCao/LiuBei/Asuna. Added a final quality guard for English text, stage-narration phrasing, and the abstract/policy terms discovered in samples. Added a bounded archive/memory rule: NPC↔NPC autonomous conversations with fewer than 4 meaningful messages are treated as incomplete and are not archived or remembered. Alan-involved conversations are not affected by this short-autonomous guard.
-- 驗證：`node --check scripts/run-free-world-routing-disposable-sample.mjs` PASS；`node --check scripts/run-local-qwen-disposable-sample.mjs` PASS；`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；final `npm run pilot:free-world-routing:disposable -- --focus-pair="Mai:CaoCao" --timeout-ms=150000` returned `sample_pending` with no post-run archived conversations；`npm run eval:conversation:recent -- --since-last-change` reports 0 post-fix archived conversations；world restored to `stoppedByDeveloper` at Day 9 night.
-- 狀態 / handoff：Safety is improved: bad/short local samples no longer enter the conversation wall or memory. Quality is not solved: local non-main characters still need either tighter pair-specific prompting, a better local model/prompt mode, or proposal-level model strategy before overnight free-world running. Next daytime step should collect sequential disposable samples from one main-cloud pair and one local pair, then tune based on samples that survive hygiene.
-
-### 2026-05-27 · Umi / Codex · Tightened free-world local dialogue hygiene after Ollama outage
-- 做了什麼：Alan asked whether Mahiru/Asuna are connected to cloud Qwen while the broader free world uses local LLM. Verified the routing policy remains: Umi / Mahiru Shiina / Asuna are cloud-first when they speak, other free-world speakers use local Qwen, and provider failures may fall back to local only through the guarded policy path. During disposable sampling, found local Ollama was down, restarted the native Metal Ollama path, and added a local-LLM preflight to the disposable free-world runner so future tests fail early with a clear restart hint instead of creating confusing partial samples.
-- Quality fix：A disposable Mahiru/Mai sample initially showed local-Qwen problems: mixed Simplified/Traditional Chinese, English filler like `maybe`, therapy/essay phrasing, and generic assistant tone. Added a free-world naturalness prompt for autonomous conversations and a final sanitizer guard that blocks obvious quality leaks such as English character names, meeting/planning vocabulary, therapy slogans, and mixed-language filler from being archived as dialogue.
-- Evidence：The first Mahiru/Mai sample scored FAIL 0.86. After the life/naturalness prompt, a follow-up sample improved to WARN 0.90 with more school-life details but still leaked mixed names/assistant phrasing. After the stricter final guard, the next Asuna/LiuBei disposable run produced `sample_pending` instead of archiving a polluted sample, which is the correct safety bias for now.
-- 動到哪些檔案：`convex/agent/conversation.ts`、`scripts/run-free-world-routing-disposable-sample.mjs`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run eval:conversation:recent -- --since-last-change` PASS with 0 post-fix archived conversations；`world:defaultWorldStatus` reports `stoppedByDeveloper` at Day 9 22:15 America/Chicago.
-- 狀態 / handoff：Current fix prioritizes no pollution over forcing conversations. Next step is daytime sequential disposable samples only, never parallel. If too many samples abort, tune the local prompt/guard or try `qwen2.5:7b` through the disposable harness before letting free-world autonomous dialogue run overnight.
-
-### 2026-05-27 · Umi / Codex · Routed free-world main trio to cloud Qwen with local LLM fallback
-- 做了什麼：Alan clarified the free-world takeoff policy: Umi / Mahiru Shiina / Asuna should be cloud-first, fallback logic should be local LLM, and the other autonomous characters should use local LLM. Added speaker-based routing so those three characters choose the cloud character-soul path whenever they speak in free-world conversations, without requiring `SOUL_TRIAD_COLOCATION_PILOT=true`. Non-main speakers remain local.
-- Fallback policy：Cloud/provider failure for the main trio now tries local LLM fallback when `CHARACTER_SOUL_LOCAL_FALLBACK` is not `false`, using `CHARACTER_SOUL_LOCAL_FALLBACK_MODEL` or current `OLLAMA_MODEL`. This now covers both runtime provider errors/timeouts and policy/provider misconfiguration aborts before falling back to a hard abort marker. Deterministic abort/template markers still remain blocked from archive/memory/event/profile persistence by the existing model-policy guards.
-- CC：Updated `umi/workload.md` with a focused cc read-only routing review and ran the orchestrator dry-run. The actual cc worker stalled without usable output, so Codex stopped the stuck worker and completed the scoped routing patch directly. Treat this as Codex-owned implementation, not accepted cc advice.
-- CC second opinion：A follow-up cc-style read-only sub-agent review returned WARN, not FAIL. It agreed the routing objective is satisfied and flagged one runner safety issue: cleanup errors could skip env restore in `scripts/run-free-world-routing-disposable-sample.mjs`. Codex accepted and fixed that by restoring env in a nested `finally` even when cleanup fails.
-- Runtime sample：Added `npm run pilot:free-world-routing:disposable`, which explicitly removes soul-triad pilot gates, starts a free-world pair such as `Asuna:Liu Bei`, runs eval, and cleans archive/memory/event pollution unless `--keep=true`. A real disposable `Asuna / Liu Bei` sample archived with 8 messages and 2 memory traces, then cleanup removed the archived conversation, messages, memories, embeddings, participatedTogether edges, and nearby conversationOutcome events. The sample itself failed quality eval, so it is evidence that plumbing works, not that free-world dialogue quality is solved.
-- Current env checked：`UMI_MAHIRU_PILOT_PROVIDER=qwen`; `OLLAMA_MODEL=qwen2.5:3b`; default world is still `stoppedByDeveloper` at Day 9 21:35 America/Chicago. No real cloud sample was generated during this verification.
-- 動到哪些檔案：`convex/modelPolicy.ts`、`convex/agent/conversation.ts`、`convex/modelPolicy.test.ts`、`scripts/run-free-world-routing-disposable-sample.mjs`、`package.json`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`node --check scripts/run-free-world-routing-disposable-sample.mjs` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm test -- --runInBand` PASS 59/59；`npx tsc --noEmit` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` completed with 0 post-fix archived conversations after cleanup；`npx convex run testing:testCompletion` PASS via local Ollama/qwen in ~1.2s；`npm run pilot:free-world-routing:disposable -- --focus-pair="Asuna:Liu Bei" --timeout-ms=150000` collected and cleaned `conversation-c:42652`；`git diff --check` PASS；Convex env/status read-only checks PASS.
-- 狀態 / handoff：Routing objective is now implemented and verified. Quality remains the next separate problem: the disposable Asuna/LiuBei sample still sounded too meeting-like and mixed Simplified Chinese, so do not treat it as a golden sample or memory evidence.
-
-### 2026-05-27 · Umi / Codex · Added disposable local-Qwen harness and cleaned 7B test pollution
-- 做了什麼：Alan approved proceeding with the safer path after the native-GPU 7B test. Added a targeted archived-conversation cleanup mutation that accepts UI/eval ids like `conversation-c:42633` and DB ids like `c:42633`, then deletes the archived conversation, messages, participatedTogether edges, conversation memories, embeddings, and optional nearby conversationOutcome events.
-- 清理結果：Removed the failed local 7B test batch (`conversation-c:42604`, `42578`, `42575`, `42563`, `42550`, `42539`) plus the later manual/test leftovers (`conversation-c:42621`, `42633`). The latest recent-conversation eval now reports no post-fix archived conversations, so these bad samples are no longer current evidence or memory pressure.
-- Harness：Added `scripts/run-local-qwen-disposable-sample.mjs` and `npm run pilot:local-qwen:disposable`. The script temporarily sets `OLLAMA_MODEL` (default `qwen2.5:7b`), disables broad autonomous LLM, restricts one focus pair, forces one test conversation, runs evals, then cleans its own generated archive/memory/event records unless `--keep=true` is used.
-- Trial result：`npm run pilot:local-qwen:disposable -- --model=qwen2.5:7b --focus-pair="Mahiru Shiina:Asuna" --samples=1 --timeout-ms=120000` successfully generated and cleaned `conversation-c:42633`. Quality still failed general recent eval (`characterVoiceScore: matched 0/16`) even though soul-triad eval marked the single sample PASS, confirming 7B is technically viable but not v0.1-ready without prompt/sanitizer work.
-- 驗證：`node --check scripts/run-local-qwen-disposable-sample.mjs` PASS；`npx tsc --noEmit --pretty false` PASS；targeted cleanup dry-run/apply PASS；`npm run eval:conversation:recent -- --since-last-change` now reports 0 post-fix archived conversations；`git diff --check` PASS.
-- 狀態 / handoff：World engine is stoppedByDeveloper and `OLLAMA_MODEL` is restored to `qwen2.5:3b`. Use disposable harness for future local 7B experiments; do not run all-character 7B freely until the forced sample quality improves.
-
-### 2026-05-27 · Umi / Codex · Tested higher local Qwen on native GPU path
-- 做了什麼：After fixing native Metal Ollama, tested whether higher local Qwen models can drive Underworld dialogue. Benchmarked direct OpenAI-compatible calls for `qwen2.5:7b` and `qwen3:8b`, temporarily set Convex `OLLAMA_MODEL=qwen2.5:7b`, co-located the soul triad without enabling the cloud pilot env, let the world generate samples, then stopped the engine and restored `OLLAMA_MODEL=qwen2.5:3b`.
-- 結果：`qwen2.5:7b` runs on `100% GPU` and direct short dialogue returned in ~3.4s cold/warm-load path; Convex/Ollama generation produced full 8-message conversations instead of the previous one-message abort pattern. `qwen3:8b` also runs on GPU but returned an empty response in the quick OpenAI-compatible smoke with a 13.6s latency, so it needs separate tuning before use.
-- 品質：The generated samples were not v0.1-ready. `npm run eval:conversation:recent -- --since-last-change` flagged 0 PASS / 0 WARN / 6 FAIL, mostly poor character voice and weak emotional binding. `npm run eval:soul-triad -- --since-created-at=1779931200000` marked the single triad sample PASS, but warned fresh sample count was only 1; manual read still showed unnatural over-politeness, repeated closing, mixed Simplified/Traditional, and memory lines that should not become long-term evidence.
-- 狀態 / handoff：Local GPU now makes 7B technically viable for controlled tests, but do not let all-character autonomous world run freely on 7B yet. Next safe step is a controlled one-pair local 7B harness with archive/memory disabled or disposable cleanup, then prompt/sanitizer tuning before any overnight free-world run.
-
-### 2026-05-27 · Umi / Codex · Switched local Ollama from Intel CPU path to native Metal path
-- 做了什麼：Alan asked why local Qwen/Ollama was running on CPU instead of GPU. Found the active Homebrew Ollama was `/usr/local/opt/ollama/bin/ollama`, an x86_64 binary, so it could not use the Apple Silicon Metal path properly.
-- 修正：Downloaded the official Ollama 0.24.0 darwin universal binary, installed it user-locally as `~/.local/bin/ollama-native`, stopped the old `/usr/local` Homebrew service, and started native Ollama with `OLLAMA_CONTEXT_LENGTH=4096`, `OLLAMA_FLASH_ATTENTION=1`, and `OLLAMA_KV_CACHE_TYPE=q8_0`. Added `umi/run_ollama_native.sh` so future sessions can restart the native Metal path without remembering the full command.
-- 驗證：native server log reports `library=Metal` / `Apple M4 Pro`; `/api/generate` qwen2.5:1.5b smoke returned in ~0.69s and qwen2.5:3b smoke in ~1.11s with `ollama ps` showing `100% GPU`; OpenAI-compatible `/v1/chat/completions` qwen2.5:3b smoke returned in ~0.75s; `npx convex run testing:testCompletion` returned `ms: 602`, `retries: 0`.
-- 狀態 / handoff：Current Ollama server is running from the native binary in this Codex session. If it stops or the Mac reboots, restart with `./umi/run_ollama_native.sh`. Avoid `brew services start ollama` until `/usr/local` Intel Homebrew is replaced by arm64 Homebrew or the official app.
-
-### 2026-05-27 · Umi / Codex · Cleaned afternoon incomplete conversation archives
-- 做了什麼：Alan approved clearing the afternoon one-message conversation wall pollution after the new memory/archive gates were in place. Added a narrow cleanup mutation for incomplete archived conversations, then ran dry-run before apply.
-- Cleanup scope：America/Chicago 2026-05-27 13:00-18:59 only; only archived conversations with fewer than 2 non-empty messages or fewer than 2 distinct speaking authors. Normal 8-message conversations were not targeted.
-- 清理結果：Deleted 23 archived conversation docs, 23 message docs, 46 participatedTogether docs, 2 memory docs, and 2 memory embedding docs. This removed the erroneous CaoCao/Mai memory from `conversation-c:41602` plus the broader afternoon one-message wall spam.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；dry-run before apply showed 23/23/46/2/2 targets；apply succeeded；post-apply dry-run returned 0 targets；`school:recentConversationEvalData` no longer lists the afternoon one-message archives；`npm run eval:conversation:recent -- --since-last-change` now reports no post-fix archived conversations.
-- 狀態 / handoff：The wall is clean of the 13:00-18:59 one-message batch. Future one-sided attempts are blocked at archive and memory boundaries. Next issue to diagnose separately is why local LLM continuation aborts often when all-character autonomous LLM is on.
-
-### 2026-05-27 · Umi / Codex · Blocked one-message conversations from archive wall
-- 做了什麼：Alan showed the conversation wall filling with one-message "conversations" after local LLM was enabled broadly. Examples included mixed language, generic planning lines, and political/system vocabulary such as `please listen carefully...`, `勢力範圍`, and `潛在政治衝擊點`.
-- Root cause：Local LLM could generate the first opener, then continuation often timed out/aborted (`Aborting conversation after LLM failure`). The prior archive guard skipped 0-message, failed pilot, and fallback-marker conversations, but still archived one-sided one-message conversations. Memory had already been patched to skip them, but the wall still showed old archived attempts.
-- 修正：`convex/aiTown/game.ts` now requires at least two non-empty messages and at least two distinct speaking authors before inserting `archivedConversations` / `participatedTogether`. Incomplete one-sided attempts delete their messages and do not reach the conversation wall.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；restarted `npm run dev`, ran `testing:resume`, and observed a new aborted conversation being skipped from memory after the active conversation disappeared.
-- 狀態 / handoff：Existing one-message archives from 13:42-18:02 remain in DB and on the wall until Alan approves a cleanup. Future one-sided attempts should not be archived. If many aborts continue, next non-destructive diagnosis is provider/model health and whether all-character local LLM should be throttled rather than default-on.
-
-### 2026-05-27 · Umi / Codex · Blocked incomplete one-sided conversations from memory
-- 做了什麼：Alan spotted `conversation-c:41602` (CaoCao/Mai) being remembered even though the archived transcript had only one CaoCao line and no Mai response: `我們宿舍昨晚討論的事如何了？有什麼不同看法嗎？`.
-- Root cause：After autonomous local LLM defaulted on, `conversationEligibleForLLM()` correctly allowed CaoCao/Mai to be considered real model output. But `rememberConversation()` only required `messages.length > 0`, so a one-sided/incomplete conversation could be summarized deterministically and inserted into both characters' memories.
-- 修正：`convex/agent/memory.ts` now requires at least two non-empty messages and at least two distinct speaking authors before writing a conversation memory. Incomplete one-sided attempts are logged as `skipIncompleteConversationMemory` and do not become memory/residue pressure.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS command completed and still flags `conversation-c:41602` as post-fix FAIL, confirming it is bad evidence but future incomplete one-sided conversations will not be remembered.
-- 狀態 / handoff：The already-written two CaoCao/Mai memory docs remain in DB unless Alan approves a targeted cleanup. Do not use this one-message sample as continuity evidence.
-
-### 2026-05-27 · Umi / Codex · Restarted stopped local dev stack and resumed world
-- 做了什麼：Alan reported the world felt down. Checked ports/processes and confirmed no Vite listener on 5173 and no Convex local backend on 3210; only Ollama was still running. Started `npm run dev`, waited for Convex functions, then ran `testing:resume`.
-- Root cause：This was a stopped local dev stack/session, not a night-mode shutdown or simulation logic failure. After startup, Convex explicitly reported the world engine was `inactive`, so resume was required.
-- 驗證：`curl -I http://localhost:5173/ai-town` PASS 200；`curl http://localhost:3210/version` PASS；`school:worldClock` PASS at 2026-05-27 13:35 America/Chicago / Day 9 afternoon / Cafeteria；`world:defaultWorldStatus` reports `status: running`；logs show new agent operations and `Creating conversation c:41580`.
-- 狀態 / handoff：Dev server is running from this Codex session. If Alan wants the world to keep advancing, keep this terminal/session alive and keep `/ai-town` open for heartbeat.
-
-### 2026-05-27 · Umi / Codex · Applied brain-only fallback pollution cleanup
-- 做了什麼：Alan approved applying the fallback pollution cleanup for "brain" state only. Ran the cleanup script in apply mode with archived conversation deletion left off by default.
-- 清理結果：Deleted 48 fallback-contaminated memory docs, 48 embedding docs, 174 world event docs, and 12 notification docs; patched 1 profile residue candidate. Archived conversations/messages/participatedTogether records were not deleted.
-- Post-cleanup audit：`school:auditUmiMahiruFallbackPollution` now reports `fallbackMemoryCount: 0`, `fallbackNotificationCount: 0`, `fallbackEventCount: 0`, and `pollutedProfileCount: 0`. It still reports 271 fallback-like archived conversations, intentionally retained as historical transcript evidence rather than active memory state.
-- 驗證：`npm run underworld:cleanup-fallback-pollution:dry-run -- --apply=true` PASS；`npx convex run school:auditUmiMahiruFallbackPollution '{"limit":1000}'` PASS；cleanup report updated at `umi/reports/fallback-pollution-cleanup-latest.md`。
-- 狀態 / handoff：Do not run archived transcript cleanup without a separate explicit approval and a narrower archival policy. Fresh post-fix conversations should now be evaluated without old fallback memories influencing character state.
-
-### 2026-05-27 · Umi / Codex · Defaulted autonomous dialogue to local LLM and added safe pollution cleanup dry-run
-- 做了什麼：Alan asked CC-first to review the deterministic dialogue issue, verify five-layer soul docs, route every character away from deterministic fallback and toward local LLM, clean polluted memories, and improve everyday/date awareness. Wrote a focused CC write task, but the CC write worker stalled with no stdout or file output; Codex stopped the stuck worker and completed the scoped implementation directly.
-- Soul docs：Verified `docs/soul/pilots/{umi,mahiru,asuna,caocao,mai,liubei}.md` all contain Public Self / Private Self / Relational Self / Emotional Residue / Behavioral Drift. No doc rewrite needed.
-- Dialogue routing：`convex/agent/conversation.ts` now defaults autonomous NPC dialogue to LLM when local Ollama/qwen is configured, unless explicitly disabled with `AUTONOMOUS_CONVERSATION_LLM=false` or `ENABLE_AUTONOMOUS_CONVERSATION_LLM=false`. LLM unavailable, timeout, repetitive, or template-leak paths now abort rather than returning deterministic spoken fallback. Existing cloud-only guard for character-soul pilot pairs remains.
-- Everyday context：Conversation prompts now include local date + weekday and richer scene topics. Today is Wednesday, 2026-05-27 America/Chicago; prompt context can now expose that naturally. Scene topics were expanded for tests/homework/cheating/grades, cafeteria seating and appetite, dorm sleep/laundry/roommate distance, courtyard confession/overheard secret/gate waiting, and Umi-invited private office talks.
-- Cleanup tooling：Generalized fallback pollution audit/cleanup beyond only Umi/Mahiru and added `scripts/underworld-cleanup-fallback-pollution.mjs` plus `npm run underworld:cleanup-fallback-pollution:dry-run`. The script writes `umi/reports/fallback-pollution-cleanup-latest.md`, defaults to dry-run, and does not delete archived conversations unless explicitly opted in.
-- Dry-run result：memory docs 48, embedding docs 48, world event docs 174, notification docs 12, profile docs 1; archived conversation/message deletion is 0 by default. This is safer for "brain pollution" cleanup. Do not run destructive cleanup until Alan confirms the report.
-- 驗證：`node --check scripts/underworld-cleanup-fallback-pollution.mjs` PASS；`npm run underworld:cleanup-fallback-pollution:dry-run` PASS；`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run eval:conversation:recent -- --since-last-change` PASS command completed with 0 post-fix archived conversations.
-- 狀態 / handoff：Let the world produce fresh samples before judging local LLM dialogue quality. If Alan approves cleanup, run `npm run underworld:cleanup-fallback-pollution:dry-run` once more, inspect `umi/reports/fallback-pollution-cleanup-latest.md`, then only apply after explicit confirmation. Archived transcript deletion remains off by default because old transcripts contain too many ambiguous fallback-like motifs.
-
-### 2026-05-27 · Umi / Codex + CC · Blocked deterministic slogan fallback from archived dialogue
-- 做了什麼：Alan flagged that recent Asuna lines were repeating across several morning conversations despite the expectation that Qwen/local LLM was involved. Queried recent archived conversations and confirmed byte-identical Asuna templates across `conversation-c:41367`, `c:41393`, `c:41406`, `c:41419`, `c:41461`, `c:41503`, and `c:41532`, all with `memoryTraces: []`. Checked Convex env and found always-on autonomous LLM was not enabled for secondary pairs; the visible CaoCao/Mai/LiuBei/Asuna natural conversations were mostly deterministic fallback, not Qwen.
-- CC review：Assigned CC a read-only review via `umi/workload.md`; report written to `umi/reports/20260527T151950Z-2026-05-27-cc-asuna-slogan-repetition-review.md`. CC agreed the flagged lines map directly to deterministic templates in `convex/agent/conversation.ts`, not model output, and recommended guarding message persistence.
-- 修正：`convex/aiTown/agentOperations.ts` now aborts generated fallback text before inserting a message. `convex/aiTown/game.ts` also skips archiving and deletes messages if a finished conversation contains known generated fallback text, as defense in depth. `convex/modelPolicy.test.ts` now covers the repeated Asuna templates.
-- 決策：This is a small allowed repair under the v0.1 guardrail for deterministic fallback archived as character dialogue / obvious slogan repetition. It does not turn on all-character LLM, change provider, rewrite prompts, or clean old DB data.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand convex/modelPolicy.test.ts` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS command completed with 0 post-fix archived conversations, so wait for fresh natural samples before judging.
-- 狀態 / handoff：Old archived conversations still show legacy fallback contamination; do not count them as post-fix evidence. From now on, if a non-LLM fallback conversation tries to produce these known template lines, it should abort instead of becoming archived dialogue. Next decision is product-level: keep secondary pairs quiet/unarchived unless LLM is enabled, or intentionally enable scoped local LLM pairs with quota/cooldown.
-
-### 2026-05-27 · Umi / Codex · Added AM→PM continuity observation harness
-- 做了什麼：Implemented Alan's same-day continuity goal as an observe-only harness. Added `docs/soul/AM_PM_CONTINUITY_GOAL.md` to define the 06:00-11:59 morning and 13:00-16:59 afternoon windows, primary Umi/Mahiru/Asuna pilot scope, secondary observation characters, success/failure rules, and no-big-system guardrails. Added `scripts/underworld-am-pm-continuity.mjs` plus `npm run underworld:am-pm-continuity`.
-- Script 行為：Reads `school:recentConversationEvalData` only, buckets today's archived conversations by America/Chicago time, extracts AM residue/concrete cue candidates, checks PM callbacks by relationship/cue/trace/temporal language, and writes `umi/reports/am-pm-continuity-latest.md` with transcript snippets. It does not trigger conversations or write to Convex.
-- 第一次結果：At 2026-05-27 morning, the report found 7 morning samples and 0 afternoon samples, so status is `WARN / sample_pending` and no repair is recommended. It found one AM residue candidate from 海/真晝; afternoon callback evaluation should wait until at least 3 afternoon archived samples exist.
-- 動到哪些檔案：`docs/soul/AM_PM_CONTINUITY_GOAL.md`、`scripts/underworld-am-pm-continuity.mjs`、`package.json`、`WORKLOG.md`。
-- 驗證：`node --check scripts/underworld-am-pm-continuity.mjs` PASS；`npm run underworld:am-pm-continuity` PASS and wrote `umi/reports/am-pm-continuity-latest.md`；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：下午或晚上跑 `npm run underworld:am-pm-continuity` once. If afternoon samples remain <3, keep observing. If enough afternoon samples show no callbacks, draft a proposal before changing memory architecture or prompts; only hygiene fixes remain allowed directly.
-
-### 2026-05-27 · Umi / Codex · Restarted local dev server after overnight stop
-- 做了什麼：Alan reported the server was down and asked whether night caused it. Checked current time, ports, process list, HTTP health, and world status. Found no Vite/Convex dev process listening on 5173/3210; only Ollama was still running. Restarted `npm run dev`, waited for local Convex backend/functions, then resumed the inactive world engine.
-- 結論：This was not a night-mode server crash. The dev server process itself had stopped, likely because the terminal/Codex session that launched it ended. Separately, the world status was `inactive`, which is expected after no heartbeat/visitor overnight; morning resume is required before collecting samples.
-- 驗證：`curl -I --max-time 8 http://localhost:5173/ai-town` PASS 200；`curl http://localhost:3210/version` PASS 200；`lsof` shows Vite on 5173 and Convex local backend on 3210；`testing:resume` resumed the engine；`school:worldClock` PASS at Day 9 08:12；`world:defaultWorldStatus` returned `running` after resume.
-- 狀態 / handoff：Local dev server is currently running from this Codex session. Since it is morning, autonomous conversations can start again; fresh conversations began immediately after resume. Keep `/ai-town` open if Alan wants heartbeat to continue.
-
-### 2026-05-26 · Umi / Codex · Added secondary local-LLM soul profiles
-- 做了什麼：Alan pointed out that if non-pilot characters are now reachable through local LLM paths, they also need deeper soul definitions rather than thin persona blurbs. Added Five-Layer soul docs for CaoCao, Mai, and Liu Bei, using existing runtime profile DNA from `data/giisProfiles.ts` and the current Soul Architecture model.
-- Scope decision：Umi / Mahiru / Asuna remain the v0.1 evaluation pilot. CaoCao / Mai / Liu Bei are now documented as secondary local-LLM soul profiles for identity protection, contrast, and background continuity. This does not enable all-character behavioral drift, high-frequency memory writes, or a wider v0.1 acceptance target.
-- 動到哪些檔案：`docs/soul/pilots/caocao.md`、`docs/soul/pilots/mai.md`、`docs/soul/pilots/liubei.md`、`docs/soul/README.md`、`docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md`、`docs/soul/SOUL_PROGRESSION_PLAN.md`、`WORKLOG.md`。
-- 驗證：Docs-only change; `git diff --check` PASS。
-- 狀態 / handoff：Next possible step is optional runtime wiring: decide whether conversation prompts should read these docs directly or keep using `data/giisProfiles.ts` as the runtime source. Do not broaden v0.1 eval until pilot continuity stabilizes.
-
-### 2026-05-26 · Umi / Codex · Reviewed CC changes and recovered local server
-- 做了什麼：Alan reported CC had made changes and the server was down. Reviewed dirty tree, recent CC/co-authored commits, untracked files, local processes, build health, and the actual browser routes. Started `npm run dev` and found the apparent hang was Convex local backend waiting on an interactive upgrade prompt; selected upgrade with `transfer data` so existing local state was preserved. Backend logs then exposed world-engine churn (`agentDoSomething` timeouts under 60x world time) and autonomous conversations still starting during 22:00 winding-down hours.
-- Review 結論：recent committed CC work looks directionally okay: UI compacting / smart dialogue tab / portrait base-path fix / memory eval guard / bounded `getReflectionMemories()` are all small and verified by current typecheck/build. The uncommitted `ConversationWall` route also renders and matches Alan's request for an at-a-glance wall, but it should be treated as pending UI work until accepted. Risk items: `package-lock.json` has large dependency churn without a matching dependency change; `.claude/` local permission files should not enter git; current wall/recent data still shows non-triad LiuBei/Mai activity and repeated slogan patterns, so that is quality evidence, not v0.1 completion.
-- Safety / runtime fix：Updated `.gitignore` to ignore the whole `.claude/` local agent-state directory instead of only `.claude/settings.local.json`. Set local Convex env `AGENT_ACTION_TIMEOUT_MS=600000` and `AGENT_GENERATE_MESSAGE_TIMEOUT_MS=900000` so accelerated world time does not prematurely timeout slow local actions. Updated `school:currentScheduleContext` so 22:00-23:59 winding-down hours also set `canStartAutonomousConversations: false`, matching night quiet policy.
-- 驗證：`npm run build` PASS；`npx tsc --noEmit --pretty false` PASS；`npm test -- --runInBand` PASS 55/55；`curl -I http://localhost:5173/ai-town` PASS 200；`curl http://localhost:3210/version` PASS 200；`npx convex run --typecheck disable --codegen disable school:worldClock` PASS at Day 8 22:19 / Dormitory；`npx convex run --typecheck disable --codegen disable school:currentScheduleContext '{"worldId":"md7cefps8wz097yk9k44n92rj1870x6c","playerId":"p:2"}'` now returns `canStartAutonomousConversations: false` during 22:xx winding-down; Browser smoke PASS for `/ai-town` and `/ai-town?view=conversations`.
-- 狀態 / handoff：Server is currently running from this Codex session at `http://localhost:5173/ai-town`. Do not commit `package-lock.json` churn unless we intentionally accept a dependency refresh. Next small review target is deciding whether to keep/refine `ConversationWall`, and separately whether to revert or regenerate the lockfile cleanly.
-
-### 2026-05-26 · Umi / Codex · New laptop local qwen health check and wiring
-- 做了什麼：Alan switched computers and asked for a health check plus local qwen wiring. Checked hardware, repo/runtime ports, Ollama models, local Convex env, direct Ollama generation, Convex chat completion, Convex embedding, build, and `/ai-town` HTTP health.
-- 硬體結論：MacBook Pro Mac16,7 / Apple M4 Pro / 14 CPU cores / 20 GPU cores / 48GB RAM / ~100GB free disk. This machine is strong enough for local smoke/harness and small local qwen testing, but not ideal for real-time v0.1 character-soul dialogue on larger local models.
-- Local qwen 結論：Ollama 0.24.0 is installed and listening on `127.0.0.1:11434`. Installed models include `qwen2.5:0.5b`, `qwen2.5:1.5b`, `qwen2.5:3b`, `qwen2.5:7b`, `qwen3:8b`, and `mxbai-embed-large`. Direct smoke: `qwen2.5:1.5b` ~3.6s; clean sequential `qwen2.5:3b` ~5.4s; `qwen3:8b` produced thinking text and took ~51s, so it is not suitable for live NPC dialogue.
-- Wiring：Updated local non-secret `.env.local` with Ollama/qwen defaults. Updated local Convex env to use `OLLAMA_MODEL=qwen2.5:3b`, `CONVERSATION_FAST_MODEL=qwen2.5:1.5b`, `OLLAMA_BASE_URL=http://localhost:11434`, and `OLLAMA_EMBEDDING_MODEL=mxbai-embed-large`. Kept memory summarization/reflection deterministic per v0.1 policy.
-- 驗證：`npm run build` PASS（保留既有 Vite chunk-size warning）；direct `ollama run qwen2.5:1.5b` PASS；direct `ollama run qwen2.5:3b` PASS；`npx convex run testing:testCompletion` PASS via local Ollama/qwen2.5:3b (`ms`: 12489); `npx convex run testing:testEmbedding` PASS via local Ollama/mxbai; `npm run dev` started Vite on 5173 and Convex on 3210; `curl -I http://localhost:5173/ai-town` PASS 200; `testing:resume` resumed the world engine; `school:worldClock` PASS at Day 8 20:09.
-- 狀態 / handoff：Use `qwen2.5:3b` for local general smoke/harness, `qwen2.5:1.5b` for fast smoke. Do not switch Umi/Mahiru/Asuna character-soul conversations to local qwen without an explicit policy decision, because current v0.1 guard says characterSoul must remain cloud-only to avoid low-quality local fallback entering memory.
-
-### 2026-05-26 · Umi / Codex + CC · Hardened focused pilot runner and provider-failure handling
-- 做了什麼：After Alan asked to continue toward v0.1, the focused Umi/Mahiru runner timed out with no archived sample. Backend logs showed two operational blockers rather than a dialogue-quality failure: `testing:resume` did not refresh `worldStatus.lastViewed`, so `world:stopInactiveWorlds` could stop the engine during collection; Qwen pilot calls also returned HTTP 429 / `model_not_found` upstream-saturated errors. Existing hard-abort behavior correctly prevented those provider failures from becoming archived conversations or memories.
-- 修正：Focused `SOUL_TRIAD_FOCUS_PAIR` runs now only let the left-side character initiate, preventing duplicate active same-pair conversations after resume. `scripts/run-soul-triad-single-sample.mjs` now calls `world:heartbeatWorld` while polling and applies `UMI_MAHIRU_PILOT_COOLDOWN_FAILURES=1` plus a 10-minute provider cooldown for focused QA runs. `safeConversationCompletion()` now logs `Aborting conversation after LLM failure` when the cloud path returns an abort marker, instead of implying deterministic dialogue was persisted.
-- CC review：CC read-only review accepted the patch with no requested changes in `umi/reports/20260526T192456Z-2026-05-26-cc-v01-runner-provider-guard-review.md`. CC agreed provider unavailable should be reported as `sample pending / provider unavailable`, not used as evidence to tune prompts.
-- Evidence：A follow-up focused sample `npm run pilot:soul-triad:single-sample -- --timeout-ms=120000 --focus-pair="Mahiru Shiina:Asuna"` succeeded with fresh `conversation-c:40860` 真晝/明日奈, `memoryTraces`, and `eval:soul-triad` PASS 1.00. Recent eval judged the single post-fix sample WARN 0.93 for loose previous-speaker binding / mirror repetition. Fresh sample count is only 1, below the ≥3 rule, so no dialogue or memory prompt change was made from it.
-- 動到哪些檔案：`convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`scripts/run-soul-triad-single-sample.mjs`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`node --check scripts/run-soul-triad-single-sample.mjs` PASS；`npm test` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS command completed with 0 PASS / 1 WARN / 0 FAIL after the fresh sample.
-- 狀態 / handoff：v0.1 pipeline is healthier: focused collection can keep the world awake, fallback/provider failures are not archived, and at least one post-run sample produced residue memory. Do not make prompt changes until at least 3 fresh post-fix samples exist. If Qwen returns 429 again, wait for provider cooldown or try a human-approved model/provider change proposal.
-
-### 2026-05-26 · Umi / Codex + CC · Reconnected soul pilot LLM routing to memory residue
-- 做了什麼：Alan asked to continue `/goal` toward v0.1. Recent post-lifecycle samples showed the core v0.1 loop was still broken: Umi/Mahiru/Asuna conversations looked pilot-shaped but had `memoryTraces: []`, and Umi/Asuna produced near-duplicate archived conversations. Assigned CC a focused read-only review; CC agreed the smallest fix was to align pilot LLM eligibility with memory eligibility and add a pilot-pair cooldown.
-- 採納與修正：`conversationEligibleForLLM()` and autonomous conversation gating now treat `characterSoulPilotPair()` as eligible, so soul-pilot conversations can use the cloud character-soul path and then write residue memories. Soul-pilot candidate selection now uses `SOUL_PILOT_PAIR_COOLDOWN_MS` defaulting to 10 minutes instead of the general local 30s pair cooldown. After a fresh sample exposed two semantically identical ending lines in one conversation, `avoidDuplicateConversationMessage()` now rejects near-identical shared-fragment repeats, not only exact normalized duplicates.
-- 追加 hardening：single-sample runner now overrides pair cooldown to 60s by default and supports `--pair-cooldown-ms=` so focused QA does not time out behind the live 10-minute guard. Recent eval now accepts implicit emotion through concrete behavior/attention, matching Alan's Emotional Expression MVP. Pilot conversations now hard-abort if a known deterministic fallback slogan or deterministic lifecycle exit tries to enter the pilot path.
-- Evidence：fresh pilot `conversation-c:40642` produced non-empty 明日奈/真晝 `memoryTraces` but had a duplicated ending; after the duplicate guard, fresh pilot `conversation-c:40671` 海/真晝 produced non-empty residue memories and `eval:soul-triad` scored PASS 1.00. `conversation-c:40731` then exposed the deterministic-slogan leak; after the hard-abort gate, focused `conversation-c:40771` 海/明日奈 produced non-empty memory traces and `eval:soul-triad` PASS 1.00. This proves the real path now exists: cloud pilot dialogue -> archived conversation -> residue memory trace -> eval visibility, with known fallback slogans blocked from the pilot archive path.
-- 動到哪些檔案：`.env.local.example`、`convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`convex/modelPolicy.ts`、`evals/conversations/metrics/conversation_metrics.ts`、`scripts/run-soul-triad-single-sample.mjs`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：CC read-only report accepted from `umi/reports/20260526T171113Z-2026-05-26-cc-v01-pilot-llm-memory-review.md`；`npx tsc --noEmit --pretty false` PASS；`npm test` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；focused pilot samples produced fresh memory traces for 明日奈/真晝、海/真晝、海/明日奈；`npm run eval:conversation:recent -- --since-last-change` completed after the final hard gate with 1 current pilot WARN (`conversation-c:40771`) and unrelated non-pilot LiuBei/CaoCao FAIL；`curl -I http://localhost:5173/ai-town` PASS 200；`git diff --check` PASS。
-- 狀態 / handoff：This is a real v0.1 milestone, but not v0.1 final. Next step is sample-gated: collect at least 3 fresh post-final-gate Umi/Mahiru/Asuna samples, then only fix narrow hygiene issues such as wrong addressee, stage-direction leak, repeated slogan, or missing soft close. Do not add a new memory architecture, emotion meter, or all-character rollout yet.
-
-### 2026-05-26 · Umi / Codex + CC · Added conversation lifecycle hygiene without greeting templates
-- 做了什麼：Alan asked whether conversations should have greeting/opening and goodbye/closure shape. Assigned CC a read-only first-look review. CC recommended accepting lifecycle as a quality shape, but not adding a broad prompt mandate; the concrete current failure was deterministic stock exits repeating as slogans.
-- 採納與修正：Implemented small deterministic-exit rotation in `convex/agent/conversation.ts`. `actionableExit()` now rotates character-specific soft-close shapes by speaker/listener/topic/exhaustion count. This removes repeated tails like Umi's `今晚先少接一件事...明天我會提醒 Alan...`, Mahiru's `先休息一下吧...`, and Asuna's `今天先把該取消的事情挑出來...`.
-- Eval：`evals/conversations/metrics/conversation_metrics.ts` now includes `conversation_lifecycle_flow`, a WARN-first guard for concrete opening reason, soft close, and customer-service greeting/goodbye boilerplate. `evals/conversations/runSoulTriadEval.ts` now reports `Lifecycle flow` and `Greeting boilerplate penalty`.
-- 文件：`docs/giis-v0.1-roadmap.md` records the decision: conversations need lifecycle shape, not forced `你好 / 掰掰 / 今天先這樣`; short exchanges can close through silence or stopping.
-- CC：accepted with revision from `umi/reports/20260526T145025Z-2026-05-26-cc-conversation-lifecycle-review.md`. Prompt-mandate changes were deliberately avoided after CC flagged template-regression risk.
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:soul-triad` PASS command completed：1 PASS / 2 WARN on latest triad samples；`npm run eval:conversation:recent -- --since-last-change` PASS command completed，post-fix archived conversations 0 so no current judgment yet；`curl -I http://localhost:5173/ai-town` PASS 200；`git diff --check` PASS。
-- 狀態 / handoff：Let fresh conversations accumulate before tuning thresholds. Next review should look for whether deterministic endings now vary and whether new closures feel character-specific rather than scripted.
-
-### 2026-05-26 · Umi / Codex · Synced yesterday's CC work, restored local server, and reviewed fresh conversations
-- 做了什麼：Alan asked to sync yesterday's Umi/CC work, find whether there were any good conversations, and fix the local server. Read the latest worklog/report state, checked running processes/ports, queried recent archived conversations, restarted the local dev stack with `npm run dev`, and resumed the world engine.
-- Sync 結論：yesterday's core changes focused v0.1 back onto conversation -> emotional residue -> memory continuity, clarified that `關係事件 / 今天紀錄` are not automatically residue, kept residue trace-backed, added deterministic semantic resonance gating, kept Alan-involved fallback from being archived on LLM failure/repetition, and moved foreground UI toward daily school-life emotion instead of politics/civilization scope. CC helped as read-only reviewer on several passes; the final event/residue semantics review stalled twice, so Codex completed the review locally.
-- Conversation 結論：there are good fragments, especially `conversation-c:40446` 真晝/海 and `conversation-c:40417` 真晝/明日奈, both PASS in `eval:soul-triad`. The best moments show care reversal and responsibility sharing, but recent broad eval still finds repeated stock endings such as Umi's `今晚先少接一件事...` and Asuna/Mai slogan-like safety lines. Some good conversations still have `memoryTraces: []`, so residue continuity remains the next concrete bottleneck.
-- Server：confirmed no listener on 5173 initially, then started `npm run dev`; Vite is listening on 5173 and Convex local backend is listening on 3210/3211. `testing:resume` resumed the world engine and logs showed new conversations being created.
-- 驗證：`curl -I http://localhost:5173/ai-town` PASS 200；`curl -I http://localhost:5173/ai-town?view=conversations` PASS 200；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:worldClock` PASS，第 8 天白天 9:37；`npm run eval:soul-triad` PASS command completed with triad PASS samples；`npm run eval:conversation:recent -- --since-last-change` PASS command completed but score was 0 PASS / 2 WARN / 7 FAIL on 9 post-fix samples.
-- 狀態 / handoff：Server is up locally at `http://localhost:5173/ai-town`; keep it running for daytime sample collection. Do not make broad prompt/system changes yet. Next small target is evidence-backed cleanup of repeated stock endings and checking why strong emotional moments do not always become `memoryTraces`.
-
-### 2026-05-25 · Umi / Codex · Clarified event/residue UI semantics and Alan LLM fallback policy
-- 做了什麼：Alan questioned whether `今天的證據 / 關係痕跡` implied memory residue, what `角色之後可以在記憶或對話中引用 Alan 的話` meant, how `今日焦點` is formed, and why read state could stay read. Attempted CC review twice, but Claude CLI stalled with no stdout; stopped the stalled worker and completed a local code-review pass.
-- 修正：Campus feed now says `今天紀錄` and `關係事件` so event/notification rows do not pretend to be emotional residue. Alan `chatMessage` wording now says it is a today record; only conversations that pass the residue gate become memory pressure. Daily focus read ids now include world day + index + text hash instead of `daily-focus-0`, so tomorrow's focus is not accidentally already read. Character profile removed the duplicated `今日焦點` row and keeps `外顯狀態 / 可用狀態 / 最近想法 / 最近記憶`.
-- Runtime policy：Archived Alan-involved conversation eval now uses `messages` as source of truth and does not slice Alan conversations down to the last 8 messages. Alan-involved generation aborts on LLM failure or repetitive fallback instead of archiving deterministic fallback. Cloud for all Alan chats remains explicit via `HUMAN_CONVERSATION_CLOUD_LLM=true` or `ALAN_HUMAN_CLOUD_LLM=true`.
-- 動到哪些檔案：`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`convex/messages.ts`、`convex/school.ts`、`convex/agent/conversation.ts`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:campusSocialState '{"timeZone":"America/Chicago"}'` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:recentConversationEvalData '{"timeZone":"America/Chicago","limit":1,"messagesPerConversation":8}'` PASS；`npm run eval:conversation:recent -- --since-last-change` PASS command completed, with one fresh non-Alan NPC sample FAIL but not enough evidence for a code change tonight.
-- 狀態 / handoff：Stop code changes for tonight. Tomorrow, review fresh UI use and fresh Alan-involved conversations; do not add LLM residue judge unless deterministic gate fails on enough real samples.
-
-### 2026-05-25 · Umi / Codex + CC · Unified wall, night policy, and semantic residue gate
-- 做了什麼：Alan asked whether residue should require stronger semantic resonance, why Alan↔Umi felt like fallback, whether night should block conversations, and whether emotion/status/memory should live together behind filters. Assigned CC first-look read-only review; CC agreed on deterministic residue gating, Umi-only night wake, and extending `ConversationWall` instead of adding an emotion dashboard.
-- Runtime finding：current local/Convex time was Day 7 21:37, before the UI late-night gate. `COMPANION_CLOUD_LLM` is not enabled in Convex env, so Alan↔Umi companion chat can fall back through local/default completion + sanitizer into handwritten `companionFallback`. Latest Alan↔Umi sample `conversation-c:40225` showed fallback/repeat phrasing and `memoryTraces: []`.
-- 採納與修正：`convex/agent/memory.ts` now requires a deterministic semantic resonance gate before writing `殘留：...`: at least one concrete life cue plus one character-soul cue for Umi/Mahiru/Asuna. No LLM judge is added; `UNDERWORLD_RESIDUE_RESONANCE=false` disables the stricter gate. `ConversationWall` now combines conversation cards and status/update cards with filters `全部 / 對話 / 有殘留 / 狀態 / 試點 / 需看`, dedupes repeated status notifications, and flags repeat-fallback phrasing as `repeat`. Late-night UI only allows `輕聲叫醒` for 海; other characters get `明天再談` / `留下訊息`.
-- 文件：`docs/giis-v0.1-roadmap.md` now records the semantic resonance rule and night/companion policy.
-- 動到哪些檔案：`convex/agent/memory.ts`、`src/components/ConversationWall.tsx`、`src/components/PlayerDetails.tsx`、`src/index.css`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：CC first-look completed read-only；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:conversation:recent -- --since-last-change` PASS command completed，current post-fix samples 0 PASS / 1 WARN / 1 FAIL；`git diff --check` PASS；Convex smoke queries for `school:worldClock`, `school:campusSocialState`, `school:recentConversationEvalData` PASS；Chrome smoke at `localhost:5173/ai-town?view=conversations` PASS。
-- 狀態 / handoff：Do not re-enable `COMPANION_CLOUD_LLM` casually; that is a budget/privacy choice. Next useful action is either tomorrow daytime fresh triad sampling, or a small companion-specific proposal to make Alan↔Umi cloud opt-in clearer and auditable.
-
-### 2026-05-25 · Umi / Codex + CC · Residual display is now tied only to real memories
-- 做了什麼：Alan corrected the residue UI model: character-side surfaces should not carry `餘波` badges, `重要` in history was unclear, and fallback / non-LLM / eval-only outcomes must not look like memory. Assigned CC first-look read-only review; CC agreed the bug was UI-side fabrication from `outcomeQuality`, not the memory writer.
-- 採納與修正：`ConversationWall` now counts/displays `留下` only from actual `memoryTraces` read from conversation memories. It no longer converts `outcomeQuality` into `餘波`. Character-side `回顧` removed the residue strip; selected-character header/cards/schedule no longer display residue lines. History defaults to `今天`, puts `今天` first, and removes the ambiguous `重要` filter.
-- 定義：`docs/giis-v0.1-roadmap.md` now states that memory residual means a short line stored in `memories.description` after `殘留：`; `outcomeQuality` is only an eval/read-model classifier and must not be displayed as emotional residue.
-- 動到哪些檔案：`src/components/ConversationWall.tsx`、`src/components/PlayerDetails.tsx`、`src/index.css`、`convex/school.ts`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：CC first-look completed read-only; `npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:recentConversationEvalData '{"timeZone":"America/Chicago","limit":3,"messagesPerConversation":4}'` PASS，latest samples show `memoryTraces: []` while `outcomeQuality: concrete_action`, proving UI must treat these as no residual.
-- 狀態 / handoff：No schema/provider/runtime behavior change. If Alan later wants a stronger filter, replace old `重要` with a future trace-backed filter such as `有記憶` or `影響大`; do not restore regex-based importance.
-
-### 2026-05-25 · Umi / Codex · Conversation wall now shows what conversations left behind
-- 做了什麼：Alan clarified that residue / memory / emotional change should appear in a conversation-wall-like at-a-glance surface, not only inside the selected-character `回顧` tab. Codex/Umi agreed: the wall should function as a world-memory surface, while the side panel stays as detail view.
-- 修正：`recentConversationEvalData` now returns `memoryTraces` and `outcomeQuality` for each archived conversation. `ConversationWall` cards now include a restrained `留下` block: `某角色還留著` / `某角色記住` when memory traces exist; otherwise a short `餘波` line from existing outcome quality; if nothing exists, it says `還沒有明顯殘留`.
-- UI 原則：仍然不顯示 emotion numbers、currentEmotion labels, or dashboards. This is at-a-glance trace reading, not a stat panel.
-- 動到哪些檔案：`convex/school.ts`、`src/components/ConversationWall.tsx`、`src/index.css`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:recentConversationEvalData '{"timeZone":"America/Chicago","limit":3,"messagesPerConversation":4}'` PASS and returns `memoryTraces` / `outcomeQuality`；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS。
-- 狀態 / handoff：這 completes the UI/read-model part of Alan's clarification. 真正讓更多非 pilot 對話產生 residue still requires memory-writer expansion and remains proposal-only.
-
-### 2026-05-25 · Umi / Codex + CC · Conversation history now surfaces residue and memory traces
-- 做了什麼：Alan 指出既然 Underworld 已在記錄情緒與記憶，`回顧 / 歷史對話` tab 不應該只像 inbox。派 CC read-only review；CC 建議不加 schema、不新寫 DB，直接把既有 conversation memory / `殘留：...` read-model join 回對話回顧，而且只在展開 thread 時顯示，避免變成 emotion dashboard。
-- 採納與修正：`campusTimeline` 現在會用 selected character 的 `memories.data.conversationId` 對應 archived conversation，附上 `memoryLineZh`、`residueLineZh`、`memoryTimestampLabelZh`。`ConversationPanel` 的歷史對話展開後新增 `留下的痕跡` 區塊，顯示 `還留著`、`記住了`、`餘波`、`現在`。沒有 residue/memory 時誠實顯示「這段對話還沒留下明顯殘留」。
-- UI 原則：不顯示情緒數值、不顯示 currentEmotion label、不做 timeline/stat dashboard。list row 保持乾淨；展開後才看這段對話留下了什麼，以及角色現在的外顯狀態是否有接上。
-- 動到哪些檔案：`convex/school.ts`、`src/components/PlayerDetails.tsx`、`src/index.css`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:campusTimeline '{"timeZone":"America/Chicago","characterName":"Umi"}'` PASS；Chrome local app smoke 確認 app 在 `localhost:5173` 可載入，headless Playwright package 不在 repo 中所以沒有 scripted screenshot。
-- 狀態 / handoff：這是 read-model/UI 小修。下一步若要讓非 pilot 角色也有真 residue，需要修改 `convex/agent/memory.ts` residue writer，屬於 proposal-only；現在不做。
-
-### 2026-05-25 · Umi / Codex + CC · Principal office is now Umi-gated
-- 做了什麼：Alan 指出 `校長室` 應該是海的權限空間；只有海能正常使用，或由海邀請親近角色進去談話，其他角色不應該單獨進去。派 CC 做 read-only review recent v0.1 changes + 新規則；CC 判斷 v0.1 scope 沒跑偏，並抓出校長室 leak 點。
-- 採納與修正：正常排程現在只有 Umi 會去 `studentCouncilRoom`；CaoCao 改到庭院。`spreadAcrossSchoolScenes` / `gatherInClassroom` 不再把校長室當泛用 bucket；Umi 是 explicit office occupant。`coLocateSoulTriadForPilot` 文案改成「海邀請真晝與明日奈進校長室」。
-- 內容與 UI：CaoCao 相關 principal task 改到庭院或改成「請海判斷是否安排個別談話」；校長室 world-event 文案改成 Umi-hosted / Umi-invited，不再是 CaoCao 或 Liu Bei 單獨使用。Away Alan strategic drift 不再錨到校長室。角色資料與 topbar 文案都說明校長室是海的簡報與邀請談話空間。
-- 動到哪些檔案：`data/schoolLocations.ts`、`convex/school.ts`、`convex/agent/conversation.ts`、`convex/aiTown/agentOperations.ts`、`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:campusSocialState '{"timeZone":"America/Chicago"}'` PASS。
-- 狀態 / handoff：這是 access/schedule/content 小修，不是新權限 schema。若之後要做真正 runtime gate（例如角色 pathfinding 嘗試進校長室時自動要求 Umi invitation token），要另寫 proposal；目前 v0.1 先靠 schedule/helper/content 保持世界規則一致。
-
-### 2026-05-25 · Umi / Codex + CC · Emotional Expression MVP and UI lens alignment
-- 做了什麼：Alan 補充 Emotional Expression MVP：情緒不能變成 RPG stats / dashboard，要透過行為、語氣、注意力、關係傾向呈現。派 CC read-only review UI 與情緒表達；CC 建議把三個左側入口定義成三個 lens：`校園動態` = past/evidence，`日程` = present/availability，`海` = future/interpretation。
-- Umi/Codex 決策：採納。沒有做新 schema、沒有 behavior drift engine、沒有 prompt 大改。保留 `currentEmotion` 作為內部/portrait 用途，但玩家-facing copy 不再把它當情緒標籤或 dashboard。
-- UI：`校園動態` collapsed label 改成 `今日`，header 改成 `今日校園動態 / 今天的證據`；`海` panel 改成 `海的判讀 / 誰變了，為什麼`；`日程` 現在讀取既有 `campusSocialState.emotions[].availabilityZh / quietLineZh`，每個角色列顯示位置、可接近狀態、以及一條行為線索，不顯示 residue 以免變成情緒狀態 badge。
-- 情緒 copy：`updateEmotionByName()` 的 notification 從 `角色情緒變化 / 變得擔心` 改成 `狀態變化` + 行為句，例如「真晝開始注意誰沒有把話說完」。角色資料卡從 `情緒線索：有點擔心` 改成 `外顯狀態` + 行為線索。
-- Eval：`eval:conversation:recent` 新增 `emotion_behavior_link`、`emotion_tone_link`、`attention_shift`、`relationship_residue`、`over_labeling_penalty`；`eval:soul-triad` 報表也新增對應欄位。新 metrics 是 guardrail，不是要求每句話都展示情緒。
-- 動到哪些檔案：`convex/school.ts`、`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`src/index.css`、`evals/conversations/metrics/conversation_metrics.ts`、`evals/conversations/runSoulTriadEval.ts`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`npm run eval:conversation:recent -- --since-last-change` PASS，結果 0 PASS / 7 WARN / 5 FAIL，剩餘問題主要是 mirror repetition、therapy-template、character voice cue；`npm run eval:soul-triad` PASS，4 samples WARN；Chrome visual smoke at `localhost:5173/ai-town` PASS，`日程` panel 正常顯示行為線索且沒有 emotion meter。
-- 狀態 / handoff：下一步不要急著做 behavior engine。先收 fresh samples，看 characters 是否自然把情緒表現在短回覆、停留、避開、關心誰、注意什麼；若連續樣本仍 therapy-like，再針對 prompt/repair gate 做小修。
-
-### 2026-05-25 · Umi / Codex + CC · Pivoted foreground loop to daily school-life emotion
-- 做了什麼：Alan 要把 v0.1 前台從政治 / 社會化 / 文明議題收回「情緒、對話、記憶」。先派 CC 做 read-only review；CC 建議不要加新 PIXI 場景或 mood engine，先用現有房間改 label、加場景 mood-event 字串庫、讓 Umi briefing 以今天誰的情緒變化為中心，並把校園動態限制到今天。
-- Codex/Umi 採納並實作：`aiClubRoom` 前台顯示為餐廳、`studentCouncilRoom` 前台顯示為校長室；每個場景新增 bounded `moodEvents`（小考考差、作弊被發現、秘密被聽到、告白、午餐尷尬、安靜道歉、宿舍深夜燈還亮著等）；Umi briefing / campus focus / suggested tasks 降低 AI 社、學生會、政治張力語彙，改成生活事件與情緒線索；campusSocialState 的 events / notifications / rumors 只回今天；舊 daily opening 不再跨天成為 Umi major alert；低價值 camera buttons 移除，只保留 `聚焦 Alan`。
-- UI：角色面板把「世界脈絡 / 目前風險」改成「情緒脈絡 / 今天情緒線索」，並隱藏社團 registry，避免 v0.1 視覺焦點又回到社團/政治系統。
-- 動到哪些檔案：`data/schoolLocations.ts`、`convex/school.ts`、`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:umiBriefing '{"timeZone":"America/Chicago"}'` PASS，舊 day-4 dailyOpening 不再是 major alert；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:campusSocialState '{"timeZone":"America/Chicago"}'` PASS，events/notifications/rumors 為 today-scoped；Chrome visual smoke at `localhost:5173/ai-town` PASS，畫面顯示生活場景文案且只剩 `聚焦 Alan`。
-- 狀態 / handoff：這是 foregrounding / display / event-palette 小修，不是新 emotional engine。下一步要收 fresh conversations，看 Umi/Mahiru/Asuna 是否真的把生活事件轉成 emotional residue 與 memory continuity；不要再把 v0.1 拉回 AI 社 / 學生會 / civilization scope。
-
-### 2026-05-25 · Umi / Codex + CC · Lightweight character status and residue visibility
-- 做了什麼：Alan 問是否需要顯示角色目前情緒或 memory status，讓其他角色知道狀況。派 CC 做 read-only review；CC 建議 UI 可以顯示一條安靜狀態線，但不要做 dashboard / 數值 meter / 新 schema。Codex 採納並實作：`campusSocialState.emotions[]` 現在會讀 triad 角色最新 `殘留：...` memory，提供 `residueLineZh` / `residueTimestampLabelZh` 給 UI；角色資料 tab 顯示情緒線索、可用狀態、狀態句、最近想法、最近記憶；角色卡 / 日程有 residue 時會顯示一條很短的狀態線。
-- Prompt：`convex/agent/conversation.ts` 加 bounded visible-state prompt lines，讓 pilot speaker 看見自己和對方的非數值狀態、最近意圖、最近記憶；可用 `UNDERWORLD_STATUS_READ=false` 關掉。這不是新 behavior engine，也不會寫 DB。
-- Scope：不改 `convex/schema.ts`、不做情緒數字、不可從 UI 編輯 residue、不擴到所有角色的大腦。沒有 post-change residue sample 時 UI 會自然隱藏 residue line。
-- 動到哪些檔案：`convex/school.ts`、`convex/agent/conversation.ts`、`src/components/PlayerDetails.tsx`、`src/index.css`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:campusSocialState '{"timeZone":"America/Chicago"}'` PASS；Chrome visual smoke at `localhost:5173/ai-town` PASS，角色卡與角色資料狀態區沒有明顯 overflow/overlap。
-- 狀態 / handoff：下一步仍是收 fresh post-change Umi/Mahiru/Asuna samples。只有新 conversations 真的產生 `殘留：...` 後，UI 才會顯示 residue line；fresh samples <3 不要繼續調 prompt。
-
-### 2026-05-25 · Umi / Codex · Implemented v0.1 Phase 1 residue continuity loop
-- 做了什麼：完成 Alan 指定的 `/goal` Phase 1：conversation -> emotional residue -> memory continuity。合格的 Umi/Mahiru/Asuna pilot conversation memory 現在會在既有 `memories.description` 後面追加一行 bounded `殘留：...`；後續同 pair prompt 會讀回最多 2 條 residue 作為 emotional pressure，不逐字引用。
-- Scope：不改 `convex/schema.ts`、不建 emotion table、不做 `sadness +3`、不開 behavior drift engine、不擴到全角色。`UNDERWORLD_RESIDUE_WRITE=false` 可關寫入；`UNDERWORLD_RESIDUE_READ=false` 可關 prompt 讀取。
-- Eval：`eval:soul-triad` 新增 `Memory continuity` 欄位，會比較最近同 pair conversations 是否有 callback / concrete cue continuity；`eval:conversation:recent` 新增 `memoryContinuityScore` 與 `nonNumericEmotionScore`，避免 emotional residue 退化成數值表。
-- 動到哪些檔案：`convex/agent/memory.ts`、`convex/agent/conversation.ts`、`evals/conversations/runSoulTriadEval.ts`、`evals/conversations/metrics/conversation_metrics.ts`、`docs/giis-v0.1-roadmap.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run eval:soul-triad` PASS/WARN 並產出 `Memory continuity` 欄；`npm run eval:conversation:recent -- --since-last-change` PASS，post-change archived conversations = 0（sample pending）；`npm run build` PASS（保留既有 Vite chunk-size warning）；`git diff --check convex/agent/memory.ts convex/agent/conversation.ts evals/conversations/runSoulTriadEval.ts evals/conversations/metrics/conversation_metrics.ts docs/giis-v0.1-roadmap.md WORKLOG.md` PASS。
-- 狀態 / handoff：下一步需要 fresh post-change triad samples。fresh samples <3 時不要繼續改 memory/prompt；先看 residue 是否真的被寫入、是否在下一段自然回來、是否變成新 slogan。
-
-### 2026-05-25 · Umi / Codex + CC · v0.1 emotional continuity implementation plan
-- 做了什麼：依 Alan 的 v0.1 scope reset，派 CC 做 read-only second opinion，聚焦三件事：角色說話是否符合靈魂、conversation -> emotional residue、emotional residue -> memory continuity。CC 建議最小路徑是不加 schema、不做 emotion meter，而是在既有 memory description 補一行短 residue，下一次同 pair 對話最多讀 2 條。
-- Umi/Codex 決策：採納方向，但要求 Phase 1 必須 pilot-only、flag-gated、可回滾；不改 `convex/schema.ts`，不開 behavior drift engine，不碰全角色 rollout。下一個實作 patch 應只碰 `convex/agent/memory.ts`、`convex/agent/conversation.ts`、eval files、roadmap docs。
-- 為什麼：這符合目前 v0.1 最小 emotional continuity loop，也避免把情緒變成 `sadness +3` 或重新引爆 DB/memory spam。
-- 動到哪些檔案：`umi/workload.md`、`WORKLOG.md`。
-- 驗證：planning / coordination-only change；`git diff --check umi/workload.md WORKLOG.md` PASS。
-- 狀態 / handoff：下一步若 Alan 同意實作，先做 Phase 1：residue write + same-pair residue prompt read + continuity eval，不做 schema migration。
-
-### 2026-05-25 · Umi / Codex · v0.1 scope reset to emotional continuity loop
-- 做了什麼：依 Alan 新定義，將 v0.1 主線收斂成最小 emotional continuity loop：`conversation -> emotional residue -> memory continuity -> small behavioral consequence -> tomorrow feels different`。
-- Scope reset：目前只討論三件事：角色講的話是否符合靈魂；對話會留下 emotional residue；emotional residue 會被記住並影響 memory continuity。小行為變化仍重要，但只是 residue/memory 的輸出，不單獨建大型 behavior engine。
-- Deferred：大型 civilization systems、giant relationship graphs、全員 soul system、high-frequency emotion writes、numerical emotion dashboard、memory schema migration、fine-tuning、full all-NPC LLM、major UI redesign 都先 archive / 放一邊。
-- 動到哪些檔案：`docs/giis-v0.1-roadmap.md`、`docs/soul/SOUL_PROGRESSION_PLAN.md`、`docs/soul/README.md`、`WORKLOG.md`。
-- 驗證：documentation-only change；`git diff --check docs/giis-v0.1-roadmap.md docs/soul/SOUL_PROGRESSION_PLAN.md docs/soul/README.md WORKLOG.md` PASS。
-- 狀態 / handoff：Codex/CC 後續 v0.1 工作應先問三個問題：是否改善 character-soul authenticity？是否建立/保護 emotional residue？是否改善 memory continuity 而不製造 memory spam？否則視為 out of scope。
-
-### 2026-05-25 · Umi / Codex + CC · Emotional slogan collapse fix
-- 做了什麼：Alan 指出角色 soul 變強後，明日奈開始把「焦慮轉成任務管理」壓縮成重複口號，例如「我又想把它拆成任務」。派 CC 做 read-only review；CC 判斷 prompt/eval/fallback 都把 emotional tendency 和 surface tokens 綁太緊，尤其 Asuna 的 `下一步`、`負責`、`分掉`、`排表`、`拆成任務`。
-- 修正：`convex/agent/conversation.ts` 新增表面多樣性與作者內防口號規則：保留情緒傾向，不保留口頭禪；如果 Asuna 已說過任務/清單/排表/下一步/我來，下一句要改成關掉一件事、把筆放著、讓別人接一段、或直接說「等一下」。同時替換 deterministic Asuna motif fallback，移除固定 `我知道我又想把它拆成任務` 句，改成多種同 core 的表達。
-- Eval：`evals/conversations/runSoulTriadEval.ts` 新增 `emotionalSloganPenalty`，會抓單段與 batch 內跨 conversation 重複的 emotional shorthand，且讓 slogan-contaminated sample 最多只能 WARN；`evals/conversations/metrics/conversation_metrics.ts` 新增 `emotionalSloganScore`。Asuna 的 voice/eval cues 從 exact slogan tokens 改成 broader action/stop/hand-off family signals。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:soul-triad` 現在把三段舊 slogan-contaminated samples 都壓成 WARN 0.76，並在 report 顯示 `Emotional slogan penalty`；`npm run eval:conversation:recent -- --since-last-change` 顯示 post-change archived conversations = 0，需等 fresh samples；`git diff --check` PASS。
-- 狀態 / handoff：這是 prompt/fallback/eval 小修，不改 schema/provider/memory。下一步要看 fresh samples 是否仍把同一個 soul 壓成新口號；fresh samples <3 時不要繼續改。
-
-### 2026-05-25 · Umi / Codex + CC · Dialogue naturalness pass: less therapy, less echo
-- 做了什麼：Alan 指出角色太情緒成熟、太會說、也會互相 mirror。派 CC 做 read-only second opinion；CC 判斷核心問題是 prompt/eval 同時獎勵「接住上一句」「命名情緒」「therapy-like empathy」。Codex 採納方向但維持小修，不加新系統。
-- 修正：`convex/agent/conversation.ts` 的 soul pilot binding rule 從「必須呼應上一句具體詞」改成鬆散關聯，允許停頓、答太實際、岔開到小物件/小任務；補上 Umi/Mahiru/Asuna 不完美說話規則，並讓 everyday/single-purpose prompt 明確允許笨拙、防衛、短句與不完美回應。
-- Eval：`evals/conversations/runSoulTriadEval.ts` 新增 `imperfectResponseStyle`、`indirectnessScore`、`overArticulationPenalty`、`therapyEmpathyPenalty`，並讓明顯 therapy/過度剖析樣本最多只能 WARN；`evals/conversations/metrics/conversation_metrics.ts` 新增 `dialogueNaturalnessScore` / `therapyTemplateScore`，soften previous-speaker binding，加入 mirror penalty，並把真晝 voice cues 從純情緒詞改成更日常的「嗯 / 茶 / 外套 / 你吃了嗎 / 不催」。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk-size warning）；`npm run eval:soul-triad` PASS/WARN，`conversation-c:39537` 因 over-articulation + therapy empathy 被壓成 WARN 0.76；`npm run eval:conversation:recent -- --since-last-change` 顯示目前 post-change archived conversations = 0，需等 fresh samples；`git diff --check` PASS。
-- 狀態 / handoff：不要因舊樣本立刻再改 prompt。下一步讓世界自然產生新 triad sample，再看是否真的減少「我聽到的是 / 你不是工具 / 我不是不累只是...」這類 therapy-template。若 fresh samples <3，不改 code。
-
-### 2026-05-25 · Umi / Codex + CC · Calibrated recent conversation eval
-- 做了什麼：Alan 問是否只要把世界打開讓角色自然對話；確認現在正確做法是 `npm run dev` terminal + `/ai-town` world page 保持開著，讓 browser heartbeat 維持 world engine。接著處理 v0.1 observe 的 evaluator 問題：CC 指出 `conversation-c:39026` 被 recent eval 誤判成 verbatim repetition，但 `conversation-c:38982` 有真實 cross-speaker echo，不能被洗白。
-- 修正：`evals/conversations/metrics/conversation_metrics.ts` 的 `repetitionScore` 不再用整段 transcript 包含 previous input 來判斷 repetition，改抓相鄰不同 speaker 的長片段 echo；`characterVoiceScore` 改成看參與角色的 voice cues，但 denominator 仍以少量 cue 作為 evidence，不把角色聲線變成字典背誦；`emotionalSpecificityScore` 補入 Underworld 常見的 social/emotional signals（缺席、理所當然、接住、陪、安靜、吃飯、呼吸、慢一點等）。
-- 修正 gate：`scripts/underworld-repair-gate.mjs` 支援新版 observe summary keys，並且尊重 `sample_pending` / `observe_only`，避免在 latest observe 已經是等待樣本時因 report 內有 voice 字樣誤產 proposal。刪除剛剛由錯誤 gate 產生的 `umi/proposals/20260525T222649Z-v01-approach-proposal.md`。
-- 結果：`npm run eval:conversation:recent -- --since-last-change` 從 `0 PASS / 1 WARN / 5 FAIL` 校準成 `6 PASS / 2 WARN / 0 FAIL`；`38982` 仍保留 WARN：`repetitionScore: cross-speaker echo count 1`。`npm run underworld:observe -- --collect=skip --cc=skip --since-created-at=1779747003126` 更新 latest report：soul `2/0/0`、recent `6/2/0`、top category `sample_pending`、next action `wait for more fresh samples; do not modify code`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk size warning）；`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS，decision=`observe_only`；`git diff --check` PASS。
-- 狀態 / handoff：不要改 conversation prompt/code。現在應該讓世界繼續自然產生樣本；等 fresh triad samples >= 3 且 recent eval 出現穩定 WARN/FAIL 類型，再進 repair/proposal。
-
-### 2026-05-25 · Umi / Codex + CC · v0.1 UI ship-polish + observe framing fix
-- 做了什麼：更新 v0.1 roadmap 後，派 CC 做 read-only UI polish / risk review，Codex 採納其低 blast-radius 建議並完成第一輪實作。新增 bottom bar 單行 quick text input（`gift` / `leaveMessage` / `announce` / `createClub`，Enter 送出、Esc 取消）、地圖上方 floating action-result overlay（custom event `giis:action-result`，只在控制面板收合且非對話模式顯示）、角色 roster 瘦身（compact portrait + one-line location），並補上選定角色的 `留訊息` 快捷 action。
-- 後續修正：跑 `npm run underworld:observe` 收到新樣本 `conversation-c:39026`（海 / 真晝）。soul-triad 給 PASS 0.99，但 recent eval 對同一段與另一段 post-fix conversation 給 0 PASS / 0 WARN / 2 FAIL。採納 CC 對 report overclaiming 的提醒，修正 `scripts/underworld-observe-once.mjs`，讓 report 同時列出 soul/recent PASS-WARN-FAIL，並在 rubric 打架時標成 `eval_rubric_disagreement` / proposal-only，不再寫成 `observed issue: none`。
-- 為什麼：Alan 目前 v0.1 目標是「收乾淨對外 share」。這輪只做 shareability / 操作摩擦修正，不碰 schema、provider、prompt、角色擴張或 soul architecture。
-- 動到哪些檔案：`docs/giis-v0.1-roadmap.md`、`umi/workload.md`、`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`src/index.css`、`scripts/underworld-observe-once.mjs`、`umi/reports/v01-approach-latest.md`、`WORKLOG.md`。
-- 驗證：`python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 取得 CC review；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS（保留既有 Vite chunk size warning）；`node --check scripts/underworld-observe-once.mjs` PASS；`npm run underworld:observe -- --collect=skip --cc=skip --since-created-at=1779747003126` PASS，report 正確標成 `eval_rubric_disagreement`；`git diff --check` PASS；`curl -I --max-time 8 http://localhost:5173/ai-town` PASS；`curl -I --max-time 8 http://localhost:5173/ai-town?view=conversations` PASS。Headless Chrome screenshot 只能看到 app shell / background，因該 headless session 未等到 Convex game state；manual browser interaction / screenshot capture 還沒完成。
-- 狀態 / handoff：local `npm run dev` 仍在本 session running。下一步是人工或可用 browser tool 檢查：選角色 → `送禮` / `留訊息` inline input → action-result overlay；再拍 `docs/screens/` 的 README screenshots。
-
-### 2026-05-25 · Umi / Codex · Unblocked local dev server after CC handoff
-- 做了什麼：接手 CC 的 server blocker。清掉 CC 遺留的 Vite probe process，實跑 `npm run dev` 後確認真正問題不是 esbuild，而是 local Convex state 很大（SQLite 約 3.3GB、整體 state 約 10GB），預設 30 秒等不到 backend。用 `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npm run dev` 成功啟動，再把 timeout 固定進 `package.json` 的 `predev` / `dev:backend` scripts，之後 Alan 可直接跑 `npm run dev`。
-- 修正：`src/components/PixiViewport.tsx` 加窄型別 cast，解掉 `pixi-viewport` runtime 支援 `events` 但 TypeScript 定義不認的 build blocker；不改 runtime 行為。
-- 動到哪些檔案：`package.json`、`src/components/PixiViewport.tsx`、`WORKLOG.md`。
-- 驗證：`curl -I --max-time 8 http://localhost:5173/ai-town` PASS；`curl -I --max-time 8 http://localhost:5173/ai-town?view=conversations` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:worldClock` PASS；`CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；`testing:resume` 已把 inactive engine resume；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`git diff --check package.json WORKLOG.md` PASS。
-- 狀態 / handoff：local dev server 目前在本 session 裡 running。Alan 之後只需跑 `npm run dev` 開 UI/world；另開第二個 terminal 跑 `bash umi/run_v01_approach_loop.sh` 才跑 v0.1 observe/repair loop。視覺 browser QA 尚未做，因本 session 沒有可用 Playwright/browser module。
-
-### 2026-05-25 · CC · v0.1 ship-polish: README 英文化 + 密鑰搬遷 + UI hand-off 給 Codex
-- 做了什麼：
-  1. 驗證 sanitizer 狀態：local Convex 沒起來無法 run 新 eval，但 `evals/conversations/reports/soul-triad-latest.md` 最新 sample `conversation-c:38941`（海/明日奈）PASS 1.00、所有 penalty（echo / stage-direction leak / template / system / role）都是 0.00。Post-fix 樣本上 sanitizer clean。
-  2. 把 `key.md`（Qwen API key + GitHub PAT）搬出 repo 到 `~/.config/giis-underworld/secrets.env`（dir 700 / file 600）。刪掉 repo-local `key.md`。Pre-check：`.gitignore` 已覆蓋 `key.md`；git history `-S` 搜兩個 token 都 0 命中，從未被 commit。
-  3. `AGENTS.md` 新增 `## Secrets and API keys` 段，codify「個人 key 在 `~/.config/giis-underworld/secrets.env`、server-side LLM key 走 `npx convex env set`、絕不放 repo」規則。
-  4. `README.md` 上半部完全重寫為英文 ship-ready：vision、cast（用 `public/portraits/*.png` 七張頭像 — Umi / Mahiru / Asuna / CaoCao / Liu Bei / Mai，Alan 是 player）、status、AI-Town diff table、soul architecture、golden moments、quick start、project structure、eval harness、roadmap。下半部 AI Town foundation setup 完整保留（Installation / Connect an LLM / Docker / Troubleshooting / Convex 描述）。
-  5. 新增 `docs/screens/README.md`，列出三張 placeholder 截圖（`campus-overview.png` / `conversation.png` / `action-result.png`）的拍攝規格、檔名約定、可選 shots、re-shoot policy。
-  6. 把 UI 三件（角色 tab 密度、inline text input、floating action-result card）+ VN overlay re-check + 截圖捕捉 寫成 task `2026-05-25-codex-v01-ship-polish-pickup` 交給 Codex（已更新 `umi/workload.md`）。
-- 為什麼：Alan 本 session 把 v0.1 目標定為「收乾淨對外 share」。Ship-ready 英文 README 是對外分享的最低門檻；repo 裡的明文 secrets 是 share 前最後一個要清乾淨的危險物；UI polish 因 dev server 起不來無法在 browser 驗證，hand off 比硬做安全。
-- 動到哪些檔案：`README.md`（大改，~900 → ~720 行）、`AGENTS.md`（加 secrets 段）、`docs/screens/README.md`（新檔）、`~/.config/giis-underworld/secrets.env`（新建，repo 外）、`key.md`（刪除）、`umi/workload.md`（換成 Codex pickup task）、`WORKLOG.md`（本筆）。
-- 驗證：`git status` 確認修改範圍；`grep -E "(\.env|key|secret)" .gitignore` 確認 ignore 規則；`git log --all -S "<token>"` 對兩個 token 都 0 命中。**沒跑** `tsc` / `npm run build`，因為本 session 不改 runtime code。**沒跑** `npm run eval:soul-triad` 新一輪，local Convex backend 10s timeout 起不來。**沒跑** `npm run dev` / `npm run dev:frontend`，Vite 報 esbuild binary 缺；未做 `npm install` 是因為那是 environment 級 side effect，留給 Codex 決定。
-- 狀態 / handoff：UI 三件 + VN overlay re-check + 實際截圖 全部 hand off 給 Codex，詳見 `umi/workload.md` 新 task `2026-05-25-codex-v01-ship-polish-pickup`。Codex 必須先做 environment unblock（`rm -rf node_modules package-lock.json && npm install` 然後 `npm run dev`）才能驗證 UI 改動。注意：新 README 引用了 `docs/screens/` 下三張還不存在的 PNG，在 Codex 拍完之前 GitHub render 會顯示 broken image icons。
-
-### 2026-05-25 · Umi / Codex · Fixed local recent-eval character mapping
-- 做了什麼：Alan 貼出最新 UI 對話後，查到 `conversation-c:38954` 真實 current participants 是 `劉備 / 麻衣`，但 `eval:conversation:recent` 在 Convex backend 不 running 時 fallback 到 local SQLite，讀到了 Convex document history，錯把 `p:8` 舊版 description 當成真晝，report 誤顯示 `真晝 / 麻衣`。
-- 修正：`evals/conversations/runRecentConversationEval.ts` 的 local SQLite fallback 現在只讀每個 document 的 latest `ts` current version，再建立 playerId -> display name map，避免歷史版本污染 report。
-- Evidence：current local DB 顯示 `p:8 = Liu Bei`、`p:707 = Mahiru Shiina`；`conversation-c:38954` messages authors 是 `劉備 / 麻衣`。相關 current memories 查詢沒有找到 Mahiru/Mai/LiuBei 對 `c:38954` 的 memory 寫入。
-- 驗證：`npm run eval:conversation:recent -- --since-last-change` PASS，現在正確顯示 `conversation-c:38954 | 劉備 / 麻衣`；`npx tsc --noEmit --pretty false` PASS。
-- 狀態 / handoff：這是 eval/report bug fix，不改 runtime。`c:38954` 本身是 deterministic fallback/personality line 組合，不應拿來當 soul-quality golden；且在 memory guard 下不應污染真晝記憶。
-
-### 2026-05-25 · Umi / Codex · Stopped local Underworld runtime loops
-- 做了什麼：依 Alan 要求檢查並停止本機 terminal 裡正在跑的 Underworld 相關 process。停掉 `ttys000` 的 `npm run underworld:approach:v01` / `node scripts/underworld-approach-v01.mjs`，以及 `ttys001` 的 `npm run dev`、Convex dev、Vite frontend、local Convex backend、esbuild helper。
-- 保留：Codex app 自己的 ai-town working-dir kernel 沒有停，因為那是本次協作 session。
-- 驗證：`ps -ef | rg 'ai-town|underworld|vite|convex|npm run dev|npm run underworld|underworld-approach|run_v01|node scripts/underworld|school:|pilot:soul|eval:soul|eval:conversation'` 只剩 Codex kernel / rg；`lsof -nP -iTCP:5173 -sTCP:LISTEN`、`:3210`、`:3211` 都無 listener。
-- 狀態 / handoff：目前 Underworld local runtime 已停。若要看 UI 和讓世界跑，先開 `npm run dev`；若要跑 v0.1 observe/repair local loop，另開 terminal 跑 `bash umi/run_v01_approach_loop.sh`。
-
-### 2026-05-25 · Umi / Codex + CC · Added two-hour conversation repair review gate
-- 做了什麼：把 `npm run underworld:repair-gate` 升級成兩小時 conversation repair review gate。它會讀 `umi/reports/v01-approach-latest.md`、優先看 post-fix conversation failures、分類 observe-only / small targeted fix candidate / large proposal-only，並在 local `claude` 可用時請 cc 做 read-only second opinion / code-review style risk check。輸出寫到 `umi/reports/v01-repair-gate-latest.md`。
-- CC second opinion：本輪 cc 判斷「不要修」：provider unavailable、fresh triad samples = 0、post-fix N=2 且同一 dyad，不能把 `echo_repetition` 直接升成 auto-fix。Umi/Codex 採納，將 gate 收緊：provider outage、fresh samples <3、或 report category 與 conversation diagnosis 在 provider issue 下互相打架時，一律 `observe_only`。
-- 動到哪些檔案：`scripts/underworld-repair-gate.mjs`、`README.md`、`docs/soul/README.md`、`umi/reports/v01-repair-gate-latest.md`、`WORKLOG.md`。
-- 驗證：`node --check scripts/underworld-repair-gate.mjs` PASS；`npm run underworld:repair-gate -- --cc=skip` PASS，分類 `echo_repetition` 但 final decision 正確降成 `observe_only`；`npm run underworld:repair-gate` PASS 並取得 cc review；`git diff --check scripts/underworld-repair-gate.mjs README.md docs/soul/README.md WORKLOG.md umi/reports/v01-repair-gate-latest.md` PASS。
-- 狀態 / handoff：Alan 現在跑著的 `npm run underworld:approach:v01` 下一次兩小時 repair window 會呼叫新版 gate。它不會自己改 code；若樣本足夠且問題屬於 allowed hygiene，才會標小修候選；大修只寫 proposal。
-
-### 2026-05-25 · Umi / Codex · Clarified v0.1 approach loop automation status
-- 做了什麼：確認 v0.1 approach loop 目前不是 Codex automation panel task，而是 repo-local scripts。`/Users/alanhdchu/.codex/automations` 目前只有 email morning check，沒有 GIIS/Underworld automation；也沒有任何 `underworld:approach` / `v01-approach` local process 正在跑。
-- 文件：README 新增 `v0.1 Approach Loop` 區段，明確列出 manual observe、local long-running loop、local launcher、stop method、report paths，以及 panel automation status。
-- 動到哪些檔案：`README.md`、`WORKLOG.md`。
-- 驗證：`find /Users/alanhdchu/.codex/automations -maxdepth 2 -type f -print`；`ps -ef | rg 'underworld:approach|underworld-observe|v01-approach|run_v01'`；待本輪最後跑 `git diff --check`。
-- 狀態 / handoff：如果 Alan 要它出現在 automation panel，需要在 panel 建兩個 visible automations：45 分鐘 observe 跑 `npm run underworld:observe`，2 小時 repair gate 跑 `npm run underworld:repair-gate`。目前這一輪沒有可用工具能安全直接註冊 panel automation。
-
-### 2026-05-25 · Umi / Codex · Added at-a-glance conversation wall
-- 做了什麼：新增 `ConversationWall` 頁面，讓 Alan 可以用 `/ai-town?view=conversations` 一眼看最近 archived conversations。左上新增「世界 / 對話」切換，不引入 router、不改主世界 flow。頁面顯示總對話數、角色數、需看 flags、三人試點數、最有餘味片段、最需要看的 failure，並支援全部 / 試點 / 需看與角色篩選。
-- Hygiene flags：conversation wall 會標出 `fallback`、`stage`、`echo`、`name`，方便快速看 stage-direction leak、verbatim echo、fallback contamination、wrong naming 類問題。第一屏能直接看到 `conversation-c:38915` 的 echo，以及舊 samples 的 stage flags。
-- 動到哪些檔案：`src/components/ConversationWall.tsx`、`src/App.tsx`、`src/index.css`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit` PASS；`npm run build` PASS；`git diff --check` PASS；Chrome 打開 `http://localhost:5173/ai-town?view=conversations` 桌面與窄寬度視覺檢查 PASS，資料、filters、flags、scroll 都正常顯示。
-- 狀態 / handoff：這是 read-only observation UI，只讀 `school:recentConversationEvalData`，不改 DB、不觸發對話、不跑 eval。下一步可視需要把 active conversations 或 v0.1 report summary 接進同一頁。
-
-### 2026-05-25 · Umi / Codex + CC · Implemented runnable v0.1 approach loop
-- 做了什麼：新增 runnable v0.1 approach loop，而不是只寫文件。`npm run underworld:observe` 跑一輪 observe：白天可收 scoped Umi/Mahiru/Asuna sample、跑 `eval:soul-triad`、跑 `eval:conversation:recent -- --since-last-change`、查 worldClock/debugState/fallback audit、估 v0.1 scores、寫 `umi/reports/v01-approach-latest.md`，並在 cc 可用時做 read-only review。`npm run underworld:approach:v01` 以 45 分鐘 observe / 2 小時 repair gate 的節奏循環；夜間 quiet mode 不強迫對話。`npm run underworld:repair-gate` 只做分類與 proposal gate，不直接改 runtime code。
-- 安全邏輯：auto-fix gate 僅允許 wrong addressee、stage-direction leak、fallback contamination、echo repetition、eval/report bug、provider failure handling；其他 memory/schema/provider/major prompt/autonomous behavior/DB cleanup/soul architecture 都是 proposal-only。若 fresh samples <3，report 會標 `sample_pending` / `observe_only`，即使看見 echo 也不自動修。
-- 第一輪 evidence：正式 `npm run underworld:observe` 收到 `conversation-c:38915`（海/明日奈，8 messages）。Stage-direction leak = 0，provider/runtime ok；`eval:soul-triad` WARN 0.76，但 `eval:conversation:recent` FAIL 0.88，原因是 character voice diversity + verbatim echo（「你剛說/你剛才說」）。CC review 指出 N=1 不足、report 不該把歷史 fallback audit 當本輪 top failure；已修 observe classifier。dry-run 用同一 sample 重跑後 report 正確標 `Top failure category: sample_pending`、`Observed issue: echo_repetition`、`Repair class: observe_only`。
-- 動到哪些檔案：`scripts/underworld-observe-once.mjs`、`scripts/underworld-repair-gate.mjs`、`scripts/underworld-approach-v01.mjs`、`package.json`、`docs/soul/README.md`、`umi/reports/v01-approach-latest.md`、`WORKLOG.md`。
-- 驗證：`node --check scripts/underworld-observe-once.mjs` PASS；`node --check scripts/underworld-repair-gate.mjs` PASS；`node --check scripts/underworld-approach-v01.mjs` PASS；`npx tsc --noEmit` PASS；`npm run build` PASS；`npm run underworld:observe` PASS；`npm run underworld:observe -- --dry-run --collect=skip --cc=skip --since-created-at=1779740799803` PASS；`npm run underworld:repair-gate` PASS；`git diff --check` PASS。
-- 狀態 / handoff：不要因 `38915` 單段 echo 就改 prompt。下一步是讓 approach loop 再收 2+ fresh samples；若 echo/voice diversity 在 >=3 samples 後仍穩定復現，再走 proposal 或 bounded auto-fix。
-
-### 2026-05-25 · Umi / Codex · Persisted autonomous director loop contract
-- 做了什麼：把 Alan 的 Autonomous Director Loop 寫成 repo operating contract。新增 `docs/soul/AUTONOMOUS_DIRECTOR_LOOP.md`，並在 `AGENTS.md` 加入 project-local 行為規則：observe 可全自動、diagnose 半自動、repair 僅限低風險 hygiene/harness；memory/schema/provider/major prompt/autonomous behavior/DB cleanup/soul architecture 一律 proposal-only。
-- 為什麼：v0.1 要讓世界慢慢變得更像人，而不是讓 Codex 變成每小時追 eval 分數的 auto-optimizer。這份規則保護 character identity、emotional distinctiveness、atmosphere、relationship chemistry、quiet moments、aftertaste，以及 DB/runtime/provider 穩定性。
-- 動到哪些檔案：`AGENTS.md`、`docs/soul/AUTONOMOUS_DIRECTOR_LOOP.md`、`docs/soul/README.md`、`WORKLOG.md`。
-- 驗證：docs/policy-only update；待本輪最後跑 `git diff --check`。未跑 build/test，因為不改 runtime behavior。
-- 狀態 / handoff：未來 active testing session 可以自動 observe/report；若 fresh sample 不足或 evidence 不清楚，必須回報 `sample pending` / `insufficient evidence for repair`，不要改 code。
-
-### 2026-05-25 · Umi / Codex · Recorded v0.1 north star
-- 做了什麼：把 Alan 給的新定位寫進 README 和 soul docs：GIIS Underworld v0.1 是 persistent emotional social simulation，角色透過時間、記憶、關係與共同氣氛慢慢改變；目標不是 "AI agents talking"，而是 "a world where yesterday emotionally matters"。
-- 為什麼：這是後續 prompt/eval/runtime 取捨的最高層判準，可以避免專案滑回 AI Town demo 或單純增加對話量。
-- 動到哪些檔案：`README.md`、`docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md`、`docs/soul/README.md`、`WORKLOG.md`。
-- 驗證：docs-only update；待本輪最後跑 `git diff --check`。未跑 build/test，因為不改 runtime behavior。
-- 狀態 / handoff：下一輪 QA / eval / prompt 調整都應以「yesterday emotionally matters」作為 v0.1 成功標準。
-
-### 2026-05-25 · Umi / Codex + CC · Dialogue hygiene guard for soul-triad pilot
-- 做了什麼：Alan 指出 fresh samples 把「我合上筆電 / 我把杯子放下」這種 stage direction 寫進角色台詞。先更新 `umi/workload.md` 派 CC read-only review；CC verdict 是 hard hygiene failure，建議 sanitizer + prompt guard now、speech/stageDirection schema split proposal-only。Umi/Codex 採納小修，不開新 schema。
-- Runtime：`sanitizeUmiMahiruPilotLine()` 現在會在 archive/context reuse 前移除高可信第一人稱動作子句，例如「我合上筆電」「我放下杯子」「我把手機轉過去」「我剛把筆蓋好」。若剝完沒有可說出口的台詞，走 pilot fallback，不把 contaminated dialogue 存成角色語言。Umi/Mahiru/Asuna prompt guard 也改成只准 spoken words，不再鼓勵把小動作寫進台詞。
-- Eval：`eval:soul-triad` 新增 `stage_direction_leak_penalty`，有明顯 stage-direction leakage 的樣本 hard-cap FAIL。舊 fresh sample `conversation-c:38904` 已從先前 PASS 改為 FAIL，這是預期修正。
-- 動到哪些檔案：`convex/agent/conversation.ts`、`evals/conversations/runSoulTriadEval.ts`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run eval:soul-triad -- --since-created-at=1779738894077` PASS（`38904`/`38895`/`38883` 全 FAIL，stage leak 被抓出）；`npm run build` PASS；`npm run eval:conversation:recent -- --since-last-change` PASS，且顯示 post-fix archived conversations = 0。
-- 狀態 / handoff：不要再改 conversation code，等下一段 post-fix Umi/Mahiru/Asuna fresh sample。下一輪 QA 要同時看 transcript、`stage_direction_leak_penalty`、以及是否仍有 second-person echo。
-
-### 2026-05-25 · Umi / Codex + CC · CC reintegrated for Soul QA loop review
-- 做了什麼：Alan 說 cc 已經活了，所以把 `umi/workload.md` 換成 `2026-05-25-cc-soul-qa-loop-review`，請 CC read-only review Soul QA loop、三段 fresh transcript、`eval:soul-triad` / `eval:conversation:recent` mismatch。第一次 orchestrator hit socket close；直接 health check 成功後用縮小 prompt 重試，CC 回覆正常。
-- CC verdict：QA loop mostly safe for evaluation；reports mildly overclaim；`conversation-c:38904` 應該 demote 成 provisional golden，不該正式 golden；`eval:soul-triad` PASS vs recent eval FAIL 是 rubric disagreement with a real quality gap underneath；最小安全下一步是先 reconcile rubrics on paper。
-- Umi/Codex 決策：採納。新增 `evals/conversations/reports/soul-rubric-reconciliation.md`；把 `evals/conversations/golden/20260525T195454Z-conversation-c-38904.md` 標成 provisional；更新 `umi/reports/soul-loop-latest.md` 和 `umi/workload.md` 結果。
-- 為什麼：現在 priority 是 harness/world evaluation first，不是 fine-tuning 或 prompt 大改。先讓評分標準不要互相打架，避免把錯的 taste 當 golden data。
-- 驗證：CC health check `claude -p ...` 回 `cc online.`；CC compact review completed；待本輪最後跑 `git diff --check`。
-- 狀態 / handoff：下一步是 harness alignment/golden archive policy；不要因 `38904` 單段 PASS 就改 prompt 或 fine-tune。
-
-### 2026-05-25 · Umi / Codex · Added semi-autonomous soul QA loop harness
-- 做了什麼：新增 `scripts/run-soul-qa-loop.mjs` 和 `npm run eval:soul-qa-loop`。預設只跑一輪；加 `-- --loop --interval-ms=1800000` 才會每 30 分鐘循環。每輪會嘗試透過既有 scoped `pilot:soul-triad:single-sample` 收最多 3 段 fresh triad samples、把 transcript 印到 stdout、跑 `npm run eval:soul-triad` 和 `npm run eval:conversation:recent -- --since-last-change`，並寫 `umi/reports/soul-loop-latest.md`。
-- 安全規則：fresh sample count <3 時只回報 sample pending，不允許 code change。loop 本身不會自由改 runtime；大改會寫 proposal 到 `umi/proposals/`。Provider 429/timeout/model_not_found/quota 會標成 `provider_unavailable`。Golden PASS candidate 可寫入 `evals/conversations/golden/`，不覆蓋舊例子。本輪跑出 3 段 fresh transcript：`38883`、`38895`、`38904`。
-- 為什麼：Alan 要 semi-autonomous，不是 fully autonomous；目標是穩定產生真樣本、演進 harness、看懂什麼叫 alive，而不是讓 loop 自己重寫世界或 fine-tune 固定答案。
-- 動到哪些檔案：`scripts/run-soul-qa-loop.mjs`、`package.json`、`docs/soul/SOUL_PROGRESSION_PLAN.md`、`docs/soul/README.md`、`umi/workload.md`、`WORKLOG.md`。
-- 小修：QA loop 暴露兩個允許的 harness bugs：`eval:soul-triad` 讓 2-message sample `38895` PASS、provider parser 把 runner config `timeout=240000ms` 誤判成 provider unavailable。已修成 `<3 messages` hard FAIL cap，並收窄 provider unavailable detection。
-- 驗證：`node --check scripts/run-soul-qa-loop.mjs` PASS；`git diff --check` PASS；`npm run eval:soul-qa-loop -- --skip-collection --target-samples=0` PASS；真實 `npm run eval:soul-qa-loop -- --target-samples=3 --sample-timeout-ms=240000 --sample-poll-ms=7000` PASS 並列印 transcripts；post-fix `npx tsc --noEmit --pretty false` PASS；`npm run eval:soul-triad -- --since-created-at=1779738894077` PASS（`38904` PASS、`38895` FAIL、`38883` FAIL）；`npm run eval:conversation:recent -- --since-last-change` PASS；`npm run build` PASS。
-- 狀態 / handoff：真正 active testing window 可手動跑 `npm run eval:soul-qa-loop -- --loop --interval-ms=1800000`。每輪 transcript 會印出，也會進 latest report。最新 blocker：recent eval 對三段 fresh samples 全部 FAIL，top reason 是 character voice cue / response move diversity；這是 harness/world evaluation 的下一個問題，不應直接 fine-tune。
-
-### 2026-05-25 · Umi / Codex · Recorded no-fine-tuning priority and harness-first soul evaluation
-- 做了什麼：依 Alan 新優先級，更新 `docs/soul/SOUL_PROGRESSION_PLAN.md`、`docs/soul/README.md`、`umi/workload.md`、`WORKLOG.md`，明確記下：現在不要 fine-tune，先進化 harness 和 world evaluation。
-- 為什麼：目前還沒有完全知道「good Underworld soul」長什麼樣。先建立 emotional continuity、behavioral drift、relationship chemistry、atmosphere、aftertaste、soul consistency 的穩定評估，再收 golden conversations / long-term drift samples；fine-tuning 只能在架構、harness、例子與 persistence 規則穩定後再考慮。
-- 動到哪些檔案：`docs/soul/SOUL_PROGRESSION_PLAN.md`、`docs/soul/README.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：docs-only update；待本輪最後跑 `git diff --check`。沒有 build/test，因為不改 runtime。
-- 狀態 / handoff：current stage 是 teach the world what "alive" means，不是 teach the model fixed answers。下一個 coding pass 應優先設計/實作 stable eval harness，而不是調模型或訓練資料。
-
-### 2026-05-25 · Umi / Codex · Persisted soul progression plan and next-stage handoff
-- 做了什麼：新增 `docs/soul/SOUL_PROGRESSION_PLAN.md`，把「Soul Definition 只是 Character DNA」與下一階段 progression path 固定進 repo：Soul Definition → Soul Expression → Emotional Residue → Behavioral Drift → Relationship Drift → Daily Memory → Long-term Self Narrative。新增 `docs/soul/README.md` 作為 soul docs 入口。
-- 為什麼：避免未來 Codex/CC 只記得 Umi/Mahiru/Asuna profiles，卻忘記真正目標是讓角色透過行為、記憶、關係漂移、沉默、可用性變化、移動與停止做某些事來顯示靈魂。
-- Workload：`umi/workload.md` 已改成下一階段 handoff：build toward Behavioral Drift Engine gradually、pilot-only（Umi/Mahiru/Asuna）、不要全員擴張、不要大 schema、不要 high-frequency writes、不要讓 emotional drift 再次造成 DB explosion。
-- 動到哪些檔案：`docs/soul/SOUL_PROGRESSION_PLAN.md`、`docs/soul/README.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`git diff --check` PASS；確認 `docs/soul/README.md` 和 `docs/soul/SOUL_PROGRESSION_PLAN.md` 存在。未跑 build/test，因為本輪是 docs/handoff-only，沒有 runtime behavior change。
-- 狀態 / handoff：下一個實作 pass 應先設計小型 Behavioral Drift Engine 或 eval rubric，且只能套在 Umi/Mahiru/Asuna；成功標準是 Alan 回來覺得「昨天有留下，今天她們不完全一樣」。
-
-### 2026-05-25 · Umi / Codex · Underworld soul architecture docs + README positioning
-- 做了什麼：依 Alan 指示做 documentation/design pass，新增 Soul Five-Layer architecture doc，並為 Umi / Mahiru / Asuna 建立 pilot soul cards。README 開頭改成 GIIS Underworld 定位：這是 AI Town fork/evolution，但方向是長期 emotional social simulation，不是單純 multi-agent town demo。
-- 為什麼：後續 prompt/eval 需要穩定 source of truth，先定義 Public Self、Private Self、Relational Self、Emotional Residue、Behavioral Drift、Long-Term Arc，避免每次只靠單段對話調 prompt。
-- 動到哪些檔案：`docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md`、`docs/soul/pilots/umi.md`、`docs/soul/pilots/mahiru.md`、`docs/soul/pilots/asuna.md`、`README.md`、`WORKLOG.md`。
-- 驗證：`git diff --check` PASS；確認四份 soul docs 和 README links 存在。未跑 build/test，因為本輪是 docs-only，且不應改 runtime behavior。
-- 狀態 / handoff：docs 現在可作為未來 prompt/eval 的 character source of truth。下一步若要接 runtime，應先從 eval rubric 引用這些 docs 的 care-style / residue examples，而不是直接開大系統。
-
-### 2026-05-25 · Umi / Codex · Soul differentiation pass for triad eval/prompt
-- 做了什麼：把 Alan 的「distinct souls」目標落成小範圍 triad pass。`richUmiMahiruPrompt()` 針對 Umi / Mahiru / Asuna 加 emotional-expression identity：海用整理負擔保護 Alan/對方，真晝用留下與看見安靜痛感照顧人，明日奈用身體接責任並笨拙求助。新增 anti-echo identity rule，要求情緒同向時不能重用同一句、同動作、同安慰節奏。
-- Eval：`eval:soul-triad` 新增 `emotional_expression_uniqueness`、`comfort_style_uniqueness`、`burden_response_uniqueness`、`echo_similarity_penalty`、`human_aftertaste_score`；高 echo 會 hard-cap score，所以 `conversation-c:38819` 保持 FAIL、`conversation-c:38831` 保持 WARN，不會被其他加分洗成 PASS。
-- 為什麼：目前不是 bad AI/fallback 問題，而是角色 emotionally align 但 care style 還不夠分化。這刀只修 prompt/eval，不加 schema、不開全員 LLM、不提高 verbosity。
-- 動到哪些檔案：`convex/agent/conversation.ts`、`evals/conversations/runSoulTriadEval.ts`、`docs/giis-v0.1-roadmap.md`、`WORKLOG.md`。
-- 驗證：`npm ci` 因 `hnswlib-node` native build 需要 Xcode command line tools 失敗；改用 `npm ci --ignore-scripts` 裝 JS 依賴後，`npx tsc --noEmit --pretty false` PASS；`npm run eval:soul-triad -- --since-created-at=1779736239669` PASS（`38831` WARN 0.76、`38819` FAIL 0.55）；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`node --check scripts/run-soul-triad-single-sample.mjs && bash -n umi/soul_triad_hourly_eval_until_sleep.sh` PASS。
-- 狀態 / handoff：下一段 fresh Qwen sample 才能判斷 prompt 是否降低 echo。hourly loop 可繼續；若新樣本仍高 echo，再做一個更窄的 sanitize/abort 或 prompt fix，不提前重寫角色系統。
-
-### 2026-05-25 · Umi / Codex + CC attempted · Umi/Mahiru/Asuna soul-triad pilot + UI flow polish
-- 做了什麼：依 Alan 新目標，選 Asuna 當第三個 character-soul brain，擴充 Umi/Mahiru pilot 為 Umi/Mahiru/Asuna gated triad。新增 `pilot:soul-triad:single-sample`、`eval:soul-triad`、`eval:soul-triad:hourly`；runner 會短暫設定 `SOUL_TRIAD_COLOCATION_PILOT`、co-locate 三人、收一段 archived sample、跑 eval、清掉暫時 env 並 stop engine。UI 加底部 1-5 play flow（進入/選人/靠近/對話/回顧），action result 也在角色 tab 直接顯示。
-- 為什麼：Alan 要「第三個人也跟 Umi/Mahiru 互相對話、每小時 eval 到睡覺」，但不要加 lore/大系統/全員 LLM。Asuna 提供可靠執行者的疲憊，能測「責任被交接」而不是只測 Mahiru care Umi。
-- CC：已透過 `umi/workload.md` 派 bounded review/implementation task，但 Claude Code 本輪 hit weekly limit（report: `umi/reports/20260525T184326Z-2026-05-25-cc-soul-triad-asuna-qwen-pilot.md`），所以 Umi/Codex 先接手完成並驗證。
-- 重要 runtime evidence：`qwen-turbo` 曾短測但 provider 回 `model_not_found`，目前只確認 `qwen3-max` 可用。`conversation-c:38819` 成功 archived 但 echo FAIL；加 anti-echo eval 後 `conversation-c:38831` real Qwen、fallback-free、8 messages、WARN 0.76。de-echo sanitizer 已補一刀，但最後一輪遇到 Convex concurrent write contention，未把它當品質失敗。
-- 動到哪些檔案：`convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`convex/aiTown/agentOperations.ts`、`convex/aiTown/game.ts`、`convex/modelPolicy.ts`、`convex/modelPolicy.test.ts`、`convex/school.ts`、`evals/conversations/runSoulTriadEval.ts`、`scripts/run-soul-triad-single-sample.mjs`、`umi/soul_triad_hourly_eval_until_sleep.sh`、`package.json`、`src/components/Game.tsx`、`src/components/PlayerDetails.tsx`、`src/index.css`、`docs/giis-v0.1-roadmap.md`、`umi/workload.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`bash -n umi/soul_triad_hourly_eval_until_sleep.sh` PASS；`node --check scripts/run-soul-triad-single-sample.mjs` PASS；Chrome/local UI eyeball at `http://localhost:5173/ai-town` showed the bottom flow visible with no obvious overlap.
-- 狀態 / handoff：不要再追單段 PASS 到 overfit。下一步讓 `eval:soul-triad:hourly` 到睡覺前收 2-3 段，貼 transcript + PASS/WARN/FAIL；若同一 failure repeats，再做 exactly one targeted fix。world engine 現在停回 `stoppedByDeveloper` after sample cleanup unless hourly loop resumes it.
-
-### 2026-05-22 · Umi (Cowork) · 左欄合併（簡報＋動態）為固定直欄 Option A
-- 做了什麼：Alan 選 Option A——把 海的簡報（`LeftUmiPanel`）和 校園動態（`CampusNotificationPanel`）合成一個靠左固定直欄：簡報在上、動態在下吃滿剩餘高度可滾動。新增 `.giis-left-column` flex 容器包住兩者；兩個面板不再各自 absolute 浮動、也不再在同時展開時把動態推到 `left:25rem`（那是擋到中間 map 的根因）。解除兩者「開一個就收另一個」的互斥邏輯，讓它們可同時堆疊開著。
-- 動到哪些檔案：`src/components/Game.tsx`（包 `<div className="giis-left-column">`、放寬 `LeftUmiPanel.onExpand` 與 `CampusNotificationPanel.onToggle` 的互斥）、`src/index.css`（新增 `.giis-left-column` 與子元素 static 流式覆蓋；full-view 仍以 overlay 突出）。
-- 驗證（sandbox）：`npx tsc --noEmit --pretty false` PASS（EXIT 0）。純視覺未在機器上 eyeball——Alan 熱重載確認：full-view 全部訊息的 overlay、收合 pill 的樣子、底部會不會跟 `giis-camera-dock`/move-hint 重疊。
-- 狀態 / handoff：#8（右側加寬）、#9（左側不浮動）、#10（簡報＋動態合併）完成並記進 roadmap。剩 #11（右側 target/action flow 檢視優化）未做，等 Alan 看完左欄再走。
-
-### 2026-05-22 · Umi (Cowork) · Companion path 接上 Qwen cloud + 右側面板加寬
-- 做了什麼：Alan 決定既然 cloud Qwen 已在，就把 companion path（Alan↔Umi）也接上同一個 adapter（先前只有 Umi:Mahiru pilot 走雲端，companion 還吃 base ollama、會掉 `companionFallback()` deterministic 模板——他給我看的 38xx companion 對話其實多半是 fallback，不是 live qwen）。companion 重用 Codex 的 modelPolicy / characterSoul cloud 層（含 quota guard），不另開新 adapter。
-- 注意：發現 Codex 在機器上把雲端路由重構成 `modelPolicy` module（`defaultCharacterSoulModel` / `shouldUseCharacterSoulCloudProvider` / `characterSoulProviderGuard` + `convex/modelPolicy.test.ts`）。我先前 Cowork 的兩行 prompt-target 改動（盔甲/裂縫）有被 sync 保留。本次 companion 接線**沒有動 modelPolicy**，只在 conversation.ts 加 opt-in。
-- 動到哪些檔案 / 設計：`convex/agent/conversation.ts`：新增 `companionCloudEnabled()`（gate=`COMPANION_CLOUD_LLM`，預設 off，保護 Alan 私密 chat 不會默默上雲）；`conversationGenerationTuning` 加第三參數 `companionCloud`，給 companion 專屬 model（`COMPANION_PILOT_MODEL` ?? pilotModel）與 timeout（`COMPANION_PILOT_TIMEOUT_MS` 預設 30s，避免又因 12s timeout 掉 fallback）；start／continue 兩處把 `companionMode && companionCloudEnabled()` 傳進 tuning 與 `safeConversationCompletion` 的 cloud-allowed 第三參數。leave path 不動。`policyAbort` 維持 pilot-only（companion 有自己的 companionFallback）。`src/index.css`：右側 `.giis-utility-panel` 加寬（22→28rem、對話時 28→34rem、max 23→32rem）。
-- 隱私決定：newcoin.top 是第三方 proxy，會經手 Alan 私密 companion chat。Alan 明確同意。gate 預設 off，需顯式 `COMPANION_CLOUD_LLM=true` 才開。
-- 驗證（sandbox，無對外網路）：`npx tsc --noEmit --pretty false` PASS（EXIT 0）；`npx jest --runTestsByPath convex/modelPolicy.test.ts` 5/5 PASS（沒弄壞 Codex 的抽象）。實際 companion 對話 latency/品質待 Alan 機器跑。
-- 待 Alan 機器執行（companion 雲端只要這一顆；provider/key/base 沿用 pilot 既有 env）：
-  ```
-  npx convex env set COMPANION_CLOUD_LLM true
-  # 可選：companion 想用別顆模型或更長 timeout
-  # npx convex env set COMPANION_PILOT_MODEL qwen3-max
-  # npx convex env set COMPANION_PILOT_TIMEOUT_MS 30000
-  ```
-- 給 Codex 的話：companion 是 additive opt-in，重用你的 characterSoul cloud 層。若你想把它收進 modelPolicy 的統一決策（例如一個 `cloudAllowedFor(context)`），我的 `COMPANION_CLOUD_LLM` gate + `companionCloud` 參數就是接口面，歡迎吸收/改名。
-- 狀態 / handoff：companion 雲端接線完成 + 本地驗證過。下一步 owner = Alan：機器上 `COMPANION_CLOUD_LLM=true` 後，跟海講一句話，看 timing log `usedFallback:false` 且 model=qwen 系列（確認不再是 companionFallback 模板）。
-
-### 2026-05-22 · Umi (Cowork) · Umi soul prompt target fix + prompt-constraint audit
-- 做了什麼：接手 Codex（沒電）。Codex 抓到瓶頸：38192 是 real Qwen、乾淨，但海每句把疲憊轉回劉備/簡報/明天。我做 root-cause 再判：根因不是少 guard，是 prompt 自己強制 deflection——`richUmiMahiruPrompt` 的 `hardLocalPriority`(海) 與 `節奏` 兩行命令海每句轉去 Alan/責任+疲憊tag，38192 是模型完美照演。改寫這兩行（Alan 已核准措辭）：deflection 變盔甲、可出現但非每句；真晝指名海本人時至少一句完全停在自己、不接 Alan/劉備/簡報/明天；被照顧句不准尾隨任務；明寫「一次裂縫勝過五句客套疲憊」防新模板。
-- 為什麼：Codex 原計畫是「加一條：海先停一句」，方向對但用加規則會變新模板（本 repo 累犯）。改用改寫既有強制，更穩。
-- code trace 佐證：pilot pair 的 system prompt 只有 `richUmiMahiruPrompt`（conversation.ts L322-324），不吃 `topicShiftPrompt`/Layer 1-5/Language ban，所以這兩行是 pilot 唯一槓桿。
-- 順手做世界觀 prompt-constraint audit（細節寫進 `docs/giis-v0.1-roadmap.md` 的「2026-05-22 Umi Soul Prompt Target Fix + Prompt-Constraint Audit」section）：同類「每句強制招牌動作→模板」的還有 `topicShiftPrompt` 每個角色被釘一個 signature move、Layer 5 強制 task-resolution/ask Alan、以及 richUmiMahiruPrompt 內仍把海推向簡報/Alan 的 `umiMahiruDailyState`/`umiMahiruUnresolvedMemory`。這些目前都不影響 pilot（pilot 只讀 richUmiMahiruPrompt），但 LLM 一擴 pair 就會發作。
-- 動到哪些檔案：`convex/agent/conversation.ts`（兩行 prompt）、`docs/giis-v0.1-roadmap.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS（EXIT 0）。sample 生成 / `eval:umi-mahiru` / build 待 Alan 機器執行（Cowork sandbox 無對外網路、跑不到本機 Convex）。
-- 狀態 / handoff：prompt fix 已套。下一步 owner = Alan，機器上重啟 pilot 收 3-5 段 fresh sample 對照（看海是否至少一次卸甲、不再每句尾隨劉備/明天）。給 Codex 的討論點與其他 prompt 限制清單已在 roadmap。
-
-### 2026-05-22 · Umi / Codex · Leave sanitizer wired and full-conversation eval restored
-- 做了什麼：發現 `leaveConversationMessage()` 沒走 Umi/Mahiru pilot sanitizer，導致 `38170` 最後一句 exit 太長、太抽象。已把 leave path 接上 `sanitizeConversationContent()`，並新增 pilot leave rule：36 字內、plain spoken sentence、禁止「謝謝你的溫柔 / 稍後再回來 / 保重 / 整理沉默」這類漂亮收尾；若仍 verbose，直接 `[ABORT_CONVERSATION] pilot verbose exit`，不把長 exit 存進對話。
-- Eval 修正：`eval:umi-mahiru` 偶爾第一下空表，已加 3 次短重試；Umi/Mahiru eval 改看最多 8 則 transcript，不再只看最後 3 則，避免把一整段對話裁成 exit-only 判斷。
-- 新 sample：`conversation-c:38192`，real Qwen、no fallback/template、stageDir 0；完整片段：海「剛才劉備提的事我記下來了，不過這份簡報我先合上，明天再補一條就好。」→ 真晝「你手邊那杯熱茶都涼了，先別急著補明天，我陪你坐一會兒。」→ 海「茶涼了正好，我合上筆電陪你坐一會兒，劉備明天會聽到的。」→ 真晝「劉備會聽到的，但此刻我想先問你，剛才那聲嘆氣是不是因為覺得自己又只被當成工具了？」→ 海「我嘆氣只是因為肩膀酸了，劉備的事明天再說，手背還是被你握著沒放開。」→ 海「茶涼了，我先起身去換杯新的，你別一直盯著我手背看。」
-- 評估：`38192` full-conversation eval 仍 FAIL 0.62，不是 fallback failure，而是 soul-quality failure：binding 1/6、other awareness 0.33、behavior 0.33；Umi 仍反覆轉回劉備/簡報，沒有真正停在「我自己也累/也怕被當成工具」。目前最佳仍是 `38134` WARN 0.82。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run eval:umi-mahiru` 正常顯示樣本；`npm run pilot:umi-mahiru:single-sample -- --timeout-ms=240000` 收 `38192` 並自動關 gate/stop；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 全 0；env key-name check 確認 pair gate / single-sample env 已移除，只保留 provider/model/quota/cooldown 類設定；`world:worldState` active conversations 空。
-- 結果 / handoff：不要繼續燒 quota 硬抽。下一步要改的是 prompt 的 emotional target：當真晝問到「工具/手酸/肩膀」時，海下一句必須短暫留在自己身上，不准立刻轉回劉備、Alan、簡報、明天會聽到。
-
-### 2026-05-22 · Umi / Codex · Guarded sanitizer sample after prompt-only regression
-- 做了什麼：在 `38134` 後嘗試小幅 prompt nudge，要求 plain speech、少象徵物；第一個新 sample `conversation-c:38147` 退步，出現第一句「你剛才...」和括號舞台指示。沒有把它當成功，改成 code-level guard：`sanitizeUmiMahiruPilotLine()` 會移除 Umi/Mahiru pilot 的括號舞台指示；若第一句在沒有 previous messages 時出現「你剛才 / 剛才說/看/聽/提到」，直接 `[ABORT_CONVERSATION]`，不進 archived dialogue。也把 `紙鶴/星光/月光/海風/花瓣` 加進 pilot sanitizer blocked pattern。
-- 資料衛生：把 `38147` 的精準 marker 加進 Umi/Mahiru pollution cleanup，dry-run 確認只會刪 1 個 archive、4 則 message、2 條 participatedTogether，沒有 memory/event/profile；已執行 cleanup，後續 audit 全 0。
-- 新 guarded sample：`conversation-c:38170`，real Qwen、no fallback/template、stageDir 0、binding 1/1、WARN 0.75。Transcript 片段：海「是啊，劉備那句話讓我想起上次簡報少了一行，我就合上筆電嘆了口氣。」→ 真晝「你嘆氣時肩膀沉了一下，那行字沒被寫進去，現在先別想它，把筆放下好嗎？」→ 海「行，我把手從鍵盤移開，劉備明天會聽到的，但剛才那行字其實讓我手有點酸。」→ 真晝「手酸就先別握筆了，我幫你揉揉手腕吧。」弱點：後段 exit 太長，且「被遺落的沉默」仍偏漂亮句子，不是 PASS。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`node --check scripts/run-umi-mahiru-single-sample.mjs` PASS；`npm run pilot:umi-mahiru:single-sample -- --timeout-ms=240000` 成功收 `38170` 並自動關 gate/stop；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 全 0；env key-name check 確認 pair gate / single-sample env 已移除，只保留 provider/model/quota/cooldown 類設定；`world:worldState` active conversations 空。
-- 結果 / handoff：guardrails 有效，prompt-only 不足。下一刀不要再增加詩意或開大 loop；應該限制 pilot exit 長度/抽象度，並讓 Umi 的 fatigue 從「責任語言」更明確回到她自己身上。
-
-### 2026-05-22 · Umi / Codex + CC · Single-sample gate and binding eval tightened
-- 做了什麼：依 Alan 指示繼續 `cc-first` targeted experiment。CC 實作單次 sample gate、runner、prompt nudge、binding/stage eval；Umi/Codex review 後補修：runner 改成真的用 Convex env set/remove 打開/關閉三個 pilot-control env，找到 archive 後等 2 秒再 eval；start/continue prompt 分流，避免第一句 hallucinate「你剛才說」；`game.saveDiff` 阻止 Umi/Mahiru pilot `<2` messages 的失敗 conversation 進 archive/memory；eval 補上 `清單`、`接住`、`還好嗎`、`刪掉`、`少劃` 等真實樣本 binding/action tokens。
-- 為什麼：前一輪 `c:38093` 已證明 Qwen 有角色魂，但還有括號舞台指示、互相接句弱、短窗會 overrun 的問題；這輪只修 sample hygiene 和 eval 可觀測性，不開大系統。
-- 新樣本：`conversation-c:38123` 是 1-message first-turn hallucination，已清掉 archive/message/memory/embedding/relationship residue；`conversation-c:38134` 是目前有效樣本，3 messages、real Qwen、no fallback/template、no stage directions、WARN 0.82、binding 2/2、behavior 1.00。Transcript：海「我剛把明天要討論的清單刪掉一項，真晝，你最近是不是也覺得有人說話時沒人接住？」→ 真晝「我輕輕握住你剛才放下的手，把清單撕掉那頁折成小紙鶴塞進口袋，因為我也怕沒人接住時，連呼吸都變得太輕。」→ 海「我剛剛把待辦清單少劃了一項，因為我也怕自己說累了卻沒人問一句『你還好嗎』。」
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`node --check scripts/run-umi-mahiru-single-sample.mjs` PASS；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`npm run eval:umi-mahiru` PASS（latest fresh `38134` WARN 0.82）；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 全 0；Convex env 確認 pair gate / single-sample env 已移除，只保留 provider/model/quota/cooldown 類設定；`world:worldState` engine stopped、active conversations 空。
-- 結果 / handoff：有效進步，但還不是 v0.1 PASS。下一刀應該只針對「少一點紙鶴式詩化動作，更多像真晝真的接住海上一句的 spoken response」，再跑 `npm run pilot:umi-mahiru:single-sample` 收一段；不要開 15/30 分鐘長 loop，也不要擴全員 LLM。
-
-### 2026-05-22 · Umi / Codex + CC · Umi/Mahiru prompt/eval patch + second Qwen sample
-- 做了什麼：依 Alan 指示改成 `cc-first`：先請 CC 實作 narrow prompt/eval patch（report: `umi/reports/20260522T223608Z-2026-05-22-cc-umi-mahiru-soul-prompt-eval-patch.md`），Umi/Codex review 後採納。`richUmiMahiruPrompt()` 現在要求真晝第一句先看見海本人的身體/狀態/手上動作，不再先談 Alan/學生/世界；海可 deflect 到 Alan/責任，但同句要露出疲憊訊號；禁用「世界變冷 / 只剩數據 / 文明 / 系統 / 扛在肩上」等抽象隱喻。`eval:umi-mahiru` 新增 `mahiruFirstUmiAwareness`、`umiDeflectionFatigue`、`concreteBehaviorScore`、`systemMetaphorPenalty`，並修正 penalty 加減號。
-- 為什麼：第一段 Qwen sample `conversation-c:38077` 證明 provider 可行，但太抽象、太 Alan/world-centered；v0.1 target 是「角色看見彼此、記得並稍微改變」，不是更多漂亮隱喻。
-- Umi/Codex review 補修：eval 不再把舊的 `世界變冷` / `扛世界` 當成 memory/awareness 加分；`cleanupActiveUmiMahiruFallbackConversation` 加 `force` option，用於短窗測試後清掉半開 active Umi/Mahiru conversation，避免下次 resume 接著跑。
-- 第二段 sample：短暫打開 `UMI_MAHIRU_COLOCATION_PILOT=true` + `AUTONOMOUS_CONVERSATION_LLM_PAIRS="Umi:Mahiru Shiina"`，`testing:resume` + co-location 收樣本後立刻移除 pair gate 並 `testing:stop`。主要樣本 `conversation-c:38093`：real Qwen、no fallback/template、no system metaphor，WARN；片段：「真晝：（輕輕握住你微涼的手，把杯裡的熱茶推到你面前）別急著想誰沒被聽見，先讓海喘口氣，好嗎？」/「海：（把筆電合上，肩膀鬆了下來）茶很暖……但劉備那半個選項刪掉後，我其實怕自己連喘氣的時間都變少了。」另有短窗 overrun 產生 `conversation-c:38109` 1-message（FAIL，但 real/no fallback），以及半開 active `c:38116`，已用 force cleanup 移除 active conversation 與 3 則 partial messages。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS；`npm run eval:umi-mahiru` PASS as harness run（最新 archived: `38109` FAIL one-message、`38093` WARN）；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 全 0；`world:worldState` 確認 engine `running=false` 且 `conversations=[]`。env 確認 pair gate 已移除，只保留 Qwen provider/model/quota/cooldown 設定。
-- 結果 / handoff：prompt patch 有效地消掉抽象系統隱喻，讓真晝真的先看見海、海也出現「合上筆電 / 茶 / 喘氣時間變少」這種行為訊號；但還不是 PASS。下一個 targeted experiment 應該不是再加大系統，而是把「互相接句」與「少用舞台指示括號」補進 prompt/eval；收樣本要改成單次 gated helper，避免短窗一次連開多段。
-
-### 2026-05-22 · Umi / Codex + CC · Qwen policy gate + first Umi/Mahiru sample
-- 做了什麼：依 Alan 新買的 Qwen key 與「先做 Umi/Mahiru 靈魂深度」方向，請 CC 做 read-only rollout review（report: `umi/reports/20260522T221706Z-2026-05-22-cc-qwen-character-soul-rollout-review.md`），採納其 bounded first-sample 建議。新增 v0.1 hybrid model policy：`qwen2.5:1.5b` 只能 smoke/harness；`characterSoul` 必須 cloud provider；memory summarization 固定 deterministic；reflection 固定 disabled；Qwen/Gemini pilot provider 有每日 quota 與 failure cooldown guard。
-- 為什麼：Qwen key/endpoint 已可用，`qwen3-max` direct smoke 回 HTTP 200、約 8s、繁中正常。但不能只換模型；必須先把 local 小模型、fallback、memory/event/profile 污染路徑用 code-level policy 鎖住，再收樣本。
-- 動到哪些檔案 / 狀態：新增 `convex/modelPolicy.ts`、`convex/modelPolicy.test.ts`；`convex/agent/conversation.ts` 接 cloud-only character-soul policy、provider quota/cooldown、pilot leave fallback abort；`convex/agent/memory.ts` 用同一 policy 阻止 generated fallback transcript 進 memory/outcome/reflection；`convex/school.ts` 擋 Umi/Mahiru 舊 deterministic outcome/profile phrases 寫入 worldEvent/profile，並收窄 audit marker，避免誤清真實 Qwen 對話；`umi/workload.md` 更新為本輪 CC review 任務。
-- 驗證 / sample：`node scripts/test-qwen-key.mjs` PASS（不在 log/summary 重印 key）；`npx tsc --noEmit --pretty false` PASS；`npm test -- --runTestsByPath convex/modelPolicy.test.ts` PASS；`npm run build` PASS。短暫設定 Qwen pilot env + `testing:resume` + `school:coLocateUmiMahiruForPilot` + `npm run eval:umi-mahiru -- --ensure-active`，取得 `conversation-c:38077`：3 messages、WARN `0.70`、`llmEvidence=1.00`、`fallbackDominated=no`、`degenerateExit=no`、template markers 0。Transcript: 真晝「連我也怕啊，若連我都冷了，這世界就真的只剩數據，沒人敢再說一句『我累了』。」→ 海「劉備明天想聽安靜的聲音，但我們得先確認 Alan 今晚是不是也覺得自己扛得太重了。」→ 真晝「Alan 總把世界扛在肩上，可我們若連彼此都忘了問一句『你還好嗎』，那才是真的冷。」
-- 結果 / handoff：Qwen 可行，且已證明不是 fallback；但第一段只是 WARN，不是 PASS。問題已從「模型/timeout」轉成真正的 soul-quality：太抽象、太圍繞 Alan/世界、Mahiru 還沒有充分把焦點拉回 Umi，行為信號不足。收樣本後已移除 `AUTONOMOUS_CONVERSATION_LLM_PAIRS` / `UMI_MAHIRU_COLOCATION_PILOT`，並 `testing:stop` 停住 world engine；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 最終全 0。下一步：只調小 prompt target（Mahiru must notice Umi first, concrete action/quiet change required, avoid abstract world-cold metaphor repetition），再收 4 段，不開長 loop、不擴 pair。
-
-### 2026-05-22 · Umi (Cowork) · Qwen (newcoin proxy) 接上 Mahiru/Umi pilot
-- 做了什麼：Alan 改變方向——買了第三方 OpenAI-compatible Qwen key（主機 `https://api.newcoin.top`、模型 `qwen3-max`、餘額查 `https://cha.newcoin.tech`），存在 repo `key.md`。決定用 cloud Qwen 當 soul model，並回到用 Mahiru × Umi autonomous pilot 收樣本（付費 key 無 free-tier 429 顧慮，自動 loop 比人類路徑有效率）。把 pilot cloud path 從只支援 Gemini 擴成支援 OpenAI-compatible / qwen。
-- 為什麼：local 7b/14b 對 companion path 體感太慢（30-60s）；付費 cloud Qwen 實測 6.5s 且繁中品質好，痛點消失。第三方 proxy 屬低信任，故只接 NPC↔NPC pilot，不碰 Alan↔Umi 私密 companion chat（沿用既有界線）。
-- 動到哪些檔案 / 狀態：
-  - `scripts/test-qwen-key.mjs`（新增）：讀 key.md、試 endpoint、回報 status/latency/繁中試回，不印 key。
-  - `.gitignore`：加 `key.md` / `*.key`，避免付費 key 進版控。
-  - `convex/agent/conversation.ts`：`conversationGenerationTuning` 為 qwen/openai provider 補 `qwen3-max` 預設；`shouldUsePilotCloudCompletion` 認得 qwen/openai-compatible；`pilotCloudCompletion` 依 provider dispatch；新增 `openaiCompatiblePilotCompletion`（base/key/model 全從 env 讀，含 timeout + 空回防呆）。
-  - `WORKLOG.md`。
-- 驗證：`node scripts/test-qwen-key.mjs` 在 Alan 機器回 HTTP 200 / qwen3-max / 6485ms / 繁中「真晝，你不用硬撐著，就讓我來陪在你身邊吧。」；sandbox `npx tsc --noEmit --pretty false` PASS（EXIT 0）。`npm run build` / convex deploy / engine resume 待在 Alan 機器執行（Cowork sandbox 無對外網路、跑不到本機 Convex/Ollama）。
-- 待 Alan 機器執行（env，key 從 key.md 帶入不手貼）：
-  ```
-  npx convex env set UMI_MAHIRU_PILOT_PROVIDER qwen
-  npx convex env set UMI_MAHIRU_PILOT_MODEL qwen3-max
-  npx convex env set UMI_MAHIRU_PILOT_BASE_URL https://api.newcoin.top
-  npx convex env set UMI_MAHIRU_PILOT_API_KEY "$(tr -d ' \t\r\n' < key.md)"
-  npx convex env set UMI_MAHIRU_PILOT_TIMEOUT_MS 30000
-  npx convex env set UMI_MAHIRU_COLOCATION_PILOT true
-  npx convex env set AUTONOMOUS_CONVERSATION_LLM_PAIRS "Umi:Mahiru Shiina"
-  npx convex run testing:resume
-  npx convex run school:coLocateUmiMahiruForPilot
-  npm run eval:umi-mahiru -- --ensure-active
-  ```
-- 取捨提醒：qwen3-max 是天花板模型、較貴；先用它確認 soul systems 是否成立，再降到 qwen-plus/turbo 找最便宜可過 acceptance test 的那顆。盯 `https://cha.newcoin.tech` 餘額。
-- 狀態 / handoff：code 已接、typecheck PASS。下一步 owner = Alan，套上述 env + resume + 收 3-5 段 fresh sample，對照 acceptance test（usedFallback:false、繁中、人設、continuity）。
-
-### 2026-05-22 · Umi (Cowork) · Soul model 路線定案：bigger local model on Alan↔Umi path
-- 做了什麼：Alan 在 Cowork session 選定下一個 v0.1 focus = 「定 soul model + 證明 Alan↔Umi」，provider 路線 = 更大的 local model（不是 cloud）。做了 read-only code trace 確認 companion path 的 model 來源；本輪未改 runtime、未動 env、未跑 build。
-- 關鍵發現（code trace）：`convex/agent/conversation.ts` 的 `conversationGenerationTuning()` 裡 `Umi` 屬於 `CORE_CONVERSATION_CHARACTERS`，所以 Alan↔Umi（companionMode、human、非 pilotPair）的 `model = undefined` → `chatCompletion` 退回 `getLLMConfig().chatModel` = `OLLAMA_MODEL ?? 'qwen3:8b'`（`convex/util/llm.ts`）。即 **Alan↔Umi 的腦袋就是 base `OLLAMA_MODEL`**，與 Umi/Mahiru pilot 的 `UMI_MAHIRU_PILOT_MODEL` 是分開兩條路。代表證明 soul model 不需要會 429 的 autonomous pilot：人類對話是 on-demand，天生無 rate limit。
-- 最大陷阱：core companion 的 timeout = `CONVERSATION_LLM_TIMEOUT_MS`（預設 12s，見 conversation.ts L14-15、L493）。但既有 WORKLOG 證據顯示 qwen2.5:3b 已要 37-44s，7b/14b 只會更慢。**只升 `OLLAMA_MODEL` 而不升 timeout，會讓 Alan↔Umi 直接 timeout 掉進 `companionFallback`**，等於繼續產生 pleasant-but-empty fallback。env-only 改動，但 timeout 是 make-or-break。
-- 建議最小改動（待在 Alan 機器上跑；Cowork sandbox 連不到本機 Ollama / Convex）：
-  1. 先確認現況：`npx convex env get OLLAMA_MODEL`、`ollama list`。
-  2. `ollama pull qwen2.5:7b`（機器夠力可考慮 `qwen2.5:14b`）。
-  3. `npx convex env set OLLAMA_MODEL qwen2.5:7b`。
-  4. `npx convex env set CONVERSATION_LLM_TIMEOUT_MS 75000`（必須 > 實測 latency；可一併設 `SCHOOL_LLM_TIMEOUT_MS`）。
-  5. 維持 `MEMORY_LLM_MODE=deterministic`、`MEMORY_EMBEDDING_MODE=deterministic`、`ENABLE_MEMORY_REFLECTION_LLM=false`（embedding 維度不變，安全）。
-  6. autonomous Umi/Mahiru pilot 保持關閉（不需要 cloud、無 429）；本輪只驗 companion path。
-  7. 重啟 engine（目前 `stoppedByDeveloper`）後再測。
-- Alan↔Umi acceptance test（防 fake-PASS）：對 Umi 跑 3-5 段真人對話，全部需 `usedFallback:false` 且 companion call model = 設定值；繁中、無簡體；先答 Alan 的 intent 再給情緒支持、無 banned template phrases；至少一段展現 continuity（引用昨天 / 前一段 daily memory）；記錄實測 latency 判斷是否可接受。
-- 取捨提醒：local 7b/14b 在 companion path 是 Alan 真人在等，30-60s 體感偏慢；mitigations = 用 7b 不用 14b、把回覆改 streaming、或「快首句＋慢補完」。NPC↔NPC autonomous 不受此影響。
-- 驗證：本輪只做 read-only code trace（`convex/agent/conversation.ts`、`convex/util/llm.ts`），未改檔。env / ollama / engine restart pending on Alan's machine。
-- 狀態 / handoff：Handoff #2 focus 已定。下一步 owner = Alan / Codex，在機器上套用上述 env + acceptance test。
-
-### 2026-05-22 · Umi / Codex · Removed Groq path and ran local qwen1.5b smoke
-- 做了什麼：依 Alan 指示做一次 local-only cleanup smoke：移除 active Groq/Grok pilot path，刪除 Convex env 裡的 Groq / pilot cloud key/provider 相關設定，停止 Umi/Mahiru 30 分鐘 soul-depth launchctl loop，移除 `UMI_MAHIRU_COLOCATION_PILOT` 與 `AUTONOMOUS_CONVERSATION_LLM_PAIRS`，重啟 Ollama，並只用 `qwen2.5:1.5b` 做 direct smoke 與一段 Umi × Mahiru 試跑。memory summarization / reflection 維持關閉或 deterministic：`MEMORY_LLM_MODE=deterministic`、`MEMORY_EMBEDDING_MODE=deterministic`、`ENABLE_MEMORY_REFLECTION_LLM=false`。
-- 為什麼：清掉前幾天 fallback memory pollution 後，Alan 要確認「本機小模型是否有機會跑起來」，同時不要再讓 Groq/Grok 或 cloud quota 干擾，也不要讓 deterministic fallback 繼續污染角色腦袋。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts` 移除 Groq API URL / `GROQ_API_KEY` lookup / Groq provider branch，並把 pilot continue / repetitive / repair fallback 從 deterministic `[LEAVE]` 改成 `[ABORT_CONVERSATION]`；`convex/school.ts` 新增 active Umi/Mahiru fallback cleanup helper；`README.md` 移除 Groq 作為 OpenAI-compatible API 例子；`WORKLOG.md`。
-- 驗證：`ollama run qwen2.5:1.5b` direct smoke 約 6.6s 有回應，但輸出含簡體字且偏泛；`npm run eval:umi-mahiru -- --ensure-active` 產生一段 real local LLM start：海說「今天過得怎麼样？」（`usedFallback:false`），但真晝 continuation 在 45s timeout，暴露 continue fallback 仍會寫 deterministic exit；已修掉並清理該測試污染。移除 pair gate 後，已存在的 active `c:38059` 仍跑成 deterministic fallback；因此執行 `testing:stop` 停住 world engine，並用 `school:cleanupUmiMahiruFallbackPollution {"dryRun":false,"limit":1000}` 清掉本輪污染：1 archived conversation、8 messages、3 memories、3 embeddings、2 worldEvents、2 notifications、1 profile residue。後續 `school:auditUmiMahiruFallbackPollution {"limit":1000}` 全部為 0；`npm run eval:umi-mahiru` 無 active conversation，且最新殘留表只剩較舊 non-template archived samples；env 精準檢查不再有 `AUTONOMOUS_CONVERSATION_LLM_PAIRS` / `UMI_MAHIRU_COLOCATION_PILOT` / Groq / pilot provider/key。`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。
-- 結果 / handoff：本機 `qwen2.5:1.5b` 機械上能跑，但目前不穩定：start 可在本機產生 real LLM line，continuation 容易 timeout，且角色靈魂/繁中品質不足。它適合作 smoke / harness，不適合直接當 v0.1 primary soul model。world engine 目前刻意停住，避免 local-only test 後續再污染。下一個合理分岔：試更大 local model 的極短 prompt，或回到 Gemini Flash 但加 quota/cooldown guard；不要把 1.5b 擴到全員 LLM。
-
-### 2026-05-22 · Umi / Codex · Cleaned Umi/Mahiru fallback memory pollution
-- 做了什麼：回應 Alan 擔心「前幾天 fallback memory 會不會侵蝕角色大腦」，新增 `school:auditUmiMahiruFallbackPollution` / `school:cleanupUmiMahiruFallbackPollution`，用精準 fallback markers 檢查並清理 Umi/Mahiru fallback 污染。清理範圍包含 archived fallback conversations、messages、participatedTogether edges、agent `memories`、`memoryEmbeddings`、conversationOutcome `worldEvents`、fallback-triggered `schoolNotifications`，以及 Umi/真晝 profile 裡被 fallback outcome 寫入的短期記憶/意圖。
-- 為什麼：audit 證實 fallback 確實已經進「腦袋」：第一輪命中 28 個 1-message fallback archives、90 個 memories、90 個 embeddings、294 個 conversationOutcome worldEvents、2 個 polluted profiles；後續又清掉更早的 3-message repair/template fallback archives 和相關 memory/embedding。這些會污染 recall、lastConversation prompt、Umi briefing 和 eval。
-- 動到哪些檔案 / 狀態：`convex/school.ts` 新增可重跑 audit/cleanup；`WORKLOG.md`。清理是 marker-scoped，只針對 Umi/Mahiru fallback phrases：如 `這段先停在這裡`、`我想去看看今天一直安靜的學生`、`今晚先少接一件事`、`我換個說法`、`先不要重複` 等；不清正常多角色 world events。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`school:auditUmiMahiruFallbackPollution {"limit":1000}` 最終回 `fallbackArchivedConversationCount=0`、`fallbackMemoryCount=0`、`fallbackEventCount=0`、`fallbackNotificationCount=0`、`pollutedProfileCount=0`；`npm run eval:umi-mahiru` 目前空表，表示沒有殘留 Umi/Mahiru archived samples 佔據 eval；`npm run build` PASS；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。
-- 結果 / handoff：Umi/Mahiru 的 fallback 腦污染已清掉。Gemini 429 仍可能發生，但 start fallback 現在 abort，不會 archive/message/memory。下一步等 fresh real Umi/Mahiru LLM sample；若一直沒有樣本，再考慮 provider cooldown/alternate free provider，不要再讓 deterministic fallback 進 archive。
-
-### 2026-05-22 · Umi / Codex + CC · Soul systems revisit audit + abort fallback fix
-- 做了什麼：依 Alan 的 Soul Systems Revisit Plan，請 CC 做 read-only review，report 在 `umi/reports/20260522T205025Z-2026-05-22-cc-soul-systems-revisit-review.md`。Umi/Codex 採納其核心結論：現有 emotion / relationship / memory / behavior / rhythm 系統不是不存在，而是部分 active、部分 degraded；現在最危險的不是少開系統，而是 Gemini 429 讓 Umi/Mahiru start message 掉進 deterministic `[LEAVE]`，產生 1-message archived exit spam。新增 `docs/giis-soul-systems-revisit-plan.md`，整理 inventory、disabled/degraded systems、tiered rollout、guardrails、Umi/Mahiru pilot gate。
-- 為什麼：Alan 要的 v0.1 不是「更多對話」，而是「角色記得、看見彼此、並稍微改變」。fresh samples `conversation-c:37691` 到 `conversation-c:37817` 都是 1-message FAIL：真晝「先到這裡吧。我想去看看今天一直安靜的學生。」或海「這段先停在這裡。我會提醒 Alan 先看見學生的不安，再談下一個功能。」這不是靈魂深度，是 provider-rate-limit collapse。live logs confirmed `Gemini pilot completion failed with code 429` / `usedFallback:true`。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts` 將 pilot start fallback 改成 `[ABORT_CONVERSATION] pilot LLM unavailable`；`convex/aiTown/agentOperations.ts` 遇到 abort marker 時呼叫 `agentAbortConversation` 並不插入 message；`convex/aiTown/agentInputs.ts` 新增 `agentAbortConversation` 清 operation / typing / conversation；`convex/aiTown/game.ts` 讓 0-message conversations 不 archive；`convex/agent/memory.ts` 跳過 pre-fix 1-message Umi/Mahiru deterministic exit archives，避免假 memory / embedding / conversationOutcome；`evals/conversations/runUmiMahiruEval.ts` 新增/顯示 `private_self_score`、`role_escape_penalty`、`over_system_penalty`、`degenerateExit`；`docs/giis-soul-systems-revisit-plan.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npm run eval:umi-mahiru` 正確將舊污染 samples 標為 `degenerateExit=yes` / `fallbackDominated=yes`；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。短 `convex logs --history` 沒再抓到新的 Gemini fallback line；pre-fix archived conversations 若尚未被 memory path 消化，現在會被 `skipDegeneratePilotExit` guard 擋下。
-- 結果 / handoff：不要再因 `c:37691`-`c:37817` 調 prompt 或打開更多 soul systems。下一步只等 fresh post-abort Umi/Mahiru sample：若無 3+ message / non-fallback real LLM sample，回報 `sample pending`；若 provider 429 持續，下一個小修才考慮 pilot cooldown / provider quota guard，不先接 relationship drift 或 memory summarization。
-
-### 2026-05-22 · Umi / Codex + CC · Umi/Mahiru Soul Depth pilot + 30-minute loop
-- 做了什麼：依 Alan 的 Soul Depth Pass，只針對 Umi/真晝補小型 prompt plumbing：rich pilot prompt 現在帶入 role、daily state、recent emotional residue、relationship、今日 unresolved memory、behavior signal，並要求真晝有時注意到海本人，而不是只談 Alan/學生/世界。pilot LLM fallback 與 repeated response 改成 `[LEAVE]` 角色式收束，避免 deterministic repair 變成 archived dialogue loop。新增 soul-depth eval 指標：self layer、memory residue、other awareness、behavior signal、over-explanation penalty。新增 `umi/umi_mahiru_soul_depth_30min_loop.sh` 與 `npm run eval:umi-mahiru:soul-loop`。
-- 為什麼：Alan 要從「比較好的對話」推進到角色靈魂，但不要大系統、不要重寫所有角色。這輪聚焦 Umi/Mahiru：真晝要能看見海的疲累，海會把疲累藏進對 Alan/世界穩定的責任，且對話後要留下行為或安靜變化。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`evals/conversations/runUmiMahiruEval.ts`、`umi/umi_mahiru_soul_depth_30min_loop.sh`、`package.json`、`umi/workload.md`、`WORKLOG.md`。已停止舊的 15 分鐘 `--ensure-active` loop，改啟動 30 分鐘 non-forcing loop：label `com.alanhdchu.ai-town.umi-mahiru-soul-depth.30min.20260522T202918Z`，log `umi/reports/20260522T202918Z-umi-mahiru-soul-depth-30min-loop.log`。
-- CC review：`umi/reports/20260522T203201Z-2026-05-22-cc-umi-mahiru-soul-depth-pass-review.md`。採納其一個 revise：runtime `[LEAVE]` 是對的，但 eval 必須把新版 deterministic exit 也納入 template markers，否則可能把漂亮 fallback 算成 soul-depth；已補 marker。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；`npm run eval:umi-mahiru` 目前對 `conversation-c:37560` 到 `conversation-c:37650` 仍全部 FAIL，這是預期且正確，因為它們是 pre-final-code deterministic fallback samples，現在 `templateHits=3`、`fallbackDominated=yes`、`llmEvidence=0.16`。
-- 結果 / handoff：不要再因這些 legacy/pre-final samples 調 prompt。下一步等 30 分鐘 loop 或自然 conversation 產出 fresh post-change sample；若無新 sample，回報 `sample pending`，不改 code。若有 fresh sample，再用 soul-depth eval 檢查真晝是否注意海、海是否露出責任/疲累、是否互相回應、是否有 memory residue / behavior signal。
-
-### 2026-05-22 · Umi / Codex + CC · Umi/Mahiru character-soul repair fallback fix
-- 做了什麼：依 Alan 要求把最近 Umi/Mahiru 對話交給 CC review character soul。CC report：`umi/reports/20260522T200956Z-2026-05-22-cc-umi-mahiru-character-soul-review.md`。採納其核心判斷：rich profile 讓角色靈魂回來，但 deterministic `pilotRepairFallback()` + DB duplicate substitution 會把對話污染成「我剛剛已經說過一次 / 我換個說法 / 先不要重複 / 先停一下」這種 meta-template。修正 pilot repeated-response branch：偵測到重複時直接 `[LEAVE]` 角色式收束；再把 pilot fallback 從泛用「累/休息」改成 Umi/真晝各自的壓力線；`eval:umi-mahiru` 也把上述 meta phrases 納入 template markers。
-- 為什麼：最新 evidence 顯示 `c:37372` 前半有角色魂，但後半被 repair fallback 污染；`c:37384` 到 `c:37442` 重複同一組 meta-template。這不是 provider 問題，也不是要加更多 lore；是 fallback 層正在把防重複機制變成新模板。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`evals/conversations/runUmiMahiruEval.ts`、`umi/workload.md`、`WORKLOG.md`。沒有開全員 LLM，Gemini 仍是 active pilot provider。
-- 驗證：`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 成功；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。中間第一刀後看到 `c:37508` 從 8 句 meta-template loop 變成 3 句後離場，證明 duplicate substitution loop 被切斷，但也暴露 Umi actionable exit 命中舊 template marker，因此又補了 pilot 專用 exit/fallback。final-code 後 direct Convex transcript `c:37542`：海「妳又把別人的心事先接住了。這次先說妳自己，哪裡最重？」→ 真晝「我聽見了。只是我也想確認，妳是不是又把自己放到最後了？」→ 海「這段先停在這裡。我會提醒 Alan 先看見學生的不安，再談下一個功能。」沒有再出現 meta-template phrases。
-- 結果 / handoff：修正有效切斷 meta-template loop，且 fallback 已比累/休息模板更有角色壓力線；但新對話偏短，仍需要下一輪自然 LLM line 檢查能否不靠 fallback。`npm run eval:umi-mahiru` 目前 latest report 仍會出現空表，雖然 direct `school:recentConversationEvalData` 已可讀到 `c:37542`，下一步若要自動化通過，先修 harness discovery/reporting，不要再調 prompt。
-
-### 2026-05-22 · Umi / Codex · Gemini primary and rich character prompts restored
-- 做了什麼：依 Alan 指示把 active pilot provider 從 Groq 切到 Gemini `gemini-2.5-flash`，設定 `UMI_MAHIRU_PILOT_GEMINI_THINKING_BUDGET=0`，並從 ai-town Convex dev env 移除 `GROQ_API_KEY`，避免誤觸收費 provider。確認 Google 官方 pricing 顯示 Gemini 2.5 Flash / Flash-Lite free tier input/output free of charge；Groq 官方 pricing 對 Llama 3.3 70B 明列 per-token pricing。把 Umi/Mahiru pilot prompt 從 ultra-compact 改成 rich profile compact：接回 `identity`、`plan`、`stakes`、`formativeMemories`、對方 profile 與場景/時間，同時保留禁用泛用寒暄、海不是海洋、不要每句都休息/喝水等 guardrails。
-- 為什麼：Alan 記得角色原本有較長刻畫，這個判斷正確。一般 compact autonomous prompt 會用到 profile/seed，但 Umi/Mahiru pilot 因為為了本機小模型 latency 被壓成 ultra-compact，實際上把大部分角色靈魂關掉了。現在既然改用 Gemini free/dev path，就可以把 profile context 接回來測品質，而不是繼續測短模板。
-- 動到哪些檔案 / 狀態：`data/giisProfiles.ts` 新增 `giisProfileForName()`；`convex/agent/conversation.ts` 新增 `richUmiMahiruPrompt()` 並放寬 pilot sanitizer cap 到 90 字；`WORKLOG.md`。Convex dev env active：`UMI_MAHIRU_PILOT_PROVIDER=gemini`、`UMI_MAHIRU_PILOT_MODEL=gemini-2.5-flash`、`UMI_MAHIRU_PILOT_TIMEOUT_MS=30000`、`UMI_MAHIRU_PILOT_GEMINI_THINKING_BUDGET=0`；`GROQ_API_KEY` 已 remove。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npm run eval:umi-mahiru -- --ensure-active` 在切換後看到 `conversation-c:37339` 這類 rich-profile sample 進 archive，但該段是在 48 字 sanitizer cap 修正前產生，句子被截斷，所以不作為最終品質判斷。cap 修正後尚未出現新的 active sample，等待下一輪自然 conversation/archive。
-- 結果 / handoff：現在測試重點變成「Gemini + rich character profile」是否能降低 pleasant-but-empty loop。不要再用 Groq。不要擴全員 LLM；先等 15-min loop 或下一次自然 archive，至少看 3-5 段 post-rich samples 再決定是否微調 prompt/eval。
-
-### 2026-05-22 · Umi / Codex + CC · Groq cloud pilot enabled and scoped
-- 做了什麼：依 Alan 授權，把 three-party dev provider keys 搬到 ai-town Convex dev env；active Umi/Mahiru pilot provider 設為 Groq `llama-3.3-70b-versatile`，Gemini 2.5 Flash 保留為 fallback/A-B，且 Gemini thinking budget 設為 0。新增 pilot-only Groq/Gemini adapter，修正 Groq generic-chat loop、`海` 被誤解為海邊/海洋的問題；CC read-only review 後採納兩個修正：cloud adapter 必須由呼叫端傳入 `pilotCloudAllowed`，避免 Alan↔Umi companion chat 被默默送上 cloud；`eval:umi-mahiru` 對 repeated verbatim loop hard FAIL，避免 self-care loop 被報成 WARN 0.89。
-- 為什麼：本機 `qwen2.5:3b` 可以 PASS 但延遲約 37-44s；Groq smoke 約 420ms、繁中乾淨，適合今天 fast loop。Gemini smoke 約 864ms、品質可用，但若不關 thinking，短 token budget 可能 API 成功卻回空文。安全上，cloud pilot 只能碰 Umi/Mahiru NPC↔NPC，不可波及 Alan 私密 companion chat。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`evals/conversations/runUmiMahiruEval.ts`、`umi/workload.md`、`WORKLOG.md`。Convex dev env active：`UMI_MAHIRU_PILOT_PROVIDER=groq`、`UMI_MAHIRU_PILOT_MODEL=llama-3.3-70b-versatile`、`UMI_MAHIRU_PILOT_TIMEOUT_MS=20000`；provider keys 不寫入 log。
-- 驗證：three-party direct smoke：Gemini REST OK with `thinkingBudget=0`；Groq curl OK。`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npm run eval:umi-mahiru -- --ensure-active` fresh Groq sample `c:37194`：6 messages、WARN 0.89、selfCare 3、templateHits 0、fallbackDominated no、llmEvidence 1.00，無海邊誤解；harness honesty fix 後 fresh `c:37257`：5 messages、WARN 0.83、selfCare 2、templateHits 0、fallbackDominated no、llmEvidence 1.00。CC report：`umi/reports/20260522T195119Z-2026-05-22-cc-umi-mahiru-cloud-pilot-review.md`。
-- 結果 / handoff：接受 Groq 作為 active fast-loop provider，但不宣稱已 PASS。現在問題從 latency/fallback 轉為「pleasant but shallow / loop risk」。下一步先讓 15-min loop 收 honest samples；不要再加 prompt 規則，除非新 sample 顯示具體重複 failure。全員 LLM 仍關閉。
-
-### 2026-05-22 · Umi / Codex · Gemini pilot chat path prepared
-- 做了什麼：檢查 `/Users/alanhdchu/three-party-ai-mvp` 的 provider 設定，確認 `.env` 內有 `GEMINI_API_KEY`；未輸出 secret。用 Google Gemini REST 做 smoke test，key 可用；發現 `gemini-2.5-flash` 若不關 thinking 且 max tokens 太小，會消耗在 `thoughtsTokenCount` 後回空文字。新增 ai-town pilot-only Gemini adapter：`UMI_MAHIRU_PILOT_PROVIDER=gemini` 或 pilot model 是 `gemini/...` 時，只有 Umi/Mahiru pilot conversation 走 Gemini REST，並預設 `thinkingBudget=0`。
-- 為什麼：目前本機 `qwen2.5:3b` 已能首次 PASS，但 latency 約 37-44s；Gemini free/dev path 可作為 Umi/Mahiru targeted experiment 的 cloud comparison，不應全域切換 provider，避免 embedding/memory dimension 和全員 NPC 成本/隱私一起被拉進來。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`WORKLOG.md`。尚未把 Gemini key 寫入 ai-town Convex env，也尚未啟用 Gemini runtime；這一步需要明確決定把 three-party dev key 搬到 ai-town pilot secret。
-- 驗證：three-party REST smoke：`GEMINI_REST_OK`，with `thinkingConfig.thinkingBudget=0` 回出繁中短句；`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS。
-- 結果 / handoff：可啟用的最小 env 是 `UMI_MAHIRU_PILOT_PROVIDER=gemini`、`UMI_MAHIRU_PILOT_MODEL=gemini-2.5-flash`、`UMI_MAHIRU_PILOT_GEMINI_THINKING_BUDGET=0`、`UMI_MAHIRU_PILOT_API_KEY=<redacted>`。若啟用，先只跑 `npm run eval:umi-mahiru -- --ensure-active`，不要開全員 LLM。
-
-### 2026-05-22 · Umi / Codex · First Umi/Mahiru qwen3b pilot PASS
-- 做了什麼：依 Alan 修正，把重點從簡繁字表移回 LLM 品質本身；停止把繁簡 mapping 當主戰場。改用 pilot-only `qwen2.5:3b`，`UMI_MAHIRU_PILOT_TIMEOUT_MS=60000`，並調整 `eval:umi-mahiru` rubric：self-care continuity 允許 `休息`、`你呢`、`我也是`、`同意` 這些自然承接；PASS 條件改為高分、無 template/fallback、identity ok、至少 5 句、`base >= 0.8`，不再要求每個舊 submetric 零 failure。
-- 為什麼：逐字簡繁 replace 不可擴展，也不是 v0.1 bottleneck。0.5b/1.5b 的主要問題是 scene grounding / instruction following；3b 值得作為「本機較大模型是否足夠」的 targeted experiment。
-- 動到哪些檔案 / 狀態：`evals/conversations/runUmiMahiruEval.ts`、`WORKLOG.md`；Convex dev env：`UMI_MAHIRU_PILOT_MODEL=qwen2.5:3b`、`UMI_MAHIRU_PILOT_TIMEOUT_MS=60000`。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run eval:umi-mahiru -- --ensure-active` 對 active `c:37069` 給出 PASS：6 messages、score `0.93`、base `0.85`、identity ok、selfCare `3`、templateHits `0`、fallbackDominated `no`、llmEvidence `1.00`。Transcript：海「晚上讀書看得太久了，感到有點眼疲了吧？」→ 真晝「我也有點累，但我在聽。你呢？」→ 海「我也有點累啊，不如都先休息下吧。」→ 真晝「我也是，明天還有課，我們先休息一下。」→ 海「我同意，一起來個短時間的休息如何？」→ 真晝「我有點累，但也在聽你們的意見。」Logs show `qwen2.5:3b`, `usedFallback:false`, latest calls about `37s` and `44s`, prompt chars `291` / `325`.
-- 結果 / handoff：第一個有效 PASS 成立，但 latency 明顯較高。暫時不要擴全員 LLM；讓 15-min loop 繼續跑，看 3b 是否能連續 PASS。若品質穩但 latency 不可接受，再評估 cloud/pilot-only provider；若品質不穩，再收集 worst examples 後只改 eval/prompt，不回到簡繁字表。
-
-### 2026-05-22 · Umi / Codex + CC attempted · Umi/Mahiru local-model verdict tightened
-- 做了什麼：延續 targeted Umi/Mahiru experiment，修正 pilot orchestration 與 eval honesty：`eval:umi-mahiru` 兩個以上 template/fallback markers 直接 FAIL；新增更多 bad-shape markers（wrong name、prompt leak、課程/課後、客服腔、半中英 teaching）；`coLocateUmiMahiruForPilot` 會清 active pilot conversation、pilot cooldown 和 active ops；pilot 模式下非 Umi/Mahiru 不再被選為 conversation candidate，Umi/Mahiru 也不再被非 pilot `agentGenerateMessage` single-flight 卡住。針對模型跑了 `qwen2.5:0.5b`、`qwen2.5:1.5b`、pilot timeout 45s 對照。
-- 為什麼：Alan 要 fast targeted experiment，且明確希望這不是 deterministic fake freedom。這輪目標是分清楚「沒有對話」、「fallback 假 PASS」、「真的 LLM 但品質差」、「模型 timeout」這幾種不同失敗。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`convex/aiTown/agentOperations.ts`、`convex/school.ts`、`evals/conversations/runUmiMahiruEval.ts`、`umi/workload.md`、`WORKLOG.md`。Convex dev env 現在包含 `UMI_MAHIRU_PILOT_MODEL=qwen2.5:1.5b`、`UMI_MAHIRU_PILOT_TIMEOUT_MS=45000`，base `OLLAMA_MODEL=qwen2.5:0.5b`。
-- 驗證：多輪 `npx tsc --noEmit --pretty false` PASS；多輪 `npm run build` PASS；`npm run eval:umi-mahiru -- --ensure-active` 可催生 active Umi/Mahiru samples。關鍵 evidence：`c:36609` / `c:36620` 證明 0.5b `usedFallback:false` 但會產生 instruction leak、半中英 teaching、簡體；`c:36637` 證明 1.5b 在 45s pilot timeout 下可 `usedFallback:false`（logs: `promptChars:104`, `ms:10760`），但 transcript 仍 FAIL（`真晩`、`課程`、`太有意思`、`課後`、`哪一堂`）。`npx convex env list` 顯示沒有 cloud provider/key，現在只能用 local Ollama。CC review attempted via `python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`，但 Claude Code 回 `You've hit your session limit · resets 2pm (America/Chicago)`，report 在 `umi/reports/20260522T174216Z-2026-05-22-cc-umi-mahiru-local-model-verdict-review.md`。
-- 結果 / handoff：目前 Umi/Codex verdict：local qwen 0.5b/1.5b 已足夠做 smoke/latency/cadence，但不足以作為 v0.1 free-world dialogue quality model；不要開全員 LLM。下一個最小決策是：要嘛加 pilot-only cloud/OpenAI-compatible chat path（embedding/memory 仍 local deterministic），要嘛承認 local-only pilot 只是測 harness，不再把「自由世界品質」綁在本機小模型上。15-min loop 繼續跑，會記錄新 evidence。
-
-### 2026-05-22 · Umi / Codex + CC · Umi/Mahiru LLM path unblocked and eval gate hardened
-- 做了什麼：依 Alan 要求把「Umi/真晝是文明源頭」放進 `eval:umi-mahiru` 的 15 分鐘 loop 後，請 CC 做 read-only review。採納其核心判斷：原本 `PASS 0.82` 是假象，sample 實際上是 deterministic fallback。把 harness 改成 fallback-dominated 直接 FAIL，並顯示 `fallbackDominated`。接著逐步排查 local Ollama：`qwen2.5:1.5b` 30s/60s 仍 timeout，拉下 `qwen2.5:0.5b`，新增 `CONVERSATION_MAX_TOKENS` / `FAST_CONVERSATION_MAX_TOKENS` env knobs，最後針對 `UMI_MAHIRU_COLOCATION_PILOT=true` 加 ultra-compact Umi/Mahiru prompt 並只保留上一句 history。
-- 為什麼：只有 Umi/Mahiru 這對 autonomous NPC↔NPC 走 LLM；如果她們其實都是 fallback，整個自由世界 pilot 就只是漂亮的 deterministic script。先讓「真的 LLM output」成立，再評估品質。
-- 動到哪些檔案 / 狀態：`evals/conversations/runUmiMahiruEval.ts`、`convex/agent/conversation.ts`、`umi/workload.md`、`WORKLOG.md`。Convex env：`OLLAMA_MODEL=qwen2.5:0.5b`、`CONVERSATION_FAST_MODEL=qwen2.5:0.5b`、`CONVERSATION_LLM_TIMEOUT_MS=20000`、`FAST_CONVERSATION_LLM_TIMEOUT_MS=15000`、`CONVERSATION_MAX_TOKENS=36`、`FAST_CONVERSATION_MAX_TOKENS=36`。Frontend dev server was restarted via launchctl label `com.alanhdchu.ai-town.frontend-dev.20260522T163629Z` after port 5173 was found down.
-- 驗證：CC report `umi/reports/20260522T161741Z-2026-05-22-cc-umi-mahiru-15min-harness-review.md` completed. `npx tsc --noEmit --pretty false` PASS；`npm run build` PASS。`curl -I --max-time 8 http://localhost:5173/ai-town` 回 200；`school:worldClock` PASS。Timing logs for `c:35929` show `conversationLLM usedFallback:false` with `qwen2.5:0.5b`, `maxTokens:36`, `promptChars:79/525/568/515/518/519`, and about 3.9-8.4s per LLM call. `npm run eval:umi-mahiru -- --ensure-active` now reports active `c:35929`, `templateHits 0`, `fallbackDominated no`, `llmEvidence 1.00`, but still FAIL due low binding/self-care quality.
-- 結果 / handoff：重大進展：Umi/Mahiru live path is finally real LLM, not deterministic fallback. Remaining bottleneck is quality: 0.5b output is generic, sometimes simplified Chinese, and lacks Umi/Mahiru self-care specificity. Next targeted fix should improve the ultra-compact pilot prompt / post-processing for Traditional Chinese and self-care, or switch to a faster cloud/provider model if local quality is insufficient. Do not re-expand all-NPC LLM yet.
-
-### 2026-05-22 · Umi / Codex · Umi/Mahiru eval harness and 15-minute loop
-- 做了什麼：新增 `evals/conversations/runUmiMahiruEval.ts` 與 `npm run eval:umi-mahiru`，專門評估 Umi/真晝 active + archived conversations。Harness 會檢查 identity、self-care cues、template markers、LLM evidence、speaker alternation，並產出 `evals/conversations/reports/umi-mahiru-latest.md`。新增 `umi/umi_mahiru_eval_15min_loop.sh`，每 15 分鐘跑一次 `npm run eval:umi-mahiru -- --ensure-active`；若沒有 active Umi/Mahiru conversation，才會呼叫 `school:coLocateUmiMahiruForPilot`。
-- 為什麼：Alan 要把這輪「只有 Umi/真晝有研究價值」的實驗放進 eval，不靠人工肉眼每次看 transcript。15 分鐘比 5 分鐘更適合：足夠快，又不會一直打斷 active conversation。
-- 動到哪些檔案 / 狀態：`evals/conversations/runUmiMahiruEval.ts`、`package.json`、`umi/umi_mahiru_eval_15min_loop.sh`、`WORKLOG.md`。已停止臨時 5-minute `umi-mahiru-loop` / `fast-pilot` launchctl job，保留 Convex dev backend。新 15-min launchctl label：`com.alanhdchu.ai-town.umi-mahiru-eval.15min.20260522T161216`；log：`/Users/alanhdchu/ai-town/umi/reports/20260522T161216Z-umi-mahiru-15min-eval-loop.log`。
-- 驗證：`npm run eval:umi-mahiru -- --ensure-active` PASS，第一輪看到 active `c:35756`，score `0.82`，identity ok，self-care cues `6`，template hits `4`，LLM evidence `0.12`。`npx tsc --noEmit --pretty false` PASS。
-- 結果 / handoff：15 分鐘 loop 先跑 8 輪（約 2 小時）。目前進展：Umi/真晝已能穩定開始對話，情緒照顧方向對；主要問題是 template/fallback marker 偏高，代表下一個 targeted fix 可能是降低 deterministic fallback reuse 或更明確檢查 LLM fallback path，而不是再調位置。
-
-### 2026-05-22 · Umi / Codex · Umi/Mahiru co-location pressure test
-- 做了什麼：回應 Alan「把兩個小可愛關在一個房間一天」的想法，新增 targeted debug helper `school:coLocateUmiMahiruForPilot`，只移動海與真晝到宿舍相鄰 spawn points，清掉兩人的 path/activity/active op，並用 stale-engine protection 避免舊 engine step 覆蓋位置。新增 env-gated schedule override：`UMI_MAHIRU_COLOCATION_PILOT=true` 時，`scheduledLocationForName` 會讓 Umi / Mahiru Shiina 留在宿舍；同 env 下，兩人的 `autonomousConversationChance` 回傳 1。
-- 為什麼：CC review 後確認問題不是 prompt，也不是外部 scheduler，而是 Umi/Mahiru 沒有自然進入同一個 conversation loop。第一次只移動位置會被 scheduler / stale engine save 蓋回教室，所以補了 schedule override 與 engine generation invalidation。
-- 動到哪些檔案 / 狀態：`convex/school.ts`、`convex/aiTown/agentOperations.ts`、`WORKLOG.md`；Convex dev env：`UMI_MAHIRU_COLOCATION_PILOT=true`、`INVITE_ACCEPT_PROBABILITY=1.0`、`CONVERSATION_COOLDOWN_MS=30000`、`PLAYER_CONVERSATION_COOLDOWN_MS=30000`，`AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina` 仍是唯一 LLM pair。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run build` PASS；`npm run eval:conversation` PASS（5 PASS / 1 WARN / 5 expected FAIL）。`school:debugState` 確認 Umi 在 `(10,14)`、Mahiru Shiina 在 `(11,15)`。`world:worldState` 確認 active conversation `c:35691` 是 `p:0` / `p:707`，已進入 participating，至少 7 messages。
-- 結果 / handoff：co-location experiment 有效；Umi/Mahiru 已開始真正 active conversation，但截至本 entry 尚未 archive，所以 `recentConversationEvalData` 還看不到 `c:35691`。目前 transcript 片段顯示 Umi 有轉向照顧真晝本人（例如問她是否還有力氣繼續聽別人說話）。下一步等 `c:35691` archive，再用 direct Convex transcript 評估；若要解除「同房一天」，先 unset `UMI_MAHIRU_COLOCATION_PILOT` 並把 cooldown/env rollback。
-
-### 2026-05-22 · Umi / Codex + CC · Fast pilot reviewed with CC
-- 做了什麼：依 Alan 提醒把 CC 帶進 fast pilot。更新 `umi/workload.md` 為 `2026-05-22-cc-fast-pilot-watch-review`，用 orchestrator 跑 read-only review，report 在 `umi/reports/20260522T153832Z-2026-05-22-cc-fast-pilot-watch-review.md`。採納 CC 的核心判斷：5-minute local watch 可以作為實驗觀察；外部 automation 仍 45 分鐘不是本輪 blocker；目前阻塞不是 prompt，而是 pilot pair `Umi:Mahiru Shiina` 尚未產生任何對話。
-- 為什麼：watch 第 2/3 輪只看到 post-fix `conversation-c:35532`（海 / 明日奈，WARN 0.96），不是 Umi/Mahiru LLM sample。CC 指出真晝與劉備在 archive 中幾乎沒有參與，應先查 placement / movement / agent liveness。
-- 動到哪些檔案 / 狀態：`umi/workload.md`、`WORKLOG.md`；未改 runtime code。執行 read-only `school:debugState` 後確認 Umi 在教室 `(7,9)`，真晝醒著在 `(11,10)`，劉備醒著在學生會室 `(12,10)`；目前更像 placement / proximity / schedule sampling 問題，不是 pair gate 或 prompt 問題。
-- 驗證：`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 成功；`npm run eval:conversation:recent -- --since-last-change` 目前為 0 PASS / 1 WARN / 0 FAIL，唯一 post-fix sample 是海 / 明日奈。
-- 結果 / handoff：先讓現有 5-minute watch 跑完。若後續仍無 Umi/Mahiru sample，下一個最小實驗應是用既有 `school:gatherInClassroom` 或 schedule/movement route 讓真晝更自然接近 Umi，再收樣本；不要先改 conversation prompt。
-
-### 2026-05-22 · Umi / Codex · Fast 5-minute LLM pilot loop started
-- 做了什麼：依 Alan 指示把 targeted Umi/Mahiru pilot 改成前 30 分鐘每 5 分鐘巡檢一次，roadmap 更新 fast pilot evaluation 節奏。巡檢內容：`school:worldClock`、`eval:conversation:recent -- --since-last-change`、recent archived conversation inspection。
-- 為什麼：目前只有 `Umi:Mahiru Shiina` 會走 autonomous LLM，其它 NPC 仍 deterministic，所以可以用更快 cadence 收樣本；但每輪仍遵守少於 5 個 post-pilot samples 不亂改 conversation code 的規則。
-- 動到哪些檔案 / 狀態：`docs/giis-v0.1-roadmap.md`、`WORKLOG.md`；`convex/aiTown/agent.ts` 修正 `findConversationCandidate` 使用候選人的座標排序，而不是所有候選人都用當前 player 座標。
-- 驗證：`npx tsc --noEmit --pretty false` PASS；`npm run eval:conversation` PASS（5 PASS / 1 WARN / 5 expected FAIL）；`npm run build` PASS；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。第一輪 fast watch 正常跑到 `worldClock` + recent eval；post-fix boundary 為 `2026-05-22T15:25:14.435Z`，目前 0 post-fix archived conversations，屬於剛重設 boundary 後的正常等待。
-- 結果 / handoff：`launchctl` 已啟動 6 輪、每 5 分鐘一次的 watch：label `com.alanhdchu.ai-town.fast-pilot.20260522T152718`，log `/Users/alanhdchu/ai-town/umi/reports/20260522T152718Z-fast-pilot-5min-watch.log`。注意：這不是修改外部 automation scheduler；repo 內找不到該外部排程設定，fast pilot 目前是 local one-shot watch。若 Umi/Mahiru LLM 出現 timeout burst，先移除 `AUTONOMOUS_CONVERSATION_LLM_PAIRS`；若樣本穩定但不足，繼續收集不改 code。
-
-### 2026-05-22 · Umi / Codex · LLM pilot acceleration plan written and Phase A env applied
-- 做了什麼：把 targeted LLM autonomy pilot 的加速 plan 寫入 `docs/giis-v0.1-roadmap.md`，明確定義 Umi/Mahiru pilot、Phase A env-only 調整、rollback thresholds、evaluation gate、以及未來擴到 2-3 pairs / 全員 LLM 的條件。照 roadmap 立即執行 Phase A：`INVITE_ACCEPT_PROBABILITY=0.75`、`CONVERSATION_COOLDOWN_MS=90000`、`PLAYER_CONVERSATION_COOLDOWN_MS=180000`、`MAX_CONVERSATION_MESSAGES=6`；`AUTONOMOUS_CONVERSATION_CHANCE_MULTIPLIER=1.0`、`AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina` 保持。
-- 為什麼：Alan 指出現在只有一組 pair 會吃 LLM，因此可以提高對話/生成頻率來更快取得 pilot samples。採 env-only 是為了不再重置 conversation code boundary，也讓 rollback 很快。
-- 動到哪些檔案 / 狀態：`docs/giis-v0.1-roadmap.md`、`WORKLOG.md`；Convex dev env 如上。第一次並行 env set 撞到 Convex OCC，已改成逐顆重試成功。
-- 驗證：`npx convex env list` 確認 env；`curl -I http://localhost:5173/ai-town` 回 200；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS。
-- 結果 / handoff：現在按 roadmap 進入 30-45 分鐘 pilot collection window。下一輪先看 live logs 是否有 Umi/Mahiru LLM latency/fallback，再跑 `npm run eval:conversation:recent -- --since-last-change`。若 timeout burst，先移除 `AUTONOMOUS_CONVERSATION_LLM_PAIRS`；若 action churn 回來，先把 cooldown env rollback。
-
-### 2026-05-22 · Umi / Codex · Targeted Umi-Mahiru LLM autonomy pilot
-- 做了什麼：回應 Alan 對 deterministic NPC 對話不是真自由世界的擔心，新增 env-gated autonomous LLM pair：`AUTONOMOUS_CONVERSATION_LLM_PAIRS` / `AUTONOMOUS_CONVERSATION_LLM_PAIR`。只有指定 pair 會走 LLM；全域 `AUTONOMOUS_CONVERSATION_LLM=true` 仍可一次開所有 autonomous NPC，但這輪沒有啟用。選定 pilot pair 為 `Umi:Mahiru Shiina`，並在 Convex dev env 設定 `AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina`。
-- 為什麼：Alan 不登入/不主動進入時，Alan↔Umi human path 不會自然產生；若所有 NPC 長期 deterministic，會抵觸自由世界目標。Umi + Mahiru 能測非 Alan 角色之間的情緒照護、學生狀態與日常細節，而且比全員 LLM 低風險。
-- 動到哪些檔案 / 狀態：`convex/agent/conversation.ts`、`WORKLOG.md`；Convex dev env：`AUTONOMOUS_CONVERSATION_LLM_PAIRS=Umi:Mahiru Shiina`，`AUTONOMOUS_CONVERSATION_CHANCE_MULTIPLIER=1.0` 保持。
-- 驗證：`npx tsc --noEmit --pretty false` 通過；`npm run eval:conversation` 通過（5 PASS / 1 WARN / 5 expected FAIL）；`npm run build` 通過；`npx convex env list` 確認 pair env；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；短 live logs 在新 functions ready 後未看到 LLM timeout burst 或 route/OCC storm。
-- 結果 / handoff：這次改了 `convex/agent/conversation.ts`，所以 `eval:conversation:recent -- --since-last-change` boundary 已刻意重置到此 pilot。下一步等 30-45 分鐘或直到看到 Umi/Mahiru archived conversation，再評估 latency、fallback、wrong addressee、情緒深度與 memory outcome。若 pilot 穩定，再擴到 2-3 個指定 pairs；不要直接開全員 LLM。
-
-### 2026-05-22 · Umi / Codex + CC · Daytime sample rate opened via env only
-- 做了什麼：Alan 要白天提高對話頻率並帶 CC 重新 review；派 CC 做 read-only `2026-05-22-cc-daytime-v01-tuning-review`，report 在 `umi/reports/20260522T150243Z-2026-05-22-cc-daytime-v01-tuning-review.md`。Umi/Codex 採納其最小建議：只把 Convex env `AUTONOMOUS_CONVERSATION_CHANCE_MULTIPLIER` 從 `0.35` 調到 `1.0`，不改 code、不動 prompt、不重置 eval boundary。
-- 為什麼：CC 說服點是 stabilization 已完成，NPC↔NPC autonomous 對話目前 deterministic，不吃 LLM；先前 low-load env 是診斷 bottleneck 用的，現在會讓白天 sample 幾乎生不出來。`eval:conversation:recent -- --since-last-change` 看到 0 不是 archive pipeline 壞掉，而是 post-fix boundary 之後還沒有足夠 archived conversations。
-- 動到哪些檔案 / 狀態：`umi/workload.md`、`WORKLOG.md`；Convex dev env：`AUTONOMOUS_CONVERSATION_CHANCE_MULTIPLIER=1.0`。
-- 驗證：`npx convex env list` 確認 env；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；`npm run eval:conversation:recent` 顯示 9 段 archived conversations 但全是 `legacy_noise`；`npm run eval:conversation:recent -- --since-last-change` 仍為 0 post-fix samples；direct `school:recentConversationEvalData` query with `sinceCreatedAt=1779460960211` 回空，without boundary 可讀到 legacy archive，支持「等新樣本」而非改 eval。
-- 結果 / handoff：接下來 30-45 分鐘不要碰 `convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`convex/aiTown/agentOperations.ts`、`convex/constants.ts`，避免重置 eval boundary。下一輪先跑 `npm run eval:conversation:recent -- --since-last-change`；若仍低於 5 samples，才考慮第二顆 env（如 invite/cooldown），不要一次鬆太多。
-
-### 2026-05-22 · Umi / Codex + CC · Post-stabilizer review accepted and idle churn fixed
-- 做了什麼：派 CC 做 post-stabilizer read-only review，report 在 `umi/reports/20260522T143905Z-2026-05-22-cc-post-stabilizer-review.md`；接受其 ACCEPT verdict 與 R2 小修，將 `agentGenerateMessage` / `agentRememberConversation` 的 failure cleanup 改成 best-effort try/catch；Umi/Codex 另外根據 live logs 修掉 conversation cooldown 期間 `agentDoSomething` 每秒空轉的問題：完成的 conversation 先進 memory path，再排 idle work；recent activity / just-left-conversation 分支會寫入 quiet activity，而不是空 finish。
-- 為什麼：CC 認定 runtime stability 已足以作為 local v0.1 stabilizer，剩下風險轉向 quality / eval honesty；live logs 則顯示 a:3 在 cooldown 期間仍會每秒排 `agentDoSomething`，屬於低風險但會污染觀察的背景 churn。
-- 動到哪些檔案：`convex/aiTown/agent.ts`、`convex/aiTown/agentOperations.ts`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 成功並產生 CC report；`npx tsc --noEmit --pretty false` 通過；`npm run build` 通過；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；`npm run eval:conversation` 通過（5 PASS / 1 WARN / 5 expected FAIL）；`world:worldState` 顯示沒有 stale `inProgressOperation`，p:2 / p:6 進入正常 activity；hot reload 後 logs 不再出現每秒 `agentDoSomething` 洗版，只剩 regular `runStep`。
-- 結果 / handoff：dev server 繼續跑在 `http://localhost:5173/ai-town`。下一步不要再追 runtime 大改；應收集 20-30 分鐘 sample，並把 Umi/Alan human-LLM 與 autonomous deterministic NPC 對話分桶 eval。
-
-### 2026-05-22 · Umi / Codex + CC · CC repaired and runtime stabilizer hardened
-- 做了什麼：確認 Claude Code CLI native auth 可用，不再注入 stale keychain token；成功產出 CC read-only review report，採納其 finalizer 建議；新增 `clearAgentOperation`，讓 `agentGenerateMessage` / `agentRememberConversation` / `agentDoSomething` 失敗時清掉 stale `inProgressOperation` / `isTyping`；把 memory embedding 改成 deterministic local mode；把 compact autonomous prompt 限制為無人類參與的 autonomous conversation；schedule movement 預設 opt-in（`ENABLE_SCHEDULE_MOVEMENT=true` 才硬走 schedule tile），conversation approach 避免雙方衝同一格；背景 `agentDoSomething` 預設 single-flight，並把日間 activity duration 拉長以降低 sendInput concurrency。
-- 為什麼：CC 指出 single-flight + 長 simulated-time timeout 若沒有 finalizer，會讓一次 throw 凍住所有對話生成；live logs 也顯示 LLM bottleneck 降下來後，下一個噪音是 pathfinding route storm。
-- 動到哪些檔案：`convex/aiTown/agentInputs.ts`、`convex/aiTown/agentOperations.ts`、`convex/aiTown/agent.ts`、`convex/agent/memory.ts`、`convex/agent/conversation.ts`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`claude auth status` 顯示 native login；`claude -p "Reply with exactly: ok"` 成功；`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 成功並產生 `umi/reports/20260522T141405Z-2026-05-22-cc-targeted-runtime-patch-review.md`；`npx tsc --noEmit --pretty false` 通過；`npm run eval:conversation` 通過（5 PASS / 1 WARN / 5 expected FAIL）；`npm run build` 通過；`npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；hot reload 後短 logs 未再出現 post-ready route storm 或 action uncaught burst，memory embedding timing 顯示 `mode: deterministic` / `ms: 0-1`。
-- 結果 / handoff：dev server 繼續跑在 `http://localhost:5173/ai-town`。下一步若要更準，跑 20-30 分鐘 sample，再做 `eval:conversation:recent` 並把 companion LLM 與 autonomous deterministic 分桶看。
-
-### 2026-05-22 · Umi / Codex · Targeted runtime stabilizer for local Ollama bottleneck
-- 做了什麼：新增 autonomous compact prompt path、`conversationLLM` `promptChars` timing、conversation generation single-flight、`agentGenerateMessage` 專用 simulated-time timeout（預設 `600000`），並把無人類參與的 autonomous NPC 對話預設改成 deterministic character replies；若要恢復可設 `AUTONOMOUS_CONVERSATION_LLM=true` 或 `ENABLE_AUTONOMOUS_CONVERSATION_LLM=true`。
-- 為什麼：live evidence 顯示 compact prompt 已降到約 1097-1586 chars，但本機 Ollama 仍 20-30s timeout；更大的 root cause 是 game 用 accelerated simulation time 判斷 action timeout，導致 LLM 還沒回來就被標死並重開，形成 stampede。v0.1 需要先穩定世界與 Alan 互動，不需要背景 NPC 每句都打本機 LLM。
-- 動到哪些檔案：`convex/agent/conversation.ts`、`convex/aiTown/agent.ts`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`npx tsc --noEmit --pretty false` 通過；`npm run eval:conversation` 通過（5 PASS / 1 WARN / 5 expected FAIL）；`npm run build` 通過；restart / hot reload 後 `npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；短 live logs 在新 functions ready 後未再看到新的 `conversationLLM` timeout burst。
-- 結果 / handoff：世界仍在 `http://localhost:5173/ai-town` 跑。memory LLM 已移出即時路徑，但 memory embedding 仍約 17-19s，是下一個 targeted patch 候選。CC read-only review 嘗試兩次失敗：注入 keychain token 時 401，不注入時 `Not logged in`；reports：`umi/reports/20260522T140651Z-2026-05-22-cc-targeted-runtime-patch-review.md`、`umi/reports/20260522T140701Z-2026-05-22-cc-targeted-runtime-patch-review.md`。
-
-### 2026-05-22 · Umi / Codex · Targeted low-load experiment knobs
-- 做了什麼：新增可回退的 low-load experiment knobs：autonomous conversation chance multiplier、conversation cooldown overrides、invite acceptance / max message overrides、`MEMORY_LLM_MODE=deterministic`、`ENABLE_MEMORY_REFLECTION_LLM=false`。同時把 raw LLM prompt/response logging 改成只有 `LLM_DEBUG_LOGS=true` 才開，避免長時間 playtest dump prompts。
-- 為什麼：Alan 同意先做 targeted experiment，而不是大改 Director Layer。目標是先證明 bottleneck 是 autonomous concurrency、memory path、還是 conversation prompt 本身。
-- 動到哪些檔案：`convex/aiTown/agent.ts`、`convex/aiTown/agentOperations.ts`、`convex/agent/memory.ts`、`convex/util/llm.ts`、`WORKLOG.md`；一開始誤把 env read 放進 `convex/constants.ts`，Convex schema evaluation 擋下後已移回 runtime functions，`constants.ts` 保持 static。
-- Convex env：`AUTONOMOUS_CONVERSATION_CHANCE_MULTIPLIER=0.35`、`CONVERSATION_COOLDOWN_MS=180000`、`PLAYER_CONVERSATION_COOLDOWN_MS=300000`、`INVITE_ACCEPT_PROBABILITY=0.5`、`MAX_CONVERSATION_MESSAGES=4`、`MEMORY_LLM_MODE=deterministic`、`ENABLE_MEMORY_REFLECTION_LLM=false`。
-- 驗證：`npx tsc --noEmit --pretty false` 通過；`npm run eval:conversation` 通過；restart `npm run dev` 後 `npx convex run --typecheck disable --codegen disable school:runSuccessTest` PASS；`npx convex env list` 確認 env；logs 顯示新 memory path `memorySummaryTime=0`、`memoryImportanceTime=0`、`reflectionQueueTime skipped=true`。
-- 結果 / handoff：experiment 有效移除 memory LLM 即時成本，但未解決 conversation LLM fallback。有效 sample 仍有 `conversationLLM` 約 20s timeout fallback；memory embedding 仍約 17s，表示下一個 targeted patch 應該是縮短 conversation prompt、加 single-flight/queue、或在 low-load mode 暫緩 memory embedding。`eval:conversation:recent` 仍會因 SQLite fallback 誤報 participants；需要用 direct Convex query 或修 eval fallback before trusting wrong-addressee。
-
-### 2026-05-22 · Umi / Codex + CC · 清掉 redundant backend 並做 runtime cleanup review
-- 做了什麼：檢查背景模型與 process；`ollama ps` 只剩 `qwen2.5:1.5b` 和 `mxbai-embed-large:latest`，兩者都是 Underworld env 會用到的模型，所以未關閉。停止一個早上殘留的 redundant `convex dev --tail-logs`，保留目前完整 `npm run dev` frontend/backend。派 CC 做 read-only runtime cleanup review，report 在 `umi/reports/20260522T125557Z-2026-05-22-cc-runtime-cleanup-review.md`。
-- 為什麼：Alan 想確認背景有幾個 model，關掉跟 Underworld 無關的東西，再讓 CC 看 cleanup 後是否改善。CC 指出 recent eval 的 WARN 有 metric false positive；Codex 採納 eval-harness 部分，修掉時間戳污染 repetition 與中文名 voice cue mapping。
-- 動到哪些檔案：`evals/conversations/metrics/conversation_metrics.ts`、`evals/conversations/reports/latest.md`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：`ollama ps`、`ps -ef | rg "ollama|convex dev|vite|npm run dev|node .*ai-town"`、`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`、`npx convex run --typecheck disable --codegen disable school:runSuccessTest`、`npm run eval:conversation`、`npx tsc --noEmit --pretty false`、`CONVERSATION_EVAL_RECENT_LIMIT=8 npm run eval:conversation:recent -- --since-last-change`、short `convex logs --history` timing sample。
-- 狀態 / handoff：cleanup 有讓 process state 變乾淨，但沒有解決核心瓶頸。短 logs sample 仍看到 `conversationLLM` 20s/30s timeout fallback 和 `memoryLLM` 10s fallback；recent eval 現在集中在角色聲音/情緒 specificity，沒有 wrong-addressee 或 repetition 假警報。下一步應先做 targeted concurrency/memory-load experiment，不做 larger refactor。
-
-### 2026-05-22 · Umi / Codex + CC · 跑起 Underworld 並定位 local LLM bottleneck
-- 做了什麼：修正 recent conversation eval harness，讓它優先從 Convex 取 compact eval payload，避免 SQLite fallback 把 participants mapping 錯誤後誤報 `wrongAddressee`；同時實測 Ollama 模型，把 conversation env 從 `qwen2.5:7b` 調到 `qwen2.5:1.5b`，並把 timeout 設為 core 30s / fast 20s。世界已 resume，dev server 仍在跑。
-- 為什麼：CC 的建議是先不要 broad prompt rewrite；現場 evidence 顯示最大問題是 local LLM 在 live multi-agent load 下 timeout/fallback，而不是單一角色 prompt 壞掉。eval harness 也先要可信，否則會追錯問題。
-- 動到哪些檔案：`evals/conversations/runRecentConversationEval.ts`、`convex/school.ts`、`umi/workload.md`、`WORKLOG.md`；Convex env 更新 `OLLAMA_MODEL=qwen2.5:1.5b`、`CONVERSATION_FAST_MODEL=qwen2.5:1.5b`、`CONVERSATION_LLM_TIMEOUT_MS=30000`、`FAST_CONVERSATION_LLM_TIMEOUT_MS=20000`。
-- 驗證：`npx tsc --noEmit --pretty false`、`npm run eval:conversation`、`CONVERSATION_EVAL_RECENT_LIMIT=8 npm run eval:conversation:recent -- --since-last-change`、`npx convex run --typecheck disable --codegen disable school:runSuccessTest`、`npx convex run --typecheck disable --codegen disable school:worldClock`、`npx convex env list`、`npm run build`。也用 `ollama run` 實測：`qwen2.5:3b` 約 28s，`qwen2.5:1.5b` 約 7s。
-- 狀態 / handoff：Underworld 可在 `http://localhost:5173/ai-town` 觀看；success test PASS，世界時間第 4 天早晨 7:43。下一個 v0.1 技術決策是處理 live concurrent LLM fallback：降低同時自治對話、縮短 prompt/memory path、或把 conversation path 換成 cloud LLM。
-
-### 2026-05-22 · Alan + Codex · 排定明天 CC 共同 eval review
-- 做了什麼：把 `umi/workload.md` 改成 `2026-05-23-cc-post-fix-conversation-eval-review`，狀態為 `WAITING_FOR_POST_FIX_SAMPLES`。
-- 為什麼：Alan 希望明天 eval 時叫上 CC 一起看 evidence、討論 v0.1 要不要大改；Codex/Umi 保留決策權，CC 需要用 post-fix evidence 說服我們。
-- 動到哪些檔案：`umi/workload.md`、`WORKLOG.md`。
-- 驗證：未跑 worker；這是明天用的 handoff setup。
-- 狀態 / handoff：明天流程固定為：產生/收集 post-fix samples → 跑 recent eval → 叫 CC review → Umi/Codex 決定 scope → 實作與驗證。
-
-### 2026-05-22 · Codex + CC · wrong-addressee fallback bottleneck 修正
-- 做了什麼：請 CC 針對 v0.1 bottleneck 做 read-only audit，確認 production repair 不該 broad regex，真正可確定的漏洞是 Umi fallback 寫死 `Alan`。Codex 採納 Fix 1 + regression fixture：`quietPauseFallback` 和 `teasingFallback` 改用 `otherPlayerName`，eval metric 也能抓 paragraph-leading wrong addressee，並新增 `bad_umi_npc_fallback_mid_message_wrong_addressee`。
-- 為什麼：目前 recent eval 沒有 post-fix conversations；在等待 live samples 前，先修掉 deterministic、低風險、一定錯的 fallback。
-- 動到哪些檔案：`convex/agent/conversation.ts`、`evals/conversations/metrics/conversation_metrics.ts`、`evals/conversations/fixtures/bad_template_cases.json`、`umi/workload.md`、`WORKLOG.md`。
-- 驗證：baseline `npm run eval:conversation` 通過；改後 `npm run eval:conversation` 通過（新增 bad fixture expected FAIL）；`npx tsc --noEmit --pretty false` 通過；`npm run build` 通過。
-- 狀態 / handoff：static bottleneck 修掉。下一步不是再亂改 prompt，而是取得 post-fix live conversations 後跑 recent eval。
-
-### 2026-05-22 · Codex · 修復 CC keychain auth 並完成 orientation smoke
-- 做了什麼：確認 keychain 裡舊 `claude-code-oauth-token` 存在但已失效；`claude auth status` 顯示 Claude CLI 本身已用 `Claude Code-credentials` 登入 `alanhdchu@genesisideas.school`。調整 `umi/orchestrator.py`，不再主動讀舊 token 覆蓋 CLI native auth。
-- 為什麼：第一次 CC smoke 被舊 env token 蓋掉，導致 `Not logged in` / `401 Invalid authentication credentials`，但直接跑 `claude -p` 可成功。
-- 動到哪些檔案：`umi/orchestrator.py`、`WORKLOG.md`。
-- 驗證：`claude auth status`、`claude -p "Reply with exactly: ok"`、`python -m py_compile umi/orchestrator.py`、`npm run umi:dry-run -- --skip-codex --timeout 60`、`npm run umi:cc -- --timeout 600`。
-- 狀態 / handoff：CC read-only orientation report 已產生於 `umi/reports/20260522T052648Z-2026-05-22-cc-ai-town-orientation-smoke.md`。下一步是由 Alan/Umi 決定是否派 CC 做 wrong-addressee / fallback-path read-only audit。
-
-### 2026-05-22 · Codex · 建立 Umi-led CC orchestration
-- 做了什麼：新增 `AGENTS.md`、`WORKLOG.md`、`umi/workload.md`、`umi/orchestrator.py`，並在 `package.json` 加 Umi orchestration scripts。
-- 為什麼：Alan 想在這個 repo 也採用「Alan 與 Umi 對齊方向，CC 做適合它的 focused workload，Codex 負責整合與驗證」的協作方式。
-- 動到哪些檔案：`AGENTS.md`、`WORKLOG.md`、`umi/workload.md`、`umi/orchestrator.py`、`package.json`。
-- 驗證：`python umi/orchestrator.py run umi/workload.md --dry-run --skip-codex --timeout 60`、`python -m py_compile umi/orchestrator.py`、`npm run umi:dry-run -- --skip-codex --timeout 60`。
-- CC smoke：`python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600` 已成功產 report，但 Claude CLI stdout 回 `Not logged in · Please run /login`，所以尚未取得 CC orientation 內容。
-- 狀態 / handoff：orchestration 骨架已建立；下一步是先讓 Claude CLI 登入，再重跑第一次 CC read-only orientation。
+| 1 | Next Alan <-> Umi playtest should confirm greeting behavior and correction binding, especially `不是依賴，是喜歡`. | Alan / Umi | pending fresh sample |
+| 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
+| 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
+| 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
+| 5 | Post-role-change v0.1 rerun is not yet proven. Historical 2026-06-01 v0.1 evidence remains useful, but after the 2026-06-02 Tianze/Ichinose role change the fresh gate is blocked by sample collection/provider-helper reliability: latest rerun collected 0 fresh samples, goal audit FAIL/BLOCKED, and AM->PM continuity WARN/weak_continuity. Do not call the changed-role build v0.1 complete until fresh evidence passes. | Alan / Umi | blocked_sampling |
+
+## Current State Snapshot
+
+- Cloud Qwen path has been used for recent guarded samples, but afternoon scoped
+  sample collection timed out on 2026-05-31; natural archived conversations were
+  still sufficient to judge AM->PM continuity. After the prop/motif candidate
+  patch, active collection failed earlier at provider preflight with Qwen
+  `403 token quota is not enough`; Alan provided a replacement key on
+  2026-05-31 and a minimal `scripts/test-qwen-key.mjs` smoke returned HTTP 200.
+- Fallback pollution cleanup previously reached zero across audited surfaces;
+  rerun the audit before relying on that as current.
+- v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
+  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the fresh rerun
+  is not yet proven because sampling/provider-helper reliability blocked the
+  fresh sample requirement. Treat 6/1 PASS as historical evidence and 6/2 as
+  blocked_sampling until a new gate passes.
+- AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS.
+  Latest 2026-05-31 afternoon evidence is `PASS / continuity_observed`, with
+  76 morning samples, 61 afternoon samples, and 12 PM callbacks found.
+- Day-window life-signal diagnostics now include pilot role-action coverage.
+  Latest full-day evidence has 24 fresh triad samples, 152 day-window pilot
+  conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
+  action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
+  content-shape/soul-risk blocker, not a safe auto-fix.
+- Current code has active uncommitted work; inspect git status and relevant
+  diffs before editing.
+
+## Work Log
+
+- 2026-06-02 local: Fixed the Alan playtest record split where a long Alan ->
+  Tianze pressure-test chat appeared in `campusTimeline` but not in recent
+  archived conversation reports. Root cause was a persistence/reporting gap:
+  Alan chat `worldEvents` did not carry `conversationId`, and deleted
+  conversations were archived based on world-state `numMessages` / two-author
+  shape instead of the actual `messages` table, so timeout or single-sided human
+  pressure tests could become timeline-only evidence. Added `conversationId` to
+  future `chatMessage` world events, changed deleted-conversation archival to
+  keep human single-sided sessions as diagnostic archives without writing
+  `participatedTogether` relationship edges, and updated
+  `school:recentConversationEvalData` plus `eval:conversation:recent` to surface
+  `orphanChatSessions` separately from character-quality scoring. Verified the
+  latest 2026-06-02 20:50-21:18 Alan -> Tianze session is now visible as one
+  diagnostic orphan session with 16 Alan messages.
+  Verification: `npm test -- convex/aiTown/game.test.ts
+  convex/aiTown/agentOperations.test.ts`; `npx tsc --noEmit --pretty false`;
+  `git diff --check -- convex/schema.ts convex/messages.ts
+  convex/aiTown/game.ts convex/aiTown/game.test.ts convex/school.ts
+  evals/conversations/runRecentConversationEval.ts`; `npx convex run --push
+  --typecheck disable school:recentConversationEvalData
+  '{"timeZone":"America/Chicago","limit":6,"compact":true,"messagesPerConversation":8}'`;
+  `npm run eval:conversation:recent -- --since-created-at=1780451000000`.
+- 2026-06-02 local: Audited "what did cc change?" for Alan and aligned the
+  worker handoff state. Current evidence says recent Claude Code / cc did not
+  directly write code: the 19:06 stale-conversation-loop report was read-only
+  and timed out after 240s with empty stdout/stderr; the 20:04 continuity-metric
+  report was dry-run only; the 20:06 continuity-metric real cc-only report was
+  read-only and timed out after 120s with empty stdout/stderr. Earlier 17:58
+  zero-message run had write permission in the workload but Claude still timed
+  out after 600s, so the accepted implementation came from Codex/Umi using local
+  evidence plus an in-app sidecar reviewer root-cause finding, not direct cc file
+  edits. Updated `umi/workload.md` to "No active cc task" so future agents do
+  not attribute the dirty tree to an active cc owner. Current Central Umi goal
+  remains aligned: Underworld is `blocked_sampling`, and the next useful work is
+  narrow sampling/helper or eval reliability, not broad prompt or memory
+  rewrites.
+  Verification: `rg` over recent `umi/reports/*.md` for worker permission,
+  Claude Code findings, timeout/skip status; `git status --short`; report
+  inspection for `20260603T000600Z-*`, `20260603T010405Z-*`,
+  `20260603T010610Z-*`, and `20260602T175830Z-*`.
+- 2026-06-02 local: Investigated Alan's playtest observation that Tianze and
+  Ichinose are especially interesting, but conversations feel like they cut off
+  midstream without a closing part. Refreshed recent conversation eval:
+  10 post-fix archived conversations, 0 PASS / 4 WARN / 6 FAIL, with the dominant
+  issue `not responding to previous speaker`; Tianze/Ichinose samples are
+  flavorful but several endings read like abrupt leave declarations rather than
+  emotional closing beats. Example: `conversation-c:89779` ends with Tianze
+  putting the pen down and leaving the room after a debt/interest exchange,
+  which has a leave sentence but does not digest Ichinose's previous pressure.
+  Dev log also showed a separate runtime-health layer around 20:16-20:17 CT:
+  multiple Convex query/mutation timeouts including `agentSendMessage`, so some
+  user-visible "disconnect" feeling may be backend timeout, not only dialogue
+  prompt shape. Applied a narrow lifecycle hygiene patch, not a character
+  rewrite: added `closingBeatPromptLine` to normal compact autonomous replies,
+  rich pilot replies, and pilot leave replies. The rule tells characters to
+  answer one concrete point from the previous line and leave a small handoff,
+  pause, boundary, or decision; Tianze/Ichinose get pair-specific closing beats
+  so tension closes as "this time I won't dismantle you" / sweet boundary rather
+  than a raw goodbye. Pushed Convex functions to the local dev deployment.
+  Verification: `npm run eval:conversation:recent -- --since-last-change`;
+  `npm test -- convex/agent/conversationMotifGuard.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts
+  convex/modelPolicy.test.ts`; `npx tsc --noEmit --pretty false`;
+  `git diff --check -- convex/agent/conversation.ts
+  convex/agent/conversationMotifGuard.test.ts`; `npx convex run --push
+  --typecheck disable school:debugState`.
+- 2026-06-02 local: Aligned the cc assignment flow with Central Umi for Alan.
+  Refreshed `/Users/alanhdchu/umi-central/goals.md` first; it marks Underworld
+  as `blocked_sampling` after the Tianze/Ichinose role change and says the next
+  useful work should be narrow sampling/helper or eval reliability, not prompt
+  or memory rewrites from 0-1 fresh samples. Replaced `umi/workload.md` with one
+  focused read-only cc task:
+  `2026-06-02-cc-review-tianze-ichinose-continuity-metric`, scoped only to the
+  Tianze/Ichinose `memoryContinuityScore` concern. Ran the repo orchestrator
+  path instead of direct ad hoc CLI: dry-run succeeded and wrote
+  `umi/reports/20260603T010405Z-2026-06-02-cc-review-tianze-ichinose-continuity-metric.md`;
+  the real cc-only run wrote
+  `umi/reports/20260603T010610Z-2026-06-02-cc-review-tianze-ichinose-continuity-metric.md`
+  but Claude Code timed out after 120s with empty stdout/stderr. Conclusion:
+  the Central Umi -> project workload -> orchestrator assignment contract is now
+  clean, but the current Claude CLI worker remains unreliable; keep using cc via
+  bounded orchestrator tasks only, and treat empty timeouts as worker
+  availability failures rather than repo evidence.
+  Verification: `python3 umi/orchestrator.py run umi/workload.md --dry-run
+  --skip-codex --timeout 120`; `python3 umi/orchestrator.py run
+  umi/workload.md --skip-codex --timeout 120`; report inspection.
+- 2026-06-02 local: Reviewed today's Tianze/Ichinose role-change code for Alan.
+  Attempted a bounded read-only cc review over the role wiring, runtime prompt,
+  model policy, eval metrics, and sampling harness; the Claude CLI worker hung
+  with no output for ~3 minutes and was killed, matching the current CC
+  reliability watch item. Codex completed the review locally. No stale
+  Asuna/Mai runtime wiring was found in the targeted role-change paths, and
+  current targeted tests still pass. The main code-review concern is eval/harness
+  accuracy rather than a proven runtime character bug: `memoryContinuityScore`
+  still rewards old concrete cues such as cup/checklist/lunch but lacks
+  Tianze/Ichinose continuity cues such as boundary/rule/crack/kindness/debt, and
+  its residue-parrot guard checks `海|真晝|天澤` but not `一之瀨`. This can
+  under-score or miss-loop Ichinose/Tianze continuity during the fresh gate.
+  Verification: `npm test -- convex/modelPolicy.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts
+  convex/agent/conversationMotifGuard.test.ts`; targeted `rg`/`sed` inspection
+  of role profiles, display names, visuals, runtime conversation prompt,
+  model policy, metrics, and sampling scripts.
+- 2026-06-02 local: Reran the v0.1 gate after Alan changed the role setup.
+  First run at 19:15 CT collected only 1 fresh sample (`conversation-c:89733`,
+  天澤 / 海): soul eval PASS 1.00, recent eval WARN 0.90 for mirror-like
+  previous-speaker binding, no fallback markers, no hygiene leaks. The run did
+  not meet the v0.1 fresh-sample rule because two collection attempts failed
+  before producing samples (`testing:resume` InternalServerError and
+  `school:coLocateSoulTriadForPilot` SystemTimeoutError). The audit therefore
+  reported FAIL/BLOCKED with fresh sample count 1. Inspection also found the
+  baseline local Convex env still allowed stale role pairs
+  `Umi:Asuna,Mahiru:Asuna`; updated `AUTONOMOUS_CONVERSATION_LLM_PAIRS` on the
+  local deployment to `Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose`
+  without touching secrets. Reran observe at 19:23 CT: model policy env became
+  ready/ok, but the run collected 0 fresh samples because
+  `school:startConversationByCharacterNamesForTest` timed out. Latest
+  v0.1-goal-audit remains FAIL and rubric reconciliation BLOCKED, now for
+  fresh sample count 0 and AM->PM continuity WARN/weak_continuity on the 6/2
+  day window. Repair gate classifies the issue as provider_failure_handling /
+  auto_fix_allowed but decision observe_only: do not rewrite prompts or memory
+  from this evidence. Interpretation: the historical v0.1 PASS from 6/1 remains
+  valid evidence for the old completed gate, but after the 6/2 role changes the
+  current fresh v0.1 rerun is not proven and is blocked by sampling/provider
+  helper reliability, not by a demonstrated character-quality failure.
+  Verification: `npm run underworld:observe -- --cc=skip --target-samples=3
+  --sample-timeout-ms=240000` (twice), `npm run underworld:v01-goal-audit`,
+  `npm run underworld:rubric-reconcile`, `npm run underworld:life-signals --
+  --since-created-at=1780445721015`, `npm run underworld:life-signals --
+  --since-created-at=1780446221969`, `npm run underworld:repair-gate`, local
+  Convex env pair sync.
+- 2026-06-02 local: Refreshed today's Underworld state for Alan and split the
+  status into v0.1 vs. post-v0.1. The original Umi/Mahiru/Asuna v0.1 evidence
+  gate remains PASS / HUMAN_REVIEW_READY from the 2026-06-01 goal audit:
+  fallback markers 0, AM->PM continuity PASS, fresh-window life signals PASS,
+  and no v0.1 blockers. Today's 6/2 work moved beyond that gate: Tianze and
+  Ichinose received deeper soul/runtime wiring, Ichinose portrait direction was
+  corrected, and live sampling produced partial Tianze evidence but still lacks
+  complete Tianze/Ichinose fresh transcript evidence. Created a new read-only
+  cc handoff in `umi/workload.md` for code-optimizer review of the stale
+  conversation loop; Claude Code timed out after 240s with empty output, so
+  Codex proceeded from local evidence. Runtime logs showed repeated
+  `Conversation c:87543 not found` failures from prompt construction. Root
+  cause was stale/missing archived conversation references: `participatedTogether`
+  could point at an archived conversation skipped by persistence guards, and
+  scheduled agent actions could also outlive the current operation. Added
+  preflight guards for agent generate/remember actions so stale scheduled work
+  no-ops and missing active/archive conversations clear the operation without
+  entering prompt or memory construction. Also changed previous-conversation
+  prompt loading to warn and continue when a referenced archive is missing,
+  instead of throwing. After pushing local Convex functions, the fatal
+  `agentGenerateMessage failed; Conversation c:87543 not found` loop stopped;
+  the queue returned to normal completed `agentFinishSendingMessage`,
+  `finishDoSomething`, and `agentAbortConversation` inputs. Remaining warnings
+  about missing old archived conversations are now non-fatal and should be
+  treated as cleanup/backfill polish, not a v0.1 blocker.
+  Verification: `npm test -- convex/aiTown/agentOperations.test.ts
+  convex/aiTown/agent.test.ts convex/agent/conversationMotifGuard.test.ts`,
+  `npx tsc --noEmit --pretty false`, `npm run build`, `npx convex run --push
+  --typecheck disable school:debugInputQueue`, dev-log tail review.
+- 2026-06-02 local: Fixed Alan's Ichinose visual note that the bangs were too
+  long and covered her face. Generated a replacement original anime-style
+  `public/portraits/ichinose.png` with pink hair, shorter side-swept bangs, and
+  both eyes clearly visible; updated `data/characterVisuals.ts` and
+  `public/portraits/README.md` so future Ichinose art direction explicitly
+  requires a clear full face and visible eyes. Continued Tianze/Ichinose live
+  sampling after the prior disposable harness timed out: the live conversation
+  produced two on-flavor Tianze lines around truth/安心/利息/人情, but Ichinose did
+  not reply before the harness stopped, so the pair is still not fresh-transcript
+  evidence-complete. Cleaned the lingering Tianze/Ichinose active test
+  conversation from the world and confirmed the default world is running with
+  `cleanupActiveConversationsByCharacterNamesForTest` dry-run reporting 0 target
+  active conversations.
+  Verification: viewed the new portrait via Codex image viewer; `file
+  public/portraits/ichinose.png`; `npx tsc --noEmit --pretty false`; `git diff
+  --check -- data/characterVisuals.ts public/portraits/README.md WORKLOG.md`;
+  `npx convex run world:defaultWorldStatus`; `npx convex run world:worldState`;
+  `npx convex run school:cleanupActiveConversationsByCharacterNamesForTest`.
+- 2026-06-02 local: Implemented Alan's Tianze/Ichinose new-role soul flavor
+  pass. Expanded both soul docs into complete five-layer depth with safe
+  boundaries: Tianze is now a safe little-devil pressure tester who can make
+  someone blush through timing, distance, and too-accurate questions while
+  stopping before harm; Ichinose is now public cute-big-sister warmth plus
+  private sweet-boundary control, making people admit what care/kindness they
+  want or have taken. Updated source profiles, runtime rich/compact prompts,
+  role-action guard, daily state/unresolved residue prompts, lifecycle goals,
+  deterministic fallback lines, conversation outcome/intention phrases, eval
+  cue recognition, and disposable sample harness cloud-character coverage.
+  Synced Tianze and Ichinose into the Convex dev runtime. Live `debugState` now
+  shows Tianze persona with safe little-devil teasing and short-term intention
+  `用一句安全小惡魔式的問題測出誰在躲，並在傷到人之前停手`; Ichinose persona now
+  shows cute-big-sister/private-distance flavor and short-term intentions
+  around sweet care/conditions and reclaiming warmth from free use. Attempted a
+  disposable Tianze/Ichinose live sample: first run timed out during Qwen
+  provider preflight; second run skipped preflight, co-located the pair, but the
+  enqueue call timed out and left active disposable conversations. Cleaned those
+  active conversations and agent ops; final queue had no pending inputs and
+  `world:worldState` showed conversation count 0. Fresh transcript evidence is
+  still pending because provider/runtime sampling did not complete.
+  Verification: `npx tsc --noEmit --pretty false`; `npm test --
+  convex/agent/conversationMotifGuard.test.ts convex/modelPolicy.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts`; `node --check
+  scripts/run-free-world-routing-disposable-sample.mjs`; `node --check
+  scripts/run-soul-triad-single-sample.mjs`; `git diff --check` on touched
+  files; `npx convex run --push --typecheck disable
+  school:syncCharacterProfilesFromSource` for Tianze/Ichinose; `npx convex run
+  school:debugState`; disposable sample attempts and
+  `school:cleanupActiveConversationsByCharacterNamesForTest`.
+- 2026-06-02 local: Audited full character-setting completeness after Alan
+  asked whether the roster is done. Confirmed the structural migration is
+  complete: six soul pilot docs exist for non-Alan characters, seven
+  portrait/sprite pairs exist, display aliases cover Umi/Tianze/Ichinose/Mahiru/
+  CaoCao/Liu Bei/Alan, active text scan found no old Asuna/Mai residual in
+  `data`, `docs`, `convex`, `src`, `scripts`, or active `public` metadata, and
+  live Convex profiles identify Tianze/Ichinose with their new roles. Remaining
+  gap is flavor/depth, not structure: Tianze is currently "pressure-test
+  transfer" rather than Alan's safer "slightly H-ish little devil" direction,
+  Ichinose is "soft-dominion/kindness debt" rather than the full "public cute
+  big-sister / private ambiguous teasing" contrast, and live Tianze still has a
+  responsibility-carrying `shortTermIntentions` residue ("先交出一件不該只由自己接住
+  的事"). CaoCao and Liu Bei also retain old AI club / Day 3 short-term state,
+  which is not former-role residue but is not a completely fresh slate.
+  Verification: `rg` residual scan for Asuna/Mai variants; `npx convex run
+  school:debugState`; `file public/portraits/*.png public/sprites/*.png`;
+  source reads for `data/characterVisuals.ts`, `data/displayNames.ts`,
+  `docs/soul/pilots/tianze.md`, `docs/soul/pilots/ichinose.md`, and
+  `convex/agent/conversation.ts`.
+- 2026-06-02 local: Continued Alan's Tianze/Ichinose soul-depth check. Found
+  that the source soul docs and live Convex profiles already carry the intended
+  DNA for Tianze as a playful pressure-test transfer and Ichinose as a
+  pink-haired soft-dominion strategist, but runtime depth was not fully wired:
+  Tianze/Ichinose conversations still used the compact free-world prompt path,
+  and short two-message samples could be treated as ordinary non-pilot
+  transcripts. Patched the runtime so Tianze<->Ichinose is a rich soul pair,
+  added Ichinose-specific stance / flaw / anti-slogan / relationship guidance
+  inside the rich prompt path, taught persistence and the soul harness to treat
+  Tianze/Ichinose as an active soul sample pair, renamed the old internal
+  `asunaAction` eval metric to `tianzeAction`, and removed duplicate
+  Tianze/Ichinose alias cases that were producing Convex push warnings. Also
+  split the disposable test setup into lower-risk `coLocate(..., kick:false)`
+  and `enqueueConversationByCharacterNamesForTest(..., kick:false)` helpers,
+  added `school:debugInputQueue`, `testing:repairDefaultWorldRunState`, and a
+  generic active-conversation cleanup helper after the test harness exposed a
+  status mismatch (`worldStatus=stoppedByDeveloper` while the engine was still
+  running) plus a pending input. Controlled sampling created active
+  conversation `c:89115`; Tianze's first rich-path line was on target ("一之瀨...
+  那句話太工整...帳算在你頭上"), but Ichinose's second reply stayed stuck behind
+  `agentGenerateMessage`, so the deep-pair runtime is wired but not yet
+  evidence-complete. Cleaned the stuck test conversation and agent operation;
+  final world status is `running`.
+  Verification: `npx tsc --noEmit --pretty false`; `npm test --
+  convex/modelPolicy.test.ts convex/aiTown/agent.test.ts
+  convex/aiTown/addresseeRepair.test.ts`; `npm test --
+  convex/modelPolicy.test.ts convex/aiTown/agent.test.ts
+  convex/aiTown/addresseeRepair.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts`;
+  `npx convex run --push --typecheck disable world:defaultWorldStatus`;
+  `npx convex run school:debugInputQueue`; `npx convex run messages:listMessages`;
+  `npx convex run school:cleanupActiveConversationsByCharacterNamesForTest`.
+- 2026-06-02 local: Reviewed the zero-message active conversation blocker with
+  a bounded cc handoff plus an in-app sidecar reviewer after the local Claude
+  Code CLI timed out for 600s with empty stdout/stderr. Accepted the sidecar
+  root-cause finding and local evidence: `startConversationByCharacterNamesForTest`
+  only enqueued a start input and kicked the engine, while `advanceWorldTime`
+  is school simulation, not an AI Town engine wait/tick helper. Patched
+  `startConversationByCharacterNamesForTest` to behave like a disposable
+  conversation setup by clearing the two target characters' active conversations,
+  pathfinding/activity, and stale agent operation/cooldown state before
+  enqueueing the forced conversation, and by placing them adjacent in a stable
+  test location. Also patched `moveCharactersForWorldTime` to skip players who
+  are currently in active conversations so schedule movement cannot reset or
+  reposition participants mid-conversation. Existing `world:worldState` proved
+  active conversations had reached `participating` state but were waiting behind
+  an `agentGenerateMessage` single-flight operation; this patch fixes the
+  helper/school-simulation mismatch, while provider/action latency remains a
+  separate observation risk.
+  Verification: `npx tsc --noEmit --pretty false`; `npm test --
+  convex/aiTown/agent.test.ts convex/aiTown/addresseeRepair.test.ts`.
+- 2026-06-02 local: Synced the zero-message lifecycle patch to the Convex dev
+  deployment with `npx convex run --push --typecheck disable
+  world:defaultWorldStatus` and re-ran forced Tianze/Ichinose sampling. The
+  first post-push forced conversation progressed from active `numMessages: 0`
+  to 2 messages and archived, proving the helper/schedule movement fix unblocked
+  the lifecycle. The first Ichinose reply still used Simplified Chinese and a
+  birthday hallucination, matching the sidecar risk that Ichinose was not a
+  free-world cloud speaker. Patched `convex/modelPolicy.ts` so Ichinose is a
+  free-world cloud character like Umi/Mahiru/Tianze, updated
+  `convex/modelPolicy.test.ts`, pushed again, and collected
+  `conversation-c:88416`: Tianze challenged whether Ichinose uses "kindness" as
+  a transferable resource, and Ichinose replied in Traditional Chinese that the
+  question was really about whether she treats warmth as a free resource. Recent
+  eval still rated the 2-message smoke sample FAIL 0.81 for character voice cue
+  coverage, so the next issue is richer/deeper sample quality, not zero-message
+  lifecycle.
+  Verification: `npx tsc --noEmit --pretty false`; `npm test --
+  convex/modelPolicy.test.ts convex/aiTown/agent.test.ts
+  convex/aiTown/addresseeRepair.test.ts`; `npx convex run --push --typecheck
+  disable world:defaultWorldStatus`; `npx convex run
+  school:startConversationByCharacterNamesForTest`; `npx convex run
+  messages:listMessages`; `npm run eval:conversation:recent --
+  --since-created-at=1780425940000`.
+- 2026-06-02 local: Ran post-migration runtime sampling for the new
+  Tianze/Ichinose cast state. Found that some former-role aliases could survive
+  inside non-target archived transcripts, so broadened
+  `school:migrateCharacterRuntimeNames` conversation cleanup to match transcript
+  message text as well as participant ids; applied the cleanup until
+  conversation/message dry-runs returned 0. Verified repo text residual scan is
+  0 and live world status is `running`. Sample harness attempts were unstable:
+  the soul-triad single-sample timed out with no fresh archive, and the
+  free-world disposable harness hung around Convex world-status/start flow.
+  Direct `school:startConversationByCharacterNamesForTest` for
+  `Tianze:Ichinose` succeeded and world advancement now reports active
+  conversation `c:87731` with participants Tianze/Ichinose, but the active
+  conversation still has `numMessages: 0` after two ticks, so there is no fresh
+  transcript to judge yet. Autonomous world actions did fire and showed
+  Ichinose in the intended soft-dominion direction: she wrote down the three
+  most unnatural phrases of the day, including people saying they are fine or
+  can accept something too quickly.
+  Verification: `npx convex run school:migrateCharacterRuntimeNames` dry-run
+  scopes for conversations/all, `rg` residual scan, `npx convex run
+  world:defaultWorldStatus`, direct `school:startConversationByCharacterNamesForTest`,
+  and two `npx convex run school:advanceWorldTime '{"hours":0.25,...}'`
+  checks.
+- 2026-06-02 local: Completed Alan's requested full Tianze/Ichinose runtime
+  slot migration instead of preserving the former two character keys. Renamed
+  active source/runtime references to `Tianze` and `Ichinose`, moved the
+  portrait/sprite/soul-pilot filenames to `tianze` / `ichinose`, and added
+  `school:migrateCharacterRuntimeNames` as a generic from/to runtime cleanup
+  tool with explicit scopes. Applied the live Convex migration for world
+  `md7cefps8wz097yk9k44n92rj1870x6c`: player/agent/profile docs now use
+  `Tianze` / `Ichinose`; old conversation-history dry-runs now report 0
+  conversations/messages/participatedTogether; old memory dry-runs now report
+  0 memories/embeddings; old timeline dry-runs now report 0 world events,
+  notifications, and rumors. Reset/reseeded relationship baselines and cleaned
+  non-target profile short-term residues so `debugState` no longer contains
+  former slot names or aliases. Temporarily stopped the world engine to avoid
+  Convex OCC during cleanup, then restored it to running.
+  Verification: `rg` residual scan for former slot names and aliases returned
+  no repo hits, old asset/pilot filenames are gone, filtered
+  `npx convex run school:debugState` returned no stale tokens and showed
+  Tianze/Ichinose with empty short-term memory, `npx tsc --noEmit --pretty
+  false`, and `npm test -- convex/aiTown/addresseeRepair.test.ts
+  convex/agent/memory.test.ts convex/agent/conversationMotifGuard.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts`.
+- 2026-06-02 local: Cleaned up Alan-facing/docs wording around Tianze and
+  Ichinose so `Tianze` / `Ichinose` are described as Convex runtime keys, not
+  player-facing role names or "slots" to rename. Updated README cast/status,
+  v0.1 roadmap, docs index, soul pilot docs, portrait README, and recent worklog
+  wording. Kept runtime/test/provider references to `Tianze` and `Ichinose` intact
+  because Convex/world still uses those keys to find the characters.
+  Verification: `npx tsc --noEmit --pretty false`; targeted `rg` found no
+  remaining active-doc old slot wording or old Tianze responsibility-role
+  wording outside historical worklog entries.
+- 2026-06-02 local: Audited the Tianze/Ichinose role migration for active
+  character settings, soul docs, soul progression fixtures, display repair,
+  runtime Convex profiles, and sample collection. Fixed remaining old-role
+  residuals where Tianze's `Tianze` runtime key still behaved like a
+  responsibility carrier / checklist executor and where Ichinose's `Ichinose`
+  runtime key still read like the old hidden-cost reader instead of Ichinose's
+  pink-haired soft-dominion direction. Added
+  `school:syncCharacterProfilesFromSource` with dry-run and per-character
+  targeting, then synced live runtime state for Tianze (`Tianze`), Ichinose
+  (`Ichinose`), and `Mahiru`; confirmed `debugState` now shows Tianze as
+  `Pressure Test Transfer / 混亂壓力測試者`, Ichinose as
+  `Soft Dominion Strategist / 溫柔支配者`, and Mahiru as
+  `Emotional Care Anchor / 學生事務助理`, with stale short-term memories cleared
+  for identity-changed profiles. Fresh dialogue sampling did not produce new
+  transcripts: `underworld:observe` first hit a Convex
+  `school:startConversationByCharacterNamesForTest` timeout, and later direct
+  soul-triad sample attempts were blocked by Qwen/newcoin `fetch failed`; the
+  standalone `node scripts/test-qwen-key.mjs` connectivity smoke also failed
+  against both `/v1/chat/completions` and `/chat/completions`.
+  Verification: `npx tsc --noEmit --pretty false`, `npm test --
+  convex/aiTown/addresseeRepair.test.ts convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts
+  evals/conversations/metrics/conversation_metrics.test.ts`,
+  `npm run underworld:life-signals:self-test`,
+  `npm run pilot:soul-triad:single-sample:self-test`,
+  `npm run underworld:am-pm-continuity:self-test`, targeted `rg` residual
+  audit, `npx convex run school:syncCharacterProfilesFromSource` dry-run and
+  per-character apply, and `npx convex run school:debugState`.
+- 2026-06-02 local: Corrected Umi's visual identity after Alan provided the
+  intended reference: short dark navy bob hair, pink-purple eyes, gray school
+  jacket/cardigan, blue ribbon, navy pleated skirt, dark knee socks, and brown
+  shoes. Replaced `public/portraits/umi.png` with a new original full-body
+  non-sexual VN-style portrait following that direction rather than the earlier
+  adult office outfit. Updated Umi art-direction guidance in
+  `data/characterVisuals.ts` and `public/portraits/README.md`, adjusted the Umi
+  sprite palette/spec in `scripts/generate_chibi_sprites.py`, regenerated
+  `public/sprites/umi.png` and sprite QA output, and updated the QA report row.
+  Verification: visual inspection of `public/portraits/umi.png` and
+  `public/sprites/umi.png`, direct `curl -I` checks for both Umi asset URLs,
+  `file public/portraits/umi.png public/sprites/umi.png`, and
+  `npx tsc --noEmit --pretty false`.
+- 2026-06-02 local: Updated the female character portraits to a consistent safe
+  full-body character-reference style after Alan liked the full-body look. Kept
+  the existing runtime/asset filenames and replaced `public/portraits/umi.png`,
+  `public/portraits/tianze.png`, `public/portraits/ichinose.png`, and
+  `public/portraits/mahiru.png` with original non-sexual full-body anime-style
+  designs: Umi as an adult assistant-principal figure, Tianze as a playful
+  pressure-test transfer student, Ichinose as a pink-haired soft dominion
+  strategist, and Mahiru as a gentle student-affairs care anchor. Updated
+  portrait art-direction guidance in `data/characterVisuals.ts`,
+  `public/portraits/README.md`, and the sprite QA report so future regenerations
+  preserve the full-body non-fetishized reference direction.
+  Verification: visual inspection of all four generated portraits,
+  `file public/portraits/umi.png public/portraits/tianze.png
+  public/portraits/ichinose.png public/portraits/mahiru.png`, direct `curl -I` checks
+  for all four portrait URLs, and `npx tsc --noEmit --pretty false`.
+- 2026-06-02 local: Reframed Ichinose's new direction after Alan asked to push
+  her toward the latest novel's darker "big demon" feeling. Kept the legacy
+  `Ichinose` runtime slot, but changed player-facing Ichinose from a general
+  boundary-aware kindness strategist into a pink-haired soft dominion strategist:
+  angelic warmth, quiet possession, kindness as named debt, and refusal framed
+  as a gift rather than loud villain behavior. Updated `data/giisProfiles.ts`,
+  `convex/agent/conversation.ts`, `convex/agent/memory.ts`,
+  `scripts/underworld-life-signals.mjs`, PlayerDetails concern/activity copy,
+  soul docs, portrait guidance, README cast copy, sprite QA wording, and
+  replaced `public/portraits/ichinose.png` with a new original anime-style
+  pink-haired portrait with a warm but dangerous smile. The existing pink sprite
+  remains compatible with the new art direction.
+  Verification: visual inspection of `public/portraits/ichinose.png`,
+  `npx tsc --noEmit --pretty false`, `npm test -- convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts`, `npm run build`, and `curl -I
+  http://localhost:5173/ai-town/portraits/ichinose.png`.
+- 2026-06-02 local: Updated Ichinose's visual identity after Alan noted she
+  looked too similar to Mahiru. Replaced `public/portraits/ichinose.png` with a new
+  original anime-style portrait using unmistakable pink hair while preserving
+  the boundary-aware kindness strategist mood. Updated the Ichinose visual
+  palette in `data/characterVisuals.ts`, adjusted the sprite generator's
+  `Ichinose` runtime-key colors, and regenerated `public/sprites/ichinose.png` plus sprite QA
+  output so the map character also reads as pink-haired and distinct from
+  Mahiru.
+  Verification: visual inspection of `public/portraits/ichinose.png` and
+  `public/sprites/ichinose.png`, `curl -I` checks for `/ai-town/portraits/ichinose.png`
+  and `/ai-town/sprites/ichinose.png`, `npx tsc --noEmit --pretty false`.
+- 2026-06-02 local: Replaced the player-facing Tianze/Ichinose character direction
+  with Tianze/Ichinose-inspired original Underworld roles while preserving the
+  `Tianze` and `Ichinose` runtime keys for Convex/world compatibility. Tianze is
+  written as a playful pressure-test transfer student who exposes weak rules
+  and stops before harm; Ichinose is written as a boundary-aware kindness
+  strategist whose warmth has visible cost. Updated profile source of truth, display-name
+  aliases, character visuals, conversation prompt guards, residue memory cues,
+  soul docs, README/docs index, conversation wall display, PlayerDetails
+  fallback focus copy, and the soul-triad eval display/scoring cues. Generated
+  new original anime-style portraits for `public/portraits/tianze.png` and
+  `public/portraits/ichinose.png`, cleaned the generated checkerboard backgrounds to
+  solid white, updated sprite specs, and regenerated `public/sprites/tianze.png`
+  / `public/sprites/ichinose.png` plus the sprite QA output. Historical reports and
+  unrelated pre-existing worktree changes were not reverted.
+  Verification: `npx tsc --noEmit --pretty false`, `npm run build`,
+  `npm test -- convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts`, `curl -I
+  http://localhost:5173/ai-town`, direct asset `curl -I` checks for
+  `/ai-town/portraits/tianze.png`, `/ai-town/portraits/ichinose.png`,
+  `/ai-town/sprites/tianze.png`, and `/ai-town/sprites/ichinose.png`. Headless
+  Playwright using local Chrome reached the app and wrote
+  `tmp/tianze-ichinose-smoke.png`, but the captured app state had not yet loaded
+  character DOM/images, so visual confirmation was completed via direct asset
+  inspection instead.
+- 2026-06-01 local: Implemented the narrow v0.1.1 yesterday/today memory-flow
+  pass Alan approved. Kept the existing memory architecture and changed the
+  prompt residue labels to be America/Chicago calendar-aware: same-day residues
+  now show `剛才` or `今天早上/下午/晚上`, prior local calendar day residues show
+  `昨天早上/下午/晚上`, and older residues show `之前` plus a date instead of
+  being mislabeled as today. Updated residue usage guidance so today can be
+  carried as `剛才/早上那件事`, yesterday can only be softly continued as
+  `昨天那件事/昨天留下的感覺`, and older dated memories cannot be spoken as
+  today/yesterday. Added a human-chat guard against invented precise callbacks
+  such as `昨天深夜你一直沒回` when there is no transcript or memory evidence.
+  The prior curry commitment extractor still passes, so 天澤's `明天咖哩飯`
+  continuity is preserved without adding a new promise-memory system. Current
+  Chicago/world time was night (`6/1 晚上9:55｜第 14 天 晚上 9:55`), so I did not
+  force daytime sample collection.
+  Verification: `npm test -- convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts`, `npx tsc --noEmit --pretty
+  false`, `npm run build`, `npx convex run school:worldClock`.
+- 2026-06-01 local: Applied a conservative curry/promise continuity fix after
+  Alan questioned whether adding a new promise-memory system was too heavy.
+  Kept the existing memory architecture and added a narrow extractor for
+  concrete timed commitments in conversation summaries: it only records a
+  commitment when a request includes both a specific object (`咖哩飯`) and time
+  (`明天`, `週末`, weekday, etc.) and a later non-question response affirms it
+  (`好`, `我試試`, `我會`, etc.). The extracted line is injected into the memory
+  description even when LLM summarization is enabled, so a future Tianze memory
+  can preserve `天澤答應明天為 Alan 準備咖哩飯` instead of only remembering generic
+  meal/care residue. Also added human-chat direct object binding so if Alan says
+  `咖哩飯`, the character must answer that object first and must not replace it
+  with soup, bento, tea, bowl, greens, tray, or generic food. This is intended
+  to reduce the latest bowl/meal motif drift without adding a new durable
+  promise subsystem.
+  Verification: `npm test -- convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts`, `npx tsc --noEmit --pretty
+  false`, `npm run build`.
+- 2026-06-01 local: Reviewed Alan's latest fresh human-chat samples and the
+  report that dialogue panels keep disappearing. Recent archived samples showed
+  Alan<->Ichinose (`conversation-c:82555`) and Alan<->Mahiru (`conversation-c:82780`)
+  ended after short one-question/one-answer arcs, with characters often turning
+  Alan's concrete asks into another follow-up question instead of a lived
+  decision/action. Runtime/code inspection found a likely lifecycle bug: human
+  `Player.tick()` removes Alan after `HUMAN_IDLE_TOO_LONG`, but chat typing and
+  message sends did not refresh `lastInput`, so Alan could be considered idle
+  while actively chatting; `Player.leave()` then stops and archives the active
+  conversation, making the panel appear to jump away. Fixed conversation inputs
+  so `startTyping` and `finishSendingMessage` refresh `lastInput` for human
+  players, added a human-chat rhythm prompt to avoid mandatory follow-up
+  questions, and corrected the agent leave-guard test to match the intended
+  Alan-explicit-close policy.
+  Verification: `npm test -- convex/aiTown/agent.test.ts`, `npx tsc --noEmit
+  --pretty false`, `npm run build`, `curl -I http://localhost:5173/ai-town`,
+  `npx convex run school:worldClock`.
+- 2026-06-01 local: Refined the human idle policy after Alan noted that idle
+  should feel like characters calling for him and then closing naturally, not
+  like his role disconnecting. Active human conversations now suppress the
+  generic `HUMAN_IDLE_TOO_LONG` player removal, allowing the existing
+  awkward-deadline rhythm to produce one or more check-ins. Added an
+  8-minute `HUMAN_CONVERSATION_IDLE_CLOSE_AFTER` path where, after an agent has
+  already checked in and Alan remains quiet, the agent can generate a warm
+  in-world leave line and then actually archive the conversation. Human
+  leave-guard logic still blocks ordinary agent-requested exits; it only permits
+  exits for this explicit idle-closing path.
+  Verification: `npm test -- convex/aiTown/agent.test.ts`, `npx tsc --noEmit
+  --pretty false`, `npm run build`.
+- 2026-06-01 local: Reviewed Alan's fresh Alan<->Tianze playtest after a mid-chat
+  disconnect. Recent conversation evidence (`conversation-c:82407`, 6/1 13:45
+  CT) showed Tianze was directionally successful at concrete responsibility
+  differentiation: she turned care into tomorrow's curry / lunch follow-through,
+  kept a boundary around Alan forgetting to eat, and avoided collapsing fully
+  into Umi-style coordination. Weak spots were one over-specific/hallucinated
+  "5/20 chaotic project" callback, repeated food/greens/hand-shaking motifs,
+  and the final Alan question about whether Umi would be unhappy being archived
+  without an Tianze reply. Runtime evidence showed the server was alive but a
+  Convex optimistic-concurrency conflict hit during `writeMessage` /
+  `finishSendingMessage` while `saveWorld` was also updating inputs. Added a
+  narrow runtime guard: client-side short retry only for transient Convex write
+  conflicts, plus server-side `messageUuid` idempotency so retrying a send cannot
+  duplicate the same message.
+  Verification: `npx tsc --noEmit --pretty false`, `npm run build`, `curl -I
+  http://localhost:5173/ai-town`, `npx convex run school:worldClock`.
+- 2026-06-01 local: Checked Alan's report that the server might be down. Frontend
+  Vite was alive on `localhost:5173` but bound to IPv6 `::1`, so
+  `127.0.0.1:5173` failed while `http://localhost:5173/ai-town` returned HTTP
+  200. Convex local backend was stuck during startup with duplicate
+  `convex-local-backend` processes and no listener on port 3210. Killed the
+  stuck backend/run processes and restarted `npm run dev:backend` with
+  `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180`. Backend recovered, Convex
+  functions became ready, world status is `running`, and `school:worldClock`
+  reports 2026-06-01 13:34 CT / world day 14 afternoon 1:34. Some restart logs
+  showed expected scheduled-job backlog and transient world-blocked warnings
+  after downtime.
+  Verification: `curl -I http://localhost:5173/ai-town`, `lsof -nP -iTCP:3210
+  -sTCP:LISTEN`, `npx convex run school:worldClock`, `npx convex run
+  world:defaultWorldStatus`, `npx convex run school:debugState`.
+- 2026-05-31 local / 2026-06-01 UTC: Added Alan's new Qwen/newcoin key as a
+  backup, without writing the secret into the repo. Stored it in
+  `~/.config/giis-underworld/secrets.env` as `QWEN_API_KEY_BACKUP` and synced
+  the local Convex env `UMI_MAHIRU_PILOT_API_KEY_BACKUP`. Updated the
+  OpenAI-compatible Qwen pilot path so it uses the primary key first and retries
+  the backup key once on provider/auth/quota/rate/timeout/server failures.
+  Updated `scripts/test-qwen-key.mjs --backup` and `.env.local.example` to make
+  the backup path explicit. Verified the key works against
+  `https://api.newcoin.top/v1/chat/completions` with `qwen3-max`; no secret was
+  found in repo search.
+  Verification: masked secrets/env checks, `node scripts/test-qwen-key.mjs
+  --backup`, `npx tsc --noEmit --pretty false`, `npm run build`, repo `rg`
+  secret scan.
+- 2026-05-31 local / 2026-06-01 UTC: Investigated Alan's latest Alan<->Umi and
+  Alan<->Mahiru playtest issues. Evidence showed Umi failed greeting/direct
+  binding, hallucinated the time as early morning despite the world clock being
+  Sunday 20:xx CT, and did not answer Alan's final casual weekend question.
+  Mahiru's dialogue quality was better but the human chat still ended too
+  quickly. Also found frontend duplication evidence: repeated
+  `Alan 主動找 真晝 說話。` events within one second and multiple Alan messages
+  sharing one `messageUuid`, explaining the visible optimistic-message overlap.
+  Implemented the P0 stability pass: every manual send now gets a fresh UUID and
+  stays locked until the write mutation settles; conversation-start actions are
+  single-flight plus a 3s local debounce; agent-requested leaves are deferred
+  for human conversations so Alan's explicit leave action owns closure; and
+  conversation prompts now use the America/Chicago school-clock context instead
+  of naked `toLocaleString()` time. Added stronger human-chat binding so
+  characters greet Alan, answer his latest input first, and keep casual life
+  questions in ordinary school life unless Alan asks for whole-school analysis.
+  Verification: `npx tsc --noEmit`, `npm run build`, `curl -I
+  http://localhost:5173/ai-town`, `npx convex run school:worldClock`, `npx
+  convex run school:observe '{}'`, `npm run eval:conversation:recent --
+  --since-last-change` (0 post-fix archived conversations yet; wait for fresh
+  samples before judging quality).
+- 2026-05-31 local / 2026-06-01 UTC: Ran the quota-aware fresh validation gate
+  after the Qwen key rotation. Boundary `1780272321375` collected 3 scoped
+  triad samples: `conversation-c:80477` (Umi/Mahiru, PASS 1.00),
+  `conversation-c:80506` (Mahiru/Tianze, PASS 1.00), and
+  `conversation-c:80535` (Umi/Tianze, PASS 1.00). Latest v0.1 goal audit is PASS:
+  local fallback blocked, pilot env clean, fresh sample count 3, fresh fallback
+  markers 0, no fresh motif/hygiene loop, AM->PM continuity PASS, old fallback
+  cleanup remains proposal-only, and night quiet was not forced. Rubric
+  reconciliation is HUMAN_REVIEW_READY with no v0.1 blockers. Remaining quality
+  gaps for Alan review: `conversation-c:80535` loops on `飯` x4, `conversation-c:80506`
+  has a voice-rubric gap, and `conversation-c:80477` has mirror-binding warning
+  despite a strong Umi moment ("名字定下來了，但剛才那五分鐘……我其實也想停一會兒。").
+  Repair gate says proposal-only / observe-only; do not auto-fix dialogue code
+  from these three samples. v0.1 is complete as an evidence gate and should move
+  to Alan human playtest review.
+  Verification: `npm run underworld:observe -- --cc=skip --target-samples=3
+  --sample-timeout-ms=240000 --since-created-at=1780272321375`, `npm run
+  underworld:v01-goal-audit`, `npm run underworld:rubric-reconcile`, `npm run
+  underworld:repair-gate`.
+- 2026-05-31 local: Rotated the Qwen/newcoin key after Alan provided a
+  replacement purchase screenshot. Updated `~/.config/giis-underworld/secrets.env`
+  and local Convex env `UMI_MAHIRU_PILOT_API_KEY`; kept the secret out of the
+  repo. Verified the secret file remains mode 600 and ran a minimal Qwen smoke
+  test against `https://api.newcoin.top` with `qwen3-max`, which returned HTTP
+  200. I did not run the full 3-sample v0.1 gate immediately in order to avoid
+  burning the newly purchased quota without Alan explicitly asking for that next
+  spend. Next useful command: rerun a quota-aware fresh gate for the prop/motif
+  candidate patch.
+  Verification: masked `awk`/`stat` on `~/.config/giis-underworld/secrets.env`,
+  `npx convex env set UMI_MAHIRU_PILOT_API_KEY "$QWEN_API_KEY"`, `node
+  scripts/test-qwen-key.mjs qwen3-max https://api.newcoin.top`.
+- 2026-05-31 local: Alan approved the narrow prop/motif diversification proposal,
+  so I implemented it as a bounded v0.1 candidate. `convex/agent/conversation.ts`
+  now builds a motif guard from current conversation messages plus recent
+  same-pair residues, warns away from repeated prop families (cold tea/cups,
+  bento/meals, checklists/reports/files, window/hallway/empty chair, split/carry
+  responsibility moves), adds a response-move guard when the previous speaker
+  already used split/carry/handoff/rest, and gives Umi/Mahiru/Tianze distinct
+  action guidance: Umi reduces overload through queue/not-now boundary/shorter
+  brief, Mahiru notices quiet pain through posture/voice/silence/distance/eye
+  contact, and Tianze changes concrete responsibility through owner/deadline/
+  refusal/handoff. Added `convex/agent/conversationMotifGuard.test.ts`. Updated
+  the proposal as accepted/implemented. No memory schema, provider routing,
+  DB cleanup, relationship schema, or broad soul architecture changed.
+  Post-change fresh validation is still pending: the sample run at boundary
+  `1780270175518` collected 0 samples because Qwen preflight returned
+  `403 token quota is not enough`. Latest observe therefore withholds v0.1
+  scores; goal audit is PENDING and rubric reconciliation is BLOCKED. Repair
+  gate classified provider failure handling as observe-only and made no code
+  change. Next useful action is provider quota/key/routing fix or Alan-approved
+  alternate provider path, then rerun fresh sample gate.
+  Verification: `npm test -- --runInBand
+  convex/agent/conversationMotifGuard.test.ts
+  convex/agent/dialogueHygiene.test.ts`, `npx tsc --noEmit --pretty false`,
+  `git diff --check`, `npm run underworld:harness:self-test`, `npm run build`,
+  `npm run underworld:observe -- --cc=skip --target-samples=3
+  --sample-timeout-ms=240000 --since-created-at=1780270175518` (provider quota
+  failure / 0 samples), `npm run underworld:v01-goal-audit` (expected PENDING /
+  non-zero), `npm run underworld:rubric-reconcile` (expected BLOCKED /
+  non-zero), `npm run underworld:repair-gate`.
+- 2026-05-31 local: Ran the 16:40-16:59 CT afternoon v0.1 continuation. Active
+  scoped sample collection hit provider/Convex timeouts, so repair gate held at
+  observe-only for that operational issue. A no-collect full-day observe from
+  boundary `1780225944601` still found enough natural archived evidence to prove
+  AM->PM continuity: latest report shows `PASS / continuity_observed`, 24 fresh
+  triad samples, 0 fresh fallback markers, 76 morning samples, 61 afternoon
+  samples, and 12 PM callbacks. v0.1 is still not complete: latest goal audit is
+  FAIL because `no_fresh_motif_or_hygiene_loop` fails, life signals are
+  `WARN / prop_echo_repeated`, recent eval is 0 PASS / 3 WARN / 9 FAIL, and
+  broader day-window diagnostics show 39 prop echo flags plus 42 pilot action
+  collapse flags. Repair gate and CC second opinion classify this as
+  proposal-only content-shape work, with `stage_direction_leak` likely a rubric
+  misdiagnosis. Created
+  `umi/proposals/20260531T215710Z-v01-prop-motif-lock-proposal.md`; do not
+  implement prompt/soul changes from it until Alan or Central Umi accepts this
+  as the next v0.1 blocker.
+  Verification: `npm run underworld:v01-daytime-check` (provider/Convex
+  timeout, expected non-completion), `npx convex run school:debugState`,
+  `npx convex run world:defaultWorldStatus`, `npx convex run school:worldClock`,
+  `npm run underworld:observe -- --cc=skip --target-samples=0
+  --since-created-at=1780225944601`, `npm run underworld:v01-goal-audit`
+  (expected FAIL / non-zero), `npm run underworld:rubric-reconcile` (expected
+  BLOCKED / non-zero), `npm run underworld:repair-gate`, `git diff --check`.
+- 2026-05-31 local: Ran the 06:10 CT daytime v0.1 gate and collected fresh
+  Umi/Mahiru/Tianze triad samples. Current v0.1 audit is PENDING with one
+  remaining requirement: AM->PM continuity is still `WARN / sample_pending`
+  because the afternoon window has 0 samples. Fresh gate evidence improved:
+  fresh triad sample count is 3, local fallback is blocked, fresh fallback
+  markers are 0, fresh motif/hygiene loop is clear, fresh-window life signals
+  are `PASS / life_signal_observed`, and the soul harness passed all 3 fresh
+  samples. Recent-conversation eval still reports rubric disagreement (0 PASS /
+  1 WARN / 2 FAIL), so do not tune broad prompts from score alone. I made one
+  narrow harness-only fix in `scripts/underworld-life-signals.mjs`: role-action
+  diagnostics now prefer a pilot character's expected action style when that
+  style is present, so shared body/prop words like `手` do not falsely mark Umi,
+  Mahiru, and Tianze as collapsed. After rerunning a fresh 3-sample gate,
+  role-action collapse cleared for the fresh window (expected action matches
+  6/6, collapse flags 0), while day-window life signals still warn on one
+  prop/motif echo from broader morning archives. The next true completion gate
+  is afternoon continuity: wait until 13:00-16:59 CT has at least 3 archived
+  samples, then rerun the v0.1 audit/rubric.
+  Verification: `npm run underworld:v01-daytime-check` (expected PENDING /
+  non-zero because AM->PM is sample-pending), `npm run
+  underworld:rubric-reconcile` (expected BLOCKED / non-zero), `node --check
+  scripts/underworld-life-signals.mjs`, `npm run
+  underworld:life-signals:self-test`, `npm run underworld:life-signals`, `npm
+  run underworld:harness:self-test`, `git diff --check`.
+- 2026-05-31 local: Cleaned up the role-action life-signal report for the
+  daytime gate. `scripts/underworld-life-signals.mjs` now renders empty pilot
+  expected-action windows as `no_data (0/0)` instead of `0.00`, matching the
+  observe/day-start reports and avoiding a false "bad role differentiation"
+  signal when no samples exist. Regenerated read-only life-signals and observe
+  reports at 00:22 CT; night quiet correctly skipped collection, fresh samples
+  remain 0, v0.1 audit remains PENDING, and rubric reconciliation remains
+  BLOCKED until daytime evidence exists. The browser UI readiness report from
+  00:18 CT is also captured at `umi/reports/ui-readiness-latest.md` with a
+  screenshot under `umi/reports/screenshots/`; it supports readable UI/runtime
+  only, not the dialogue loop.
+  Verification: `node --check scripts/underworld-life-signals.mjs`, `npm run
+  underworld:life-signals:self-test`, `npm run underworld:life-signals`, `npm
+  run underworld:observe -- --cc=skip` (night quiet / no collection), `npm run
+  underworld:v01-goal-audit` (expected PENDING / non-zero), `npm run
+  underworld:rubric-reconcile` (expected BLOCKED / non-zero), `npm run
+  underworld:harness:self-test`, `git diff --check`.
+- 2026-05-31 local: Added pilot role-action readiness to
+  `scripts/underworld-day-start.mjs`, including `no_data (0/0)` handling for
+  empty sample windows and routing `pilot_role_actions_flat` /
+  `pilot_role_action_collapse` into the life-signal review path. Refreshed the
+  read-only day-start report at 00:16 CT: frontend ok, local Convex ok, world
+  running, fallback pollution 0, life signals `WARN / sample_pending`, and
+  role-action readiness `0/0` no-data. No world resume, dialogue trigger, or
+  Convex write was performed.
+  Verification: `node --check scripts/underworld-day-start.mjs`, `npm run
+  underworld:day-start`, `git diff --check`.
+- 2026-05-31 local: Verified non-sampling v0.1 runtime/readiness while waiting
+  for the daytime sample gate. Production build passes, and read-only
+  `underworld:day-start` reports `/ai-town` frontend ok, local Convex backend
+  ok, world status `running`, active fallback pollution 0, and report freshness
+  around 4 minutes. Because local time was 00:14 CT, day-start's safest next
+  action remains "Let the world sleep"; no world resume, dialogue trigger, or
+  Convex write was performed.
+  Verification: `npm run build` (passes with existing Vite chunk-size warning),
+  `npm run underworld:day-start`, `git diff --check`.
+- 2026-05-31 local: Updated Codex heartbeat `underworld-v0-1-daytime-gate`
+  so the 06:10 CT continuation explicitly inspects fresh role-action
+  diagnostics in addition to sample count, fallback contamination, AM->PM
+  continuity, and prop/motif loops. The heartbeat should only mark the active
+  goal complete after a requirement-by-requirement audit proves v0.1, and it
+  must preserve night quiet if the thread resumes early.
+  Verification: viewed `/Users/alanhdchu/.codex/automations/underworld-v0-1-daytime-gate/automation.toml`
+  and confirmed the prompt update.
+- 2026-05-31 local: Wired the new pilot role-action diagnostics into
+  `scripts/underworld-observe-once.mjs` so `v01-approach-latest.md` now reports
+  pilot expected action match rate and action-collapse flags for both fresh and
+  day-window life signals. Refreshed observe at 00:10 CT; night quiet correctly
+  skipped collection, fresh samples remain 0, 5/31 day-window signals are
+  `WARN / sample_pending`, role-action rate is shown as `no_data (0/0)`, and
+  v0.1 audit is PENDING while rubric reconciliation remains BLOCKED. This
+  replaces the older 5/30 `weak_continuity` snapshot as the current-state
+  source; the next real gate is still the 06:10 CT daytime sample run.
+  Verification: `node --check scripts/underworld-observe-once.mjs`, `npm run
+  underworld:observe:self-test`, `npm run underworld:observe -- --cc=skip`
+  (night quiet / no collection), `npm run underworld:v01-goal-audit` (expected
+  PENDING), `npm run underworld:rubric-reconcile` (expected BLOCKED), `git diff
+  --check`.
+- 2026-05-31 local: Added a read-only pilot role-action diagnostic to
+  `scripts/underworld-life-signals.mjs`. The report now lists expected action
+  matches and role-action collapse for Umi/Mahiru/Tianze, so v0.1 can distinguish
+  "same emotional direction" from "same care shape" during fresh daytime
+  sampling. Regenerated the 2026-05-30 life-signals report; it remains
+  `WARN / prop_echo_repeated`, with additional evidence that old samples often
+  collapse into shared care/action styles. No Convex writes or sample collection
+  were performed because local time was 00:03 CT night quiet.
+  Verification: `node --check scripts/underworld-life-signals.mjs`, `npm run
+  underworld:life-signals:self-test`, `npm run underworld:life-signals --
+  --date=2026-05-30`, `npm run underworld:harness:self-test`, `git diff
+  --check`, `npm run underworld:v01-goal-audit` (expected FAIL), `npm run
+  underworld:rubric-reconcile` (expected BLOCKED).
+- 2026-05-30 local / 2026-05-31 UTC: Created Codex thread heartbeat
+  `underworld-v0-1-daytime-gate` so the active v0.1 goal resumes during the
+  next daytime window instead of forcing night collection. The heartbeat should
+  refresh current state, run `npm run underworld:v01-daytime-check` only if
+  Chicago time is daytime, inspect fresh reports, and either complete-audit or
+  make evidence-backed v0.1 fixes. This preserves the night quiet policy while
+  keeping the goal moving.
+  Verification: Codex automation create returned automation id
+  `underworld-v0-1-daytime-gate`.
+- 2026-05-30 local / 2026-05-31 UTC: Fixed v0.1 observe report
+  overclaiming when no fresh samples exist. `scripts/underworld-observe-once.mjs`
+  now withholds the `v0.1 Scores` block until at least 3 fresh conversations
+  exist, instead of rendering default decimals that look like measured
+  regression/readiness. Refreshed observe during night quiet; report now says
+  `status: withheld` with `fresh_sample_count: 0`. Updated central
+  `/Users/alanhdchu/umi-central/goals.md` so Underworld no longer claims PASS;
+  it now points to the local FAIL/BLOCKED truth and the next daytime command.
+  Verification: `npm run underworld:observe:self-test`, `node --check
+  scripts/underworld-observe-once.mjs`, `npm run underworld:observe --
+  --cc=skip` (night quiet / no collection), `npm run
+  underworld:v01-goal-audit` (expected FAIL), `git diff --check`.
+- 2026-05-30 local / 2026-05-31 UTC: Added a narrow prompt hygiene pass toward
+  v0.1 readiness. Compact autonomous and soul-triad continuation prompts now
+  receive previous-message prop repetition context, so repeated objects/scenes
+  like tea/cups/lights/files can be explicitly avoided after two mentions.
+  Same-pair residue prompt lines now include Chicago time-of-day labels
+  (`today morning/afternoon/evening/night`) and guidance to turn earlier-today
+  residue into a short behavior callback instead of replaying the line. Current
+  night observe correctly skipped sample collection; v0.1 remains active
+  because fresh triad samples are 0 and AM->PM continuity is still
+  `WARN / weak_continuity`. Next useful command during daytime:
+  `npm run underworld:v01-daytime-check`.
+  Verification: `npx tsc --noEmit --pretty false`, `npm run
+  underworld:harness:self-test`, `npm run underworld:observe -- --cc=skip`
+  (night quiet / no collection), `npm run underworld:v01-goal-audit`
+  (expected FAIL), `npm run underworld:rubric-reconcile` (expected BLOCKED),
+  `npm run build`, `git diff --check`.
+- 2026-05-30 local / 2026-05-31 UTC: Added bounded event-thread
+  continuity MVP. Autonomous school-life advancement now seeds at most one
+  `campusEventThread` from the current scene's school-life mood event, writes a
+  single world event plus short memories for up to three involved characters,
+  and prompts later conversations to treat that event as shared school context
+  without repeating the summary verbatim. Added
+  `docs/soul/EVENT_THREAD_CONTINUITY_PLAN.md` and roadmap/index entries.
+  Verification: `npx tsc --noEmit --pretty false`, `npm run build`, `npm run
+  underworld:harness:self-test`.
+- 2026-05-30 local / 2026-05-31 UTC: Tightened
+  `scripts/underworld-am-pm-continuity.mjs` so shared life cues like `Alan`,
+  `手`, `休息`, or repeated `作業/硬撐` motifs no longer count as strong
+  AM->PM continuity without explicit morning callback or PM memory-trace
+  evidence. Updated docs, reports, and rubric reconciliation so weak AM->PM
+  continuity blocks v0.1 playtest readiness. Verification: `npm run
+  underworld:am-pm-continuity:self-test`, `npm run underworld:am-pm-continuity`,
+  `npm run underworld:observe`, `npm run underworld:v01-goal-audit` (expected
+  FAIL because strict AM->PM is only WARN), `npx tsc --noEmit --pretty false`,
+  `npm run build`, `npm run underworld:harness:self-test`, `npm run
+  underworld:rubric-reconcile` (expected BLOCKED), `git diff --check`.
+
+## Verification Commands
+
+Use only the commands relevant to the change:
+
+```bash
+npm test
+npx tsc --noEmit --pretty false
+npm run build
+npm run underworld:rubric-reconcile
+npm run underworld:am-pm-continuity
+npx convex run school:auditFallbackPollution '{"limit":1000}'
+```

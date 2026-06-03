@@ -27,12 +27,12 @@ Primary pilot:
 
 - Umi / 海
 - Mahiru / 真晝
-- Asuna / 明日奈
+- Tianze / 天澤
 
 Secondary observation only:
 
 - CaoCao / 曹操
-- Mai / 麻衣
+- Ichinose / 一之瀨
 - LiuBei / 劉備
 
 Do not expand v0.1 scope to all characters. Secondary characters are useful as
@@ -47,15 +47,27 @@ something from the morning, such as:
 - a concrete emotional residue
 - an unresolved concern
 - a relationship pressure
-- a repeated life cue
 - a small behavior shift caused by an earlier exchange
+
+Repeated life cues alone do **not** count as strong continuity. If the morning
+mentions `作業 / 手 / Alan / 休息` and the afternoon merely mentions those again,
+that is only a motif echo unless the afternoon clearly connects back to the
+morning moment.
+
+Strong continuity requires:
+
+- the same relationship or character pair
+- at least one specific non-generic cue from the morning
+- an explicit morning callback (`早上你...`, `今天上午...`, etc.) or a PM memory
+  trace that carries the morning residue forward
+- behavior, tone, or availability changing because of that residue
 
 Examples:
 
 - Mahiru checks on Umi earlier because Umi sounded tired in the morning.
-- Umi shortens a briefing because Alan or Asuna was overloaded earlier.
-- Asuna hesitates before accepting another task because the morning already exposed
-  the burden-carrier pattern.
+- Umi shortens a briefing because Alan or Tianze pushed a boundary earlier.
+- Tianze stops before asking the second question because the morning already
+  showed where the test started hurting someone.
 
 The callback should feel like memory returning, not a log dump.
 
@@ -69,6 +81,9 @@ Mark as failure or warning when:
 - fallback/template output is treated as memory
 - the same emotional phrase returns without new behavior or relationship context
 - the callback is generic and could belong to any character
+- the callback only shares broad cues such as `Alan`, `手`, `休息`, `杯`, or `窗`
+- the afternoon mentions the same motif but never indicates it remembers the
+  morning moment
 
 ## Report Command
 

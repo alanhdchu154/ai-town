@@ -54,7 +54,7 @@ Examples:
 Non-examples:
 
 - `今天午餐很安靜。`
-- `麻衣看著窗外。`
+- `一之瀨看著窗外。`
 - `劉備去了中央庭院。`
 
 Those can stay as daily texture unless they repeat or later become meaningful.

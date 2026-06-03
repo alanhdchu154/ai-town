@@ -52,7 +52,7 @@ So the rubric-disagreement label fits `39026` but **masks an actual echo regress
 Two small, targeted, eval-only fixes are plausible and safer than a full proposal:
 
 1. **Recent eval `repetitionScore`**: gate the "verbatim" check on a minimum substring length (≥6 chars or ≥3 tokens) or require a contiguous match, not phrase callback. Verify by re-scoring `39026` (should drop the reason) and `38982` (must still flag `「我來排」` repetition).
-2. **Recent eval `characterVoiceScore`**: `matched 0/3` on `39026`'s 真晝 line that reads in-voice ("阿海，你剛把筆電合上時那聲輕響...") suggests the cue list is stale or too literal. Either widen cues or stop counting voice-match on lines under N chars. Verify by hand-labeling 5–10 recent 真晝 / 海 / 明日奈 lines and checking precision/recall of the cue list.
+2. **Recent eval `characterVoiceScore`**: `matched 0/3` on `39026`'s 真晝 line that reads in-voice ("阿海，你剛把筆電合上時那聲輕響...") suggests the cue list is stale or too literal. Either widen cues or stop counting voice-match on lines under N chars. Verify by hand-labeling 5–10 recent 真晝 / 海 / 天澤 lines and checking precision/recall of the cue list.
 
 These belong in the eval files, not in `convex/agent/conversation.ts` or model policy. The dialogue-code question for `38982`-style echo stays **proposal-only** until N ≥ ~10 fresh samples.
 
@@ -182,7 +182,7 @@ Do not auto-fix eval_rubric_disagreement. Create a proposal under umi/proposals/
 
 Generated: 2026-05-25T22:14:28.821Z
 
-| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Behavior | Asuna action | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Template penalty | Stage direction leak penalty | Echo penalty |
+| Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Behavior | Tianze action | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Template penalty | Stage direction leak penalty | Echo penalty |
 |---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 conversation-c:39026 | 海 / 真晝 | 3 | PASS | 0.99 | 0.50 | 0.00 | 0.50 | 1.00 | 0.50 | 1.00 | 0.75 | 0.50 | 0.50 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
 
@@ -233,7 +233,7 @@ Excerpt:
 
 ### conversation-c:38982 - FAIL (0.78)
 
-Participants: 真晝 / 明日奈
+Participants: 真晝 / 天澤
 
 Suggested fix category: add intra-conversation response move diversity
 
@@ -244,11 +244,11 @@ Reasons:
 
 Excerpt:
 > 5/25 下午4:55 真晝: 筆停久了，手其實也酸了，那我們把 Alan 的急事先放一放，你現在想不想喝點溫的？
-> 5/25 下午4:55 明日奈: 你手酸了，那這杯溫的我先替你接過去，你趁機把肩膀鬆一鬆。
+> 5/25 下午4:55 天澤: 你手酸了，那這杯溫的我先替你接過去，你趁機把肩膀鬆一鬆。
 > 5/25 下午4:55 真晝: 肩膀鬆開了，那杯溫的我先替你收著，你不用急著說「我來排」。
-> 5/25 下午4:55 明日奈: 你不用急著說「我來排」，那這件先放半小時，我們誰都不扛。
+> 5/25 下午4:55 天澤: 你不用急著說「我來排」，那這件先放半小時，我們誰都不扛。
 > 5/25 下午4:55 真晝: 誰都不扛的時候，你手裡的筆終於沒再發抖了吧？
-> 5/25 下午5:06 明日奈: 筆放在桌上，半小時後再回來整理清單。
+> 5/25 下午5:06 天澤: 筆放在桌上，半小時後再回來整理清單。
 
 
 ## Historical Archived Quality
