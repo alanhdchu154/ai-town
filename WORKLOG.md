@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 afternoon gate ran with a recovered local Convex backend and collected 3 fresh triad samples (`c:90763`, `c:90785`, `c:90809`), but completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass. Current blockers are product/evidence, not runtime: day-window role-action/prop-loop evidence, recent-vs-soul rubric disagreement, AM->PM sample-pending until >=5 afternoon samples, and Alan-facing playtest still pending. Do not call v0.1 complete until those pass or Alan explicitly defers the playtest gate. | Alan / Umi | pending_product_evidence |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 second afternoon pass recovered the stale pilot env, collected/observed 4 fresh triad samples since the 14:01 CDT boundary (`c:90819`, `c:90836`, `c:90858`, natural `c:90902`), and updated AM->PM continuity so callbacks are not judged until >=12 afternoon samples. Latest completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass: character-soul expression, event-thread continuity, and motif/repair/rubric fail; AM->PM is `WARN / sample_pending` with 8 afternoon samples; Alan-facing Umi playtest is still pending. Controlled Umi/Mahiru sampling also timed out with active messages but no archived sample, which is lifecycle/closing evidence, not a prompt-fix license. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
 
 ## Current State Snapshot
 
@@ -36,27 +36,50 @@ historical evidence is needed.
 - Fallback pollution cleanup previously reached zero across audited surfaces;
   rerun the audit before relying on that as current.
 - v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
-  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the 2026-06-03
-  afternoon gate recovered runtime, collected 3 fresh triad samples, and proved
-  fallback/provider hygiene, but it is still not a complete v0.1 pass. Latest
-  completion audit reports `FAIL` with 3 fail, 2 pending, 0 deferred, 3 pass:
+  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the latest
+  2026-06-03 afternoon rerun is not a complete v0.1 pass. Latest completion
+  audit reports `FAIL` with 3 fail, 2 pending, 0 deferred, 3 pass:
   character-soul expression, event-thread continuity, and motif/repair/rubric
   remain failing; AM->PM continuity and Alan-facing playtest remain pending.
-- AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS.
-  Latest 2026-05-31 afternoon evidence is `PASS / continuity_observed`, with
-  76 morning samples, 61 afternoon samples, and 12 PM callbacks found.
+- AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
+  and PM callbacks are not judged until >=12 afternoon samples. Latest
+  2026-06-03 evidence is `WARN / sample_pending`, with 10 morning samples,
+  8 afternoon samples, and 0 PM callbacks found.
 - Day-window life-signal diagnostics now include pilot role-action coverage.
   Latest full-day evidence has 24 fresh triad samples, 152 day-window pilot
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
 - Current code has a small runtime/eval hygiene patch pending from the
-  2026-06-03 afternoon gate: npm dev timeout env passthrough, stricter AM->PM /
-  life-signal sample-pending thresholds, and repair-gate provider regex cleanup.
-  Generated reports may change during each gate run.
+  2026-06-03 afternoon rerun: AM->PM completion/repair judgment now waits for
+  >=12 afternoon samples, repair gate records below-threshold continuity gaps as
+  blockers instead of routing them to memory-continuity repair, and generated
+  reports capture the 14:01-14:35 CDT evidence window.
 
 ## Work Log
 
+- 2026-06-03 local: Continued the afternoon v0.1 rerun at 14:01-14:35 CDT.
+  The first rerun collected 3 controlled triad samples (`c:90819` 海/真晝,
+  `c:90836` 真晝/天澤, `c:90858` 海/天澤) and briefly produced an
+  overconfident AM->PM memory-continuity proposal at only 6 afternoon samples.
+  Removed that proposal and raised AM->PM completion/repair judgment to require
+  >=12 afternoon samples. A later controlled Umi/Mahiru collection timed out
+  after 240s with 6 active messages and no archived triad sample, which points
+  at conversation lifecycle/closing/archive fragility. Cleaned stale local
+  `SOUL_TRIAD_*` pilot env, ran an 8-minute natural window, and observed
+  `c:90902` 海/真晝: the strongest fresh natural sample so far, with quiet
+  presence and a soft ending feel, though still mirror-repetitive around sigh /
+  tea / quiet-student motifs. Latest completion audit is still `FAIL` with
+  3 fail / 2 pending / 3 pass; fallback/provider hygiene and night quiet pass,
+  but character-soul expression, event-thread continuity, motif/repair/rubric,
+  AM->PM continuity, and Alan-facing Umi playtest are not complete. Verification:
+  `npm run underworld:am-pm-continuity:self-test`; `npm run
+  underworld:repair-gate:self-test`; `npm run
+  underworld:v01-completion-audit:self-test`; `npm run underworld:observe -- --cc=skip
+  --collect=skip --target-samples=0 --since-created-at=1780513280836`; `npm run
+  underworld:v01-goal-audit`; `npm run underworld:repair-gate`; `npm run
+  underworld:rubric-reconcile` (expected BLOCKED); `npm run
+  underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-03 local: Ran the 13:05 CDT v0.1 afternoon gate after recovering the
   local runtime. The LaunchAgent dev stack was stuck in a 180s restart loop with
   Vite listening on 5173 but no Convex backend on 3210; stopped the stale

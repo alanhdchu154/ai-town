@@ -24,7 +24,7 @@ const PATHS = {
 };
 
 const args = parseArgs(process.argv.slice(2));
-const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 5;
+const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 12;
 if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
@@ -427,7 +427,7 @@ Overall: PASS
 
 - Status: PASS
 - Decision: continuity_observed
-- Afternoon sample count: 5
+- Afternoon sample count: 12
 - AM residue candidates: 5
 - PM callbacks found: 1
 `,
@@ -485,7 +485,7 @@ Overall: PASS
 
 - Status: PASS
 - Decision: continuity_observed
-- Afternoon sample count: 5
+- Afternoon sample count: 12
 - AM residue candidates: 5
 - PM callbacks found: 1
 `,

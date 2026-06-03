@@ -59,6 +59,7 @@ const PROPOSAL_ONLY = new Set([
   'soul_architecture',
   'broad_character_expansion',
 ]);
+const MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES = 12;
 const OBSERVE_ONLY = new Set(['none', 'sample_pending']);
 
 async function main() {
@@ -164,7 +165,7 @@ Post-fix summary: 0 PASS / 2 WARN / 1 FAIL
 - status: FAIL
 - decision: no_pm_callback
 - morning samples: 3
-- afternoon samples: 3
+- afternoon samples: 12
 - AM residue candidates: 3
 - PM callbacks found: 0
 
@@ -622,7 +623,7 @@ function diagnoseReport(report, requestedCategory) {
   const hasAmPmContinuityGap =
     amPm.status === 'FAIL' &&
     !['sample_pending', undefined, ''].includes(amPm.decision) &&
-    Number(amPm.afternoonSamples ?? 0) >= 3;
+    Number(amPm.afternoonSamples ?? 0) >= MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES;
   const hasLifeSignalGap =
     [
       'life_signal_repeated',
@@ -736,6 +737,14 @@ function reviewBlockers(diagnosis) {
   }
   if (diagnosis.amPm?.decision === 'sample_pending' && diagnosis.category !== 'db_cleanup') {
     blockers.push('am_pm_sample_pending');
+  }
+  if (
+    diagnosis.amPm?.status === 'FAIL' &&
+    diagnosis.amPm?.decision === 'no_pm_callback' &&
+    Number(diagnosis.amPm?.afternoonSamples ?? 0) < MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES &&
+    diagnosis.category !== 'db_cleanup'
+  ) {
+    blockers.push('am_pm_samples_below_repair_threshold');
   }
   if (
     [

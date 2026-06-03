@@ -21,7 +21,7 @@ const TARGET_DATE = args.get('date') ?? dateKeyFor(Date.now(), TIME_ZONE);
 const LIMIT = numberArg('limit', 120, 1, 200);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
 const SELF_TEST = args.get('self-test') === 'true';
-const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 5;
+const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 12;
 
 const PRIMARY_NAMES = new Set(['海', '真晝', '天澤', '天澤', 'Umi', 'Mahiru', 'Tianze']);
 const SECONDARY_NAMES = new Set(['曹操', '一之瀨', '一之瀨', '劉備', 'CaoCao', 'Ichinose', 'Liu Bei']);
@@ -229,6 +229,34 @@ function runSelfTest() {
       ['一之瀨', '你又把問題說得太工整。'],
       ['曹操', '規矩先放著。'],
     ]),
+    fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
+      ['劉備', '我先去餐廳。'],
+      ['一之瀨', '別繞了。'],
+    ]),
+    fixtureConversation('conversation-pm-7', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
+      ['真晝', '下午餐廳比較安靜。'],
+      ['劉備', '我先去看看座位。'],
+    ]),
+    fixtureConversation('conversation-pm-8', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
+      ['曹操', '庭院那邊先不要公開問。'],
+      ['真晝', '嗯，慢一點。'],
+    ]),
+    fixtureConversation('conversation-pm-9', '2026-05-27T20:20:00.000Z', ['海', '曹操'], [
+      ['海', '下午先別整理成報告。'],
+      ['曹操', '我只看門口。'],
+    ]),
+    fixtureConversation('conversation-pm-10', '2026-05-27T20:30:00.000Z', ['真晝', '海'], [
+      ['真晝', '先坐一下。'],
+      ['海', '好。'],
+    ]),
+    fixtureConversation('conversation-pm-11', '2026-05-27T20:40:00.000Z', ['天澤', '曹操'], [
+      ['天澤', '這條規則先別碰。'],
+      ['曹操', '我知道。'],
+    ]),
+    fixtureConversation('conversation-pm-12', '2026-05-27T20:50:00.000Z', ['一之瀨', '劉備'], [
+      ['一之瀨', '那份善意先記著。'],
+      ['劉備', '我先留座位。'],
+    ]),
   ];
   const candidates = extractAmResidueCandidates(morning);
   const callbacks = findPmCallbacks(candidates, afternoon);
@@ -275,17 +303,45 @@ function runSelfTest() {
         ['一之瀨', '你又把問題說得太工整。'],
         ['曹操', '規矩先放著。'],
       ]),
-      fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
+      fixtureConversation('conversation-pm-6b', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
         ['劉備', '我先去餐廳。'],
         ['一之瀨', '別繞了。'],
       ]),
-      fixtureConversation('conversation-pm-7', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
+      fixtureConversation('conversation-pm-7b', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
         ['真晝', '下午餐廳比較安靜。'],
         ['劉備', '我先去看看座位。'],
       ]),
-      fixtureConversation('conversation-pm-8', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
+      fixtureConversation('conversation-pm-8b', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
         ['曹操', '庭院那邊先不要公開問。'],
         ['真晝', '嗯，慢一點。'],
+      ]),
+      fixtureConversation('conversation-pm-9b', '2026-05-27T20:20:00.000Z', ['海', '曹操'], [
+        ['海', '下午先別整理成報告。'],
+        ['曹操', '我只看門口。'],
+      ]),
+      fixtureConversation('conversation-pm-10b', '2026-05-27T20:30:00.000Z', ['真晝', '海'], [
+        ['真晝', '先坐一下。'],
+        ['海', '好。'],
+      ]),
+      fixtureConversation('conversation-pm-11b', '2026-05-27T20:40:00.000Z', ['天澤', '曹操'], [
+        ['天澤', '這條規則先別碰。'],
+        ['曹操', '我知道。'],
+      ]),
+      fixtureConversation('conversation-pm-12b', '2026-05-27T20:50:00.000Z', ['一之瀨', '劉備'], [
+        ['一之瀨', '那份善意先記著。'],
+        ['劉備', '我先留座位。'],
+      ]),
+      fixtureConversation('conversation-pm-13b', '2026-05-27T21:00:00.000Z', ['曹操', '劉備'], [
+        ['曹操', '位置先別改。'],
+        ['劉備', '我去問一聲。'],
+      ]),
+      fixtureConversation('conversation-pm-14b', '2026-05-27T21:10:00.000Z', ['真晝', '一之瀨'], [
+        ['真晝', '晚一點再說吧。'],
+        ['一之瀨', '我先記著。'],
+      ]),
+      fixtureConversation('conversation-pm-15b', '2026-05-27T21:20:00.000Z', ['海', '劉備'], [
+        ['海', '今天先到這裡。'],
+        ['劉備', '好，我陪他走回去。'],
       ]),
     ],
     amResidueCandidates: candidates,
