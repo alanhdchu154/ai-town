@@ -37,10 +37,19 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 - Latest life-signals report: `PASS / life_signal_observed`.
 - Latest repair gate: observe-only; no code change recommended before enough PM evidence.
 - Latest rubric reconciliation is stale from 2026-06-02 evening and should be rerun after the afternoon gate.
+- `npm run underworld:v01-afternoon-gate` is the preferred one-command wrapper
+  for the afternoon run. It continues through reporting steps after non-zero
+  audit results and writes `umi/reports/v01-afternoon-gate-latest.md`.
 
 ## Afternoon Gate Plan
 
 Run only after the afternoon window has started:
+
+```bash
+npm run underworld:v01-afternoon-gate
+```
+
+If the wrapper fails before writing a summary, run the steps directly:
 
 ```bash
 npm run underworld:v01-daytime-check

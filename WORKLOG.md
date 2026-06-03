@@ -55,6 +55,15 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Added a one-command afternoon gate wrapper so the 13:05
+  heartbeat can run the full v0.1 gate without stopping halfway on an expected
+  non-zero audit result. `npm run underworld:v01-afternoon-gate` runs the
+  daytime sample/goal audit, repair gate, rubric reconciliation, and final
+  completion audit, then writes `umi/reports/v01-afternoon-gate-latest.md`.
+  This does not change Convex/runtime behavior; it only makes the verification
+  path harder to interrupt or misread.
+  Verification: `npm run underworld:v01-afternoon-gate:self-test`; `npm run
+  underworld:harness:self-test`; `git diff --check`.
 - 2026-06-03 local: Added a read-only completion audit command so the afternoon
   gate can produce a requirement-by-requirement v0.1 completion report instead
   of relying on manual interpretation of several separate reports. The new
