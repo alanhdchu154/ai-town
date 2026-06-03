@@ -55,6 +55,14 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Added runtime recovery notes to the v0.1 preflight so a
+  13:05 gate failure caused by local Convex/dev-stack readiness does not get
+  mistaken for character-quality evidence. The runbook keeps recovery manual:
+  start `umi/run_underworld_dev_stack.sh`, verify `school:worldClock`,
+  `world:defaultWorldStatus`, and `school:debugState`, then rerun the guarded
+  afternoon wrapper only if still inside 13:00-16:59 America/Chicago. No
+  runtime process was started and no Convex state was changed.
+  Verification: docs-only update; `git diff --check`.
 - 2026-06-03 local: Hardened the one-command afternoon gate wrapper with an
   internal Chicago-time guard. `npm run underworld:v01-afternoon-gate` now
   refuses to collect outside 13:00-16:59 America/Chicago unless explicitly run

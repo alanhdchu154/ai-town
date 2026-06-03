@@ -71,6 +71,31 @@ npm run underworld:life-signals
 npm run eval:conversation:recent -- --since-last-change
 ```
 
+## Runtime Recovery Notes
+
+The afternoon gate depends on the local Convex backend being responsive. If the
+wrapper exits before collection or reports `runtime_health`, do not treat that
+as character-quality evidence.
+
+Use this recovery path:
+
+```bash
+bash umi/run_underworld_dev_stack.sh
+npx convex run school:worldClock
+npx convex run world:defaultWorldStatus
+npx convex run school:debugState
+```
+
+If Convex is responsive after recovery and the time is still inside
+13:00-16:59 America/Chicago, rerun:
+
+```bash
+npm run underworld:v01-afternoon-gate
+```
+
+Do not use `--allow-outside-afternoon` unless Alan or the operator explicitly
+chooses a manual recovery run and accepts that it is not clean AM->PM evidence.
+
 ## Completion Stop Conditions
 
 Do not mark v0.1 complete if any of these are true:
