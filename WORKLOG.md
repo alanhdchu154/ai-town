@@ -55,6 +55,18 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Added a read-only runtime preflight as the first real step
+  inside the guarded afternoon wrapper. `npm run underworld:runtime-preflight`
+  checks `school:worldClock`, `world:defaultWorldStatus`, and
+  `school:debugState`, writes `umi/reports/runtime-preflight-latest.md`, and
+  returns non-zero if local Convex is not responsive. The afternoon wrapper now
+  stops after a failed runtime preflight instead of trying to collect samples or
+  running dialogue evals against an unhealthy backend. Pre-afternoon wrapper
+  runs still stop at the Chicago-time guard before runtime checks.
+  Verification: `npm run underworld:runtime-preflight:self-test`; `npm run
+  underworld:v01-afternoon-gate:self-test`; `npm run underworld:harness:self-test`;
+  `npm run underworld:v01-afternoon-gate` (expected exit 2 / SKIPPED before
+  afternoon); `git diff --check`.
 - 2026-06-03 local: Added runtime recovery notes to the v0.1 preflight so a
   13:05 gate failure caused by local Convex/dev-stack readiness does not get
   mistaken for character-quality evidence. The runbook keeps recovery manual:

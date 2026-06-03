@@ -41,7 +41,9 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
   for the afternoon run. It continues through reporting steps after non-zero
   audit results and writes `umi/reports/v01-afternoon-gate-latest.md`. It
   refuses to collect outside 13:00-16:59 America/Chicago unless an operator uses
-  the explicit `--allow-outside-afternoon` recovery flag.
+  the explicit `--allow-outside-afternoon` recovery flag. Inside the afternoon
+  window, the wrapper first runs `npm run underworld:runtime-preflight`; if
+  Convex is not responsive, it stops before sample collection.
 
 ## Afternoon Gate Plan
 
@@ -81,6 +83,7 @@ Use this recovery path:
 
 ```bash
 bash umi/run_underworld_dev_stack.sh
+npm run underworld:runtime-preflight
 npx convex run school:worldClock
 npx convex run world:defaultWorldStatus
 npx convex run school:debugState

@@ -33,6 +33,7 @@ if (!chicagoWindow.isAfternoon && args.get('allow-outside-afternoon') !== 'true'
 }
 
 const steps = [
+  step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
   step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
   step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
   step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
@@ -43,6 +44,10 @@ const results = [];
 for (const item of steps) {
   const result = await runStep(item);
   results.push(result);
+  if (result.exitCode !== 0 && !item.continueAfterFailure) {
+    console.log(`[underworld-v01-afternoon-gate] stopping after ${item.id}; later steps would not have reliable runtime evidence`);
+    break;
+  }
 }
 
 await writeSummary(results);
