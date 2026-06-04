@@ -253,6 +253,18 @@ function nextActionFor(requirements) {
     }
     return 'All current completion requirements are proven; the active goal can be considered for completion.';
   }
+  const byId = new Map(requirements.map((item) => [item.id, item]));
+  const pendingMemory = byId.get('memory_continuity_yesterday_matters')?.status === 'PENDING';
+  const pendingAlan = byId.get('human_alan_conversation_quality')?.status === 'PENDING';
+  const motifBlocked = byId.get('motif_hygiene_and_repair_gate')?.status === 'FAIL';
+  const soulBlocked = byId.get('character_soul_expression')?.status === 'FAIL';
+  if (soulBlocked && (pendingMemory || pendingAlan || motifBlocked)) {
+    const actions = [];
+    if (pendingMemory) actions.push('during the next afternoon window, collect/read enough natural PM samples to reach the AM->PM threshold');
+    if (pendingAlan) actions.push('run or explicitly defer the Alan-facing Umi playtest using the checklist');
+    if (motifBlocked) actions.push('keep repair-gate observe-only until fresh evidence is strong enough for a narrow fix or proposal');
+    return `Keep v0.1 active. Next safe action: ${actions.join('; ')}; then rerun this completion audit.`;
+  }
   if (first.id === 'memory_continuity_yesterday_matters') {
     return 'Wait for the afternoon window, run `npm run underworld:v01-daytime-check`, then rerun this completion audit.';
   }
@@ -409,6 +421,57 @@ Overall: PENDING
       .find((item) => item.id === 'human_alan_conversation_quality')
       ?.evidence.includes('checklistReady=true'),
     'pending Alan playtest should report checklist readiness without passing',
+  );
+
+  const multiBlockerAudit = auditSources({
+    worklog: 'Next Alan <-> Umi playtest should confirm greeting behavior. | pending fresh sample |',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    goalAudit: `
+Overall: FAIL
+- PASS local_fallback_blocked: ok
+- PASS no_fresh_fallback_contamination: ok
+- FAIL no_fresh_motif_or_hygiene_loop: echo
+- PASS night_quiet_not_forced: ok
+`,
+    repairGate: `
+## Decision
+
+- Change size: observe_only
+- Fresh triad samples: 5
+- Blocked reasons: am_pm_sample_pending, fresh_triad_samples_below_8
+
+## Evidence
+
+- Active fallback pollution count: 0
+- Fresh fallback markers: 0
+`,
+    rubric: 'Decision: BLOCKED\n\n## Summary\n\n- Fresh triad samples: 5\n',
+    amPm: `
+## Summary
+
+- Status: WARN
+- Decision: sample_pending
+- Afternoon sample count: 9
+- AM residue candidates: 18
+- PM callbacks found: 1
+`,
+    life: `
+## Summary
+
+- Status: WARN
+- Decision: prop_echo_repeated
+- Ordinary-scene conversations: 12
+- Daily rhythm conversations: 18
+- Pilot action collapse flags: 5
+`,
+    recent: 'Post-fix summary: 0 PASS / 1 WARN / 5 FAIL',
+    preflight: '# preflight',
+  });
+  assert(
+    multiBlockerAudit.nextAction.includes('next afternoon window') &&
+      multiBlockerAudit.nextAction.includes('Alan-facing Umi playtest') &&
+      multiBlockerAudit.nextAction.includes('repair-gate observe-only'),
+    'multi-blocker audit should name concrete next evidence actions',
   );
 
   const passAudit = auditSources(

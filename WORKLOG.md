@@ -58,6 +58,15 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:05 CDT, made a read-only
+  completion-audit reporting improvement. `scripts/underworld-v01-completion-audit.mjs`
+  now aggregates the current multi-blocker state into a concrete next action:
+  wait for the next afternoon window to reach the AM->PM sample threshold, run
+  or explicitly defer the Alan-facing Umi playtest using the checklist, and keep
+  repair gate observe-only until fresh evidence supports a narrow fix/proposal.
+  Latest audit remains `FAIL` with 3 fail / 2 pending / 3 pass. Verification:
+  `npm run underworld:v01-completion-audit:self-test`; `npm run
+  underworld:v01-completion-audit` (expected FAIL); `git diff --check`.
 - 2026-06-04 local: Still inside night quiet at 00:02 CDT, reran the read-only
   completion audit after adding the Alan-facing playtest checklist. Tightened
   `scripts/underworld-v01-completion-audit.mjs` so the
