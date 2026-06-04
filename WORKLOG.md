@@ -58,6 +58,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:02 CDT, reran the read-only
+  completion audit after adding the Alan-facing playtest checklist. Tightened
+  `scripts/underworld-v01-completion-audit.mjs` so the
+  `human_alan_conversation_quality` evidence now reports
+  `checklistReady=true` when `umi/playtest-v01-alan-facing-gate.md` exists, but
+  still keeps the requirement `PENDING` until Alan produces a fresh playtest
+  record or explicitly defers the gate. Latest audit remains `FAIL` with
+  3 fail / 2 pending / 3 pass. Verification: `npm run
+  underworld:v01-completion-audit:self-test`; `npm run
+  underworld:v01-completion-audit` (expected FAIL); `git diff --check`.
 - 2026-06-03 local: Still inside night quiet, prepared the next Alan-facing
   v0.1 playtest gate without starting runtime or collecting samples. Added
   `umi/playtest-v01-alan-facing-gate.md` with a compact checklist and result

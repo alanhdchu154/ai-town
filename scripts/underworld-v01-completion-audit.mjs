@@ -13,6 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const PATHS = {
   worklog: join(REPO_ROOT, 'WORKLOG.md'),
+  alanPlaytestGate: join(REPO_ROOT, 'umi', 'playtest-v01-alan-facing-gate.md'),
   preflight: join(REPO_ROOT, 'docs', 'soul', 'V01_COMPLETION_AUDIT_PREFLIGHT.md'),
   goalAudit: join(REPO_ROOT, 'umi', 'reports', 'v01-goal-audit-latest.md'),
   repairGate: join(REPO_ROOT, 'umi', 'reports', 'v01-repair-gate-latest.md'),
@@ -77,6 +78,7 @@ function auditSources(sources, options = {}) {
     options.alanPlaytest !== 'pass' &&
     options.alanPlaytest !== 'deferred' &&
     /Alan <-> Umi playtest[\s\S]*pending fresh sample/.test(sources.worklog);
+  const alanPlaytestChecklistReady = Boolean(sources.alanPlaytestGate) && /## Test Sequence/.test(sources.alanPlaytestGate);
 
   const requirements = [
     requirement(
@@ -122,6 +124,7 @@ function auditSources(sources, options = {}) {
     humanAlanRequirement({
       alanPlaytest: options.alanPlaytest,
       alanPlaytestPending,
+      alanPlaytestChecklistReady,
     }),
     requirement(
       'fallback_and_provider_hygiene',
@@ -174,8 +177,8 @@ function requirement(id, passed, evidence, failureReason, failureStatus = 'FAIL'
   };
 }
 
-function humanAlanRequirement({ alanPlaytest, alanPlaytestPending }) {
-  const evidence = `alanPlaytest=${alanPlaytest ?? 'current'}, worklogPending=${alanPlaytestPending}`;
+function humanAlanRequirement({ alanPlaytest, alanPlaytestPending, alanPlaytestChecklistReady }) {
+  const evidence = `alanPlaytest=${alanPlaytest ?? 'current'}, worklogPending=${alanPlaytestPending}, checklistReady=${alanPlaytestChecklistReady}`;
   if (alanPlaytest === 'pass') {
     return {
       id: 'human_alan_conversation_quality',
@@ -197,7 +200,9 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestPending }) {
     status: 'PENDING',
     evidence,
     reason: alanPlaytestPending
-      ? 'WORKLOG still lists the Alan <-> Umi greeting/correction playtest as pending fresh sample.'
+      ? alanPlaytestChecklistReady
+        ? 'Alan-facing playtest checklist is ready, but WORKLOG still lists the playtest as pending fresh sample.'
+        : 'WORKLOG still lists the Alan <-> Umi greeting/correction playtest as pending fresh sample.'
       : 'Need fresh Alan-facing playtest evidence or explicit Alan/product-owner defer.',
   };
 }
@@ -347,6 +352,7 @@ function relative(path) {
 function runSelfTest() {
   const pendingAudit = auditSources({
     worklog: 'Next Alan <-> Umi playtest should confirm greeting behavior. | pending fresh sample |',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
     goalAudit: `
 Overall: PENDING
 - PASS local_fallback_blocked: ok
@@ -398,10 +404,17 @@ Overall: PENDING
     pendingAudit.requirements.find((item) => item.id === 'human_alan_conversation_quality')?.status === 'PENDING',
     'pending Alan playtest should remain pending',
   );
+  assert(
+    pendingAudit.requirements
+      .find((item) => item.id === 'human_alan_conversation_quality')
+      ?.evidence.includes('checklistReady=true'),
+    'pending Alan playtest should report checklist readiness without passing',
+  );
 
   const passAudit = auditSources(
     {
       worklog: 'No pending Alan playtest.',
+      alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
       goalAudit: `
 Overall: PASS
 - PASS local_fallback_blocked: ok
