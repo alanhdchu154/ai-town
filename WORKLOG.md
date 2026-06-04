@@ -67,6 +67,15 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:24 CDT: Updated the v0.1 completion preflight source of truth
+  after the morning rerun and Alan artifact helper changes. `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md`
+  now reflects the current PENDING state instead of the stale 08:55 active FAIL:
+  character soul expression and event-thread continuity are PROVEN by latest
+  soul/life evidence, AM->PM and Alan-facing playtest remain PENDING, and
+  motif/repair/rubric is pending only because AM->PM is still sample-pending.
+  Also aligned `/Users/alanhdchu/umi-central/goals.md` so Central Umi points to
+  `npm run underworld:alan-playtest-check` before final audit. Verification:
+  docs-only; `git diff --check`.
 - 2026-06-04 09:21 CDT: Added a non-evidence Alan-facing playtest artifact
   helper so the remaining human gate is easier to complete without accidental
   false PASS. `npm run underworld:alan-playtest-template` prints the exact
