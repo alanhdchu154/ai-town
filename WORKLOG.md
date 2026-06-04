@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; use it before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-04 morning `v01-daytime-check` collected three fresh triad samples (`c:90964`, `c:90987`, `c:91005`): soul eval is 2 PASS / 1 WARN / 0 FAIL, recent eval is 0 PASS / 2 WARN / 1 FAIL, life signals now PASS, provider/runtime/fallback hygiene is OK, and AM->PM has 9 morning residue candidates but 0 afternoon samples because the afternoon window has not happened yet. Latest completion audit remains `FAIL` with 2 fail / 2 pending / 4 pass: character-soul expression and motif/repair/rubric fail; AM->PM and Alan-facing Umi playtest remain pending. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-04 morning `v01-daytime-check` collected three fresh triad samples (`c:90964`, `c:90987`, `c:91005`): soul eval is 2 PASS / 1 WARN / 0 FAIL, recent eval is 0 PASS / 2 WARN / 1 FAIL, life signals now PASS, provider/runtime/fallback hygiene is OK, and AM->PM has 9 morning residue candidates but 0 afternoon samples because the afternoon window has not happened yet. Latest completion audit remains `FAIL` with 1 fail / 2 pending / 5 pass after aligning the character-soul aggregation with the life-signals PASS threshold; motif/repair/rubric fails, and AM->PM plus Alan-facing Umi playtest remain pending. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
 
 ## Current State Snapshot
 
@@ -38,9 +38,9 @@ historical evidence is needed.
 - v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
   not perfect. After the 2026-06-02 Tianze/Ichinose role change, the latest
   2026-06-04 morning rerun is not a complete v0.1 pass. Latest completion audit
-  reports `FAIL` with 2 fail, 2 pending, 0 deferred, 4 pass:
-  character-soul expression and motif/repair/rubric remain failing; AM->PM
-  continuity and Alan-facing playtest remain pending.
+  reports `FAIL` with 1 fail, 2 pending, 0 deferred, 5 pass:
+  motif/repair/rubric remains failing; AM->PM continuity and Alan-facing
+  playtest remain pending.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
   and PM callbacks are not judged until >=12 afternoon samples. Latest
   2026-06-04 morning evidence is `WARN / sample_pending`, with 3 morning
@@ -53,6 +53,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Aligned the completion audit aggregation with the
+  life-signals gate. `scripts/underworld-v01-completion-audit.mjs` no longer
+  requires zero pilot action collapse flags when `life-signals` itself is PASS;
+  the life-signals script already warns when role-action collapse crosses its
+  threshold. Current completion audit now reports `FAIL` with 1 fail /
+  2 pending / 5 pass: character-soul expression, event-thread continuity,
+  residue, fallback/provider hygiene, and night quiet pass; AM->PM and
+  Alan-facing playtest are pending; motif/repair/rubric still fails. Verification:
+  `npm run underworld:v01-completion-audit:self-test`; `npm run
+  underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-04 local: At 08:15-08:24 CDT, ran the first daytime evidence pass for
   the new date. `npm run underworld:runtime-preflight` passed, then
   `npm run underworld:v01-daytime-check` collected three scoped morning triad
