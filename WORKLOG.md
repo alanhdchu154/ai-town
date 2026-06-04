@@ -70,6 +70,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:43 CDT: Aligned the active Codex heartbeat automation
+  `underworld-v0-1-afternoon-gate` with the new afternoon world-readiness
+  helper. The 13:05 prompt now states that `npm run
+  underworld:v01-afternoon-gate` runs `npm run underworld:runtime-preflight`
+  followed by `npm run underworld:afternoon-world-ready`, and its direct
+  fallback path includes the same helper before `npm run
+  underworld:v01-daytime-check`. Verification: read back
+  `/Users/alanhdchu/.codex/automations/underworld-v0-1-afternoon-gate/automation.toml`;
+  `npm run underworld:afternoon-world-ready -- --dry-run` (running/no-op);
+  `npm run underworld:v01-completion-audit` (expected PENDING with 0 fail /
+  3 pending / 5 pass); `git status --short`.
 - 2026-06-04 09:38 CDT: Hardened the afternoon gate against a fresh runtime
   readiness gap found in the previous check: the default world can pass runtime
   preflight while still being `inactive`, which weakens natural afternoon
