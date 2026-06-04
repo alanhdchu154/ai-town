@@ -18,6 +18,14 @@ const FINAL_GATE_LINES = [
   'If AM->PM is still `sample_pending`, keep v0.1 active and collect/read natural afternoon evidence rather than changing prompts.',
   'If the Alan-facing playtest artifact exists, validate it with `npm run underworld:alan-playtest-check` before treating `human_alan_conversation_quality` as proven.',
 ];
+const STEPS = [
+  step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
+  step('afternoon_world_ready', ['npm', ['run', 'underworld:afternoon-world-ready']], false),
+  step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
+  step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
+  step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
+  step('completion_audit', ['npm', ['run', 'underworld:v01-completion-audit']], true),
+];
 
 const args = parseArgs(process.argv.slice(2));
 if (args.get('self-test') === 'true') {
@@ -37,16 +45,8 @@ if (!chicagoWindow.isAfternoon && args.get('allow-outside-afternoon') !== 'true'
   process.exit(2);
 }
 
-const steps = [
-  step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
-  step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
-  step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
-  step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
-  step('completion_audit', ['npm', ['run', 'underworld:v01-completion-audit']], true),
-];
-
 const results = [];
-for (const item of steps) {
+for (const item of STEPS) {
   const result = await runStep(item);
   results.push(result);
   if (result.exitCode !== 0 && !item.continueAfterFailure) {
@@ -191,7 +191,17 @@ function runSelfTest() {
   if (currentChicagoWindow(new Date('2026-06-03T15:57:00.000Z')).isAfternoon) {
     throw new Error('self-test expected 10:57 CDT to be outside afternoon window');
   }
+  if (!STEPS.some((item) => item.id === 'afternoon_world_ready')) {
+    throw new Error('self-test expected afternoon gate to include inactive-only world readiness');
+  }
   const sample = [
+    {
+      id: 'afternoon_world_ready',
+      command: 'npm run underworld:afternoon-world-ready',
+      startedAt: '2026-06-03T18:05:00.000Z',
+      finishedAt: '2026-06-03T18:05:00.500Z',
+      exitCode: 0,
+    },
     {
       id: 'completion_audit',
       command: 'npm run underworld:v01-completion-audit',

@@ -54,7 +54,9 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
   refuses to collect outside 13:00-16:59 America/Chicago unless an operator uses
   the explicit `--allow-outside-afternoon` recovery flag. Inside the afternoon
   window, the wrapper first runs `npm run underworld:runtime-preflight`; if
-  Convex is not responsive, it stops before sample collection.
+  Convex is not responsive, it stops before sample collection. It then runs
+  `npm run underworld:afternoon-world-ready`, which resumes an `inactive`
+  default world but leaves `stoppedByDeveloper` untouched.
 
 ## Afternoon Gate Plan
 
@@ -75,7 +77,7 @@ extra pilot collection:
 
 ```bash
 npm run underworld:runtime-preflight
-npx convex run testing:resume
+npm run underworld:afternoon-world-ready
 # wait a bounded interval for natural afternoon conversations or an Alan playtest
 npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0
 npm run underworld:am-pm-continuity
@@ -85,10 +87,7 @@ npm run underworld:rubric-reconcile
 npm run underworld:v01-completion-audit
 ```
 
-If the world was stopped and was resumed only for this evidence pass, stop it
-again after the audit with `npx convex run testing:stop`. If it was already
-running, leave it running. Never use this natural-evidence path during night
-quiet or winding-down quiet.
+Never use this natural-evidence path during night quiet or winding-down quiet.
 
 If the wrapper fails before writing a summary, run the steps directly:
 

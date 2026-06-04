@@ -52,7 +52,8 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:observe:self-test` | Self-test the observe script without hitting Convex. | CI / pre-loop smoke. |
 | `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
 | `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee the 12 archived PM samples required for AM→PM completion. | **Canonical first daytime command.** |
-| `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper: runtime preflight → daytime check → repair gate → rubric reconciliation → completion audit. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If AM→PM is still sample-pending, keep natural afternoon evidence going until the report has at least 12 PM samples. |
+| `npm run underworld:afternoon-world-ready` | Read the default world status and resume only if it drifted to `inactive`; it does not resume `stoppedByDeveloper`. | Before natural afternoon evidence, or inside the afternoon gate. |
+| `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper: runtime preflight → inactive-only world readiness → daytime check → repair gate → rubric reconciliation → completion audit. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If AM→PM is still sample-pending, keep natural afternoon evidence going until the report has at least 12 PM samples. |
 | `npm run underworld:alan-playtest-template` | Prints the required local Alan-facing result artifact shape. Does not write evidence or mark PASS. | Before Alan intentionally playtests Umi. |
 | `npm run underworld:alan-playtest-check` | Validates `umi/reports/alan-facing-v01-playtest-latest.md` has all five required checklist rows before completion audit consumes it. | After Alan-facing playtest, before `underworld:v01-completion-audit`. |
 | `npm run underworld:repair-gate` | Diagnose + classify allowed small fixes vs. proposal-only changes. Hygiene fixes only; refuses to act if provider health bad or samples < 3. | After observe, before any code edit. |
@@ -79,7 +80,7 @@ force extra controlled pilot samples.
 
 ```bash
 npm run underworld:runtime-preflight
-npx convex run testing:resume
+npm run underworld:afternoon-world-ready
 # wait a bounded interval for natural afternoon conversations or an Alan playtest
 npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0
 npm run underworld:am-pm-continuity
@@ -89,10 +90,9 @@ npm run underworld:rubric-reconcile
 npm run underworld:v01-completion-audit
 ```
 
-If the world was stopped and you resumed it only for this evidence pass, restore
-quiet afterward with `npx convex run testing:stop`. Do not run this path during
-night quiet or winding-down quiet, and do not treat a below-threshold
-`sample_pending` result as permission to rewrite character prompts.
+Do not run this path during night quiet or winding-down quiet, and do not treat a
+below-threshold `sample_pending` result as permission to rewrite character
+prompts.
 
 ## 5. Helpers
 

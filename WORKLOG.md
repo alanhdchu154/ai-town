@@ -55,11 +55,12 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 09:35 CDT, local runtime preflight is PASS, `/ai-town`
-  returns HTTP 200, and the default world has been resumed back to `running`
-  after a read-only status check found it `inactive`. This is runtime readiness
-  for Alan-facing playtest and natural daytime/afternoon evidence, not v0.1
-  completion proof.
+- As of 2026-06-04 09:41 CDT, local runtime preflight is PASS, `/ai-town`
+  returned HTTP 200 earlier in the same readiness pass, and the new
+  `npm run underworld:afternoon-world-ready` helper resumed the default world
+  back to `running` after a fresh dry-run/status check found it had drifted to
+  `inactive` again. This is runtime readiness for Alan-facing playtest and
+  natural daytime/afternoon evidence, not v0.1 completion proof.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
   The latest 09:24 CDT preflight and completion audit are now authoritative:
@@ -69,6 +70,25 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:38 CDT: Hardened the afternoon gate against a fresh runtime
+  readiness gap found in the previous check: the default world can pass runtime
+  preflight while still being `inactive`, which weakens natural afternoon
+  evidence and causes controlled sample runners to restore the world back to
+  inactive. Added `npm run underworld:afternoon-world-ready`, which reads
+  `world:defaultWorldStatus`, resumes only `inactive` worlds during non-quiet
+  hours, and leaves `stoppedByDeveloper` untouched. Wired it into
+  `npm run underworld:v01-afternoon-gate` between runtime preflight and
+  daytime check, and updated command/preflight docs. No afternoon collection was
+  run because current time was outside 13:00-16:59 CDT; completion audit remains
+  `PENDING` with 0 fail / 3 pending / 5 pass. Verification: `npm run
+  underworld:afternoon-world-ready:self-test`; `npm run
+  underworld:v01-afternoon-gate:self-test` after fixing a self-test
+  initialization ordering bug; `npm run underworld:harness:self-test`; `npm run
+  underworld:v01-completion-audit` (expected PENDING); `npm run
+  underworld:afternoon-world-ready -- --dry-run` (inactive/would resume);
+  `npm run underworld:afternoon-world-ready` (resumed inactive default world);
+  `world:defaultWorldStatus` (running); `npm run underworld:runtime-preflight`
+  (PASS); `git diff --check`.
 - 2026-06-04 09:35 CDT: Refreshed runtime readiness for the pending afternoon
   gate. `npm run underworld:runtime-preflight` passed, `/ai-town` returned HTTP
   200, and `world:defaultWorldStatus` showed the default world had drifted back
