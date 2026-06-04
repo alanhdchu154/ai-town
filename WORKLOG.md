@@ -58,6 +58,21 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:52 CDT, refreshed the short
+  read-only gates without collecting samples. `npm run underworld:repair-gate`
+  wrote a fresh `umi/reports/v01-repair-gate-latest.md` with
+  `classification=observe_only`, `decision=observe_only`, and blockers
+  `am_pm_sample_pending`, `fresh_triad_samples_below_8`, `life_signals_warn`,
+  `strongest_equals_weakest`, and
+  `recent_failure_reason_category_mismatch`. A follow-up
+  `npm run underworld:v01-completion-audit` still reports `FAIL` with 3 fail /
+  2 pending / 3 pass. Two attempts to run the full read-only observe command
+  with `--cc=skip`, `--collect=skip`, `--target-samples=0`, and
+  `--since-created-at=1780513280836` reached night-quiet skip/read-only checks
+  but were interrupted before writing `v01-approach-latest.md`; do not treat the
+  stale approach report's `auto_fix_allowed` line as authoritative over the
+  fresh repair gate. Verification: `npm run underworld:repair-gate`; `npm run
+  underworld:v01-completion-audit`.
 - 2026-06-04 local: Still inside night quiet at 00:16 CDT, aligned
   `underworld:observe` repair guidance with the stricter repair gate without
   starting runtime or collecting samples. `scripts/underworld-observe-once.mjs`
