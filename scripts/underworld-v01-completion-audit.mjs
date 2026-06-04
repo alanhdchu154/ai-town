@@ -14,6 +14,7 @@ const REPO_ROOT = join(__dirname, '..');
 const PATHS = {
   worklog: join(REPO_ROOT, 'WORKLOG.md'),
   alanPlaytestGate: join(REPO_ROOT, 'umi', 'playtest-v01-alan-facing-gate.md'),
+  alanPlaytestResult: join(REPO_ROOT, 'umi', 'reports', 'alan-facing-v01-playtest-latest.md'),
   preflight: join(REPO_ROOT, 'docs', 'soul', 'V01_COMPLETION_AUDIT_PREFLIGHT.md'),
   goalAudit: join(REPO_ROOT, 'umi', 'reports', 'v01-goal-audit-latest.md'),
   repairGate: join(REPO_ROOT, 'umi', 'reports', 'v01-repair-gate-latest.md'),
@@ -55,6 +56,7 @@ function auditSources(sources, options = {}) {
   const lifeSummary = parseBulletSection(sources.life, 'Summary');
   const recentSummary = parseRecentSummary(sources.recent);
   const rubricSummary = parseBulletSection(sources.rubric, 'Summary');
+  const alanPlaytestResult = parseAlanPlaytestResult(sources.alanPlaytestResult);
 
   const amPmStatus = field(amPmSummary, 'Status');
   const amPmDecision = field(amPmSummary, 'Decision');
@@ -129,6 +131,7 @@ function auditSources(sources, options = {}) {
     ),
     humanAlanRequirement({
       alanPlaytest: options.alanPlaytest,
+      alanPlaytestResult,
       alanPlaytestPending,
       alanPlaytestChecklistReady,
     }),
@@ -186,8 +189,16 @@ function requirement(id, passed, evidence, failureReason, failureStatus = 'FAIL'
   };
 }
 
-function humanAlanRequirement({ alanPlaytest, alanPlaytestPending, alanPlaytestChecklistReady }) {
-  const evidence = `alanPlaytest=${alanPlaytest ?? 'current'}, worklogPending=${alanPlaytestPending}, checklistReady=${alanPlaytestChecklistReady}`;
+function humanAlanRequirement({ alanPlaytest, alanPlaytestResult, alanPlaytestPending, alanPlaytestChecklistReady }) {
+  const resultVerdict = alanPlaytestResult.verdict ?? 'missing';
+  const evidence = [
+    `alanPlaytest=${alanPlaytest ?? 'current'}`,
+    `resultPresent=${alanPlaytestResult.present}`,
+    `resultVerdict=${resultVerdict}`,
+    `resultLabel=${alanPlaytestResult.label ?? 'unknown'}`,
+    `worklogPending=${alanPlaytestPending}`,
+    `checklistReady=${alanPlaytestChecklistReady}`,
+  ].join(', ');
   if (alanPlaytest === 'pass') {
     return {
       id: 'human_alan_conversation_quality',
@@ -204,6 +215,30 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestPending, alanPlaytestC
       reason: 'Alan/product-owner explicitly deferred this gate for completion.',
     };
   }
+  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'PASS') {
+    return {
+      id: 'human_alan_conversation_quality',
+      status: 'PASS',
+      evidence,
+      reason: 'Latest Alan-facing playtest result artifact records a PASS verdict.',
+    };
+  }
+  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'FAIL') {
+    return {
+      id: 'human_alan_conversation_quality',
+      status: 'FAIL',
+      evidence,
+      reason: 'Latest Alan-facing playtest result artifact records a FAIL verdict.',
+    };
+  }
+  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'PARTIAL') {
+    return {
+      id: 'human_alan_conversation_quality',
+      status: 'PENDING',
+      evidence,
+      reason: 'Latest Alan-facing playtest result artifact is PARTIAL; keep v0.1 active and file the smallest evidence-backed fix.',
+    };
+  }
   return {
     id: 'human_alan_conversation_quality',
     status: 'PENDING',
@@ -212,7 +247,9 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestPending, alanPlaytestC
       ? alanPlaytestChecklistReady
         ? 'Alan-facing playtest checklist is ready, but WORKLOG still lists the playtest as pending fresh sample.'
         : 'WORKLOG still lists the Alan <-> Umi greeting/correction playtest as pending fresh sample.'
-      : 'Need fresh Alan-facing playtest evidence or explicit Alan/product-owner defer.',
+      : alanPlaytestResult.present
+        ? 'Alan-facing playtest result artifact is present but has no PASS/PARTIAL/FAIL verdict.'
+        : 'Need fresh Alan-facing playtest evidence or explicit Alan/product-owner defer.',
   };
 }
 
@@ -247,6 +284,7 @@ async function writeReport(audit) {
     '',
     '- This script is read-only and does not trigger conversations or write Convex state.',
     '- Completion requires every non-deferred requirement to be proven by current reports.',
+    '- If present, `umi/reports/alan-facing-v01-playtest-latest.md` is treated as the durable Alan-facing playtest result.',
     '- Use `--alan-playtest=deferred` only when Alan/product-owner explicitly defers the Alan-facing playtest gate.',
     '',
   ];
@@ -332,6 +370,18 @@ function parseRecentSummary(report) {
   const warn = Number(match?.[2] ?? 0);
   const fail = Number(match?.[3] ?? 0);
   return { pass, warn, fail, text: `${pass} PASS / ${warn} WARN / ${fail} FAIL` };
+}
+
+function parseAlanPlaytestResult(report) {
+  const text = String(report ?? '');
+  if (!text.trim()) return { present: false, verdict: 'missing', label: 'missing' };
+  const verdictMatches = [...text.matchAll(/^Verdict:\s*(PASS|PARTIAL|FAIL)\b/gim)];
+  const labelMatches = [...text.matchAll(/^## Playtest Result\s*-\s*(.+)$/gim)];
+  return {
+    present: true,
+    verdict: verdictMatches.at(-1)?.[1]?.toUpperCase() ?? 'UNKNOWN',
+    label: labelMatches.at(-1)?.[1]?.trim() ?? 'unlabeled',
+  };
 }
 
 function countStatuses(items) {
@@ -449,6 +499,12 @@ Overall: PENDING
       .find((item) => item.id === 'human_alan_conversation_quality')
       ?.evidence.includes('checklistReady=true'),
     'pending Alan playtest should report checklist readiness without passing',
+  );
+  assert(
+    pendingAudit.requirements
+      .find((item) => item.id === 'human_alan_conversation_quality')
+      ?.evidence.includes('resultPresent=false'),
+    'missing Alan playtest result should be visible in evidence',
   );
 
   const multiBlockerAudit = auditSources({
@@ -669,6 +725,34 @@ Overall: PASS
     { alanPlaytest: 'pass' },
   );
   assert(passAudit.overall === 'PASS', 'passing evidence should produce PASS');
+
+  const artifactPassAudit = auditSources({
+    ...passAuditFixture(),
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: '## Playtest Result - 2026-06-04 14:30 CDT\n\nVerdict: PASS\n',
+  });
+  assert(artifactPassAudit.overall === 'PASS', 'PASS playtest artifact should clear Alan-facing gate');
+
+  const artifactPartialAudit = auditSources({
+    ...passAuditFixture(),
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: '## Playtest Result - 2026-06-04 14:30 CDT\n\nVerdict: PARTIAL\n',
+  });
+  assert(
+    artifactPartialAudit.requirements.find((item) => item.id === 'human_alan_conversation_quality')?.status ===
+      'PENDING',
+    'PARTIAL playtest artifact should keep Alan-facing gate pending',
+  );
+
+  const artifactFailAudit = auditSources({
+    ...passAuditFixture(),
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: '## Playtest Result - 2026-06-04 14:30 CDT\n\nVerdict: FAIL\n',
+  });
+  assert(artifactFailAudit.overall === 'FAIL', 'FAIL playtest artifact should fail completion audit');
 
   const deferredAudit = auditSources(
     {

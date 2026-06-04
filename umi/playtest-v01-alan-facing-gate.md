@@ -108,8 +108,10 @@ continues with a new task as if Alan did not say he is leaving.
 
 ## Result Record
 
-Paste redacted transcripts here. Do not commit private details; summarize or
-redact anything sensitive.
+Save the redacted result as `umi/reports/alan-facing-v01-playtest-latest.md`.
+Files under `umi/reports/*.md` are ignored by git, so this can be durable local
+evidence without committing private details. Summarize or redact anything
+sensitive.
 
 ```text
 ## Playtest Result - YYYY-MM-DD HH:MM CDT
@@ -139,8 +141,9 @@ Umi:
 
 Verdict: PASS / PARTIAL / FAIL
 Decision:
-- If PASS: update WORKLOG handoff #1 and rerun `npm run underworld:v01-completion-audit -- --alan-playtest=pass`.
-- If PARTIAL/FAIL: keep v0.1 incomplete and file the smallest evidence-backed fix.
+- If PASS: update WORKLOG handoff #1 and rerun `npm run underworld:v01-completion-audit`.
+- If PARTIAL: keep v0.1 incomplete and file the smallest evidence-backed fix.
+- If FAIL: keep v0.1 incomplete; do not rerun with `--alan-playtest=pass`.
 - If Alan explicitly defers this gate: rerun completion audit with `--alan-playtest=deferred` and state the product-owner deferral in WORKLOG.
 ```
 

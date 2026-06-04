@@ -1,9 +1,9 @@
 # GIIS Underworld v0.1 Completion Audit Preflight
 
-Generated: 2026-06-04 00:07 CDT
+Generated: 2026-06-04 08:39 CDT
 Status: NOT COMPLETE
-Reason: The latest post-role-change evidence still has failing product gates and
-pending proof requirements.
+Reason: The latest post-role-change evidence has no failing completion
+requirements, but three proof gates are still pending.
 
 ## Current Contract
 
@@ -20,28 +20,29 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 
 | Requirement | Current evidence | Status | Next proof needed |
 |---|---|---|---|
-| Character soul expression | Latest completion audit has 5 fresh triad samples, but life signals remain `WARN / prop_echo_repeated`, pilot action collapse flags remain 5, and recent eval is 0 PASS / 1 WARN / 5 FAIL. | FAIL | Next daytime/afternoon evidence must show Umi reducing overload, Mahiru staying near quiet pain, and Tianze pressure-testing without collapsing into the same care/checklist style. |
-| Conversation to emotional residue | AM-PM report still finds 18 AM residue candidates and memory traces. | PROVEN | Preserve residue quality while collecting enough PM samples; do not convert residue into generic motif reuse. |
-| Memory continuity | Latest AM-PM report is `WARN / sample_pending`, with 10 morning samples, 9 afternoon samples, and 1 weak PM callback. | PENDING | Reach at least 12 archived afternoon samples and require `PASS / continuity_observed` with PM callbacks before treating this as proven. |
-| Event thread continuity | Latest life signals have ordinary scenes and daily rhythm, but completion audit still reports `WARN / prop_echo_repeated` and event-thread continuity FAIL. | FAIL | Need latest life-signals PASS with ordinary scenes and daily rhythm evidence that does not merely repeat props/motifs. |
-| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks the Alan/Umi playtest as pending, but `umi/playtest-v01-alan-facing-gate.md` is ready. | PENDING | Run the Alan-facing checklist or get an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
+| Character soul expression | Latest completion audit has 3 fresh triad samples; life signals are `PASS / life_signal_observed`, pilot expected action match rate is 0.83 with 1 collapse flag, and recent eval is 0 PASS / 2 WARN / 1 FAIL. | PROVEN | Preserve this evidence while collecting afternoon continuity; do not tune prompts from soft echo alone. |
+| Conversation to emotional residue | AM-PM report finds 9 AM residue candidates and memory traces from the morning samples. | PROVEN | Preserve residue quality while collecting enough PM samples; do not convert residue into generic motif reuse. |
+| Memory continuity | Latest AM-PM report is `WARN / sample_pending`, with 3 morning samples, 0 afternoon samples, and 0 PM callbacks because the afternoon window has not happened yet. | PENDING | Reach at least 12 archived afternoon samples and require `PASS / continuity_observed` with PM callbacks before treating this as proven. |
+| Event thread continuity | Latest life signals are PASS with 1 ordinary-scene conversation and 3 daily-rhythm conversations. | PROVEN | Re-check after afternoon evidence so event continuity does not collapse into motif reuse. |
+| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks the Alan/Umi playtest as pending. The checklist is ready, and completion audit now reads the durable local result artifact `umi/reports/alan-facing-v01-playtest-latest.md` when present. | PENDING | Run the Alan-facing checklist and save a PASS/PARTIAL/FAIL result artifact, or get an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
 | Fallback and provider hygiene | Latest completion audit proves active fallback pollution 0 and fresh fallback markers 0. | PROVEN | Re-check in the next daytime/afternoon gate before final completion. |
-| Motif/hygiene loop safety | Latest repair gate is `observe_only` with blockers `am_pm_sample_pending`, `fresh_triad_samples_below_8`, `life_signals_warn`, `strongest_equals_weakest`, and `recent_failure_reason_category_mismatch`; rubric reconciliation remains BLOCKED. | FAIL | Keep observe-only until fresh evidence supports a narrow fix or proposal; do not tune broad prompts from the current sample set. |
+| Motif/hygiene loop safety | Latest goal audit treats evaluator soft echo plus life-signals PASS as not a product motif loop. Repair remains `observe_only`, and rubric reconciliation is BLOCKED only by AM-PM `sample_pending`. | PENDING | Rerun repair/rubric after AM-PM continuity is no longer sample-pending; do not tune broad prompts from the current sample set. |
 | Night quiet policy | Latest night read-only audits did not force new sample collection. | PROVEN | Preserve this rule; do not collect during night quiet or winding-down quiet. |
 
 ## Current Evidence Snapshot
 
-- Chicago time at refresh: 2026-06-04 00:07 CDT.
+- Chicago time at refresh: 2026-06-04 08:39 CDT.
 - Latest `WORKLOG.md` state: `pending_product_evidence`.
-- Latest completion audit: `FAIL`, with 3 fail / 2 pending / 3 pass.
-- Latest AM-PM report: `WARN / sample_pending`, morning samples 10, afternoon
-  samples 9, PM callbacks 1 weak.
-- Latest life-signals evidence still blocks completion through prop/motif and
-  pilot role-action collapse.
-- Latest repair gate: observe-only with explicit overclaim blockers; no prompt
-  or runtime change is recommended before stronger evidence.
-- Latest Alan-facing playtest gate file is ready, but the playtest itself is
-  still pending.
+- Latest completion audit: `PENDING`, with 0 fail / 3 pending / 5 pass.
+- Latest AM-PM report: `WARN / sample_pending`, morning samples 3, afternoon
+  samples 0, AM residue candidates 9, and PM callbacks 0.
+- Latest life-signals evidence passes character-soul/event-thread checks, while
+  preserving a warning-level pilot collapse flag for review.
+- Latest repair/rubric state is observe-only and waiting on AM-PM continuity,
+  not recommending prompt tuning from the current sample set.
+- Latest Alan-facing playtest gate file is ready, completion audit can read
+  `umi/reports/alan-facing-v01-playtest-latest.md`, but that result artifact is
+  still missing.
 - `npm run underworld:v01-afternoon-gate` is the preferred one-command wrapper
   for the afternoon run. It continues through reporting steps after non-zero
   audit results and writes `umi/reports/v01-afternoon-gate-latest.md`. It
