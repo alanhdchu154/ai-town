@@ -788,7 +788,10 @@ function sameNonEmptyText(left, right) {
 }
 
 function decideNextAction({ diagnosis, classification, ccReview }) {
-  const blockedReasons = reviewBlockers(diagnosis);
+  const blockedReasons = unique([
+    ...reviewBlockers(diagnosis),
+    ...(classification === 'observe_only' ? diagnosis.repairConfidenceBlockers : []),
+  ]);
   if (blockedReasons.length) {
     return {
       changeSize: 'observe_only',
@@ -836,6 +839,10 @@ function decideNextAction({ diagnosis, classification, ccReview }) {
     action: 'Continue observing.',
     blockedReasons: [],
   };
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function reviewBlockers(diagnosis) {

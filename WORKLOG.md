@@ -50,14 +50,25 @@ historical evidence is needed.
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
-- Current code has a small eval hygiene patch pending from the 2026-06-03/04
-  night read-only audit: repair gate downgrades overclaimed `echo_repetition`
-  auto-fix candidates to `observe_only` when fresh samples are below 8, AM->PM
-  is sample-pending, life signals are WARN, strongest/weakest moments collapse
-  to the same line, or the recent failure reason does not match echo.
+- Latest committed eval hygiene from the 2026-06-03/04 night read-only audit:
+  repair gate downgrades overclaimed `echo_repetition` auto-fix candidates to
+  `observe_only` when fresh samples are below 8, AM->PM is sample-pending, life
+  signals are WARN, strongest/weakest moments collapse to the same line, or the
+  recent failure reason does not match echo.
 
 ## Work Log
 
+- 2026-06-03 local: While still inside night quiet at 23:57 CDT, made one
+  reporting-only repair-gate hygiene pass without starting runtime or collecting
+  samples. `scripts/underworld-repair-gate.mjs` now merges overclaim confidence
+  blockers into the decision `blockedReasons`, so the current
+  `echo_repetition` observe-only decision records the full reason set:
+  `am_pm_sample_pending`, `fresh_triad_samples_below_8`, `life_signals_warn`,
+  `strongest_equals_weakest`, and `recent_failure_reason_category_mismatch`.
+  Also changed the state snapshot wording from "pending patch" to latest
+  committed eval hygiene. Verification: `npm run underworld:repair-gate:self-test`;
+  `npm run underworld:repair-gate -- --cc=skip`; `npm run
+  underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-04 local: Resumed after a user interruption and found it was 23:45
   CDT, inside night quiet. Did not force new collection. Started backend-only
   Convex so read-only queries could inspect the 2026-06-03 afternoon state; the
