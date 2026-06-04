@@ -55,14 +55,15 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 10:15 CDT, local runtime/tooling readiness is stronger but
+- As of 2026-06-04 10:22 CDT, local runtime/tooling readiness is stronger but
   still not v0.1 completion proof: `npm run underworld:afternoon-world-ready`
   can resume an `inactive` default world without overriding `stoppedByDeveloper`;
-  the active Codex afternoon heartbeat runs at 13:05/14:05/15:05/16:05 CDT; and
-  `npm run underworld:v01-afternoon-gate` uses full collection only for the
-  first same-day afternoon pass, then read-only AM->PM/life/repair/rubric/
-  completion refresh for later same-day passes. A 10:15 no-sample readiness
-  pass resumed the default world from `inactive` to `running`, then `npm run
+  the active Codex afternoon heartbeat now runs at 12:05/12:35/13:05/13:35/
+  14:05/14:35/15:05/15:35/16:05/16:35 CDT; and `npm run
+  underworld:v01-afternoon-gate` uses full collection only for the first
+  same-day afternoon pass, then read-only AM->PM/life/repair/rubric/completion
+  refresh for later same-day passes. A 10:22 no-sample readiness pass resumed
+  the default world from `inactive` to `running`, then `npm run
   underworld:heartbeat -- --once` reported `heartbeat_ok: yes` and kept the
   world `running -> running`.
 - Alan-facing playtest evidence is still pending. The ignored local artifact
@@ -80,6 +81,21 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:22 CDT: Strengthened the active Codex heartbeat cadence for
+  the remaining afternoon proof window after the default world drifted back to
+  `inactive` again. `npm run underworld:afternoon-world-ready` resumed the
+  world, `npm run underworld:heartbeat -- --once` kept it `running -> running`,
+  and `world:defaultWorldStatus` confirmed `running`. Updated the existing
+  Codex heartbeat `underworld-v0-1-afternoon-gate` from four hourly afternoon
+  passes to ten same-day passes at 12:05/12:35/13:05/13:35/14:05/14:35/15:05/
+  15:35/16:05/16:35 CDT (`FREQ=DAILY;COUNT=10;BYHOUR=12,13,14,15,16;BYMINUTE=5,35;BYSECOND=0`).
+  Runs before 13:00 still rely on the wrapper/window guard and must not collect
+  samples; later same-day passes preserve the read-only refresh policy after
+  the first controlled afternoon gate. A fresh completion audit remained
+  expected `PENDING` with 0 fail / 3 pending / 5 pass. Verification: read back
+  `/Users/alanhdchu/.codex/automations/underworld-v0-1-afternoon-gate/automation.toml`;
+  `npx convex run world:defaultWorldStatus` (running); `npm run
+  underworld:v01-completion-audit` (expected PENDING).
 - 2026-06-04 10:17 CDT: Refreshed the v0.1 proof state after the readiness
   heartbeat. Current Chicago time is still outside 13:00-16:59, so no
   afternoon collection was run. `npm run underworld:runtime-preflight` passed,
