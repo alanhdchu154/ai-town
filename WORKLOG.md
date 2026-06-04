@@ -70,6 +70,25 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:46 CDT: Changed the active Codex afternoon heartbeat schedule
+  from a single 13:05 run to four afternoon passes at 13:05, 14:05, 15:05, and
+  16:05 CDT (`FREQ=DAILY;COUNT=4;BYHOUR=13,14,15,16;BYMINUTE=5;BYSECOND=0`).
+  This matches the AM->PM continuity requirement better: the first afternoon
+  gate may still be below the 12-PM-sample threshold, so later heartbeats should
+  re-read natural afternoon evidence instead of treating `sample_pending` as a
+  prompt-repair signal. The heartbeat prompt now explicitly keeps v0.1 active
+  when AM->PM is pending only because afternoon samples are below 12. A fresh
+  `npm run underworld:afternoon-world-ready -- --dry-run` again found the
+  default world `inactive`, so `npm run underworld:afternoon-world-ready` was
+  run and `world:defaultWorldStatus` confirmed `running`. No afternoon
+  collection was run because current time was still outside 13:00-16:59 CDT;
+  completion audit remains `PENDING` with 0 fail / 3 pending / 5 pass.
+  Verification: read back
+  `/Users/alanhdchu/.codex/automations/underworld-v0-1-afternoon-gate/automation.toml`;
+  `npm run underworld:afternoon-world-ready -- --dry-run`
+  (inactive/would resume); `npm run underworld:afternoon-world-ready`
+  (resumed inactive default world); `world:defaultWorldStatus` (running);
+  `npm run underworld:v01-completion-audit` (expected PENDING).
 - 2026-06-04 09:43 CDT: Aligned the active Codex heartbeat automation
   `underworld-v0-1-afternoon-gate` with the new afternoon world-readiness
   helper. The 13:05 prompt now states that `npm run
