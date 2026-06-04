@@ -19,7 +19,7 @@ historical evidence is needed.
 
 | # | Item | Owner | Status |
 |---|---|---|---|
-| 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; save the redacted result to `umi/reports/alan-facing-v01-playtest-latest.md` so completion audit can read the verdict. | Alan / Umi | pending fresh sample |
+| 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; fill the existing ignored local `PARTIAL` draft at `umi/reports/alan-facing-v01-playtest-latest.md`, then validate it with `npm run underworld:alan-playtest-check`. The read-only candidate scan at `umi/reports/alan-playtest-candidates-latest.md` found `NO_COMPLETE_CANDIDATE`, so do not backfill this gate from old chats. | Alan / Umi | pending fresh playtest |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
@@ -55,12 +55,18 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 09:41 CDT, local runtime preflight is PASS, `/ai-town`
-  returned HTTP 200 earlier in the same readiness pass, and the new
-  `npm run underworld:afternoon-world-ready` helper resumed the default world
-  back to `running` after a fresh dry-run/status check found it had drifted to
-  `inactive` again. This is runtime readiness for Alan-facing playtest and
-  natural daytime/afternoon evidence, not v0.1 completion proof.
+- As of 2026-06-04 10:10 CDT, local runtime/tooling readiness is stronger but
+  still not v0.1 completion proof: `npm run underworld:afternoon-world-ready`
+  can resume an `inactive` default world without overriding `stoppedByDeveloper`;
+  the active Codex afternoon heartbeat runs at 13:05/14:05/15:05/16:05 CDT; and
+  `npm run underworld:v01-afternoon-gate` uses full collection only for the
+  first same-day afternoon pass, then read-only AM->PM/life/repair/rubric/
+  completion refresh for later same-day passes.
+- Alan-facing playtest evidence is still pending. The ignored local artifact
+  `umi/reports/alan-facing-v01-playtest-latest.md` now exists as a non-passing
+  `PARTIAL` draft, and `umi/reports/alan-playtest-candidates-latest.md` reports
+  `NO_COMPLETE_CANDIDATE` from a read-only scan, so the human gate still needs
+  an intentional Alan/Umi playtest or an explicit Alan/product-owner defer.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
   The latest 09:24 CDT preflight and completion audit are now authoritative:
