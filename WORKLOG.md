@@ -67,6 +67,19 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:21 CDT: Added a non-evidence Alan-facing playtest artifact
+  helper so the remaining human gate is easier to complete without accidental
+  false PASS. `npm run underworld:alan-playtest-template` prints the exact
+  five-check result shape, and `npm run underworld:alan-playtest-check`
+  validates the ignored local `umi/reports/alan-facing-v01-playtest-latest.md`
+  before completion audit consumes it. The helper does not write playtest
+  evidence, run conversations, or mark PASS. Updated `umi/playtest-v01-alan-facing-gate.md`
+  and `umi/COMMAND_REFERENCE.md`; wired the helper self-test into
+  `underworld:harness:self-test`. Verification: `npm run
+  underworld:alan-playtest:self-test`; `npm run underworld:alan-playtest-template`;
+  `npm run underworld:alan-playtest-check` (expected nonzero because the
+  artifact is still missing); `npm run underworld:v01-completion-audit`
+  (expected PENDING); `git diff --check`.
 - 2026-06-04 09:19 CDT: Hardened the Alan-facing playtest completion gate
   without running or fabricating a playtest. `scripts/underworld-v01-completion-audit.mjs`
   now parses the five required checklist rows in

@@ -53,6 +53,8 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
 | `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee the 12 archived PM samples required for AM→PM completion. | **Canonical first daytime command.** |
 | `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper: runtime preflight → daytime check → repair gate → rubric reconciliation → completion audit. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If AM→PM is still sample-pending, keep natural afternoon evidence going until the report has at least 12 PM samples. |
+| `npm run underworld:alan-playtest-template` | Prints the required local Alan-facing result artifact shape. Does not write evidence or mark PASS. | Before Alan intentionally playtests Umi. |
+| `npm run underworld:alan-playtest-check` | Validates `umi/reports/alan-facing-v01-playtest-latest.md` has all five required checklist rows before completion audit consumes it. | After Alan-facing playtest, before `underworld:v01-completion-audit`. |
 | `npm run underworld:repair-gate` | Diagnose + classify allowed small fixes vs. proposal-only changes. Hygiene fixes only; refuses to act if provider health bad or samples < 3. | After observe, before any code edit. |
 | `npm run underworld:repair-gate:self-test` | Validate the repair gate against synthetic evidence. | Smoke. |
 | `npm run underworld:approach:v01` | One director-loop iteration (observe → repair-gate → goal-audit → report). | The v0.1 approach loop's single shot. |
@@ -63,7 +65,7 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:am-pm-continuity` | Scan AM→PM continuity: does an afternoon callback connect to morning residue? Writes `umi/reports/am-pm-continuity-latest.md`. | After AM and PM have both happened. |
 | `npm run underworld:am-pm-continuity:self-test` | Self-test the continuity scan. | CI smoke. |
 | `npm run underworld:heartbeat` | Lightweight world heartbeat (keeps engine warm). | Background. |
-| `npm run underworld:harness:self-test` | Serial self-test of am-pm + life-signals + repair-gate + observe + goal-audit + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
+| `npm run underworld:harness:self-test` | Serial self-test of am-pm + life-signals + repair-gate + observe + goal-audit + Alan playtest artifact helper + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
 | `npm run underworld:cleanup-fallback-pollution:dry-run` | Dry-run audit of fallback-tainted memories / archived conversations / events / notifications / profiles. Accepts `--scope`, `--include-archived-conversations`, `--apply=true`. **Destructive only with `--apply=true`** and Alan-approved evidence. | Periodic hygiene audit. |
 | `bash umi/run_v01_approach_loop.sh` | Local long-running wrapper around `underworld:approach:v01` with persistent log at `umi/reports/v01-approach-loop.log`. Stop with Ctrl-C. | Overnight or unattended loops. |
 | `bash umi/soul_triad_hourly_eval_until_sleep.sh` | Hourly `eval:soul-triad` runs until configured sleep time. | Daytime evidence accumulation. |

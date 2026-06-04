@@ -108,12 +108,24 @@ continues with a new task as if Alan did not say he is leaving.
 
 ## Result Record
 
+Print a fresh copy of the required artifact shape with:
+
+```bash
+npm run underworld:alan-playtest-template
+```
+
 Save the redacted result as `umi/reports/alan-facing-v01-playtest-latest.md`.
 Files under `umi/reports/*.md` are ignored by git, so this can be durable local
 evidence without committing private details. Summarize or redact anything
 sensitive. Keep all five numbered checklist lines in the artifact; the
 completion audit only accepts a `Verdict: PASS` artifact when every required
 check below is present and marked `PASS`.
+
+Before rerunning the completion audit, verify the local artifact shape with:
+
+```bash
+npm run underworld:alan-playtest-check
+```
 
 ```text
 ## Playtest Result - YYYY-MM-DD HH:MM CDT
