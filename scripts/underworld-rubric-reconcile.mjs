@@ -14,6 +14,7 @@ const REPO_ROOT = join(__dirname, '..');
 const SOUL_REPORT_PATH = join(REPO_ROOT, 'evals', 'conversations', 'reports', 'soul-triad-latest.md');
 const RECENT_REPORT_PATH = join(REPO_ROOT, 'evals', 'conversations', 'reports', 'latest.md');
 const APPROACH_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
+const ROLLING_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'rolling-continuity-latest.md');
 const OUTPUT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-rubric-reconciliation-latest.md');
 const LIFE_SIGNAL_BLOCKER_DECISIONS = new Set([
   'life_signal_repeated',
@@ -34,24 +35,25 @@ if (args.get('self-test') === 'true') {
   process.exit(0);
 }
 
-const [soulReport, recentReport, approachReport] = await Promise.all([
+const [soulReport, recentReport, approachReport, rollingReport] = await Promise.all([
   readOptional(SOUL_REPORT_PATH),
   readOptional(RECENT_REPORT_PATH),
   readOptional(APPROACH_REPORT_PATH),
+  readOptional(ROLLING_REPORT_PATH),
 ]);
 
 if (!soulReport || !recentReport) {
   console.error('[underworld-rubric-reconcile] missing eval reports; run npm run underworld:observe first');
   process.exitCode = 2;
 } else {
-  const reconciliation = reconcileReports({ soulReport, recentReport, approachReport });
+  const reconciliation = reconcileReports({ soulReport, recentReport, approachReport, rollingReport });
   await writeReport(reconciliation);
   console.log(`[underworld-rubric-reconcile] ${reconciliation.decision}: ${reconciliation.nextAction}`);
   console.log(`[underworld-rubric-reconcile] report written: ${relative(OUTPUT_PATH)}`);
   if (reconciliation.decision === 'BLOCKED') process.exitCode = 1;
 }
 
-function reconcileReports({ soulReport, recentReport, approachReport }) {
+function reconcileReports({ soulReport, recentReport, approachReport, rollingReport = '' }) {
   const soulRows = parseSoulRows(soulReport);
   const recentRows = parseRecentRows(recentReport);
   const recentExamples = parseRecentExamples(recentReport);
@@ -81,6 +83,12 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   const runtimeHealth = bullet(approachReport, 'Runtime health');
   const modelPolicyEnv = bullet(approachReport, 'Model policy env');
   const amPm = bullet(approachReport, 'AM→PM continuity');
+  const rollingSummary = parseBulletSection(rollingReport, 'Summary');
+  const rollingStatus = field(rollingSummary, 'Status');
+  const rollingDecision = field(rollingSummary, 'Decision');
+  const rollingCallbacks = number(field(rollingSummary, 'Rolling callbacks found')) ?? 0;
+  const rollingContinuityPass =
+    rollingStatus === 'PASS' && rollingDecision === 'continuity_observed' && rollingCallbacks > 0;
   const topFailureCategory = bullet(approachReport, 'Top failure category');
   const freshLifeSignals = parseStatusDecision(bullet(approachReport, 'Fresh-window life signals'));
   const amPmStatus = parseStatusDecision(amPm);
@@ -104,7 +112,11 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   if (freshLifeSignals.status === 'WARN' && LIFE_SIGNAL_BLOCKER_DECISIONS.has(freshLifeSignals.decision)) {
     blockers.push(`life signals are WARN / ${freshLifeSignals.decision}`);
   }
-  if (amPmStatus.status && (amPmStatus.status !== 'PASS' || amPmStatus.decision !== 'continuity_observed')) {
+  if (rollingStatus) {
+    if (!rollingContinuityPass) {
+      blockers.push(`rolling two-hour continuity is ${rollingStatus} / ${rollingDecision ?? 'unknown'}`);
+    }
+  } else if (amPmStatus.status && (amPmStatus.status !== 'PASS' || amPmStatus.decision !== 'continuity_observed')) {
     blockers.push(`AM->PM continuity is ${amPmStatus.status} / ${amPmStatus.decision ?? 'unknown'}`);
   }
 
@@ -134,6 +146,8 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
       freshFallbackMarkers,
       stageLeak,
       echoPenalty,
+      rollingContinuity: rollingStatus ? `${rollingStatus} / ${rollingDecision ?? 'unknown'}` : 'missing',
+      rollingCallbacks,
       amPm: amPm ?? 'unknown',
     },
     blockers,
@@ -146,8 +160,13 @@ function nextActionFor({ decision, blockers, qualityGaps }) {
   if (decision === 'BLOCKED') {
     const onlyAmPmSamplePending =
       blockers.length === 1 && /^AM->PM continuity is WARN \/ sample_pending$/.test(blockers[0]);
+    const onlyRollingSamplePending =
+      blockers.length === 1 && /^rolling two-hour continuity is WARN \/ sample_pending$/.test(blockers[0]);
+    if (onlyRollingSamplePending) {
+      return 'wait for adjacent two-hour natural evidence; do not fix code for sample-pending rolling continuity';
+    }
     if (onlyAmPmSamplePending) {
-      return 'wait for the 13:00-16:59 afternoon evidence window; do not fix code for sample-pending continuity';
+      return 'legacy AM->PM is sample-pending; run rolling continuity before treating this as a blocker';
     }
     const hasLifeSignalBlocker = blockers.some((item) => item.startsWith('life signals are WARN /'));
     if (hasLifeSignalBlocker) {
@@ -244,6 +263,8 @@ async function writeReport(reconciliation) {
     `- Fresh fallback markers: ${reconciliation.summary.freshFallbackMarkers}`,
     `- Stage-direction leak sum: ${reconciliation.summary.stageLeak}`,
     `- Echo penalty sum: ${reconciliation.summary.echoPenalty}`,
+    `- Rolling two-hour continuity: ${reconciliation.summary.rollingContinuity}`,
+    `- Rolling callbacks found: ${reconciliation.summary.rollingCallbacks}`,
     `- AM→PM continuity: ${reconciliation.summary.amPm}`,
     '',
     '## v0.1 Blockers',
@@ -377,6 +398,24 @@ function bullet(report, label) {
   return report?.match(new RegExp(`^- ${escapeRegExp(label)}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
 }
 
+function parseBulletSection(report, heading) {
+  const section = report.match(new RegExp(`## ${escapeRegExp(heading)}\\n\\n([\\s\\S]*?)(?:\\n\\n## |$)`))?.[1] ?? '';
+  return Object.fromEntries(
+    [...section.matchAll(/^- ([^:\n]+):[ \t]*(.*)$/gm)].map((match) => [
+      normalizeKey(match[1]),
+      match[2].trim(),
+    ]),
+  );
+}
+
+function field(section, key) {
+  return section[normalizeKey(key)] ?? section[key];
+}
+
+function normalizeKey(key) {
+  return key.trim().replaceAll(' ', '_');
+}
+
 function parseStatusDecision(value) {
   const match = value?.match(/^([^/]+)\/\s*(.+)$/);
   return {
@@ -479,8 +518,40 @@ function runSelfTest() {
   });
   assertEqual(
     samplePendingResult.nextAction,
-    'wait for the 13:00-16:59 afternoon evidence window; do not fix code for sample-pending continuity',
+    'legacy AM->PM is sample-pending; run rolling continuity before treating this as a blocker',
     'sample-pending AM->PM should wait for evidence instead of asking for a fix',
+  );
+  const rollingPassReport = `
+# GIIS Underworld Rolling 2-Hour Continuity Report
+
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Source sample count: 2
+- Callback sample count: 2
+- Source residue candidates: 4
+- Rolling callbacks found: 1
+`;
+  const rollingPassResult = reconcileReports({
+    soulReport: soul,
+    recentReport: recent,
+    approachReport: samplePendingApproach,
+    rollingReport: rollingPassReport,
+  });
+  assertEqual(rollingPassResult.decision, 'HUMAN_REVIEW_READY', 'rolling pass should override legacy AM->PM sample pending');
+  assertEqual(rollingPassResult.blockers.length, 0, 'rolling pass should clear continuity blocker');
+
+  const rollingPendingResult = reconcileReports({
+    soulReport: soul,
+    recentReport: recent,
+    approachReport: approach,
+    rollingReport: rollingPassReport.replace('PASS', 'WARN').replace('continuity_observed', 'sample_pending'),
+  });
+  assertEqual(
+    rollingPendingResult.nextAction,
+    'wait for adjacent two-hour natural evidence; do not fix code for sample-pending rolling continuity',
+    'rolling sample pending should wait for adjacent evidence',
   );
 
   const roleActionApproach = [

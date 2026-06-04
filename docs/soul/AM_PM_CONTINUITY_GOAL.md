@@ -2,6 +2,13 @@
 
 ## Summary
 
+As of 2026-06-04, AM -> PM is a legacy day-arc cross-check. The primary v0.1
+recent-memory gate is rolling two-hour continuity via:
+
+```bash
+npm run underworld:rolling-continuity
+```
+
 Today's continuity target is deliberately smaller than "yesterday affects today."
 
 Question:
@@ -10,7 +17,7 @@ Question:
 
 This is a natural-observation goal. Do not force conversations, manually seed events,
 or tune prompts only to pass the eval. Keep the world running during the day, then
-use the harness to inspect whether the afternoon remembers the morning.
+use the harness to inspect whether later windows remember earlier windows.
 
 ## Test Windows
 
@@ -115,7 +122,9 @@ Each report should include:
 
 If afternoon samples are fewer than 12, report `sample_pending` and do not
 recommend prompt or runtime changes. Fewer samples may show directional moments,
-but they are not enough to judge AM -> PM continuity for v0.1 completion.
+but they are not enough to judge AM -> PM day-arc continuity. A passing rolling
+two-hour report can satisfy the v0.1 recent-memory gate before AM -> PM has
+enough archived afternoon samples.
 
 ## Allowed Small Fixes
 

@@ -48,12 +48,12 @@ These set pilot env knobs at start and **always** unset them in a
 | Command | What it does | When to use |
 |---|---|---|
 | `npm run underworld:observe` | Snapshot world state + recent events. **Never modifies code.** Writes `umi/reports/v01-approach-latest.md`. | Start every triage session here. |
-| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. This is enough for a directional repair/eval read, not enough by itself to prove AM→PM continuity. | Daytime sample collection. |
+| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. This is enough for a directional repair/eval read, not enough by itself to prove rolling or AM→PM continuity. | Daytime sample collection. |
 | `npm run underworld:observe:self-test` | Self-test the observe script without hitting Convex. | CI / pre-loop smoke. |
 | `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
-| `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee the 12 archived PM samples required for AM→PM completion. | **Canonical first daytime command.** |
+| `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee adjacent-window rolling continuity by itself. | **Canonical first daytime command.** |
 | `npm run underworld:afternoon-world-ready` | Read the default world status and resume only if it drifted to `inactive`; it does not resume `stoppedByDeveloper`. | Before natural afternoon evidence, or inside the afternoon gate. |
-| `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper. First same-day afternoon pass runs runtime preflight → inactive-only world readiness → daytime check → repair gate → rubric reconciliation → completion audit; later same-day passes switch to read-only AM→PM/life/repair/rubric/completion refresh. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If AM→PM is still sample-pending, keep natural afternoon evidence going until the report has at least 12 PM samples. |
+| `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper. First same-day afternoon pass runs runtime preflight → inactive-only world readiness → daytime check → rolling continuity → AM→PM → repair gate → rubric reconciliation → completion audit; later same-day passes switch to read-only rolling/AM→PM/life/repair/rubric/completion refresh. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If rolling continuity is still sample-pending, keep natural evidence going instead of changing prompts. |
 | `npm run underworld:alan-playtest-template` | Prints the required local Alan-facing result artifact shape. Does not write evidence or mark PASS. | Before Alan intentionally playtests Umi. |
 | `npm run underworld:alan-playtest-init` | Writes a non-passing `PARTIAL` draft at `umi/reports/alan-facing-v01-playtest-latest.md` if no artifact exists. Does not clear the gate. | Before Alan playtest, to reduce result-record friction. |
 | `npm run underworld:alan-playtest-candidates` | Read-only scan for recent Alan + Umi/海 conversations that may contain the five playtest prompts. Writes `umi/reports/alan-playtest-candidates-latest.md`; does not clear the gate. | Before asking Alan to repeat a playtest, to see whether usable evidence already exists. |
@@ -65,26 +65,29 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:day-start` | Day-start readiness check (clock, engine, fallback audit). | Start-of-day. |
 | `npm run underworld:life-signals` | Scan day-window life signals (conversation shape, scene diversity, daily rhythm, soul style). Writes `umi/reports/life-signals-latest.md`. | Quality observation. |
 | `npm run underworld:life-signals:self-test` | Self-test for the life-signal harness. | CI smoke. |
+| `npm run underworld:rolling-continuity` | Scan adjacent two-hour windows for concrete residue -> callback / behavior shift. Writes `umi/reports/rolling-continuity-latest.md`. | Primary v0.1 recent-memory continuity gate. |
+| `npm run underworld:rolling-continuity:self-test` | Self-test the rolling continuity scan. | CI smoke. |
 | `npm run underworld:am-pm-continuity` | Scan AM→PM continuity: does an afternoon callback connect to morning residue? Writes `umi/reports/am-pm-continuity-latest.md`. | After AM and PM have both happened. |
 | `npm run underworld:am-pm-continuity:self-test` | Self-test the continuity scan. | CI smoke. |
 | `npm run underworld:heartbeat` | Lightweight world heartbeat (keeps engine warm). | Background. |
-| `npm run underworld:harness:self-test` | Serial self-test of am-pm + life-signals + repair-gate + observe + goal-audit + Alan playtest artifact helper + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
+| `npm run underworld:harness:self-test` | Serial self-test of rolling + am-pm + life-signals + repair-gate + observe + goal-audit + Alan playtest artifact helper + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
 | `npm run underworld:cleanup-fallback-pollution:dry-run` | Dry-run audit of fallback-tainted memories / archived conversations / events / notifications / profiles. Accepts `--scope`, `--include-archived-conversations`, `--apply=true`. **Destructive only with `--apply=true`** and Alan-approved evidence. | Periodic hygiene audit. |
 | `bash umi/run_v01_approach_loop.sh` | Local long-running wrapper around `underworld:approach:v01` with persistent log at `umi/reports/v01-approach-loop.log`. Stop with Ctrl-C. | Overnight or unattended loops. |
 | `bash umi/soul_triad_hourly_eval_until_sleep.sh` | Hourly `eval:soul-triad` runs until configured sleep time. | Daytime evidence accumulation. |
 
 ### Natural PM evidence path
 
-Use this only inside 13:00-16:59 America/Chicago when the latest AM->PM report
-is `sample_pending` because archived afternoon samples are still below 12. This
-path is for reading naturally accumulated afternoon conversations; it should not
-force extra controlled pilot samples.
+Use this when the latest rolling report is `sample_pending` because adjacent
+two-hour windows still lack enough source/callback conversations. This path is
+for reading naturally accumulated conversations; it should not force extra
+controlled pilot samples.
 
 ```bash
 npm run underworld:runtime-preflight
 npm run underworld:afternoon-world-ready
 # wait a bounded interval for natural afternoon conversations or an Alan playtest
 npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0
+npm run underworld:rolling-continuity
 npm run underworld:am-pm-continuity
 npm run underworld:life-signals
 npm run underworld:repair-gate
@@ -144,9 +147,10 @@ Verified 2026-05-26 by `grep -r` across the repo.
    fewer than 3 triad samples, do not change conversation or memory
    behavior unless you are fixing a runtime/hygiene bug. The eval will
    print a warning when this rule is in effect.
-3. **AM→PM completion needs a larger PM window.** The continuity report stays
-   `sample_pending` until at least 12 archived afternoon samples exist. Do not
-   treat the 3-sample daytime command as proof of yesterday/today continuity.
+3. **Rolling continuity is the primary v0.1 memory gate.** Adjacent two-hour
+   windows should show concrete residue -> callback or behavior change. AM→PM
+   still helps as day-arc evidence, but it is no longer the only hard blocker
+   when rolling continuity passes.
 4. **Pilot envs stay scoped.** Never set `SOUL_TRIAD_*` or
    `UMI_MAHIRU_*` envs globally — let the pilot scripts manage them.
 5. **One canonical script per job.** If you find yourself adding a new

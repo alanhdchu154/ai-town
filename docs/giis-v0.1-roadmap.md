@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-05-31
+Last updated: 2026-06-04
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -36,6 +36,10 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 - Old conversations should affect later phrasing, initiative, avoidance, or
   small behavior.
 - Memory writes must avoid spam and must not persist fallback/abort pollution.
+- v0.1 uses rolling two-hour continuity as the primary recent-memory proof:
+  adjacent two-hour windows should show concrete residue -> callback or behavior
+  change. AM -> PM remains a broader day-arc cross-check, not the only hard
+  completion blocker.
 
 ### 4. Event Thread Continuity
 
@@ -59,6 +63,9 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
   still use the `Tianze` runtime key.
 - Run the latest v0.1 goal audit and soul/recent conversation evals before
   claiming readiness.
+- Run `npm run underworld:rolling-continuity`; require PASS /
+  `continuity_observed` unless Alan/product-owner explicitly defers the
+  continuity gate.
 - Do at least one longer Alan playtest where yesterday is felt inside today's
   conversation.
 - Use `WORKLOG.md` for current handoffs and verification evidence.

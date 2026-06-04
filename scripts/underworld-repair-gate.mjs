@@ -14,6 +14,7 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
+const ROLLING_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'rolling-continuity-latest.md');
 const REVIEW_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-repair-gate-latest.md');
 const PROPOSAL_DIR = join(REPO_ROOT, 'umi', 'proposals');
 
@@ -69,14 +70,14 @@ async function main() {
     return;
   }
 
-  const report = await readOptional(REPORT_PATH);
+  const [report, rollingReport] = await Promise.all([readOptional(REPORT_PATH), readOptional(ROLLING_REPORT_PATH)]);
   if (!report && !REQUESTED_CATEGORY) {
     console.log('[underworld-repair-gate] no latest report found; run npm run underworld:observe first');
     process.exitCode = 2;
     return;
   }
 
-  const diagnosis = diagnoseReport(report, REQUESTED_CATEGORY);
+  const diagnosis = diagnoseReport(report, REQUESTED_CATEGORY, rollingReport);
   const category = diagnosis.category;
   const classification = classifyDiagnosis(diagnosis);
   const evidence = extractEvidence(report);
@@ -242,6 +243,52 @@ Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
     'am_pm_sample_pending',
     'pilot role-action waits for AM-PM blocker',
   );
+
+  const rollingPassReport = `
+# GIIS Underworld Rolling 2-Hour Continuity Report
+
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Rolling callbacks found: 1
+`;
+  const pilotRoleActionWithRolling = evaluateSelfTestReport(
+    `
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 4
+- Top failure category: eval_rubric_disagreement
+- Repair class: proposal_only
+- Recent failure reason: previousSpeakerBindingScore: loosely bound
+- AM→PM continuity: WARN / sample_pending
+- Life signals: WARN / pilot_role_action_collapse
+
+Post-fix conversations checked: 4
+Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
+
+## AM→PM Continuity
+
+- status: WARN
+- decision: sample_pending
+- morning samples: 4
+- afternoon samples: 0
+
+## Life Signals
+
+- status: WARN
+- decision: pilot_role_action_collapse
+- conversation count: 4
+- pilot action collapse flags: 2
+`,
+    undefined,
+    rollingPassReport,
+  );
+  if (pilotRoleActionWithRolling.decision.blockedReasons.includes('am_pm_sample_pending')) {
+    throw new Error('rolling pass should remove legacy AM-PM sample-pending blocker');
+  }
 
   const amPmGap = evaluateSelfTestReport(`
 # GIIS Underworld v0.1 Approach Report
@@ -638,8 +685,8 @@ Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
   console.log('[underworld-repair-gate:self-test] PASS');
 }
 
-function evaluateSelfTestReport(report, requestedCategory) {
-  const diagnosis = diagnoseReport(report, requestedCategory);
+function evaluateSelfTestReport(report, requestedCategory, rollingReport = '') {
+  const diagnosis = diagnoseReport(report, requestedCategory, rollingReport);
   const classification = classifyDiagnosis(diagnosis);
   const decision = decideNextAction({
     diagnosis,
@@ -676,7 +723,7 @@ function classifyDiagnosis(diagnosis) {
   return base;
 }
 
-function diagnoseReport(report, requestedCategory) {
+function diagnoseReport(report, requestedCategory, rollingReport = '') {
   const summary = Object.fromEntries(
     [...report.matchAll(/^- ([^:\n]+):\s*(.+)$/gm)].map((match) => [match[1].trim(), match[2].trim()]),
   );
@@ -687,6 +734,7 @@ function diagnoseReport(report, requestedCategory) {
   const repairClass = summary['Repair class'] ?? classify(reportTopCategory);
   const recentFailureReason = summary['Recent failure reason'] ?? '';
   const amPm = parseAmPmContinuity(report);
+  const rolling = parseRollingContinuity(rollingReport);
   const lifeSignals = parseLifeSignals(report);
   const postFixChecked = Number(report.match(/Post-fix conversations checked:\s*(\d+)/)?.[1] ?? 0);
   const postFixSummary = report.match(/Post-fix summary:\s*(.+)$/m)?.[1]?.trim() ?? 'unknown';
@@ -729,6 +777,7 @@ function diagnoseReport(report, requestedCategory) {
   }
 
   const hasAmPmContinuityGap =
+    !rolling.passes &&
     amPm.status === 'FAIL' &&
     !['sample_pending', undefined, ''].includes(amPm.decision) &&
     Number(amPm.afternoonSamples ?? 0) >= MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES;
@@ -761,6 +810,7 @@ function diagnoseReport(report, requestedCategory) {
     reportTopCategory,
     recentFailureReason,
     amPm,
+    rolling,
     lifeSignals,
     strongestRecentMoment,
     weakestRecentFailure,
@@ -779,6 +829,7 @@ function diagnoseReport(report, requestedCategory) {
     postFixChecked,
     postFixSummary,
     amPm,
+    rolling,
     lifeSignals,
     recentFailures,
     resultRows,
@@ -793,6 +844,7 @@ function repairConfidenceBlockersFor({
   reportTopCategory,
   recentFailureReason,
   amPm,
+  rolling,
   lifeSignals,
   strongestRecentMoment,
   weakestRecentFailure,
@@ -800,7 +852,7 @@ function repairConfidenceBlockersFor({
   if (category !== 'echo_repetition') return [];
   const blockers = [];
   if (freshTriadSamples < 8) blockers.push('fresh_triad_samples_below_8');
-  if (amPm?.decision === 'sample_pending') blockers.push('am_pm_sample_pending');
+  if (amPm?.decision === 'sample_pending' && !rolling?.passes) blockers.push('am_pm_sample_pending');
   if (lifeSignals?.status === 'WARN') blockers.push('life_signals_warn');
   if (sameNonEmptyText(strongestRecentMoment, weakestRecentFailure)) {
     blockers.push('strongest_equals_weakest');
@@ -892,10 +944,11 @@ function reviewBlockers(diagnosis) {
   if (diagnosis.operationalIssue !== 'none' && diagnosis.category !== 'db_cleanup') {
     blockers.push(diagnosis.operationalIssue);
   }
-  if (diagnosis.amPm?.decision === 'sample_pending' && diagnosis.category !== 'db_cleanup') {
+  if (diagnosis.amPm?.decision === 'sample_pending' && !diagnosis.rolling?.passes && diagnosis.category !== 'db_cleanup') {
     blockers.push('am_pm_sample_pending');
   }
   if (
+    !diagnosis.rolling?.passes &&
     diagnosis.amPm?.status === 'FAIL' &&
     diagnosis.amPm?.decision === 'no_pm_callback' &&
     Number(diagnosis.amPm?.afternoonSamples ?? 0) < MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES &&
@@ -992,6 +1045,8 @@ async function writeReviewReport({ diagnosis, classification, evidence, ccReview
     `- Post-fix summary: ${diagnosis.postFixSummary}`,
     `- Operational issue: ${diagnosis.operationalIssue}`,
     `- Conversation category: ${diagnosis.conversationCategory}`,
+    `- Rolling two-hour continuity: ${diagnosis.rolling?.status ?? 'missing'} / ${diagnosis.rolling?.decision ?? 'missing'}`,
+    `- Rolling callbacks found: ${diagnosis.rolling?.callbacksFound ?? 'unknown'}`,
     `- AM→PM continuity: ${diagnosis.amPm?.status ?? 'unknown'} / ${diagnosis.amPm?.decision ?? 'unknown'}`,
     `- AM→PM samples: morning=${diagnosis.amPm?.morningSamples ?? 'unknown'} afternoon=${diagnosis.amPm?.afternoonSamples ?? 'unknown'}`,
     `- Life signals: ${diagnosis.lifeSignals?.status ?? 'unknown'} / ${diagnosis.lifeSignals?.decision ?? 'unknown'}`,
@@ -1110,6 +1165,21 @@ function parseAmPmContinuity(report) {
     afternoonSamples: field('afternoon samples'),
     amResidueCandidates: field('AM residue candidates'),
     pmCallbacksFound: field('PM callbacks found'),
+  };
+}
+
+function parseRollingContinuity(report) {
+  const section = report.match(/## Summary\n\n([\s\S]*?)(?:\n\n## |$)/)?.[1] ?? '';
+  const field = (label) =>
+    section.match(new RegExp(`^- ${label}:\\s*(.+)$`, 'mi'))?.[1]?.trim();
+  const status = field('Status');
+  const decision = field('Decision');
+  const callbacksFound = field('Rolling callbacks found');
+  return {
+    status,
+    decision,
+    callbacksFound,
+    passes: status === 'PASS' && decision === 'continuity_observed' && Number(callbacksFound ?? 0) > 0,
   };
 }
 

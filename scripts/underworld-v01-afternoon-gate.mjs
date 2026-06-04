@@ -15,13 +15,16 @@ const REPO_ROOT = join(__dirname, '..');
 const OUTPUT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-afternoon-gate-latest.md');
 const FINAL_GATE_LINES = [
   'Use `umi/reports/v01-completion-audit-latest.md` as the primary requirement-by-requirement completion report.',
-  'If AM->PM is still `sample_pending`, keep v0.1 active and collect/read natural afternoon evidence rather than changing prompts.',
+  'Use `npm run underworld:rolling-continuity` as the primary rolling two-hour continuity gate; AM->PM remains legacy day-arc evidence.',
+  'If rolling continuity is still `sample_pending`, keep v0.1 active and collect/read natural recent evidence rather than changing prompts.',
   'If the Alan-facing playtest artifact exists, validate it with `npm run underworld:alan-playtest-check` before treating `human_alan_conversation_quality` as proven.',
 ];
 const STEPS = [
   step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
   step('afternoon_world_ready', ['npm', ['run', 'underworld:afternoon-world-ready']], false),
   step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
+  step('rolling_continuity', ['npm', ['run', 'underworld:rolling-continuity']], true),
+  step('am_pm_continuity', ['npm', ['run', 'underworld:am-pm-continuity']], true),
   step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
   step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
   step('completion_audit', ['npm', ['run', 'underworld:v01-completion-audit']], true),
@@ -29,6 +32,7 @@ const STEPS = [
 const READ_ONLY_STEPS = [
   step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
   step('afternoon_world_ready', ['npm', ['run', 'underworld:afternoon-world-ready']], false),
+  step('rolling_continuity', ['npm', ['run', 'underworld:rolling-continuity']], true),
   step('am_pm_continuity', ['npm', ['run', 'underworld:am-pm-continuity']], true),
   step('life_signals', ['npm', ['run', 'underworld:life-signals']], true),
   step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
@@ -240,6 +244,12 @@ function runSelfTest() {
   if (!READ_ONLY_STEPS.some((item) => item.id === 'am_pm_continuity')) {
     throw new Error('self-test expected read-only refresh to update AM->PM continuity');
   }
+  if (!STEPS.some((item) => item.id === 'rolling_continuity') || !READ_ONLY_STEPS.some((item) => item.id === 'rolling_continuity')) {
+    throw new Error('self-test expected full and read-only gates to update rolling two-hour continuity');
+  }
+  if (!FINAL_GATE_LINES.some((line) => /rolling two-hour continuity/.test(line))) {
+    throw new Error('self-test expected final gate guidance to name rolling two-hour continuity');
+  }
   if (!currentChicagoWindow(new Date('2026-06-03T18:05:00.000Z')).dateKey) {
     throw new Error('self-test expected Chicago date key');
   }
@@ -282,7 +292,7 @@ function runSelfTest() {
     throw new Error('self-test expected final gate lines to mention the Alan playtest artifact check');
   }
   if (!FINAL_GATE_LINES.some((line) => line.includes('sample_pending'))) {
-    throw new Error('self-test expected final gate lines to mention AM->PM sample_pending handling');
+    throw new Error('self-test expected final gate lines to mention rolling sample_pending handling');
   }
   if (!FINAL_GATE_LINES.every((line) => line.includes('`'))) {
     throw new Error('self-test expected final gate lines to reference concrete commands/artifacts');

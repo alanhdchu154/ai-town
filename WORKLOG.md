@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete, but the 2026-06-04 09:04 CDT daytime rerun cleared the active hard FAIL state to `PENDING`. After runtime preflight PASS and `/ai-town` HTTP 200, the default world was resumed from `inactive` to `running`. `npm run underworld:v01-daytime-check` collected three fresh AM scoped samples (`c:91090` 海/真晝, `c:91109` 真晝/天澤, `c:91129` 海/天澤), all soul-triad PASS. Latest life-signals are PASS / `life_signal_observed`, role-action collapse is no longer a rubric blocker, fallback pollution remains 0, AM->PM is still `WARN / sample_pending` with 0 afternoon samples, and completion audit is now `PENDING` with 0 fail / 3 pending / 5 pass. Recent eval still flags `voice_rubric_gap` / `reply_binding_rubric_gap`; these are human-review quality gaps, not prompt auto-fix permission. Remaining proof path: get AM->PM continuity during 13:00-16:59 CDT, run Alan-facing Umi playtest, save and validate `umi/reports/alan-facing-v01-playtest-latest.md` with `npm run underworld:alan-playtest-check`, then rerun repair/rubric/completion after AM->PM clears. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_pending_afternoon_alan |
+| 5 | Post-role-change v0.1 rerun is now machine-gate ready but not fully complete. On 2026-06-04 12:37 CDT, `npm run underworld:rolling-continuity` replaced AM->PM as the primary recent-memory gate and passed: 10:00-12:00 source window -> 12:00-14:00 callback window, 28 source samples, 7 callback samples, 40 residue candidates, and 6 rolling callbacks. `npm run underworld:rubric-reconcile` is `HUMAN_REVIEW_READY` with no v0.1 blockers; `npm run underworld:v01-completion-audit` is `PENDING` with 0 fail / 1 pending / 7 pass. The only remaining completion gate is Alan-facing Umi playtest quality: fill/replace `umi/reports/alan-facing-v01-playtest-latest.md`, validate with `npm run underworld:alan-playtest-check`, then rerun completion audit. Do not call v0.1 complete unless that gate passes or Alan explicitly defers it. | Alan / Umi | active_pending_alan_playtest |
 
 ## Current State Snapshot
 
@@ -39,14 +39,15 @@ historical evidence is needed.
   not perfect. After the 2026-06-02 Tianze/Ichinose role change and the
   2026-06-04 resumed-world morning evidence, the rerun temporarily became an
   active FAIL through `pilot_role_action_collapse`; the 09:04 CDT daytime rerun
-  has now cleared that hard role-action blocker. Latest completion audit is
-  `PENDING` with 0 fail, 3 pending, 0 deferred, 5 pass. Remaining pending gates
-  are AM->PM continuity, Alan-facing playtest artifact, and final
-  motif/repair/rubric clearance after AM->PM is no longer sample-pending.
-- AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
-  and PM callbacks are not judged until >=12 afternoon samples. Latest
-  2026-06-04 morning evidence is `WARN / sample_pending`, with 0 afternoon
-  samples, 18 AM residue candidates, and 0 PM callbacks.
+  cleared that hard role-action blocker. As of 12:38 CDT, the latest completion
+  audit is `PENDING` with 0 fail, 1 pending, 0 deferred, 7 pass. The only
+  pending gate is Alan-facing Umi playtest quality.
+- Rolling two-hour continuity is now the primary v0.1 recent-memory gate.
+  Latest report is PASS / `continuity_observed`: 10:00-12:00 source window ->
+  12:00-14:00 callback window, 28 source samples, 7 callback samples, 40
+  residue candidates, and 6 rolling callbacks. AM->PM remains useful legacy
+  day-arc evidence, but no longer blocks v0.1 by itself when rolling continuity
+  passes.
 - Day-window life-signal diagnostics now include pilot role-action coverage.
   Latest 2026-06-04 09:04 CDT daytime evidence has 9 day-window conversations,
   life signals PASS / `life_signal_observed`, pilot expected action match rate
@@ -55,34 +56,37 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 10:26 CDT, local runtime/tooling readiness is stronger but
-  still not v0.1 completion proof: `npm run underworld:afternoon-world-ready`
-  can resume an `inactive` default world without overriding `stoppedByDeveloper`;
-  the active Codex afternoon heartbeat now runs at 11:05/11:35/12:05/12:35/
-  13:05/13:35/14:05/14:35/15:05/15:35/16:05/16:35 CDT; and the prompt now
-  explicitly runs only `underworld:afternoon-world-ready` plus
-  `underworld:heartbeat -- --once` before 13:00, with no `daytime_check`,
-  observe collection, or `--allow-outside-afternoon`. After 13:00, `npm run
-  underworld:v01-afternoon-gate` uses full collection only for the first
-  same-day afternoon pass, then read-only AM->PM/life/repair/rubric/completion
-  refresh for later same-day passes. A 10:26 no-sample readiness check found
-  the world already `running`, then `npm run underworld:heartbeat -- --once`
-  reported `heartbeat_ok: yes` and kept the world `running -> running`.
+- As of 2026-06-04 12:38 CDT, local runtime/tooling readiness is stronger and
+  the continuity gate has moved from AM/PM to rolling two-hour windows.
+  `npm run underworld:v01-afternoon-gate` now refreshes rolling continuity in
+  both full and read-only modes, then repair/rubric/completion. The old AM->PM
+  report can still describe day-arc evidence, but it is not the only hard v0.1
+  continuity blocker.
 - Alan-facing playtest evidence is still pending. The ignored local artifact
   `umi/reports/alan-facing-v01-playtest-latest.md` now exists as a non-passing
   `PARTIAL` draft, and `umi/reports/alan-playtest-candidates-latest.md` reports
   `NO_COMPLETE_CANDIDATE` from a read-only scan, so the human gate still needs
   an intentional Alan/Umi playtest or an explicit Alan/product-owner defer.
-- At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
-  `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
-  The latest 10:17 CDT preflight and completion audit are now authoritative:
-  runtime preflight is PASS, the default world is `running`, and v0.1 is still
-  `PENDING` with 0 fail / 3 pending / 5 pass, waiting on afternoon AM->PM
-  evidence, Alan-facing playtest PASS/defer, and final rubric/repair clearance
-  after AM->PM is no longer sample-pending.
+- At 2026-06-04 12:38 CDT, the latest completion audit is authoritative:
+  v0.1 is still `PENDING` with 0 fail / 1 pending / 7 pass, waiting only on
+  Alan-facing playtest PASS or explicit Alan/product-owner defer.
 
 ## Work Log
 
+- 2026-06-04 12:38 CDT: Replaced the hard AM/PM continuity dependency with a
+  rolling two-hour continuity gate for v0.1. Added
+  `scripts/underworld-rolling-continuity.mjs`, wired package scripts, refreshed
+  afternoon gate, repair gate, rubric reconciliation, and completion audit to
+  treat rolling continuity as the primary recent-memory proof while preserving
+  AM->PM as legacy day-arc evidence. Actual rolling report passed for
+  10:00-12:00 -> 12:00-14:00 with 6 callbacks. Rubric reconciliation is now
+  `HUMAN_REVIEW_READY` with no v0.1 blockers; completion audit is `PENDING`
+  with 0 fail / 1 pending / 7 pass, blocked only by Alan-facing Umi playtest
+  evidence. Verification: `npm run underworld:rolling-continuity:self-test`;
+  `npm run underworld:rolling-continuity`; `npm run
+  underworld:repair-gate -- --cc=skip`; `npm run underworld:rubric-reconcile`;
+  `npm run underworld:v01-completion-audit:self-test`; `npm run
+  underworld:v01-completion-audit`.
 - 2026-06-04 10:31 CDT: Re-ran the allowed pre-afternoon no-sample readiness
   path while waiting for the scheduled 11:05 heartbeat. `npm run
   underworld:afternoon-world-ready` reported `status=running` /

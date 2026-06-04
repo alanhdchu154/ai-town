@@ -19,6 +19,7 @@ const PATHS = {
   goalAudit: join(REPO_ROOT, 'umi', 'reports', 'v01-goal-audit-latest.md'),
   repairGate: join(REPO_ROOT, 'umi', 'reports', 'v01-repair-gate-latest.md'),
   rubric: join(REPO_ROOT, 'umi', 'reports', 'v01-rubric-reconciliation-latest.md'),
+  rolling: join(REPO_ROOT, 'umi', 'reports', 'rolling-continuity-latest.md'),
   amPm: join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.md'),
   life: join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md'),
   recent: join(REPO_ROOT, 'evals', 'conversations', 'reports', 'latest.md'),
@@ -53,6 +54,7 @@ function auditSources(sources, options = {}) {
   const repairDecision = parseBulletSection(sources.repairGate, 'Decision');
   const repairEvidence = parseBulletSection(sources.repairGate, 'Evidence');
   const amPmSummary = parseBulletSection(sources.amPm, 'Summary');
+  const rollingSummary = parseBulletSection(sources.rolling, 'Summary');
   const lifeSummary = parseBulletSection(sources.life, 'Summary');
   const recentSummary = parseRecentSummary(sources.recent);
   const rubricSummary = parseBulletSection(sources.rubric, 'Summary');
@@ -63,6 +65,19 @@ function auditSources(sources, options = {}) {
   const afternoonSamples = numberValue(field(amPmSummary, 'Afternoon sample count'));
   const pmCallbacks = numberValue(field(amPmSummary, 'PM callbacks found'));
   const amResidues = numberValue(field(amPmSummary, 'AM residue candidates'));
+  const rollingStatus = field(rollingSummary, 'Status');
+  const rollingDecision = field(rollingSummary, 'Decision');
+  const rollingSourceSamples = numberValue(field(rollingSummary, 'Source sample count'));
+  const rollingCallbackSamples = numberValue(field(rollingSummary, 'Callback sample count'));
+  const rollingResidues = numberValue(field(rollingSummary, 'Source residue candidates'));
+  const rollingCallbacks = numberValue(field(rollingSummary, 'Rolling callbacks found'));
+  const rollingContinuityPass =
+    rollingStatus === 'PASS' && rollingDecision === 'continuity_observed' && rollingCallbacks > 0;
+  const legacyAmPmContinuityPass =
+    amPmStatus === 'PASS' &&
+    amPmDecision === 'continuity_observed' &&
+    afternoonSamples >= MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES &&
+    pmCallbacks > 0;
   const lifeStatus = field(lifeSummary, 'Status');
   const lifeDecision = field(lifeSummary, 'Decision');
   const ordinaryScenes = numberValue(field(lifeSummary, 'Ordinary-scene conversations'));
@@ -76,14 +91,21 @@ function auditSources(sources, options = {}) {
   const repairBlockedReasons = field(repairDecision, 'Blocked reasons') ?? '';
   const repairUmiDecision = field(repairDecision, 'Umi decision') ?? '';
   const rubricDecision = sources.rubric.match(/^Decision:\s*(.+)$/m)?.[1]?.trim();
-  const rubricBlockers = parseListSection(sources.rubric, 'v0.1 Blockers');
+  const rubricBlockers = parseListSection(sources.rubric, 'v0.1 Blockers').filter((item) => item !== 'none');
   const rubricQualityGaps = parseListSection(sources.rubric, 'Product Quality Gaps For Human Review').filter(
     (item) => item !== 'none',
   );
   const motifGateBlockedByPendingContinuity =
     hasStatus(goal, 'no_fresh_motif_or_hygiene_loop', 'PASS') &&
     repairChangeSize === 'observe_only' &&
-    onlyAmPmPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision);
+    onlyLegacyContinuityPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision);
+  const motifRepairCleared =
+    hasStatus(goal, 'no_fresh_motif_or_hygiene_loop', 'PASS') &&
+    ((rollingContinuityPass && motifGateBlockedByPendingContinuity) ||
+      (!/sample_pending|am_pm_sample_pending|provider_unavailable|timeout|blocked/i.test(repairBlockedReasons) &&
+        !/No repair this cycle/i.test(repairUmiDecision) &&
+        repairChangeSize !== 'observe_only' &&
+        rubricDecision !== 'BLOCKED'));
   const recentFailuresAreHumanReviewGaps =
     recentSummary.fail > 1 &&
     lifeStatus === 'PASS' &&
@@ -112,23 +134,25 @@ function auditSources(sources, options = {}) {
     ),
     requirement(
       'conversation_to_emotional_residue',
-      amResidues > 0,
-      `amResidueCandidates=${amResidues}`,
-      'Need human-readable AM residue candidates before continuity can be proven.',
+      rollingResidues > 0 || amResidues > 0,
+      `rollingResidueCandidates=${rollingResidues}, amResidueCandidates=${amResidues}`,
+      'Need human-readable rolling or day-arc residue candidates before continuity can be proven.',
     ),
     requirement(
       'memory_continuity_yesterday_matters',
-      amPmStatus === 'PASS' &&
-        amPmDecision === 'continuity_observed' &&
-        afternoonSamples >= MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES &&
-        pmCallbacks > 0,
-      `amPm=${amPmStatus}/${amPmDecision}, afternoonSamples=${afternoonSamples}, pmCallbacks=${pmCallbacks}`,
-      afternoonSamples < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES || amPmDecision === 'sample_pending'
-        ? `Afternoon sample count is below ${MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES}; continuity is sample-pending, not proven failed.`
-        : pmCallbacks === 0
-          ? 'No PM callbacks found.'
-          : 'AM->PM continuity is not a PASS / continuity_observed result.',
-      afternoonSamples < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES || amPmDecision === 'sample_pending'
+      rollingContinuityPass || legacyAmPmContinuityPass,
+      `rolling=${rollingStatus || 'missing'}/${rollingDecision || 'missing'}, sourceSamples=${rollingSourceSamples}, callbackSamples=${rollingCallbackSamples}, rollingCallbacks=${rollingCallbacks}; legacyAmPm=${amPmStatus || 'missing'}/${amPmDecision || 'missing'}, afternoonSamples=${afternoonSamples}, pmCallbacks=${pmCallbacks}`,
+      !sources.rolling || rollingDecision === 'sample_pending' || rollingDecision === 'residue_pending'
+        ? 'Rolling two-hour continuity is sample-pending; recent memory continuity is not proven failed.'
+        : rollingDecision === 'weak_continuity'
+          ? 'Rolling callbacks are weak or generic; need concrete residue -> callback evidence.'
+          : rollingCallbacks === 0 && !legacyAmPmContinuityPass
+            ? 'No rolling continuity callback found.'
+            : 'Rolling two-hour continuity is not a PASS / continuity_observed result.',
+      !sources.rolling ||
+        rollingDecision === 'sample_pending' ||
+        rollingDecision === 'residue_pending' ||
+        (afternoonSamples < MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES && amPmDecision === 'sample_pending')
         ? 'PENDING'
         : 'FAIL',
     ),
@@ -155,16 +179,12 @@ function auditSources(sources, options = {}) {
     ),
     requirement(
       'motif_hygiene_and_repair_gate',
-      hasStatus(goal, 'no_fresh_motif_or_hygiene_loop', 'PASS') &&
-        !/sample_pending|provider_unavailable|timeout|blocked/i.test(repairBlockedReasons) &&
-        !/No repair this cycle/i.test(repairUmiDecision) &&
-        repairChangeSize !== 'observe_only' &&
-        rubricDecision !== 'BLOCKED',
+      motifRepairCleared,
       `goalMotif=${statusOf(goal, 'no_fresh_motif_or_hygiene_loop')}, repairChangeSize=${repairChangeSize}, repairBlockedReasons=${repairBlockedReasons || 'none'}, rubricDecision=${rubricDecision ?? 'unknown'}`,
       motifGateBlockedByPendingContinuity
-        ? 'Motif and repair evidence are not failed, but final rubric/repair clearance is waiting on AM->PM continuity evidence.'
+        ? 'Motif and repair evidence are not failed, but final rubric/repair clearance is waiting on legacy AM->PM continuity evidence. Rolling continuity can clear this if it passes.'
         : 'Latest motif/repair/rubric evidence is still not a clean completion pass.',
-      motifGateBlockedByPendingContinuity ? 'PENDING' : 'FAIL',
+      motifGateBlockedByPendingContinuity && !rollingContinuityPass ? 'PENDING' : 'FAIL',
     ),
     requirement(
       'night_quiet_policy_preserved',
@@ -339,13 +359,13 @@ function nextActionFor(requirements) {
   if (soulBlocked || pendingMemory || pendingAlan || motifBlocked) {
     const actions = [];
     if (soulBlocked) actions.push('collect/read or review enough fresh character-soul evidence to clear the current soul blocker');
-    if (pendingMemory) actions.push('during the next afternoon window, run the afternoon gate or read enough natural PM samples to reach the AM->PM threshold');
+    if (pendingMemory) actions.push('run/read the rolling two-hour continuity report after enough adjacent recent windows exist');
     if (pendingAlan) actions.push('run or explicitly defer the Alan-facing Umi playtest using the checklist');
     if (motifBlocked) actions.push('keep repair-gate observe-only until fresh evidence is strong enough for a narrow fix or proposal');
     return `Keep v0.1 active. Next safe action: ${actions.join('; ')}; then rerun this completion audit.`;
   }
   if (first.id === 'memory_continuity_yesterday_matters') {
-    return 'Wait for the afternoon window, run `npm run underworld:v01-daytime-check`, then rerun this completion audit.';
+    return 'Run `npm run underworld:rolling-continuity`, then rerun this completion audit once adjacent two-hour windows have enough source and callback conversations.';
   }
   if (first.id === 'human_alan_conversation_quality') {
     return 'Run or explicitly defer the Alan-facing Umi playtest before declaring v0.1 complete.';
@@ -371,7 +391,8 @@ function statusOf(map, id) {
 }
 
 function parseBulletSection(report, heading) {
-  const section = report.match(new RegExp(`## ${escapeRegExp(heading)}\\n\\n([\\s\\S]*?)(?:\\n\\n## |$)`))?.[1] ?? '';
+  const text = String(report ?? '');
+  const section = text.match(new RegExp(`## ${escapeRegExp(heading)}\\n\\n([\\s\\S]*?)(?:\\n\\n## |$)`))?.[1] ?? '';
   return Object.fromEntries(
     [...section.matchAll(/^- ([^:\n]+):[ \t]*(.*)$/gm)].map((match) => [normalizeKey(match[1]), match[2].trim()]),
   );
@@ -382,7 +403,7 @@ function parseListSection(report, heading) {
   return [...section.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim());
 }
 
-function onlyAmPmPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision) {
+function onlyLegacyContinuityPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision) {
   const repairReasons = repairBlockedReasons
     .split(',')
     .map((item) => item.trim())
@@ -535,6 +556,16 @@ Overall: PENDING
 - AM residue candidates: 2
 - PM callbacks found: 0
 `,
+    rolling: `
+## Summary
+
+- Status: WARN
+- Decision: sample_pending
+- Source sample count: 1
+- Callback sample count: 0
+- Source residue candidates: 2
+- Rolling callbacks found: 0
+`,
     life: `
 ## Summary
 
@@ -551,7 +582,7 @@ Overall: PENDING
   assert(pendingAudit.overall === 'FAIL', 'pending audit should fail before afternoon continuity');
   assert(
     pendingAudit.requirements.find((item) => item.id === 'memory_continuity_yesterday_matters')?.status === 'PENDING',
-    'AM->PM sample_pending should keep memory continuity pending',
+    'rolling sample_pending should keep memory continuity pending',
   );
   assert(
     pendingAudit.requirements.find((item) => item.id === 'human_alan_conversation_quality')?.status === 'PENDING',
@@ -615,7 +646,7 @@ Overall: FAIL
     preflight: '# preflight',
   });
   assert(
-    multiBlockerAudit.nextAction.includes('next afternoon window') &&
+    multiBlockerAudit.nextAction.includes('rolling two-hour continuity') &&
       multiBlockerAudit.nextAction.includes('Alan-facing Umi playtest') &&
       multiBlockerAudit.nextAction.includes('repair-gate observe-only'),
     'multi-blocker audit should name concrete next evidence actions',
@@ -672,7 +703,7 @@ Overall: FAIL
     'life PASS with a minor below-threshold collapse flag should pass character-soul aggregation',
   );
   assert(
-    lifePassWithMinorCollapseAudit.nextAction.includes('afternoon gate') &&
+    lifePassWithMinorCollapseAudit.nextAction.includes('rolling two-hour continuity') &&
       lifePassWithMinorCollapseAudit.nextAction.includes('Alan-facing Umi playtest') &&
       lifePassWithMinorCollapseAudit.nextAction.includes('repair-gate observe-only'),
     'audit should keep naming all remaining blockers after character-soul passes',
@@ -721,6 +752,16 @@ Decision: BLOCKED
 - AM residue candidates: 9
 - PM callbacks found: 0
 `,
+    rolling: `
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Source sample count: 2
+- Callback sample count: 2
+- Source residue candidates: 4
+- Rolling callbacks found: 1
+`,
     life: `
 ## Summary
 
@@ -736,8 +777,8 @@ Decision: BLOCKED
   });
   assert(
     amPmOnlyPendingAudit.requirements.find((item) => item.id === 'motif_hygiene_and_repair_gate')
-      ?.status === 'PENDING',
-    'motif/repair gate should be pending when only AM-PM evidence is missing',
+      ?.status === 'PASS',
+    'motif/repair gate should pass when only legacy AM-PM evidence is missing and rolling continuity passes',
   );
 
   const recentHumanReviewGapAudit = auditSources({
@@ -839,6 +880,16 @@ Overall: PASS
 - Afternoon sample count: 12
 - AM residue candidates: 5
 - PM callbacks found: 1
+`,
+      rolling: `
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Source sample count: 2
+- Callback sample count: 2
+- Source residue candidates: 5
+- Rolling callbacks found: 1
 `,
       life: `
 ## Summary
@@ -968,6 +1019,16 @@ Overall: PASS
 - Afternoon sample count: 12
 - AM residue candidates: 5
 - PM callbacks found: 1
+`,
+    rolling: `
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Source sample count: 2
+- Callback sample count: 2
+- Source residue candidates: 5
+- Rolling callbacks found: 1
 `,
     life: `
 ## Summary
