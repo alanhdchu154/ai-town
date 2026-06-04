@@ -55,17 +55,19 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 10:22 CDT, local runtime/tooling readiness is stronger but
+- As of 2026-06-04 10:26 CDT, local runtime/tooling readiness is stronger but
   still not v0.1 completion proof: `npm run underworld:afternoon-world-ready`
   can resume an `inactive` default world without overriding `stoppedByDeveloper`;
-  the active Codex afternoon heartbeat now runs at 12:05/12:35/13:05/13:35/
-  14:05/14:35/15:05/15:35/16:05/16:35 CDT; and `npm run
+  the active Codex afternoon heartbeat now runs at 11:05/11:35/12:05/12:35/
+  13:05/13:35/14:05/14:35/15:05/15:35/16:05/16:35 CDT; and the prompt now
+  explicitly runs only `underworld:afternoon-world-ready` plus
+  `underworld:heartbeat -- --once` before 13:00, with no `daytime_check`,
+  observe collection, or `--allow-outside-afternoon`. After 13:00, `npm run
   underworld:v01-afternoon-gate` uses full collection only for the first
   same-day afternoon pass, then read-only AM->PM/life/repair/rubric/completion
-  refresh for later same-day passes. A 10:22 no-sample readiness pass resumed
-  the default world from `inactive` to `running`, then `npm run
-  underworld:heartbeat -- --once` reported `heartbeat_ok: yes` and kept the
-  world `running -> running`.
+  refresh for later same-day passes. A 10:26 no-sample readiness check found
+  the world already `running`, then `npm run underworld:heartbeat -- --once`
+  reported `heartbeat_ok: yes` and kept the world `running -> running`.
 - Alan-facing playtest evidence is still pending. The ignored local artifact
   `umi/reports/alan-facing-v01-playtest-latest.md` now exists as a non-passing
   `PARTIAL` draft, and `umi/reports/alan-playtest-candidates-latest.md` reports
@@ -81,6 +83,19 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:26 CDT: Closed a pre-afternoon automation prompt gap. The
+  active Codex heartbeat schedule now includes 11:05/11:35 in addition to the
+  12:05/12:35 and 13:05-16:35 half-hour passes
+  (`FREQ=DAILY;COUNT=12;BYHOUR=11,12,13,14,15,16;BYMINUTE=5,35;BYSECOND=0`).
+  The heartbeat prompt now explicitly says that daytime runs before 13:00 must
+  run only `npm run underworld:afternoon-world-ready` and `npm run
+  underworld:heartbeat -- --once`, and must not run `daytime_check`, observe
+  collection, or `--allow-outside-afternoon`. Verification: read back
+  `/Users/alanhdchu/.codex/automations/underworld-v0-1-afternoon-gate/automation.toml`;
+  `npm run underworld:afternoon-world-ready -- --dry-run` (running/no-op);
+  `npm run underworld:heartbeat -- --once` (running -> running); `npm run
+  underworld:v01-completion-audit` (expected PENDING with 0 fail / 3 pending /
+  5 pass).
 - 2026-06-04 10:22 CDT: Strengthened the active Codex heartbeat cadence for
   the remaining afternoon proof window after the default world drifted back to
   `inactive` again. `npm run underworld:afternoon-world-ready` resumed the
