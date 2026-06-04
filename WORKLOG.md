@@ -19,9 +19,9 @@ historical evidence is needed.
 
 | # | Item | Owner | Status |
 |---|---|---|---|
-| 1 | Next Alan <-> Umi playtest should confirm greeting behavior and correction binding, especially `不是依賴，是喜歡`. | Alan / Umi | pending fresh sample |
+| 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`. | Alan / Umi | pending fresh sample |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
-| 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
+| 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; use it before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
 | 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03/04 read-only night audit found 5 fresh triad samples since the 14:01 CDT boundary (`c:90819`, `c:90836`, `c:90858`, natural `c:90902`, natural `c:90923`). Latest completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass: character-soul expression, event-thread continuity, and motif/repair/rubric fail; AM->PM is `WARN / sample_pending` with 9 afternoon samples and 1 weak PM callback; Alan-facing Umi playtest is still pending. Repair gate now downgrades overclaimed `echo_repetition` auto-fix candidates to `observe_only` when AM->PM/life/fresh-sample evidence is weak. Do not force collection during night quiet, and do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
 
@@ -58,6 +58,14 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-03 local: Still inside night quiet, prepared the next Alan-facing
+  v0.1 playtest gate without starting runtime or collecting samples. Added
+  `umi/playtest-v01-alan-facing-gate.md` with a compact checklist and result
+  template for greeting binding, latest-sentence binding, correction binding
+  (`不是依賴，是喜歡`), yesterday/today continuity, and closing/idle boundary.
+  Updated the active handoffs so broad playtesting has a record format ready,
+  while the actual Alan-facing playtest remains pending fresh sample.
+  Verification: docs-only; no runtime commands.
 - 2026-06-03 local: While still inside night quiet at 23:57 CDT, made one
   reporting-only repair-gate hygiene pass without starting runtime or collecting
   samples. `scripts/underworld-repair-gate.mjs` now merges overclaim confidence
