@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. After the world was resumed, one more natural morning sample appeared (`c:91021` 海/天澤). The refreshed 2026-06-04 08:55 CDT gates now use 4 fresh morning triad samples: soul eval 3 PASS / 1 WARN / 0 FAIL, recent eval 0 PASS / 3 WARN / 1 FAIL, AM->PM `WARN / sample_pending` with 4 morning samples, 0 afternoon samples, and 14 AM residue candidates, and life-signals `WARN / pilot_role_action_collapse` with expected action match rate 0.63 and 2 collapse flags. Latest completion audit is `FAIL` with 3 fail / 2 pending / 3 pass. Remaining proof/repair path: clear role-action collapse with more fresh trio evidence or proposal, get AM->PM continuity during afternoon, run Alan-facing Umi playtest/result artifact, and rerun final repair/rubric/completion. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_fail_product_evidence |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. After the world was resumed, one more natural morning sample appeared (`c:91021` 海/天澤). The refreshed 2026-06-04 08:55 CDT gates now use 4 fresh morning triad samples: soul eval 3 PASS / 1 WARN / 0 FAIL, recent eval 0 PASS / 3 WARN / 1 FAIL, AM->PM `WARN / sample_pending` with 4 morning samples, 0 afternoon samples, and 14 AM residue candidates, and life-signals `WARN / pilot_role_action_collapse` with expected action match rate 0.63 and 2 collapse flags. Latest completion audit is `FAIL` with 3 fail / 2 pending / 3 pass. Role-action separation is now captured as proposal-only in `umi/proposals/20260604T140000Z-v01-pilot-role-action-separation.md`; do not implement it until Alan/product-owner approval or stronger repeated fresh evidence supports a narrow fix. Remaining proof/repair path: clear role-action collapse, get AM->PM continuity during afternoon, run Alan-facing Umi playtest/result artifact, and rerun final repair/rubric/completion. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_fail_product_evidence |
 
 ## Current State Snapshot
 
@@ -65,6 +65,13 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:00 CDT: Wrote the proposal-only role-action separation plan at
+  `umi/proposals/20260604T140000Z-v01-pilot-role-action-separation.md`.
+  The proposal captures the fresh `pilot_role_action_collapse` evidence from
+  the 08:55 refresh, explains why this is a v0.1 blocker but not a safe
+  auto-fix, and sketches a narrow guard only for future Alan/product-owner
+  approval or stronger repeated fresh evidence. No prompt/runtime code was
+  changed. Verification: proposal/docs-only; `git diff --check`.
 - 2026-06-04 08:55 CDT: Refreshed read-only gates after a natural resumed-world
   morning sample (`conversation-c:91021`) appeared. A first observe-only refresh
   with the default current timestamp correctly found 0 new samples but polluted
