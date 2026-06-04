@@ -55,9 +55,10 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 09:16 CDT, local runtime preflight is PASS, `/ai-town`
-  returns HTTP 200, and the default world is `running` for Alan-facing playtest
-  readiness and natural daytime evidence. This is runtime readiness, not v0.1
+- As of 2026-06-04 09:35 CDT, local runtime preflight is PASS, `/ai-town`
+  returns HTTP 200, and the default world has been resumed back to `running`
+  after a read-only status check found it `inactive`. This is runtime readiness
+  for Alan-facing playtest and natural daytime/afternoon evidence, not v0.1
   completion proof.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
@@ -68,6 +69,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:35 CDT: Refreshed runtime readiness for the pending afternoon
+  gate. `npm run underworld:runtime-preflight` passed, `/ai-town` returned HTTP
+  200, and `world:defaultWorldStatus` showed the default world had drifted back
+  to `inactive`; ran `npx convex run testing:resume`, then confirmed
+  `world:defaultWorldStatus` is `running` and reran
+  `npm run underworld:runtime-preflight` with PASS. No afternoon collection was
+  run because current time was still outside 13:00-16:59 CDT, and
+  `npm run underworld:alan-playtest-check` still returned expected `MISSING`.
+  This is runtime readiness for the 13:05 heartbeat, not v0.1 completion
+  proof.
 - 2026-06-04 09:32 CDT: Continued the v0.1 completion check after the
   09:29 proof-path wording commit. Current Chicago time was still outside the
   13:00-16:59 afternoon evidence window, so no afternoon collection was run.
