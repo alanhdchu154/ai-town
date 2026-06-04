@@ -99,7 +99,8 @@ async function draftArtifactText() {
   const commit = await gitShortHead();
   return `## Playtest Result - ${chicagoTimestamp()}
 
-Commit: ${commit}
+Draft initialized by commit: ${commit}
+Commit under test: fill after the actual playtest
 Runtime/provider notes: draft initialized before Alan playtest; replace this line after the actual playtest.
 
 1. Greeting Binding: PARTIAL
@@ -291,6 +292,9 @@ Verdict: PASS
   assert(contradictory.status === 'CONTRADICTORY_FAIL', 'PASS verdict with a failed row should be contradictory');
   const draft = validateArtifact(`
 ## Playtest Result - 2026-06-04 14:30 CDT
+
+Draft initialized by commit: abc123
+Commit under test: fill after the actual playtest
 
 1. Greeting Binding: PARTIAL
 2. Latest-Sentence Binding: PARTIAL

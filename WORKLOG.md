@@ -70,6 +70,19 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:05 CDT: Fixed a proof-record drift risk in the Alan-facing
+  playtest draft. The initial draft recorded `Commit: 0f8bf4b`, but the repo had
+  advanced to `8bf4cd6` after the helper commit, so future commits could make
+  the draft's "commit under test" look stale before the real playtest. The draft
+  helper now writes `Draft initialized by commit` separately and leaves
+  `Commit under test` for the actual playtest record. Regenerated the ignored
+  local draft with `--force`; it remains `PARTIAL` and does not clear the
+  Alan-facing gate. Verification: `node
+  scripts/underworld-alan-playtest-result.mjs --init-draft --force`; `npm run
+  underworld:alan-playtest:self-test`; `npm run underworld:alan-playtest-check`
+  (expected NOT_PASS_READY / PARTIAL); `npm run
+  underworld:v01-completion-audit` (expected PENDING with 0 fail / 3 pending /
+  5 pass); `git diff --check`.
 - 2026-06-04 10:02 CDT: Reduced friction for the remaining Alan-facing Umi
   playtest gate without fabricating evidence. Added `npm run
   underworld:alan-playtest-init`, which writes a non-passing `PARTIAL` draft to
