@@ -133,6 +133,16 @@ Before rerunning the completion audit, verify the local artifact shape with:
 npm run underworld:alan-playtest-check
 ```
 
+If Alan may already have chatted with Umi, scan recent read-only candidates
+before asking him to repeat the whole playtest:
+
+```bash
+npm run underworld:alan-playtest-candidates
+```
+
+The candidate report does not clear the gate. It only helps locate real
+transcript evidence that can be summarized into the result artifact.
+
 ```text
 ## Playtest Result - YYYY-MM-DD HH:MM CDT
 

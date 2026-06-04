@@ -70,6 +70,19 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:10 CDT: Added a read-only Alan-facing playtest candidate
+  scanner so the remaining human gate can search for real existing Alan/Umi
+  evidence before asking Alan to repeat a playtest. `npm run
+  underworld:alan-playtest-candidates` reads `school:recentConversationEvalData`
+  and writes `umi/reports/alan-playtest-candidates-latest.md`; it does not
+  write the playtest result artifact or clear the gate. The live scan returned
+  `NO_COMPLETE_CANDIDATE` with 0 Alan + Umi/海 candidates in the scanned window,
+  so the human gate still requires an intentional Alan/Umi playtest. Verification:
+  `npm run underworld:alan-playtest-candidates:self-test`; `npm run
+  underworld:alan-playtest-candidates` (expected nonzero/no complete candidate);
+  `npm run underworld:alan-playtest-check` (expected NOT_PASS_READY / PARTIAL);
+  `npm run underworld:v01-completion-audit` (expected PENDING with 0 fail /
+  3 pending / 5 pass); `git diff --check`.
 - 2026-06-04 10:05 CDT: Fixed a proof-record drift risk in the Alan-facing
   playtest draft. The initial draft recorded `Commit: 0f8bf4b`, but the repo had
   advanced to `8bf4cd6` after the helper commit, so future commits could make
