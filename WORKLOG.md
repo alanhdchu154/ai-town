@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete, but the 2026-06-04 09:04 CDT daytime rerun cleared the active hard FAIL state to `PENDING`. After runtime preflight PASS and `/ai-town` HTTP 200, the default world was resumed from `inactive` to `running`. `npm run underworld:v01-daytime-check` collected three fresh AM scoped samples (`c:91090` 海/真晝, `c:91109` 真晝/天澤, `c:91129` 海/天澤), all soul-triad PASS. Latest life-signals are PASS / `life_signal_observed`, role-action collapse is no longer a rubric blocker, fallback pollution remains 0, AM->PM is still `WARN / sample_pending` with 0 afternoon samples, and completion audit is now `PENDING` with 0 fail / 3 pending / 5 pass. Recent eval still flags `voice_rubric_gap` / `reply_binding_rubric_gap`; these are human-review quality gaps, not prompt auto-fix permission. Remaining proof path: get AM->PM continuity during 13:00-16:59 CDT, run Alan-facing Umi playtest/result artifact, rerun repair/rubric/completion after AM->PM clears. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_pending_afternoon_alan |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete, but the 2026-06-04 09:04 CDT daytime rerun cleared the active hard FAIL state to `PENDING`. After runtime preflight PASS and `/ai-town` HTTP 200, the default world was resumed from `inactive` to `running`. `npm run underworld:v01-daytime-check` collected three fresh AM scoped samples (`c:91090` 海/真晝, `c:91109` 真晝/天澤, `c:91129` 海/天澤), all soul-triad PASS. Latest life-signals are PASS / `life_signal_observed`, role-action collapse is no longer a rubric blocker, fallback pollution remains 0, AM->PM is still `WARN / sample_pending` with 0 afternoon samples, and completion audit is now `PENDING` with 0 fail / 3 pending / 5 pass. Recent eval still flags `voice_rubric_gap` / `reply_binding_rubric_gap`; these are human-review quality gaps, not prompt auto-fix permission. Remaining proof path: get AM->PM continuity during 13:00-16:59 CDT, run Alan-facing Umi playtest, save and validate `umi/reports/alan-facing-v01-playtest-latest.md` with `npm run underworld:alan-playtest-check`, then rerun repair/rubric/completion after AM->PM clears. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_pending_afternoon_alan |
 
 ## Current State Snapshot
 
@@ -45,8 +45,8 @@ historical evidence is needed.
   motif/repair/rubric clearance after AM->PM is no longer sample-pending.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
   and PM callbacks are not judged until >=12 afternoon samples. Latest
-  2026-06-04 morning evidence is `WARN / sample_pending`, with 4 morning
-  samples, 0 afternoon samples, 14 AM residue candidates, and 0 PM callbacks.
+  2026-06-04 morning evidence is `WARN / sample_pending`, with 0 afternoon
+  samples, 18 AM residue candidates, and 0 PM callbacks.
 - Day-window life-signal diagnostics now include pilot role-action coverage.
   Latest 2026-06-04 09:04 CDT daytime evidence has 9 day-window conversations,
   life signals PASS / `life_signal_observed`, pilot expected action match rate
@@ -55,18 +55,26 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 08:44 CDT, local runtime preflight is PASS, `/ai-town`
-  returns HTTP 200, and the default world has been resumed from
-  `stoppedByDeveloper` to `running` for Alan-facing playtest readiness and
-  natural daytime evidence. This is runtime readiness, not v0.1 completion
-  proof.
+- As of 2026-06-04 09:16 CDT, local runtime preflight is PASS, `/ai-town`
+  returns HTTP 200, and the default world is `running` for Alan-facing playtest
+  readiness and natural daytime evidence. This is runtime readiness, not v0.1
+  completion proof.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
-  That pre-afternoon audit was `PENDING` at the time; the later 08:55 refresh is
-  now authoritative and reports `FAIL` with 3 fail / 2 pending / 3 pass.
+  The latest 09:24 CDT preflight and completion audit are now authoritative:
+  v0.1 is `PENDING` with 0 fail / 3 pending / 5 pass, waiting on afternoon
+  AM->PM evidence, Alan-facing playtest artifact, and final rubric/repair
+  clearance after AM->PM is no longer sample-pending.
 
 ## Work Log
 
+- 2026-06-04 09:27 CDT: Cleaned the active WORKLOG snapshot so it no longer
+  presents the 08:55 active FAIL as current state. Open handoff #5 now points
+  to `npm run underworld:alan-playtest-check` for the Alan-facing result
+  artifact, the AM->PM snapshot matches the latest completion evidence
+  (0 afternoon samples, 18 AM residue candidates), and runtime readiness is
+  anchored to the 09:16 CDT PASS / running check. No evidence was generated.
+  Verification: docs-only; `git diff --check`.
 - 2026-06-04 09:24 CDT: Updated the v0.1 completion preflight source of truth
   after the morning rerun and Alan artifact helper changes. `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md`
   now reflects the current PENDING state instead of the stale 08:55 active FAIL:
