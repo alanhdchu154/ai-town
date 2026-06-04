@@ -205,6 +205,8 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestResult, alanPlaytestPe
     `resultPresent=${alanPlaytestResult.present}`,
     `resultVerdict=${resultVerdict}`,
     `resultLabel=${alanPlaytestResult.label ?? 'unknown'}`,
+    `resultChecks=${alanPlaytestResult.passedChecks ?? 0}/${alanPlaytestResult.requiredChecks ?? 0}`,
+    `missingChecks=${alanPlaytestResult.missingChecks?.join('|') || 'none'}`,
     `worklogPending=${alanPlaytestPending}`,
     `checklistReady=${alanPlaytestChecklistReady}`,
   ].join(', ');
@@ -224,12 +226,32 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestResult, alanPlaytestPe
       reason: 'Alan/product-owner explicitly deferred this gate for completion.',
     };
   }
-  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'PASS') {
+  if (
+    alanPlaytestResult.present &&
+    alanPlaytestResult.verdict === 'PASS' &&
+    alanPlaytestResult.allRequiredChecksPass
+  ) {
     return {
       id: 'human_alan_conversation_quality',
       status: 'PASS',
       evidence,
-      reason: 'Latest Alan-facing playtest result artifact records a PASS verdict.',
+      reason: 'Latest Alan-facing playtest result artifact records a PASS verdict with all required checklist items passing.',
+    };
+  }
+  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'PASS' && alanPlaytestResult.hasCheckFailures) {
+    return {
+      id: 'human_alan_conversation_quality',
+      status: 'FAIL',
+      evidence,
+      reason: 'Latest Alan-facing playtest artifact says PASS, but one or more required checklist items are marked FAIL.',
+    };
+  }
+  if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'PASS') {
+    return {
+      id: 'human_alan_conversation_quality',
+      status: 'PENDING',
+      evidence,
+      reason: 'Latest Alan-facing playtest artifact says PASS, but it is missing required checklist PASS lines.',
     };
   }
   if (alanPlaytestResult.present && alanPlaytestResult.verdict === 'FAIL') {
@@ -383,13 +405,45 @@ function parseRecentSummary(report) {
 
 function parseAlanPlaytestResult(report) {
   const text = String(report ?? '');
-  if (!text.trim()) return { present: false, verdict: 'missing', label: 'missing' };
+  const requiredChecks = [
+    'Greeting Binding',
+    'Latest-Sentence Binding',
+    'Correction Binding',
+    'Yesterday / Today Continuity',
+    'Closing / Idle Boundary',
+  ];
+  if (!text.trim()) {
+    return {
+      present: false,
+      verdict: 'missing',
+      label: 'missing',
+      requiredChecks: requiredChecks.length,
+      passedChecks: 0,
+      missingChecks: requiredChecks,
+      allRequiredChecksPass: false,
+      hasCheckFailures: false,
+    };
+  }
   const verdictMatches = [...text.matchAll(/^Verdict:\s*(PASS|PARTIAL|FAIL)\b/gim)];
   const labelMatches = [...text.matchAll(/^## Playtest Result\s*-\s*(.+)$/gim)];
+  const checkStatuses = Object.fromEntries(
+    requiredChecks.map((label) => {
+      const match = text.match(new RegExp(`^\\s*\\d+\\.\\s*${escapeRegExp(label)}:\\s*(PASS|PARTIAL|FAIL)\\b`, 'im'));
+      return [label, match?.[1]?.toUpperCase()];
+    }),
+  );
+  const missingChecks = requiredChecks.filter((label) => !checkStatuses[label]);
+  const passedChecks = requiredChecks.filter((label) => checkStatuses[label] === 'PASS').length;
+  const hasCheckFailures = requiredChecks.some((label) => checkStatuses[label] === 'FAIL');
   return {
     present: true,
     verdict: verdictMatches.at(-1)?.[1]?.toUpperCase() ?? 'UNKNOWN',
     label: labelMatches.at(-1)?.[1]?.trim() ?? 'unlabeled',
+    requiredChecks: requiredChecks.length,
+    passedChecks,
+    missingChecks,
+    allRequiredChecksPass: passedChecks === requiredChecks.length,
+    hasCheckFailures,
   };
 }
 
@@ -806,9 +860,52 @@ Overall: PASS
     ...passAuditFixture(),
     worklog: 'No pending Alan playtest.',
     alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
-    alanPlaytestResult: '## Playtest Result - 2026-06-04 14:30 CDT\n\nVerdict: PASS\n',
+    alanPlaytestResult: `
+## Playtest Result - 2026-06-04 14:30 CDT
+
+1. Greeting Binding: PASS
+2. Latest-Sentence Binding: PASS
+3. Correction Binding: PASS
+4. Yesterday / Today Continuity: PASS
+5. Closing / Idle Boundary: PASS
+
+Verdict: PASS
+`,
   });
   assert(artifactPassAudit.overall === 'PASS', 'PASS playtest artifact should clear Alan-facing gate');
+
+  const artifactThinPassAudit = auditSources({
+    ...passAuditFixture(),
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: '## Playtest Result - 2026-06-04 14:30 CDT\n\nVerdict: PASS\n',
+  });
+  assert(
+    artifactThinPassAudit.requirements.find((item) => item.id === 'human_alan_conversation_quality')?.status ===
+      'PENDING',
+    'thin PASS playtest artifact should not clear Alan-facing gate',
+  );
+
+  const artifactContradictoryPassAudit = auditSources({
+    ...passAuditFixture(),
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: `
+## Playtest Result - 2026-06-04 14:30 CDT
+
+1. Greeting Binding: PASS
+2. Latest-Sentence Binding: PASS
+3. Correction Binding: FAIL
+4. Yesterday / Today Continuity: PASS
+5. Closing / Idle Boundary: PASS
+
+Verdict: PASS
+`,
+  });
+  assert(
+    artifactContradictoryPassAudit.overall === 'FAIL',
+    'contradictory PASS playtest artifact with a failed subcheck should fail completion audit',
+  );
 
   const artifactPartialAudit = auditSources({
     ...passAuditFixture(),

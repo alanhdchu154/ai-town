@@ -21,7 +21,7 @@ historical evidence is needed.
 |---|---|---|---|
 | 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; save the redacted result to `umi/reports/alan-facing-v01-playtest-latest.md` so completion audit can read the verdict. | Alan / Umi | pending fresh sample |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
-| 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
+| 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
 | 5 | Post-role-change v0.1 rerun is not yet proven complete, but the 2026-06-04 09:04 CDT daytime rerun cleared the active hard FAIL state to `PENDING`. After runtime preflight PASS and `/ai-town` HTTP 200, the default world was resumed from `inactive` to `running`. `npm run underworld:v01-daytime-check` collected three fresh AM scoped samples (`c:91090` 海/真晝, `c:91109` 真晝/天澤, `c:91129` 海/天澤), all soul-triad PASS. Latest life-signals are PASS / `life_signal_observed`, role-action collapse is no longer a rubric blocker, fallback pollution remains 0, AM->PM is still `WARN / sample_pending` with 0 afternoon samples, and completion audit is now `PENDING` with 0 fail / 3 pending / 5 pass. Recent eval still flags `voice_rubric_gap` / `reply_binding_rubric_gap`; these are human-review quality gaps, not prompt auto-fix permission. Remaining proof path: get AM->PM continuity during 13:00-16:59 CDT, run Alan-facing Umi playtest/result artifact, rerun repair/rubric/completion after AM->PM clears. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_pending_afternoon_alan |
 
@@ -67,6 +67,18 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:19 CDT: Hardened the Alan-facing playtest completion gate
+  without running or fabricating a playtest. `scripts/underworld-v01-completion-audit.mjs`
+  now parses the five required checklist rows in
+  `umi/reports/alan-facing-v01-playtest-latest.md`; a `Verdict: PASS` artifact
+  clears `human_alan_conversation_quality` only when all five rows are present
+  and PASS, a thin PASS artifact stays PENDING, and a contradictory PASS with a
+  failed subcheck fails the audit. Updated `umi/playtest-v01-alan-facing-gate.md`
+  to document the stricter artifact requirement. Latest completion audit remains
+  `PENDING` with 0 fail / 3 pending / 5 pass because Alan-facing playtest and
+  AM->PM evidence are still genuinely missing. Verification: `npm run
+  underworld:v01-completion-audit:self-test`; `npm run
+  underworld:v01-completion-audit` (expected PENDING); `git diff --check`.
 - 2026-06-04 09:13 CDT: Ran the requested daytime v0.1 rerun after confirming
   runtime health. `npm run underworld:runtime-preflight` passed, `/ai-town`
   returned HTTP 200, `world:defaultWorldStatus` showed `inactive`, and

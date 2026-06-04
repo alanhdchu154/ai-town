@@ -111,7 +111,9 @@ continues with a new task as if Alan did not say he is leaving.
 Save the redacted result as `umi/reports/alan-facing-v01-playtest-latest.md`.
 Files under `umi/reports/*.md` are ignored by git, so this can be durable local
 evidence without committing private details. Summarize or redact anything
-sensitive.
+sensitive. Keep all five numbered checklist lines in the artifact; the
+completion audit only accepts a `Verdict: PASS` artifact when every required
+check below is present and marked `PASS`.
 
 ```text
 ## Playtest Result - YYYY-MM-DD HH:MM CDT
