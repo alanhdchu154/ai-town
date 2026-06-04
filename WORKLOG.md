@@ -58,6 +58,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:16 CDT, aligned
+  `underworld:observe` repair guidance with the stricter repair gate without
+  starting runtime or collecting samples. `scripts/underworld-observe-once.mjs`
+  now reports `Repair confidence blockers` and downgrades overclaimed
+  `echo_repetition` findings to `observe_only` when evidence is weak
+  (`fresh_triad_samples_below_8`, AM->PM `sample_pending`, life-signal WARN, or
+  recent failure category mismatch). This prevents the approach report from
+  inviting prompt edits while completion/repair gates are still blocked.
+  Verification: `npm run underworld:observe:self-test`; `npm run
+  underworld:repair-gate:self-test`; `git diff --check`.
 - 2026-06-04 local: Still inside night quiet at 00:13 CDT, clarified the next
   natural PM evidence path without starting runtime or collecting samples.
   `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` and `umi/COMMAND_REFERENCE.md`

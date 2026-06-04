@@ -75,6 +75,9 @@ async function main() {
     policyEnv,
     collection,
     freshConversations,
+    amPmContinuity,
+    lifeSignals,
+    dayWindowLifeSignals,
     reports,
     fallbackAudit,
   });
@@ -298,7 +301,17 @@ async function readEvalReports() {
   };
 }
 
-function analyzeFindings({ timing, health, collection, freshConversations, reports, fallbackAudit }) {
+function analyzeFindings({
+  timing,
+  health,
+  collection,
+  freshConversations,
+  amPmContinuity,
+  lifeSignals,
+  dayWindowLifeSignals,
+  reports,
+  fallbackAudit,
+}) {
   const reportText = `${reports.soulTriad}\n${reports.recent}`;
   const statusCounts = statusCountsFromSoulReport(reports.soulTriad);
   const recentStatusCounts = statusCountsFromRecentReport(reports.recent);
@@ -345,12 +358,27 @@ function analyzeFindings({ timing, health, collection, freshConversations, repor
                 : recentStatusCounts.FAIL > 0
                   ? 'conversation_quality_gap'
                   : 'none';
-  const repairClass = repairClassFor(topFailureCategory);
+  const repairConfidenceBlockers = repairConfidenceBlockersFor({
+    topFailureCategory,
+    repairCategory: topFailureCategory,
+    freshTriadSamples: freshConversations.length,
+    recentFailureReason,
+    amPm: amPmContinuity?.summary,
+    lifeSignals: lifeSignals?.summary,
+    dayWindowLifeSignals: dayWindowLifeSignals?.summary,
+  });
+  const baseRepairClass = repairClassFor(topFailureCategory);
+  const repairClass =
+    baseRepairClass === 'auto_fix_allowed' && repairConfidenceBlockers.length
+      ? 'observe_only'
+      : baseRepairClass;
   const nextSafestAction =
     topFailureCategory === 'eval_rubric_disagreement'
       ? 'reconcile eval framing before changing dialogue code'
-      : topFailureCategory === 'sample_pending'
+    : topFailureCategory === 'sample_pending'
       ? 'wait for more fresh samples; do not modify code'
+      : repairConfidenceBlockers.length
+      ? `keep observing ${topFailureCategory}; blockers: ${repairConfidenceBlockers.join(', ')}`
       : repairClass === 'auto_fix_allowed'
         ? `repair gate may inspect ${topFailureCategory}; apply only if evidence is specific`
         : repairClass === 'proposal_only'
@@ -361,7 +389,9 @@ function analyzeFindings({ timing, health, collection, freshConversations, repor
     statusCounts,
     recentStatusCounts,
     topFailureCategory,
+    baseRepairClass,
     repairClass,
+    repairConfidenceBlockers,
     stageDirectionLeaks,
     echoPenalty,
     activeFallbackPollutionCount,
@@ -396,6 +426,32 @@ function repairClassFor(category) {
     return 'proposal_only';
   }
   return 'proposal_only';
+}
+
+function repairConfidenceBlockersFor({
+  topFailureCategory,
+  repairCategory,
+  freshTriadSamples,
+  recentFailureReason,
+  amPm,
+  lifeSignals,
+  dayWindowLifeSignals,
+}) {
+  if (repairCategory !== 'echo_repetition') return [];
+  const blockers = [];
+  if (freshTriadSamples < 8) blockers.push('fresh_triad_samples_below_8');
+  if (amPm?.decision === 'sample_pending') blockers.push('am_pm_sample_pending');
+  if (lifeSignals?.status === 'WARN' || dayWindowLifeSignals?.status === 'WARN') {
+    blockers.push('life_signals_warn');
+  }
+  if (
+    topFailureCategory === 'echo_repetition' &&
+    recentFailureReason &&
+    !/echo|repeat|repetition|loop|object|prop|mirror/i.test(recentFailureReason)
+  ) {
+    blockers.push('recent_failure_reason_category_mismatch');
+  }
+  return unique(blockers);
 }
 
 function estimateV01Scores({ findings, freshConversations, reports, health, fallbackAudit }) {
@@ -494,6 +550,7 @@ async function writeReport({
     `- Top failure category: ${findings.topFailureCategory}`,
     `- Observed issue: ${findings.observedIssue}`,
     `- Repair class: ${findings.repairClass}`,
+    `- Repair confidence blockers: ${findings.repairConfidenceBlockers.length ? findings.repairConfidenceBlockers.join(', ') : 'none'}`,
     `- Rubric disagreement: ${findings.rubricDisagreement ? 'yes' : 'no'}`,
     `- Recent failure reason: ${findings.recentFailureReason ?? 'none'}`,
     `- Provider health: ${collection.providerHealth}`,
@@ -1066,12 +1123,52 @@ function runSelfTest() {
     1,
     'soul table parser keeps echo column aligned',
   );
+  const overclaimedEchoFindings = analyzeFindings({
+    timing: timingForHour(20),
+    health: { healthy: true },
+    collection: { providerHealth: 'not_checked' },
+    freshConversations: [{}, {}, {}, {}, {}],
+    amPmContinuity: { summary: { decision: 'sample_pending' } },
+    lifeSignals: { summary: { status: 'WARN', decision: 'pilot_role_action_collapse' } },
+    dayWindowLifeSignals: { summary: { status: 'WARN', decision: 'prop_echo_repeated' } },
+    reports: {
+      soulTriad: [
+        '| Conversation | Participants | Messages | Status | Score | Stage direction leak penalty | Echo penalty |',
+        '|---|---|---:|---|---:|---:|---:|',
+        'conversation-c:1 | 海 / 天澤 | 3 | FAIL | 0.55 | 0.00 | 1.00',
+      ].join('\n'),
+      recent: [
+        'Post-fix summary: 0 PASS / 1 WARN / 5 FAIL',
+        'Reasons:',
+        '- characterVoiceScore: matched 1/15 character voice cue(s)',
+      ].join('\n'),
+    },
+    fallbackAudit: { data: {} },
+  });
+  assertEqual(overclaimedEchoFindings.topFailureCategory, 'echo_repetition', 'overclaimed echo category');
+  assertEqual(overclaimedEchoFindings.repairClass, 'observe_only', 'overclaimed echo observe-only class');
+  assertIncludes(
+    overclaimedEchoFindings.repairConfidenceBlockers,
+    'am_pm_sample_pending',
+    'overclaimed echo AM-PM blocker',
+  );
+  assertIncludes(
+    overclaimedEchoFindings.repairConfidenceBlockers,
+    'recent_failure_reason_category_mismatch',
+    'overclaimed echo recent-reason blocker',
+  );
   console.log('[underworld-observe:self-test] PASS');
 }
 
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`${label}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  }
+}
+
+function assertIncludes(values, expected, label) {
+  if (!values.includes(expected)) {
+    throw new Error(`${label}: expected ${JSON.stringify(values)} to include ${JSON.stringify(expected)}`);
   }
 }
 
@@ -1198,6 +1295,10 @@ function sumNumericColumn(report, name) {
 function average(values) {
   if (!values.length) return undefined;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
 }
 
 function clamp01(value) {
