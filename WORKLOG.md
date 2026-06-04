@@ -70,6 +70,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:02 CDT: Reduced friction for the remaining Alan-facing Umi
+  playtest gate without fabricating evidence. Added `npm run
+  underworld:alan-playtest-init`, which writes a non-passing `PARTIAL` draft to
+  the ignored local artifact path `umi/reports/alan-facing-v01-playtest-latest.md`
+  when no result exists. Initialized the draft at commit `0f8bf4b`; all five
+  checklist rows are `PARTIAL`, so the artifact is present but does not clear
+  the gate. Verification: `npm run underworld:alan-playtest:self-test`; `npm
+  run underworld:alan-playtest-init`; `npm run underworld:alan-playtest-check`
+  (expected NOT_PASS_READY / PARTIAL); `npm run
+  underworld:v01-completion-audit` (expected PENDING with 0 fail / 3 pending /
+  5 pass); `git diff --check`.
 - 2026-06-04 09:58 CDT: Tightened the multi-pass afternoon heartbeat so it
   preserves the AM->PM natural-observation policy. `npm run
   underworld:v01-afternoon-gate` now chooses `full_collection_gate` only when

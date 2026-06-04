@@ -27,6 +27,7 @@
     "underworld:v01-completion-audit": "node scripts/underworld-v01-completion-audit.mjs",
     "underworld:v01-completion-audit:self-test": "node scripts/underworld-v01-completion-audit.mjs --self-test",
     "underworld:alan-playtest-template": "node scripts/underworld-alan-playtest-result.mjs --template",
+    "underworld:alan-playtest-init": "node scripts/underworld-alan-playtest-result.mjs --init-draft",
     "underworld:alan-playtest-check": "node scripts/underworld-alan-playtest-result.mjs --check",
     "underworld:alan-playtest:self-test": "node scripts/underworld-alan-playtest-result.mjs --self-test",
     "underworld:afternoon-world-ready": "node scripts/underworld-afternoon-world-ready.mjs",

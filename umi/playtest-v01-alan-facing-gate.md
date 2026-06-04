@@ -114,7 +114,13 @@ Print a fresh copy of the required artifact shape with:
 npm run underworld:alan-playtest-template
 ```
 
-Save the redacted result as `umi/reports/alan-facing-v01-playtest-latest.md`.
+Or initialize a non-passing draft result in the required location:
+
+```bash
+npm run underworld:alan-playtest-init
+```
+
+Save the redacted final result as `umi/reports/alan-facing-v01-playtest-latest.md`.
 Files under `umi/reports/*.md` are ignored by git, so this can be durable local
 evidence without committing private details. Summarize or redact anything
 sensitive. Keep all five numbered checklist lines in the artifact; the

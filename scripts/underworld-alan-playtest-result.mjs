@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Helper for the Alan-facing Umi v0.1 playtest result artifact.
 //
-// This script does not run a playtest, mark a verdict, or write evidence.
-// It prints the required result template and validates the ignored local
-// artifact before the completion audit consumes it.
+// This script does not run a playtest, mark a passing verdict, or write
+// evidence. It prints the required result template, can initialize a non-passing
+// draft artifact, and validates the ignored local artifact before the completion
+// audit consumes it.
 
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
+const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const RESULT_PATH = join(REPO_ROOT, 'umi', 'reports', 'alan-facing-v01-playtest-latest.md');
@@ -31,6 +35,19 @@ if (args.get('template') === 'true') {
   process.exit(0);
 }
 
+if (args.get('init-draft') === 'true') {
+  const existing = await readOptional(RESULT_PATH);
+  if (existing.trim() && args.get('force') !== 'true') {
+    console.error(`[underworld-alan-playtest-result] draft exists: ${relative(RESULT_PATH)}. Use --force to overwrite.`);
+    process.exitCode = 1;
+    process.exit();
+  }
+  await mkdir(dirname(RESULT_PATH), { recursive: true });
+  await writeFile(RESULT_PATH, await draftArtifactText(), 'utf8');
+  console.log(`[underworld-alan-playtest-result] wrote non-passing draft: ${relative(RESULT_PATH)}`);
+  process.exit(0);
+}
+
 if (args.get('check') === 'true') {
   const result = validateArtifact(await readOptional(RESULT_PATH));
   printValidation(result);
@@ -40,6 +57,7 @@ if (args.get('check') === 'true') {
 
 console.log('Usage:');
 console.log('  node scripts/underworld-alan-playtest-result.mjs --template');
+console.log('  node scripts/underworld-alan-playtest-result.mjs --init-draft [--force]');
 console.log('  node scripts/underworld-alan-playtest-result.mjs --check');
 console.log('  node scripts/underworld-alan-playtest-result.mjs --self-test');
 
@@ -74,6 +92,39 @@ Decision:
 - PASS only if all five numbered checks are present and PASS.
 - PARTIAL if one or more checks are inconclusive or need a small fix.
 - FAIL if any required check clearly fails.
+`;
+}
+
+async function draftArtifactText() {
+  const commit = await gitShortHead();
+  return `## Playtest Result - ${chicagoTimestamp()}
+
+Commit: ${commit}
+Runtime/provider notes: draft initialized before Alan playtest; replace this line after the actual playtest.
+
+1. Greeting Binding: PARTIAL
+Alan:
+Umi:
+
+2. Latest-Sentence Binding: PARTIAL
+Alan:
+Umi:
+
+3. Correction Binding: PARTIAL
+Alan:
+Umi:
+
+4. Yesterday / Today Continuity: PARTIAL
+Alan:
+Umi:
+
+5. Closing / Idle Boundary: PARTIAL
+Alan:
+Umi:
+
+Verdict: PARTIAL
+Decision:
+- Draft only. This artifact does not clear the Alan-facing gate until Alan/Umi fill real playtest evidence and all five rows are PASS.
 `;
 }
 
@@ -159,6 +210,36 @@ async function readOptional(path) {
   }
 }
 
+async function gitShortHead() {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: REPO_ROOT,
+      timeout: 10_000,
+    });
+    return stdout.trim() || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+function chicagoTimestamp(date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute} CDT`;
+}
+
 function parseArgs(values) {
   return new Map(
     values
@@ -208,6 +289,19 @@ Verdict: PASS
 Verdict: PASS
 `);
   assert(contradictory.status === 'CONTRADICTORY_FAIL', 'PASS verdict with a failed row should be contradictory');
+  const draft = validateArtifact(`
+## Playtest Result - 2026-06-04 14:30 CDT
+
+1. Greeting Binding: PARTIAL
+2. Latest-Sentence Binding: PARTIAL
+3. Correction Binding: PARTIAL
+4. Yesterday / Today Continuity: PARTIAL
+5. Closing / Idle Boundary: PARTIAL
+
+Verdict: PARTIAL
+`);
+  assert(draft.status === 'NOT_PASS_READY', 'draft PARTIAL artifact should not be pass-ready');
+  assert(draft.partialChecks.length === REQUIRED_CHECKS.length, 'draft artifact should expose all partial rows');
   console.log('[underworld-alan-playtest-result:self-test] PASS');
 }
 
