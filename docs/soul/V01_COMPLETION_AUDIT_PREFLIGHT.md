@@ -56,7 +56,11 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
   window, the wrapper first runs `npm run underworld:runtime-preflight`; if
   Convex is not responsive, it stops before sample collection. It then runs
   `npm run underworld:afternoon-world-ready`, which resumes an `inactive`
-  default world but leaves `stoppedByDeveloper` untouched.
+  default world but leaves `stoppedByDeveloper` untouched. After a same-day
+  afternoon gate has already run `daytime_check`, later same-day gate passes
+  switch to read-only AM-PM/life/repair/rubric/completion refresh so repeated
+  heartbeats read natural afternoon evidence instead of forcing more controlled
+  samples.
 
 ## Afternoon Gate Plan
 

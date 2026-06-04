@@ -70,6 +70,21 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:58 CDT: Tightened the multi-pass afternoon heartbeat so it
+  preserves the AM->PM natural-observation policy. `npm run
+  underworld:v01-afternoon-gate` now chooses `full_collection_gate` only when
+  the same day's afternoon gate report has not yet run `daytime_check`; later
+  same-day passes switch to `read_only_refresh` and run runtime preflight,
+  inactive-only world readiness, AM->PM continuity, life-signals, repair gate,
+  rubric reconciliation, and completion audit without another controlled
+  `daytime_check` collection. Updated `umi/COMMAND_REFERENCE.md`,
+  `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md`, and the active Codex heartbeat
+  prompt to document that repeated afternoon heartbeats read natural evidence
+  instead of forcing more samples. Verification: `npm run
+  underworld:v01-afternoon-gate:self-test`; `npm run
+  underworld:harness:self-test`; `npm run underworld:v01-completion-audit`
+  (expected PENDING); `git diff --check`; read back
+  `/Users/alanhdchu/.codex/automations/underworld-v0-1-afternoon-gate/automation.toml`.
 - 2026-06-04 09:46 CDT: Changed the active Codex afternoon heartbeat schedule
   from a single 13:05 run to four afternoon passes at 13:05, 14:05, 15:05, and
   16:05 CDT (`FREQ=DAILY;COUNT=4;BYHOUR=13,14,15,16;BYMINUTE=5;BYSECOND=0`).

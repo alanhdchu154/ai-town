@@ -5,7 +5,7 @@
 // result so the final completion audit can explain what is missing instead of
 // leaving the next agent with only a half-written terminal log.
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
@@ -22,6 +22,15 @@ const STEPS = [
   step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
   step('afternoon_world_ready', ['npm', ['run', 'underworld:afternoon-world-ready']], false),
   step('daytime_check', ['npm', ['run', 'underworld:v01-daytime-check']], true),
+  step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
+  step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
+  step('completion_audit', ['npm', ['run', 'underworld:v01-completion-audit']], true),
+];
+const READ_ONLY_STEPS = [
+  step('runtime_preflight', ['npm', ['run', 'underworld:runtime-preflight']], false),
+  step('afternoon_world_ready', ['npm', ['run', 'underworld:afternoon-world-ready']], false),
+  step('am_pm_continuity', ['npm', ['run', 'underworld:am-pm-continuity']], true),
+  step('life_signals', ['npm', ['run', 'underworld:life-signals']], true),
   step('repair_gate', ['npm', ['run', 'underworld:repair-gate']], true),
   step('rubric_reconcile', ['npm', ['run', 'underworld:rubric-reconcile']], true),
   step('completion_audit', ['npm', ['run', 'underworld:v01-completion-audit']], true),
@@ -45,8 +54,12 @@ if (!chicagoWindow.isAfternoon && args.get('allow-outside-afternoon') !== 'true'
   process.exit(2);
 }
 
+const mode = await chooseGateMode(chicagoWindow);
+const activeSteps = mode === 'read_only_refresh' ? READ_ONLY_STEPS : STEPS;
+console.log(`[underworld-v01-afternoon-gate] mode=${mode}`);
+
 const results = [];
-for (const item of STEPS) {
+for (const item of activeSteps) {
   const result = await runStep(item);
   results.push(result);
   if (result.exitCode !== 0 && !item.continueAfterFailure) {
@@ -55,7 +68,7 @@ for (const item of STEPS) {
   }
 }
 
-await writeSummary(results);
+await writeSummary(results, { mode });
 const completion = results.find((item) => item.id === 'completion_audit');
 const failed = results.filter((item) => item.exitCode !== 0);
 const finalExitCode = completion?.exitCode ?? failed[0]?.exitCode ?? 0;
@@ -111,12 +124,14 @@ async function writeSummary(results, override = {}) {
   const failed = results.filter((item) => item.exitCode !== 0);
   const overall = override.overall ?? (failed.length === 0 ? 'PASS' : 'NOT_COMPLETE');
   const reason = override.reason ?? `${failed.length} non-zero step(s).`;
+  const mode = override.mode ?? 'skipped';
   const lines = [
     '# GIIS Underworld v0.1 Afternoon Gate',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Chicago time: ${currentChicagoWindow(new Date()).label}`,
     `Afternoon window: 13:00-16:59 America/Chicago`,
+    `Mode: ${mode}`,
     `Overall: ${overall}`,
     `Reason: ${reason}`,
     '',
@@ -140,6 +155,22 @@ async function writeSummary(results, override = {}) {
   await writeFile(OUTPUT_PATH, `${lines.join('\n')}\n`, 'utf8');
 }
 
+async function chooseGateMode(chicagoWindow) {
+  const report = await readOptional(OUTPUT_PATH);
+  return chooseGateModeFromReport(report, chicagoWindow);
+}
+
+function chooseGateModeFromReport(report, chicagoWindow) {
+  if (
+    report &&
+    report.includes(`Chicago time: ${chicagoWindow.dateKey}`) &&
+    report.includes('| daytime_check |')
+  ) {
+    return 'read_only_refresh';
+  }
+  return 'full_collection_gate';
+}
+
 function currentChicagoWindow(date) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
@@ -159,9 +190,18 @@ function currentChicagoWindow(date) {
   const hour = Number(parts.hour);
   return {
     hour,
+    dateKey: `${parts.year}-${parts.month}-${parts.day}`,
     isAfternoon: hour >= 13 && hour <= 16,
     label: `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} America/Chicago`,
   };
+}
+
+async function readOptional(path) {
+  try {
+    return await readFile(path, 'utf8');
+  } catch {
+    return '';
+  }
 }
 
 function parseArgs(values) {
@@ -194,6 +234,32 @@ function runSelfTest() {
   if (!STEPS.some((item) => item.id === 'afternoon_world_ready')) {
     throw new Error('self-test expected afternoon gate to include inactive-only world readiness');
   }
+  if (READ_ONLY_STEPS.some((item) => item.id === 'daytime_check')) {
+    throw new Error('self-test expected read-only refresh to avoid controlled daytime_check collection');
+  }
+  if (!READ_ONLY_STEPS.some((item) => item.id === 'am_pm_continuity')) {
+    throw new Error('self-test expected read-only refresh to update AM->PM continuity');
+  }
+  if (!currentChicagoWindow(new Date('2026-06-03T18:05:00.000Z')).dateKey) {
+    throw new Error('self-test expected Chicago date key');
+  }
+  const afternoon = currentChicagoWindow(new Date('2026-06-03T18:05:00.000Z'));
+  assertEqual(
+    chooseGateModeFromReport(
+      '# report\nChicago time: 2026-06-03 13:05:00 America/Chicago\n| daytime_check | 1 |',
+      afternoon,
+    ),
+    'read_only_refresh',
+    'same-day post-collection report switches to read-only refresh',
+  );
+  assertEqual(
+    chooseGateModeFromReport(
+      '# report\nChicago time: 2026-06-02 13:05:00 America/Chicago\n| daytime_check | 1 |',
+      afternoon,
+    ),
+    'full_collection_gate',
+    'old report does not switch current day to read-only refresh',
+  );
   const sample = [
     {
       id: 'afternoon_world_ready',
@@ -222,4 +288,10 @@ function runSelfTest() {
     throw new Error('self-test expected final gate lines to reference concrete commands/artifacts');
   }
   console.log('[underworld-v01-afternoon-gate:self-test] PASS');
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${expected}, got ${actual}`);
+  }
 }
