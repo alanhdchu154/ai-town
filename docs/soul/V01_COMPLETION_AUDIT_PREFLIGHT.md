@@ -61,6 +61,29 @@ npm run underworld:v01-afternoon-gate
 The wrapper has its own Chicago afternoon guard. A pre-afternoon run should
 write a `SKIPPED` summary and exit without collecting samples.
 
+If the wrapper completes but AM-PM continuity is still `sample_pending`, do not
+turn that into a prompt repair. The missing proof is still product evidence:
+inside 13:00-16:59 America/Chicago, let the world or Alan-facing playtest
+produce ordinary afternoon conversations, then read the archive without forcing
+extra pilot collection:
+
+```bash
+npm run underworld:runtime-preflight
+npx convex run testing:resume
+# wait a bounded interval for natural afternoon conversations or an Alan playtest
+npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0
+npm run underworld:am-pm-continuity
+npm run underworld:life-signals
+npm run underworld:repair-gate
+npm run underworld:rubric-reconcile
+npm run underworld:v01-completion-audit
+```
+
+If the world was stopped and was resumed only for this evidence pass, stop it
+again after the audit with `npx convex run testing:stop`. If it was already
+running, leave it running. Never use this natural-evidence path during night
+quiet or winding-down quiet.
+
 If the wrapper fails before writing a summary, run the steps directly:
 
 ```bash

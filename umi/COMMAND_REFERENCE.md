@@ -68,6 +68,30 @@ These set pilot env knobs at start and **always** unset them in a
 | `bash umi/run_v01_approach_loop.sh` | Local long-running wrapper around `underworld:approach:v01` with persistent log at `umi/reports/v01-approach-loop.log`. Stop with Ctrl-C. | Overnight or unattended loops. |
 | `bash umi/soul_triad_hourly_eval_until_sleep.sh` | Hourly `eval:soul-triad` runs until configured sleep time. | Daytime evidence accumulation. |
 
+### Natural PM evidence path
+
+Use this only inside 13:00-16:59 America/Chicago when the latest AM->PM report
+is `sample_pending` because archived afternoon samples are still below 12. This
+path is for reading naturally accumulated afternoon conversations; it should not
+force extra controlled pilot samples.
+
+```bash
+npm run underworld:runtime-preflight
+npx convex run testing:resume
+# wait a bounded interval for natural afternoon conversations or an Alan playtest
+npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0
+npm run underworld:am-pm-continuity
+npm run underworld:life-signals
+npm run underworld:repair-gate
+npm run underworld:rubric-reconcile
+npm run underworld:v01-completion-audit
+```
+
+If the world was stopped and you resumed it only for this evidence pass, restore
+quiet afterward with `npx convex run testing:stop`. Do not run this path during
+night quiet or winding-down quiet, and do not treat a below-threshold
+`sample_pending` result as permission to rewrite character prompts.
+
 ## 5. Helpers
 
 | Command | What it does | When to use |

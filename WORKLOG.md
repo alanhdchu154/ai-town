@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Handoffs
 
-Last updated: 2026-06-03
+Last updated: 2026-06-04
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -58,6 +58,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:13 CDT, clarified the next
+  natural PM evidence path without starting runtime or collecting samples.
+  `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` and `umi/COMMAND_REFERENCE.md`
+  now explain that if the afternoon gate remains `sample_pending`, the next step
+  is to let natural afternoon conversations or Alan playtest happen inside the
+  13:00-16:59 CDT window, then read with
+  `npm run underworld:observe -- --cc=skip --collect=skip --target-samples=0`
+  and rerun AM->PM/life/repair/rubric/completion checks. This keeps the 12 PM
+  sample requirement separate from forced controlled pilot collection.
+  Verification: docs-only; `git diff --check`.
 - 2026-06-04 local: Still inside night quiet at 00:10 CDT, aligned the command
   reference with the current v0.1 evidence gates. `umi/COMMAND_REFERENCE.md`
   now says `underworld:observe:daytime-samples` / `v01-daytime-check` collect a
