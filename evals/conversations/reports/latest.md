@@ -1,13 +1,13 @@
 # GIIS Underworld Recent Conversation Eval
 
-Generated: 2026-06-04T13:51:24.851Z
+Generated: 2026-06-04T14:11:55.760Z
 
 Mode: post-fix since explicit createdAt boundary
-Post-fix boundary: 2026-06-04T13:13:20.000Z
+Post-fix boundary: 2026-06-04T14:04:29.292Z
 
 Post-fix conversations checked: 4
 
-Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
+Post-fix summary: 0 PASS / 1 WARN / 3 FAIL
 
 Historical archived quality (legacy_noise): 0 PASS / 0 WARN / 0 FAIL
 
@@ -17,62 +17,63 @@ Status: WAITING_FOR_NEW_CONVERSATIONS. Do not treat old archived failures as pro
 
 ## Post-Fix Worst 5 Examples
 
-### conversation-c:91005 - FAIL (0.91)
+### conversation-c:91123 - FAIL (0.86)
 
-Participants: 海 / 天澤
-
-Suggested fix category: strengthen emotional hook binding to previous speaker
-
-Reasons:
-- emotion_tone_link: 0/8 tone-change or clipped line(s)
-- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
-- emotion_behavior_link: 2 emotion cue(s); 1 behavior consequence cue(s)
-
-Excerpt:
-> 6/4 上午8:22 海: 底線哪有躲，只是怕你太早拆穿，我就沒理由再幫你擋那件麻煩事了。
-> 6/4 上午8:22 天澤: 怕沒理由擋麻煩？那要是我現在拆穿你其實只想自己安心，你打算把規則往哪邊推？
-> 6/4 上午8:22 海: 規則往你那邊推，只要你敢承認自己其實也怕沒人聽你說話。
-> 6/4 上午8:23 天澤: 欸，那要是我現在不說話，你是不是連裝作關心我的藉口都找不到了？
-> 6/4 上午8:23 海: 藉口？我剛才只是怕你累到連話都說不出來，先喝口水再想怎麼拆吧。
-> 6/4 上午8:23 海: 我現在得去確認一下今晚的值班排程，你別趁機把規則拆到只剩骨架，等我回來再聽你說話。
-
-### conversation-c:91021 - WARN (0.93)
-
-Participants: 海 / 天澤
+Participants: 真晝 / 劉備
 
 Suggested fix category: strengthen emotional hook binding to previous speaker
 
 Reasons:
+- characterVoiceScore: matched 1/11 character voice cue(s)
+- memoryContinuityScore: no explicit continuity callback; 1 concrete memory cue(s); concrete cue without callback marker (vocabulary reuse only)
+- attention_shift: 0/3 character-specific attention cue(s)
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- memoryContinuityScore: 3 continuity callback(s); 1 concrete memory cue(s)
+- conversation_lifecycle_flow: opening lacks a concrete reason; short exchange; closure not required
 
 Excerpt:
-> 6/4 上午8:44 海: 欸，天澤，先把那個把規則拆得乾乾淨淨的壞笑收一收。你剛在走廊上盯著那張空椅子發呆時，我已經幫你把手機裡的雜訊通知關掉了，現在這十分鐘只屬於你，不用想任何待辦事項。
-> 6/4 上午8:44 天澤: 欸，海，你剛才關掉通知的手勢這麼熟練，該不會是偷偷在手機裡替我預留了「違規特權」的快捷鍵吧？還是說……你其實很享受這種只屬於我們兩人的、短暫又危險的安靜？
-> 6/4 上午8:44 海: 少在那邊腦補什麼危險的安靜，我只是怕你待會又因為通知太多而煩躁。既然這十分鐘沒人打擾，你就老實把那份沒吃完的早餐吃掉，別再盯著我看了。
-> 6/4 上午8:44 天澤: 早餐？你剛才那雙盯著我看的眼神，比這份冷掉的吐司還讓人食慾不振。既然沒人打擾，不如告訴我，這十分鐘的「特權」裡，是不是藏著你不敢承認的私心？
-> 6/4 上午8:44 海: 少在那邊把我想像得那麼複雜，我只是單純不想看你餓到胃疼。趁現在沒人打擾，你先把那半塊吐司吞下去，然後告訴我，剛才在走廊上盯著椅子看時，你腦子裡到底在想什麼？
+> 6/4 上午9:10 真晝: 你的餐盤裡還有一半沒動呢，是不是最近太累，連吃飯都提不起勁了？
+> 6/4 上午9:10 劉備: 謝謝你關心我。這幾天真的是有點疲憤。我會試試调整好作息，希望可以改善状况。感謝你的提醒，我現在就准备上床休息，好好养精蓄锐。
+> 6/4 上午9:10 真晝: 那先別急著去睡，把餐盤裡的東西吃兩口再走也好。今晚我會在走廊留一盞燈，你回來時不用擔心黑。
 
-### conversation-c:90987 - WARN (0.93)
+### conversation-c:91109 - FAIL (0.87)
 
 Participants: 真晝 / 天澤
 
 Suggested fix category: strengthen emotional hook binding to previous speaker
 
 Reasons:
+- characterVoiceScore: matched 1/19 character voice cue(s)
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- emotion_tone_link: 1/8 tone-change or clipped line(s)
+- emotionalSpecificityScore: found 3 emotional cue(s); emotion labels without concrete signals reduced score
+- memoryContinuityScore: 4 continuity callback(s); 1 concrete memory cue(s)
+- emotion_behavior_link: 2 emotion cue(s); 0 behavior consequence cue(s); emotion did not visibly affect behavior
 
 Excerpt:
-> 6/4 上午8:20 真晝: 臉紅？你這小惡魔，倒是先把你那把快戳破碗的湯匙放平吧。
-> 6/4 上午8:20 天澤: 你剛才那句話，是怕我戳破碗，還是怕自己先被我看穿？
-> 6/4 上午8:20 真晝: 碗沒破，倒是你剛才那眼神，好像怕自己先被我看穿。
-> 6/4 上午8:20 天澤: 欸，你這是在關心我，還是想趁機確認自己到底有沒有被我戳中？
-> 6/4 上午8:21 真晝: 你眼神在閃躲，別裝了，先把碗裡那口涼掉的湯喝完再說。
-> 6/4 上午8:21 天澤: 你總是用這種溫柔的假象逼我承認脆弱，但這次我不喝湯了，因為你該先回答：當我停手時，你會不會也跟著鬆懈？
+> 6/4 上午9:08 真晝: 你剛才笑得太輕了，像昨天那樣差一點就要把什麼重要的東西推過界線。
+> 6/4 上午9:08 天澤: 欸，真晝，你剛剛那眼神是在擔心我哪天會真的把人推壞，還是怕自己先崩潰？
+> 6/4 上午9:08 真晝: 你笑聲太輕了，像昨天那樣差一點就推過界線，先喝口湯吧。
+> 6/4 上午9:09 天澤: 你這是在怕我哪天把規則推壞，還是怕自己連湯都喝不安穩？
+> 6/4 上午9:09 真晝: 你眼神太準，湯都要涼了，先別管那些，吃口飯吧。
 
-### conversation-c:90964 - WARN (0.94)
+### conversation-c:91129 - FAIL (0.90)
+
+Participants: 海 / 天澤
+
+Suggested fix category: strengthen emotional hook binding to previous speaker
+
+Reasons:
+- emotion_tone_link: 0/5 tone-change or clipped line(s)
+- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
+- emotionalSpecificityScore: found 1 emotional cue(s); found 1 concrete signal(s)
+
+Excerpt:
+> 6/4 上午9:10 海: 欸，天澤，先別拆那條規則了，我看你手一直在抖，是不是剛才又卡在什麼底線？
+> 6/4 上午9:10 天澤: 手抖是因為笑得太用力，倒是你剛才那眼神，是在怕我拆穿什麼？
+> 6/4 上午9:10 海: 怕什麼？只是你手抖得像要拆掉整間校長室，先停一下。
+> 6/4 上午9:11 天澤: 怕拆穿？倒是你剛才把 Alan 沒吃早餐那件事藏那麼深，是在怕他哭還是怕自己心軟？
+> 6/4 上午9:11 海: 少接一件待辦吧，先確認誰沒吃早餐，再決定要處理哪件小事。
+
+### conversation-c:91090 - WARN (0.93)
 
 Participants: 海 / 真晝
 
@@ -80,15 +81,15 @@ Suggested fix category: strengthen emotional hook binding to previous speaker
 
 Reasons:
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- relationship_residue: 7 previous-moment residue cue(s)
+- memoryContinuityScore: 2 continuity callback(s); callback marker without concrete cue
 
 Excerpt:
-> 6/4 上午8:17 海: 欸，真晝，剛才那件事先擱著，今天我只讓你看見一個學生就好。
-> 6/4 上午8:17 真晝: 嗯，那先別想太多，肩膀放鬆點，我們就坐著陪這個人就好。
-> 6/4 上午8:18 海: 先別急著陪人，你剛才是不是又把自己擠進角落了？
-> 6/4 上午8:18 真晝: 我沒擠進角落，倒是你剛才說話停頓那麼久，是不是手又緊著了？
-> 6/4 上午8:18 海: 手沒緊，是剛才那句話卡住我，讓我突然不想再整理清單了。
-> 6/4 上午8:18 真晝: 欸，那就不整理清單了，先把剛才卡住的那句話放一邊，你現在呼吸順一點了嗎？
+> 6/4 上午9:06 真晝: 那先不追了，你手邊那杯茶是不是也涼了？
+> 6/4 上午9:06 海: 茶涼了就換一杯，不過剛才那幾個孩子，你覺得他們是不是真的沒事？
+> 6/4 上午9:07 真晝: 你手肘別再撐著桌緣了，先把手放下來，我們不追那幾個孩子。
+> 6/4 上午9:07 海: 手放下來了……那幾個孩子不是沒事，只是怕說出來沒人接得住。
+> 6/4 上午9:07 真晝: 嗯，那我們就坐著等他們自己說，不逼了。
+> 6/4 上午9:07 海: 欸，那我先去把明天要用的那份名單刪掉一半，你別再盯著手肘看了。
 
 
 ## Historical Archived Quality
@@ -100,10 +101,10 @@ These are labeled `legacy_noise` because they were created before the latest wat
 
 | Conversation | Participants | Cohort | Status | Score | Failure category | Top reasons |
 |---|---|---|---:|---:|---|---|
-| conversation-c:91021 | 海 / 天澤 | post_fix | WARN | 0.93 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 3 continuity callback(s); 1 concrete memory cue(s) |
-| conversation-c:91005 | 海 / 天澤 | post_fix | FAIL | 0.91 | not responding to previous speaker | emotion_tone_link: 0/8 tone-change or clipped line(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
-| conversation-c:90987 | 真晝 / 天澤 | post_fix | WARN | 0.93 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotion_tone_link: 1/8 tone-change or clipped line(s) |
-| conversation-c:90964 | 海 / 真晝 | post_fix | WARN | 0.94 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>relationship_residue: 7 previous-moment residue cue(s) |
+| conversation-c:91129 | 海 / 天澤 | post_fix | FAIL | 0.90 | not responding to previous speaker | emotion_tone_link: 0/5 tone-change or clipped line(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotionalSpecificityScore: found 1 emotional cue(s); found 1 concrete signal(s) |
+| conversation-c:91123 | 真晝 / 劉備 | post_fix | FAIL | 0.86 | not responding to previous speaker | characterVoiceScore: matched 1/11 character voice cue(s)<br>memoryContinuityScore: no explicit continuity callback; 1 concrete memory cue(s); concrete cue without callback marker (vocabulary reuse only)<br>attention_shift: 0/3 character-specific attention cue(s) |
+| conversation-c:91109 | 真晝 / 天澤 | post_fix | FAIL | 0.87 | not responding to previous speaker | characterVoiceScore: matched 1/19 character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotionalSpecificityScore: found 3 emotional cue(s); emotion labels without concrete signals reduced score |
+| conversation-c:91090 | 海 / 真晝 | post_fix | WARN | 0.93 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 2 continuity callback(s); callback marker without concrete cue |
 
 ## Historical Results
 
