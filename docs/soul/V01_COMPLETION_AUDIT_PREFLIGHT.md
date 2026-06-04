@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Completion Audit Preflight
 
-Generated: 2026-06-04 09:24 CDT
+Generated: 2026-06-04 10:17 CDT
 Status: NOT COMPLETE
 Reason: The latest post-role-change evidence has cleared the active
 role-action hard failure, but AM->PM continuity, Alan-facing playtest evidence,
@@ -25,16 +25,18 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 | Conversation to emotional residue | AM-PM report finds 18 AM residue candidates and memory traces from the morning samples. | PROVEN | Preserve residue quality while collecting enough PM samples; do not convert residue into generic motif reuse. |
 | Memory continuity | Latest AM-PM report is `WARN / sample_pending`, with 0 afternoon samples and 0 PM callbacks because the afternoon window has not happened yet. | PENDING | Reach at least 12 archived afternoon samples and require `PASS / continuity_observed` with PM callbacks before treating this as proven. |
 | Event thread continuity | Latest life signals are PASS / `life_signal_observed`, with ordinary-scene and daily-rhythm evidence. | PROVEN | Re-check after the afternoon gate; do not infer PM continuity from AM-only evidence. |
-| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks the Alan/Umi playtest as pending. The checklist is ready, completion audit reads `umi/reports/alan-facing-v01-playtest-latest.md`, and it only accepts `Verdict: PASS` when all five required checklist rows are present and PASS. | PENDING | Run the Alan-facing checklist, save a PASS/PARTIAL/FAIL result artifact, validate it with `npm run underworld:alan-playtest-check`, or get an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
+| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks the Alan/Umi playtest as pending. The checklist is ready, completion audit reads `umi/reports/alan-facing-v01-playtest-latest.md`, and the current ignored local artifact is a non-passing `PARTIAL` draft with 0/5 PASS checks. | PENDING | Run the Alan-facing checklist, replace the draft with a PASS/PARTIAL/FAIL result artifact, validate it with `npm run underworld:alan-playtest-check`, or get an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
 | Fallback and provider hygiene | Latest completion audit proves active fallback pollution 0 and fresh fallback markers 0. | PROVEN | Re-check in the next daytime/afternoon gate before final completion. |
 | Motif/hygiene loop safety | Latest repair gate is `eval_rubric_disagreement` / proposal-only / observe-only. Rubric reconciliation is BLOCKED only by AM-PM `sample_pending`; voice/reply-binding gaps remain human-review quality gaps, not prompt auto-fix permission. | PENDING | Rerun repair/rubric after AM-PM is no longer sample-pending; do not tune broad prompts from the current sample set. |
 | Night quiet policy | Latest night read-only audits did not force new sample collection. | PROVEN | Preserve this rule; do not collect during night quiet or winding-down quiet. |
 
 ## Current Evidence Snapshot
 
-- Chicago time at refresh: 2026-06-04 09:24 CDT.
+- Chicago time at refresh: 2026-06-04 10:17 CDT.
 - Latest `WORKLOG.md` state: `active_pending_afternoon_alan`.
 - Latest completion audit: `PENDING`, with 0 fail / 3 pending / 5 pass.
+- Latest runtime preflight: `PASS`, with `world:defaultWorldStatus` reporting
+  the default world `running`.
 - Latest AM-PM report: `WARN / sample_pending`, afternoon samples 0, AM residue
   candidates 18, and PM callbacks 0.
 - Latest life-signals evidence is PASS / `life_signal_observed`, with pilot
@@ -46,8 +48,8 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 - Latest Alan-facing playtest gate file is ready, completion audit can read
   `umi/reports/alan-facing-v01-playtest-latest.md`, and the helper commands
   `npm run underworld:alan-playtest-template` / `npm run
-  underworld:alan-playtest-check` are available, but the result artifact is
-  still missing.
+  underworld:alan-playtest-check` are available. The current result artifact is
+  present but still `PARTIAL`, so it does not clear the human gate.
 - `npm run underworld:v01-afternoon-gate` is the preferred one-command wrapper
   for the afternoon run. It continues through reporting steps after non-zero
   audit results and writes `umi/reports/v01-afternoon-gate-latest.md`. It

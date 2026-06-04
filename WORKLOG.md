@@ -72,13 +72,26 @@ historical evidence is needed.
   an intentional Alan/Umi playtest or an explicit Alan/product-owner defer.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
-  The latest 09:24 CDT preflight and completion audit are now authoritative:
-  v0.1 is `PENDING` with 0 fail / 3 pending / 5 pass, waiting on afternoon
-  AM->PM evidence, Alan-facing playtest artifact, and final rubric/repair
-  clearance after AM->PM is no longer sample-pending.
+  The latest 10:17 CDT preflight and completion audit are now authoritative:
+  runtime preflight is PASS, the default world is `running`, and v0.1 is still
+  `PENDING` with 0 fail / 3 pending / 5 pass, waiting on afternoon AM->PM
+  evidence, Alan-facing playtest PASS/defer, and final rubric/repair clearance
+  after AM->PM is no longer sample-pending.
 
 ## Work Log
 
+- 2026-06-04 10:17 CDT: Refreshed the v0.1 proof state after the readiness
+  heartbeat. Current Chicago time is still outside 13:00-16:59, so no
+  afternoon collection was run. `npm run underworld:runtime-preflight` passed,
+  `world:defaultWorldStatus` reported the default world `running`, `npm run
+  underworld:alan-playtest-check` returned expected `NOT_PASS_READY` /
+  `PARTIAL` with 0/5 PASS rows, and `npm run
+  underworld:v01-completion-audit` remained expected `PENDING` with 0 fail /
+  3 pending / 5 pass. Updated
+  `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` so it no longer says the
+  Alan-facing result artifact is missing; the artifact is present but still a
+  non-passing draft. Verification: report inspection; no prompt/code repairs
+  were made.
 - 2026-06-04 10:15 CDT: Refreshed daytime runtime readiness without collecting
   samples before the afternoon evidence window. `world:defaultWorldStatus`
   showed the default world had drifted to `inactive`; `npm run
