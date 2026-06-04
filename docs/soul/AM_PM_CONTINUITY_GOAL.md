@@ -113,8 +113,9 @@ Each report should include:
 - best continuity moment
 - transcript snippets
 
-If afternoon samples are fewer than 3, report `sample_pending` and do not recommend
-prompt or runtime changes.
+If afternoon samples are fewer than 12, report `sample_pending` and do not
+recommend prompt or runtime changes. Fewer samples may show directional moments,
+but they are not enough to judge AM -> PM continuity for v0.1 completion.
 
 ## Allowed Small Fixes
 

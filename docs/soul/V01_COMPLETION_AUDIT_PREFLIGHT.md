@@ -1,8 +1,9 @@
 # GIIS Underworld v0.1 Completion Audit Preflight
 
-Generated: 2026-06-03 10:43 CDT
+Generated: 2026-06-04 00:07 CDT
 Status: NOT COMPLETE
-Reason: The real afternoon continuity window has not produced evidence yet.
+Reason: The latest post-role-change evidence still has failing product gates and
+pending proof requirements.
 
 ## Current Contract
 
@@ -19,24 +20,28 @@ Current pilot scope remains Umi / Mahiru / Tianze. Tianze still uses the
 
 | Requirement | Current evidence | Status | Next proof needed |
 |---|---|---|---|
-| Character soul expression | 2026-06-03 morning gate collected 3 fresh triad samples: Umi/Mahiru, Mahiru/Tianze, Umi/Tianze. Life signals show role-action coverage, but recent eval still flags repetition and response-binding risk. | PARTIAL | Afternoon/fresh rerun should preserve distinct roles: Umi reduces overload, Mahiru stays near quiet pain, Tianze pressure-tests without cruelty or checklist drift. |
-| Conversation to emotional residue | Morning AM-PM report found 18 AM residue candidates and memory traces from the fresh morning samples. | PARTIAL | PM samples must show at least one residue returning as a memory callback or behavior shift, not only repeated props or slogans. |
-| Memory continuity | Morning conversations have memory traces, but the AM-PM continuity report has 0 afternoon samples and 0 PM callbacks. | NOT PROVEN | Run the afternoon gate after 13:00 America/Chicago and require at least 3 archived PM samples plus a continuity decision stronger than `sample_pending`. |
-| Event thread continuity | Day-window life signals PASS with ordinary campus-life cues and multiple morning scenes. | PARTIAL | Afternoon samples should talk around the same day/event pressure from different angles without merely repeating morning wording. |
-| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks a pending Alan/Umi playtest for greeting behavior and the correction `不是依賴，是喜歡`. | NOT PROVEN | Need fresh Alan-facing playtest evidence or an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
-| Fallback and provider hygiene | Morning gate: provider/runtime/model-policy ok, active fallback pollution 0, archived fallback history 0, fresh fallback markers 0. | PROVEN FOR MORNING | Re-check in the afternoon gate before final completion. |
-| Motif/hygiene loop safety | Latest generated v0.1 audit still shows `stage_direction_leak`, but that report predates the soul-table parser fix. Repair gate and cc second opinion say observe-only; real evidence is repetition/non-binding risk from n=3, not a proven prompt-rewrite target. | WATCH | Regenerate reports after the parser fix. Stop if fresh PM/recent samples show repeated prop loops, rubric agreement on a real failure, or repair gate remains blocked. |
-| Night quiet policy | Morning observe did not force quiet-hour samples. | PROVEN | Preserve this rule; do not collect during night quiet or winding-down quiet. |
+| Character soul expression | Latest completion audit has 5 fresh triad samples, but life signals remain `WARN / prop_echo_repeated`, pilot action collapse flags remain 5, and recent eval is 0 PASS / 1 WARN / 5 FAIL. | FAIL | Next daytime/afternoon evidence must show Umi reducing overload, Mahiru staying near quiet pain, and Tianze pressure-testing without collapsing into the same care/checklist style. |
+| Conversation to emotional residue | AM-PM report still finds 18 AM residue candidates and memory traces. | PROVEN | Preserve residue quality while collecting enough PM samples; do not convert residue into generic motif reuse. |
+| Memory continuity | Latest AM-PM report is `WARN / sample_pending`, with 10 morning samples, 9 afternoon samples, and 1 weak PM callback. | PENDING | Reach at least 12 archived afternoon samples and require `PASS / continuity_observed` with PM callbacks before treating this as proven. |
+| Event thread continuity | Latest life signals have ordinary scenes and daily rhythm, but completion audit still reports `WARN / prop_echo_repeated` and event-thread continuity FAIL. | FAIL | Need latest life-signals PASS with ordinary scenes and daily rhythm evidence that does not merely repeat props/motifs. |
+| Human Alan conversation quality | Roadmap requires a longer Alan playtest where yesterday is felt inside today's conversation. WORKLOG still tracks the Alan/Umi playtest as pending, but `umi/playtest-v01-alan-facing-gate.md` is ready. | PENDING | Run the Alan-facing checklist or get an explicit Alan/product-owner defer before declaring the whole v0.1 complete. |
+| Fallback and provider hygiene | Latest completion audit proves active fallback pollution 0 and fresh fallback markers 0. | PROVEN | Re-check in the next daytime/afternoon gate before final completion. |
+| Motif/hygiene loop safety | Latest repair gate is `observe_only` with blockers `am_pm_sample_pending`, `fresh_triad_samples_below_8`, `life_signals_warn`, `strongest_equals_weakest`, and `recent_failure_reason_category_mismatch`; rubric reconciliation remains BLOCKED. | FAIL | Keep observe-only until fresh evidence supports a narrow fix or proposal; do not tune broad prompts from the current sample set. |
+| Night quiet policy | Latest night read-only audits did not force new sample collection. | PROVEN | Preserve this rule; do not collect during night quiet or winding-down quiet. |
 
 ## Current Evidence Snapshot
 
-- Chicago time at refresh: 2026-06-03 10:43 CDT.
-- Latest `WORKLOG.md` state: `pending_afternoon_gate`.
-- Latest morning gate: `npm run underworld:v01-daytime-check` collected 3 fresh samples and completed, but goal audit stayed FAIL/PENDING.
-- Latest AM-PM report: `WARN / sample_pending`, morning samples 10, afternoon samples 0, PM callbacks 0.
-- Latest life-signals report: `PASS / life_signal_observed`.
-- Latest repair gate: observe-only; no code change recommended before enough PM evidence.
-- Latest rubric reconciliation is stale from 2026-06-02 evening and should be rerun after the afternoon gate.
+- Chicago time at refresh: 2026-06-04 00:07 CDT.
+- Latest `WORKLOG.md` state: `pending_product_evidence`.
+- Latest completion audit: `FAIL`, with 3 fail / 2 pending / 3 pass.
+- Latest AM-PM report: `WARN / sample_pending`, morning samples 10, afternoon
+  samples 9, PM callbacks 1 weak.
+- Latest life-signals evidence still blocks completion through prop/motif and
+  pilot role-action collapse.
+- Latest repair gate: observe-only with explicit overclaim blockers; no prompt
+  or runtime change is recommended before stronger evidence.
+- Latest Alan-facing playtest gate file is ready, but the playtest itself is
+  still pending.
 - `npm run underworld:v01-afternoon-gate` is the preferred one-command wrapper
   for the afternoon run. It continues through reporting steps after non-zero
   audit results and writes `umi/reports/v01-afternoon-gate-latest.md`. It
@@ -60,6 +65,8 @@ If the wrapper fails before writing a summary, run the steps directly:
 
 ```bash
 npm run underworld:v01-daytime-check
+npm run underworld:am-pm-continuity
+npm run underworld:life-signals
 npm run underworld:repair-gate
 npm run underworld:rubric-reconcile
 npm run underworld:v01-completion-audit
@@ -107,7 +114,7 @@ chooses a manual recovery run and accepts that it is not clean AM->PM evidence.
 
 Do not mark v0.1 complete if any of these are true:
 
-- Afternoon samples are fewer than 3.
+- Afternoon samples are fewer than 12.
 - AM-PM continuity is `sample_pending`, `weak_continuity`, or FAIL.
 - Fresh samples contain fallback markers or runtime/provider health is not ok.
 - Repair gate recommends observe-only/blocking due to unresolved fresh evidence.

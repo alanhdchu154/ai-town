@@ -58,6 +58,14 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:07 CDT, aligned v0.1 source
+  docs with the current completion gates without starting runtime or collecting
+  samples. `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` now reflects the latest
+  post-role-change state (`FAIL`, 3 fail / 2 pending / 3 pass, AM->PM 9/12 with
+  1 weak callback, Alan checklist ready but playtest pending) and updates the
+  AM->PM stop condition from fewer than 3 afternoon samples to fewer than 12.
+  `docs/soul/AM_PM_CONTINUITY_GOAL.md` now matches the 12-sample judgment
+  threshold used by the scripts. Verification: docs-only; `git diff --check`.
 - 2026-06-04 local: Still inside night quiet at 00:05 CDT, made a read-only
   completion-audit reporting improvement. `scripts/underworld-v01-completion-audit.mjs`
   now aggregates the current multi-blocker state into a concrete next action:
