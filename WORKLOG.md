@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | If broad playtesting resumes, define a compact session checklist and success/failure record format before starting. | Codex | pending need |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03 second afternoon pass recovered the stale pilot env, collected/observed 4 fresh triad samples since the 14:01 CDT boundary (`c:90819`, `c:90836`, `c:90858`, natural `c:90902`), and updated AM->PM continuity so callbacks are not judged until >=12 afternoon samples. Latest completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass: character-soul expression, event-thread continuity, and motif/repair/rubric fail; AM->PM is `WARN / sample_pending` with 8 afternoon samples; Alan-facing Umi playtest is still pending. Controlled Umi/Mahiru sampling also timed out with active messages but no archived sample, which is lifecycle/closing evidence, not a prompt-fix license. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-03/04 read-only night audit found 5 fresh triad samples since the 14:01 CDT boundary (`c:90819`, `c:90836`, `c:90858`, natural `c:90902`, natural `c:90923`). Latest completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass: character-soul expression, event-thread continuity, and motif/repair/rubric fail; AM->PM is `WARN / sample_pending` with 9 afternoon samples and 1 weak PM callback; Alan-facing Umi playtest is still pending. Repair gate now downgrades overclaimed `echo_repetition` auto-fix candidates to `observe_only` when AM->PM/life/fresh-sample evidence is weak. Do not force collection during night quiet, and do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
 
 ## Current State Snapshot
 
@@ -44,20 +44,38 @@ historical evidence is needed.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
   and PM callbacks are not judged until >=12 afternoon samples. Latest
   2026-06-03 evidence is `WARN / sample_pending`, with 10 morning samples,
-  8 afternoon samples, and 0 PM callbacks found.
+  9 afternoon samples, and 1 weak PM callback found.
 - Day-window life-signal diagnostics now include pilot role-action coverage.
   Latest full-day evidence has 24 fresh triad samples, 152 day-window pilot
   conversations, 39 prop echo flags, 32 conversation-shape flags, pilot expected
   action match rate 0.69, and 42 pilot action collapse flags. Treat this as a
   content-shape/soul-risk blocker, not a safe auto-fix.
-- Current code has a small runtime/eval hygiene patch pending from the
-  2026-06-03 afternoon rerun: AM->PM completion/repair judgment now waits for
-  >=12 afternoon samples, repair gate records below-threshold continuity gaps as
-  blockers instead of routing them to memory-continuity repair, and generated
-  reports capture the 14:01-14:35 CDT evidence window.
+- Current code has a small eval hygiene patch pending from the 2026-06-03/04
+  night read-only audit: repair gate downgrades overclaimed `echo_repetition`
+  auto-fix candidates to `observe_only` when fresh samples are below 8, AM->PM
+  is sample-pending, life signals are WARN, strongest/weakest moments collapse
+  to the same line, or the recent failure reason does not match echo.
 
 ## Work Log
 
+- 2026-06-04 local: Resumed after a user interruption and found it was 23:45
+  CDT, inside night quiet. Did not force new collection. Started backend-only
+  Convex so read-only queries could inspect the 2026-06-03 afternoon state; the
+  Convex startup automatically ran existing vacuum crons for old inputs/memory
+  tables, which was not a sample-collection action. `npm run
+  underworld:runtime-preflight` passed, then `npm run underworld:observe -- --cc=skip
+  --collect=skip --target-samples=0 --since-created-at=1780513280836` skipped
+  night collection and found one additional natural triad sample (`c:90923`
+  海/真晝). AM->PM is still `WARN / sample_pending` with 9 afternoon samples
+  against the >=12 threshold, though it now finds 1 weak PM callback from the
+  morning "清單 / 誰沒吃早餐" residue to the afternoon window/clean-list moment.
+  Latest completion audit remains `FAIL` with 3 fail / 2 pending / 3 pass.
+  Tightened `scripts/underworld-repair-gate.mjs` so overclaimed
+  `echo_repetition` auto-fix classifications are downgraded to `observe_only`
+  under weak evidence; current repair gate now reports `classification=observe_only`.
+  Verification so far: `npm run underworld:repair-gate:self-test`; `npm run
+  underworld:repair-gate -- --cc=skip`; `npm run underworld:rubric-reconcile`
+  (expected BLOCKED); `npm run underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-03 local: Continued the afternoon v0.1 rerun at 14:01-14:35 CDT.
   The first rerun collected 3 controlled triad samples (`c:90819` 海/真晝,
   `c:90836` 真晝/天澤, `c:90858` 海/天澤) and briefly produced an

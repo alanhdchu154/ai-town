@@ -77,7 +77,7 @@ async function main() {
 
   const diagnosis = diagnoseReport(report, REQUESTED_CATEGORY);
   const category = diagnosis.category;
-  const classification = classify(category);
+  const classification = classifyDiagnosis(diagnosis);
   const evidence = extractEvidence(report);
   const ccReview = await maybeRunCcReview({ diagnosis, classification, evidence, report });
   const umiDecision = decideNextAction({ diagnosis, classification, ccReview });
@@ -145,6 +145,60 @@ Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
   assertEqual(samplePending.diagnosis.category, 'sample_pending', 'sample pending category');
   assertEqual(samplePending.classification, 'observe_only', 'sample pending classification');
   assertEqual(samplePending.decision.changeSize, 'observe_only', 'sample pending decision');
+
+  const overclaimedEcho = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 5
+- Top failure category: echo_repetition
+- Repair class: auto_fix_allowed
+- Recent failure reason: characterVoiceScore: matched 1/15 character voice cue(s)
+- AM→PM continuity: WARN / sample_pending
+- Life signals: WARN / pilot_role_action_collapse
+
+Post-fix conversations checked: 6
+Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
+
+## Strongest Recent Moment
+
+- **真晝**: 好，那我先不刪清單了，只把這窗戶關上。
+
+## Weakest Recent Failure
+
+- **真晝**: 好，那我先不刪清單了，只把這窗戶關上。
+
+## AM→PM Continuity
+
+- status: WARN
+- decision: sample_pending
+- morning samples: 10
+- afternoon samples: 9
+- AM residue candidates: 18
+- PM callbacks found: 1
+
+## Life Signals
+
+- status: WARN
+- decision: pilot_role_action_collapse
+- conversation count: 6
+- repeated line flags: 0
+- administrative drift flags: 0
+`);
+  assertEqual(overclaimedEcho.diagnosis.category, 'echo_repetition', 'overclaimed echo category');
+  assertEqual(overclaimedEcho.classification, 'observe_only', 'overclaimed echo classification');
+  assertEqual(overclaimedEcho.decision.changeSize, 'observe_only', 'overclaimed echo decision');
+  assertIncludes(
+    overclaimedEcho.diagnosis.repairConfidenceBlockers,
+    'fresh_triad_samples_below_8',
+    'overclaimed echo fresh-sample blocker',
+  );
+  assertIncludes(
+    overclaimedEcho.diagnosis.repairConfidenceBlockers,
+    'recent_failure_reason_category_mismatch',
+    'overclaimed echo category-mismatch blocker',
+  );
 
   const amPmGap = evaluateSelfTestReport(`
 # GIIS Underworld v0.1 Approach Report
@@ -543,7 +597,7 @@ Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
 
 function evaluateSelfTestReport(report, requestedCategory) {
   const diagnosis = diagnoseReport(report, requestedCategory);
-  const classification = classify(diagnosis.category);
+  const classification = classifyDiagnosis(diagnosis);
   const decision = decideNextAction({
     diagnosis,
     classification,
@@ -571,6 +625,14 @@ function classify(category) {
   return 'proposal_only';
 }
 
+function classifyDiagnosis(diagnosis) {
+  const base = classify(diagnosis.category);
+  if (base !== 'auto_fix_allowed') return base;
+  if (diagnosis.category !== 'echo_repetition') return base;
+  if (diagnosis.repairConfidenceBlockers.length > 0) return 'observe_only';
+  return base;
+}
+
 function diagnoseReport(report, requestedCategory) {
   const summary = Object.fromEntries(
     [...report.matchAll(/^- ([^:\n]+):\s*(.+)$/gm)].map((match) => [match[1].trim(), match[2].trim()]),
@@ -580,10 +642,13 @@ function diagnoseReport(report, requestedCategory) {
   const recentPassWarnFail = parsePassWarnFail(summary['Recent PASS/WARN/FAIL']);
   const reportTopCategory = requestedCategory ?? summary['Top failure category'] ?? 'unknown';
   const repairClass = summary['Repair class'] ?? classify(reportTopCategory);
+  const recentFailureReason = summary['Recent failure reason'] ?? '';
   const amPm = parseAmPmContinuity(report);
   const lifeSignals = parseLifeSignals(report);
   const postFixChecked = Number(report.match(/Post-fix conversations checked:\s*(\d+)/)?.[1] ?? 0);
   const postFixSummary = report.match(/Post-fix summary:\s*(.+)$/m)?.[1]?.trim() ?? 'unknown';
+  const strongestRecentMoment = report.match(/## Strongest Recent Moment\n\n- (.+)$/m)?.[1]?.trim() ?? '';
+  const weakestRecentFailure = report.match(/## Weakest Recent Failure\n\n- (.+)$/m)?.[1]?.trim() ?? '';
   const recentFailures = [...report.matchAll(/^### (conversation-[^\s]+) - FAIL \(([^)]+)\)[\s\S]*?Suggested fix category:\s*(.+?)(?:\n\n|$)/gm)].map(
     (match) => ({
       id: match[1],
@@ -657,11 +722,23 @@ function diagnoseReport(report, requestedCategory) {
       : postFixChecked > 0 || freshTriadSamples > 0
         ? 'low_sample_warning'
         : 'sample_pending';
+  const repairConfidenceBlockers = repairConfidenceBlockersFor({
+    category,
+    freshTriadSamples,
+    reportTopCategory,
+    recentFailureReason,
+    amPm,
+    lifeSignals,
+    strongestRecentMoment,
+    weakestRecentFailure,
+  });
 
   return {
     category,
     reportTopCategory,
     repairClass,
+    repairConfidenceBlockers,
+    recentFailureReason,
     confidence,
     freshTriadSamples,
     passWarnFail,
@@ -675,6 +752,39 @@ function diagnoseReport(report, requestedCategory) {
     operationalIssue: hasProviderIssue ? 'provider_unavailable_or_timeout' : 'none',
     conversationCategory,
   };
+}
+
+function repairConfidenceBlockersFor({
+  category,
+  freshTriadSamples,
+  reportTopCategory,
+  recentFailureReason,
+  amPm,
+  lifeSignals,
+  strongestRecentMoment,
+  weakestRecentFailure,
+}) {
+  if (category !== 'echo_repetition') return [];
+  const blockers = [];
+  if (freshTriadSamples < 8) blockers.push('fresh_triad_samples_below_8');
+  if (amPm?.decision === 'sample_pending') blockers.push('am_pm_sample_pending');
+  if (lifeSignals?.status === 'WARN') blockers.push('life_signals_warn');
+  if (sameNonEmptyText(strongestRecentMoment, weakestRecentFailure)) {
+    blockers.push('strongest_equals_weakest');
+  }
+  if (
+    reportTopCategory === 'echo_repetition' &&
+    recentFailureReason &&
+    !/echo|repeat|repetition|loop|object|prop|mirror/i.test(recentFailureReason)
+  ) {
+    blockers.push('recent_failure_reason_category_mismatch');
+  }
+  return blockers;
+}
+
+function sameNonEmptyText(left, right) {
+  if (!left || !right) return false;
+  return left.replace(/\s+/g, ' ').trim() === right.replace(/\s+/g, ' ').trim();
 }
 
 function decideNextAction({ diagnosis, classification, ccReview }) {
@@ -698,6 +808,13 @@ function decideNextAction({ diagnosis, classification, ccReview }) {
       changeSize: 'observe_only',
       action: 'Too few samples for auto-repair. Keep observing or draft proposal only.',
       blockedReasons: ['low_sample_warning'],
+    };
+  }
+  if (diagnosis.repairConfidenceBlockers.length && classification === 'observe_only') {
+    return {
+      changeSize: 'observe_only',
+      action: `No repair this cycle: ${diagnosis.repairConfidenceBlockers.join('; ')}.`,
+      blockedReasons: diagnosis.repairConfidenceBlockers,
     };
   }
   if (classification === 'auto_fix_allowed') {
@@ -823,6 +940,7 @@ async function writeReviewReport({ diagnosis, classification, evidence, ccReview
     `- Change size: ${umiDecision.changeSize}`,
     `- Umi decision: ${umiDecision.action}`,
     `- Confidence: ${diagnosis.confidence}`,
+    `- Repair confidence blockers: ${diagnosis.repairConfidenceBlockers.length ? diagnosis.repairConfidenceBlockers.join(', ') : 'none'}`,
     `- Fresh triad samples: ${diagnosis.freshTriadSamples}`,
     `- Post-fix conversations checked: ${diagnosis.postFixChecked}`,
     `- Post-fix summary: ${diagnosis.postFixSummary}`,

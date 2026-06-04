@@ -1,13 +1,13 @@
 # GIIS Underworld Recent Conversation Eval
 
-Generated: 2026-06-03T19:34:59.299Z
+Generated: 2026-06-04T04:50:41.612Z
 
 Mode: post-fix since explicit createdAt boundary
 Post-fix boundary: 2026-06-03T19:01:20.836Z
 
-Post-fix conversations checked: 5
+Post-fix conversations checked: 6
 
-Post-fix summary: 0 PASS / 1 WARN / 4 FAIL
+Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
 
 Historical archived quality (legacy_noise): 0 PASS / 0 WARN / 0 FAIL
 
@@ -91,23 +91,24 @@ Excerpt:
 > 6/3 下午2:05 真晝: 你眼神躲太快了，這湯再不吃就要涼，先吃一口吧。
 > 6/3 下午2:05 天澤: 湯確實涼了，但你的溫柔太燙手，我先退一步，讓這碗湯先替我們把話說完。
 
-### conversation-c:90902 - WARN (0.92)
+### conversation-c:90923 - FAIL (0.91)
 
 Participants: 海 / 真晝
 
 Suggested fix category: strengthen emotional hook binding to previous speaker
 
 Reasons:
+- emotion_behavior_link: 3 emotion cue(s); 0 behavior consequence cue(s); emotion did not visibly affect behavior
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
+- everydayObjectLoopScore: over-repeated everyday object(s): 窗 x3
 - conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
-- memoryContinuityScore: 3 continuity callback(s); callback marker without concrete cue
-- relationship_residue: 3 previous-moment residue cue(s)
 
 Excerpt:
-> 6/3 下午2:21 海: 欸，真晝，先別急著整理那些安靜的學生，我們把「誰說沒事」這件最難的事放一放，你剛才那聲嘆氣，我聽到了。
-> 6/3 下午2:24 海: 先把那份名單放一邊，你剛才那聲嘆氣比誰說沒事更讓我在意。要不要趁現在空檔，把桌上的冷掉茶換成熱的，我們先不談那些安靜的孩子？
-> 6/3 下午2:24 真晝: 你剛才那聲嘆氣，我其實也聽到了。茶換成熱的也好，但先別急著動，讓我坐一會兒，就這麼安靜待著吧。
-> 6/3 下午2:25 海: 好，那我們就安靜待著，你不用勉強說話，這裡只有窗外的鐘聲和我們。
+> 6/3 下午2:44 海: 先把手邊那杯快涼的紅茶放一邊吧，今天別再替誰「沒事」多擔心了。來，把待辦清單裡最後一項刪掉，我們只負責把這窗戶關上就好。
+> 6/3 下午2:44 真晝: 好，那我先不刪清單了，只把這窗戶關上。你剛才說話時手一直在抖，是今天特別累嗎？
+> 6/3 下午2:44 海: 手只是剛剛被門夾了一下，別擔心。既然窗戶關好了，你現在能不能先告訴我，今天誰又沒吃午餐？
+> 6/3 下午2:44 真晝: 一之瀨的便當還是原封不動，他今天連去食堂的腳步都變慢了。你剛才說門夾到手的事，現在還痛嗎？
+> 6/3 下午2:44 海: 痛感早就消失了，倒是你一直盯著我看，比那扇門更讓人分心。既然一之瀨的便當還沒動，我們現在就過去把那份飯熱一下，別讓他餓著了。
 
 
 ## Historical Archived Quality
@@ -119,6 +120,7 @@ These are labeled `legacy_noise` because they were created before the latest wat
 
 | Conversation | Participants | Cohort | Status | Score | Failure category | Top reasons |
 |---|---|---|---:|---:|---|---|
+| conversation-c:90923 | 海 / 真晝 | post_fix | FAIL | 0.91 | not responding to previous speaker | emotion_behavior_link: 3 emotion cue(s); 0 behavior consequence cue(s); emotion did not visibly affect behavior<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>everydayObjectLoopScore: over-repeated everyday object(s): 窗 x3 |
 | conversation-c:90902 | 海 / 真晝 | post_fix | WARN | 0.92 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close<br>memoryContinuityScore: 3 continuity callback(s); callback marker without concrete cue |
 | conversation-c:90875 | 劉備 / 曹操 | post_fix | FAIL | 0.83 | not responding to previous speaker | characterVoiceScore: matched 1/15 character voice cue(s)<br>emotionalSpecificityScore: found 1 emotional cue(s)<br>memoryContinuityScore: no explicit continuity callback |
 | conversation-c:90858 | 海 / 天澤 | post_fix | FAIL | 0.89 | not responding to previous speaker | emotionalSpecificityScore: found 1 emotional cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotion_behavior_link: 0 emotion cue(s); 0 behavior consequence cue(s) |
