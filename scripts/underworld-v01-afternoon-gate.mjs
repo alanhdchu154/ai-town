@@ -13,6 +13,11 @@ import { spawn } from 'node:child_process';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const OUTPUT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-afternoon-gate-latest.md');
+const FINAL_GATE_LINES = [
+  'Use `umi/reports/v01-completion-audit-latest.md` as the primary requirement-by-requirement completion report.',
+  'If AM->PM is still `sample_pending`, keep v0.1 active and collect/read natural afternoon evidence rather than changing prompts.',
+  'If the Alan-facing playtest artifact exists, validate it with `npm run underworld:alan-playtest-check` before treating `human_alan_conversation_quality` as proven.',
+];
 
 const args = parseArgs(process.argv.slice(2));
 if (args.get('self-test') === 'true') {
@@ -129,7 +134,7 @@ async function writeSummary(results, override = {}) {
     '',
     '## Final Gate',
     '',
-    'Use `umi/reports/v01-completion-audit-latest.md` as the primary requirement-by-requirement completion report.',
+    ...FINAL_GATE_LINES,
     '',
   ];
   await writeFile(OUTPUT_PATH, `${lines.join('\n')}\n`, 'utf8');
@@ -197,5 +202,14 @@ function runSelfTest() {
   ];
   const failed = sample.filter((item) => item.exitCode !== 0);
   if (failed.length !== 1) throw new Error('self-test failed to count non-zero steps');
+  if (!FINAL_GATE_LINES.some((line) => line.includes('underworld:alan-playtest-check'))) {
+    throw new Error('self-test expected final gate lines to mention the Alan playtest artifact check');
+  }
+  if (!FINAL_GATE_LINES.some((line) => line.includes('sample_pending'))) {
+    throw new Error('self-test expected final gate lines to mention AM->PM sample_pending handling');
+  }
+  if (!FINAL_GATE_LINES.every((line) => line.includes('`'))) {
+    throw new Error('self-test expected final gate lines to reference concrete commands/artifacts');
+  }
   console.log('[underworld-v01-afternoon-gate:self-test] PASS');
 }

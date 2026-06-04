@@ -68,6 +68,16 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:29 CDT: Updated the afternoon gate summary wording so the
+  final report points to the current proof path after a NOT_COMPLETE run.
+  `scripts/underworld-v01-afternoon-gate.mjs` now tells the next operator to
+  keep AM->PM `sample_pending` as an evidence gap, not prompt-repair
+  permission, and to validate any Alan-facing artifact with `npm run
+  underworld:alan-playtest-check` before treating the human gate as proven.
+  No afternoon collection was run because current time was outside the
+  13:00-16:59 CDT window. Verification: `npm run
+  underworld:v01-afternoon-gate:self-test`; `npm run
+  underworld:v01-completion-audit` (expected PENDING); `git diff --check`.
 - 2026-06-04 09:27 CDT: Cleaned the active WORKLOG snapshot so it no longer
   presents the 08:55 active FAIL as current state. Open handoff #5 now points
   to `npm run underworld:alan-playtest-check` for the Alan-facing result
