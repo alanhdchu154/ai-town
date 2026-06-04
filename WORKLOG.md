@@ -23,7 +23,7 @@ historical evidence is needed.
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is not yet proven complete. 2026-06-04 morning `v01-daytime-check` collected three fresh triad samples (`c:90964`, `c:90987`, `c:91005`): soul eval is 2 PASS / 1 WARN / 0 FAIL, recent eval is 0 PASS / 2 WARN / 1 FAIL, life signals now PASS, provider/runtime/fallback hygiene is OK, and AM->PM has 9 morning residue candidates but 0 afternoon samples because the afternoon window has not happened yet. Latest completion audit is `PENDING` with 0 fail / 3 pending / 5 pass and now reports `alanPlaytestResult: missing` until `umi/reports/alan-facing-v01-playtest-latest.md` exists. Remaining proof: AM->PM continuity, Alan-facing Umi playtest, and final motif/repair/rubric clearance after AM->PM is no longer sample-pending. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | pending_product_evidence |
+| 5 | Post-role-change v0.1 rerun is not yet proven complete. After the world was resumed, one more natural morning sample appeared (`c:91021` 海/天澤). The refreshed 2026-06-04 08:55 CDT gates now use 4 fresh morning triad samples: soul eval 3 PASS / 1 WARN / 0 FAIL, recent eval 0 PASS / 3 WARN / 1 FAIL, AM->PM `WARN / sample_pending` with 4 morning samples, 0 afternoon samples, and 14 AM residue candidates, and life-signals `WARN / pilot_role_action_collapse` with expected action match rate 0.63 and 2 collapse flags. Latest completion audit is `FAIL` with 3 fail / 2 pending / 3 pass. Remaining proof/repair path: clear role-action collapse with more fresh trio evidence or proposal, get AM->PM continuity during afternoon, run Alan-facing Umi playtest/result artifact, and rerun final repair/rubric/completion. Do not call v0.1 complete until every requirement passes or Alan explicitly defers a gate. | Alan / Umi | active_fail_product_evidence |
 
 ## Current State Snapshot
 
@@ -36,20 +36,23 @@ historical evidence is needed.
 - Fallback pollution cleanup previously reached zero across audited surfaces;
   rerun the audit before relying on that as current.
 - v0.1 was evidence-complete / human-review-ready on the 2026-06-01 role setup,
-  not perfect. After the 2026-06-02 Tianze/Ichinose role change, the latest
-  2026-06-04 morning rerun is not a complete v0.1 pass. Latest completion audit
-  reports `PENDING` with 0 fail, 3 pending, 0 deferred, 5 pass:
-  AM->PM continuity, Alan-facing playtest, and final motif/repair/rubric
-  clearance remain pending.
+  not perfect. After the 2026-06-02 Tianze/Ichinose role change and the
+  2026-06-04 resumed-world natural morning sample, the latest rerun is an
+  active v0.1 FAIL, not pending-only. Latest completion audit reports `FAIL`
+  with 3 fail, 2 pending, 0 deferred, 3 pass: character-soul expression and
+  event-thread continuity fail through `pilot_role_action_collapse`,
+  motif/repair/rubric is not clean, while AM->PM continuity and Alan-facing
+  playtest remain pending.
 - AM->PM continuity is now stricter: motif-only callbacks are WARN, not PASS,
   and PM callbacks are not judged until >=12 afternoon samples. Latest
-  2026-06-04 morning evidence is `WARN / sample_pending`, with 3 morning
-  samples, 0 afternoon samples, 9 AM residue candidates, and 0 PM callbacks.
+  2026-06-04 morning evidence is `WARN / sample_pending`, with 4 morning
+  samples, 0 afternoon samples, 14 AM residue candidates, and 0 PM callbacks.
 - Day-window life-signal diagnostics now include pilot role-action coverage.
-  Latest 2026-06-04 morning evidence has 3 fresh triad samples, life signals
-  PASS, pilot expected action match rate 0.83, and 1 pilot action collapse flag.
-  Repair gate now treats the current blocker as `eval_rubric_disagreement`
-  / proposal-only / observe-only, not a safe prompt auto-fix.
+  Latest 2026-06-04 morning evidence has 4 fresh triad samples, life signals
+  WARN / `pilot_role_action_collapse`, pilot expected action match rate 0.63,
+  and 2 pilot action collapse flags. Repair gate now treats the current blocker
+  as `pilot_role_action_collapse` / proposal-only / observe-only, not a safe
+  prompt auto-fix.
 - As of 2026-06-04 08:44 CDT, local runtime preflight is PASS, `/ai-town`
   returns HTTP 200, and the default world has been resumed from
   `stoppedByDeveloper` to `running` for Alan-facing playtest readiness and
@@ -57,10 +60,32 @@ historical evidence is needed.
   proof.
 - At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
   `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
-  Latest completion audit remains `PENDING` with 0 fail / 3 pending / 5 pass.
+  That pre-afternoon audit was `PENDING` at the time; the later 08:55 refresh is
+  now authoritative and reports `FAIL` with 3 fail / 2 pending / 3 pass.
 
 ## Work Log
 
+- 2026-06-04 08:55 CDT: Refreshed read-only gates after a natural resumed-world
+  morning sample (`conversation-c:91021`) appeared. A first observe-only refresh
+  with the default current timestamp correctly found 0 new samples but polluted
+  `latest` eval artifacts for completion use; reran observe with the 08:13 CDT
+  morning boundary (`--since-created-at=1780578800000`) and `--collect=skip` to
+  restore current morning evidence without collecting controlled samples.
+  Updated report logic so `pilot_role_action_collapse` is proposal-only in the
+  repair gate and a v0.1 blocker in rubric reconciliation, while AM->PM
+  `sample_pending` now points to the afternoon evidence window instead of a code
+  fix. Latest trusted gates: approach 4 fresh triad samples, soul 3 PASS /
+  1 WARN / 0 FAIL, recent 0 PASS / 3 WARN / 1 FAIL, life-signals WARN /
+  `pilot_role_action_collapse`, AM->PM WARN / `sample_pending`, repair
+  category `pilot_role_action_collapse` / proposal-only / observe-only, rubric
+  BLOCKED by life-signals and AM->PM, and completion audit FAIL with 3 fail /
+  2 pending / 3 pass. Verification: `npm run underworld:repair-gate:self-test`;
+  `npm run underworld:rubric-reconcile:self-test`; `npm run underworld:observe
+  -- --cc=skip --collect=skip --target-samples=0
+  --since-created-at=1780578800000`; `npm run underworld:repair-gate --
+  --cc=skip`; `npm run underworld:rubric-reconcile` (expected BLOCKED);
+  `npm run underworld:v01-goal-audit` (expected PENDING); `npm run
+  underworld:v01-completion-audit` (expected FAIL).
 - 2026-06-04 08:46 CDT: Verified the afternoon gate safety guard before the
   afternoon window. `npm run underworld:v01-afternoon-gate` wrote
   `umi/reports/v01-afternoon-gate-latest.md` with `Overall: SKIPPED` because

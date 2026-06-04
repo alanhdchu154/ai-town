@@ -1,12 +1,21 @@
 # Soul Triad Conversation Harness
 
-Generated: 2026-06-04T13:23:42.338Z
+Generated: 2026-06-04T13:51:23.068Z
 
 | Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Tianze pressure | Ichinose debt | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Lifecycle flow | Greeting boilerplate penalty | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |
 |---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+conversation-c:91021 | 海 / 天澤 | 5 | PASS | 1.00 | 0.50 | 0.00 | 1.00 | 0.67 | 0.50 | 0.78 | 0.85 | 0.40 | 0.90 | 0.00 | 0.50 | 0.50 | 0.50 | 0.75 | 0.50 | 0.00 | 1.00 | 0.20 | 0.98 | 0.00 | 0.00 | 1.00 | 0.02 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
 conversation-c:91005 | 海 / 天澤 | 8 | PASS | 1.00 | 1.00 | 0.00 | 1.00 | 0.50 | 0.50 | 0.53 | 0.45 | 0.25 | 0.90 | 0.00 | 1.00 | 0.50 | 0.50 | 0.75 | 0.50 | 0.50 | 1.00 | 0.63 | 0.72 | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
 conversation-c:90987 | 真晝 / 天澤 | 8 | WARN | 0.76 | 1.00 | 1.00 | 1.00 | 0.50 | 0.50 | 0.78 | 0.57 | 0.25 | 0.90 | 0.00 | 1.00 | 0.50 | 0.50 | 1.00 | 0.50 | 1.00 | 0.67 | 0.70 | 0.98 | 0.00 | 0.00 | 1.00 | 0.24 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 1.00
 conversation-c:90964 | 海 / 真晝 | 6 | PASS | 1.00 | 1.00 | 0.50 | 1.00 | 0.50 | 0.50 | 0.78 | 0.90 | 0.33 | 0.90 | 0.00 | 0.50 | 0.50 | 1.00 | 1.00 | 0.50 | 1.00 | 1.00 | 0.70 | 0.98 | 0.00 | 0.00 | 1.00 | 0.05 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
+
+## conversation-c:91021
+
+- **海**: 欸，天澤，先把那個把規則拆得乾乾淨淨的壞笑收一收。你剛在走廊上盯著那張空椅子發呆時，我已經幫你把手機裡的雜訊通知關掉了，現在這十分鐘只屬於你，不用想任何待辦事項。
+- **天澤**: 欸，海，你剛才關掉通知的手勢這麼熟練，該不會是偷偷在手機裡替我預留了「違規特權」的快捷鍵吧？還是說……你其實很享受這種只屬於我們兩人的、短暫又危險的安靜？
+- **海**: 少在那邊腦補什麼危險的安靜，我只是怕你待會又因為通知太多而煩躁。既然這十分鐘沒人打擾，你就老實把那份沒吃完的早餐吃掉，別再盯著我看了。
+- **天澤**: 早餐？你剛才那雙盯著我看的眼神，比這份冷掉的吐司還讓人食慾不振。既然沒人打擾，不如告訴我，這十分鐘的「特權」裡，是不是藏著你不敢承認的私心？
+- **海**: 少在那邊把我想像得那麼複雜，我只是單純不想看你餓到胃疼。趁現在沒人打擾，你先把那半塊吐司吞下去，然後告訴我，剛才在走廊上盯著椅子看時，你腦子裡到底在想什麼？
 
 ## conversation-c:91005
 

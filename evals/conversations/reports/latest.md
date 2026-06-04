@@ -1,13 +1,13 @@
 # GIIS Underworld Recent Conversation Eval
 
-Generated: 2026-06-04T13:23:44.225Z
+Generated: 2026-06-04T13:51:24.851Z
 
 Mode: post-fix since explicit createdAt boundary
-Post-fix boundary: 2026-06-04T13:16:23.300Z
+Post-fix boundary: 2026-06-04T13:13:20.000Z
 
-Post-fix conversations checked: 3
+Post-fix conversations checked: 4
 
-Post-fix summary: 0 PASS / 2 WARN / 1 FAIL
+Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
 
 Historical archived quality (legacy_noise): 0 PASS / 0 WARN / 0 FAIL
 
@@ -36,6 +36,23 @@ Excerpt:
 > 6/4 上午8:23 天澤: 欸，那要是我現在不說話，你是不是連裝作關心我的藉口都找不到了？
 > 6/4 上午8:23 海: 藉口？我剛才只是怕你累到連話都說不出來，先喝口水再想怎麼拆吧。
 > 6/4 上午8:23 海: 我現在得去確認一下今晚的值班排程，你別趁機把規則拆到只剩骨架，等我回來再聽你說話。
+
+### conversation-c:91021 - WARN (0.93)
+
+Participants: 海 / 天澤
+
+Suggested fix category: strengthen emotional hook binding to previous speaker
+
+Reasons:
+- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
+- memoryContinuityScore: 3 continuity callback(s); 1 concrete memory cue(s)
+
+Excerpt:
+> 6/4 上午8:44 海: 欸，天澤，先把那個把規則拆得乾乾淨淨的壞笑收一收。你剛在走廊上盯著那張空椅子發呆時，我已經幫你把手機裡的雜訊通知關掉了，現在這十分鐘只屬於你，不用想任何待辦事項。
+> 6/4 上午8:44 天澤: 欸，海，你剛才關掉通知的手勢這麼熟練，該不會是偷偷在手機裡替我預留了「違規特權」的快捷鍵吧？還是說……你其實很享受這種只屬於我們兩人的、短暫又危險的安靜？
+> 6/4 上午8:44 海: 少在那邊腦補什麼危險的安靜，我只是怕你待會又因為通知太多而煩躁。既然這十分鐘沒人打擾，你就老實把那份沒吃完的早餐吃掉，別再盯著我看了。
+> 6/4 上午8:44 天澤: 早餐？你剛才那雙盯著我看的眼神，比這份冷掉的吐司還讓人食慾不振。既然沒人打擾，不如告訴我，這十分鐘的「特權」裡，是不是藏著你不敢承認的私心？
+> 6/4 上午8:44 海: 少在那邊把我想像得那麼複雜，我只是單純不想看你餓到胃疼。趁現在沒人打擾，你先把那半塊吐司吞下去，然後告訴我，剛才在走廊上盯著椅子看時，你腦子裡到底在想什麼？
 
 ### conversation-c:90987 - WARN (0.93)
 
@@ -83,6 +100,7 @@ These are labeled `legacy_noise` because they were created before the latest wat
 
 | Conversation | Participants | Cohort | Status | Score | Failure category | Top reasons |
 |---|---|---|---:|---:|---|---|
+| conversation-c:91021 | 海 / 天澤 | post_fix | WARN | 0.93 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 3 continuity callback(s); 1 concrete memory cue(s) |
 | conversation-c:91005 | 海 / 天澤 | post_fix | FAIL | 0.91 | not responding to previous speaker | emotion_tone_link: 0/8 tone-change or clipped line(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
 | conversation-c:90987 | 真晝 / 天澤 | post_fix | WARN | 0.93 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotion_tone_link: 1/8 tone-change or clipped line(s) |
 | conversation-c:90964 | 海 / 真晝 | post_fix | WARN | 0.94 | not responding to previous speaker | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>relationship_residue: 7 previous-moment residue cue(s) |

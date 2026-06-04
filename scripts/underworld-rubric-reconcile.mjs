@@ -15,6 +15,18 @@ const SOUL_REPORT_PATH = join(REPO_ROOT, 'evals', 'conversations', 'reports', 's
 const RECENT_REPORT_PATH = join(REPO_ROOT, 'evals', 'conversations', 'reports', 'latest.md');
 const APPROACH_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
 const OUTPUT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-rubric-reconciliation-latest.md');
+const LIFE_SIGNAL_BLOCKER_DECISIONS = new Set([
+  'life_signal_repeated',
+  'prop_echo_repeated',
+  'hygiene_failure',
+  'life_signal_missing',
+  'conversation_shape_collapse',
+  'post_processing_drift',
+  'scene_diversity_thin',
+  'daily_rhythm_thin',
+  'soul_style_flat',
+  'pilot_role_action_collapse',
+]);
 
 const args = parseArgs(process.argv.slice(2));
 if (args.get('self-test') === 'true') {
@@ -89,6 +101,9 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   if (stageLeak > 0) blockers.push('stage-direction leak is present in fresh samples');
   if (hardEchoPenalty) blockers.push('soul-triad echo penalty is present in fresh samples');
   if (soulCounts.FAIL > 0) blockers.push('soul-triad harness has FAIL rows');
+  if (freshLifeSignals.status === 'WARN' && LIFE_SIGNAL_BLOCKER_DECISIONS.has(freshLifeSignals.decision)) {
+    blockers.push(`life signals are WARN / ${freshLifeSignals.decision}`);
+  }
   if (amPmStatus.status && (amPmStatus.status !== 'PASS' || amPmStatus.decision !== 'continuity_observed')) {
     blockers.push(`AM->PM continuity is ${amPmStatus.status} / ${amPmStatus.decision ?? 'unknown'}`);
   }
@@ -103,12 +118,7 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   }
   const decision =
     blockers.length > 0 ? 'BLOCKED' : qualityGaps.length > 0 ? 'HUMAN_REVIEW_READY' : 'PASS_ALIGNED';
-  const nextAction =
-    decision === 'BLOCKED'
-      ? 'fix v0.1 blocker before playtest'
-      : qualityGaps.length > 0
-        ? 'Alan playtest should judge whether these naturalness gaps feel acceptable before prompt changes'
-        : 'continue observation; no rubric repair needed';
+  const nextAction = nextActionFor({ decision, blockers, qualityGaps });
 
   return {
     generatedAt: new Date().toISOString(),
@@ -130,6 +140,25 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
     qualityGaps,
     comparisons,
   };
+}
+
+function nextActionFor({ decision, blockers, qualityGaps }) {
+  if (decision === 'BLOCKED') {
+    const onlyAmPmSamplePending =
+      blockers.length === 1 && /^AM->PM continuity is WARN \/ sample_pending$/.test(blockers[0]);
+    if (onlyAmPmSamplePending) {
+      return 'wait for the 13:00-16:59 afternoon evidence window; do not fix code for sample-pending continuity';
+    }
+    const hasLifeSignalBlocker = blockers.some((item) => item.startsWith('life signals are WARN /'));
+    if (hasLifeSignalBlocker) {
+      return 'collect or read more fresh trio evidence and draft a proposal before changing role-action behavior';
+    }
+    return 'resolve the listed v0.1 blocker before treating this as playtest-ready';
+  }
+  if (qualityGaps.length > 0) {
+    return 'Alan playtest should judge whether these naturalness gaps feel acceptable before prompt changes';
+  }
+  return 'continue observation; no rubric repair needed';
 }
 
 function classifyComparison(soul, recent, reasons) {
@@ -438,6 +467,44 @@ function runSelfTest() {
   const weakResult = reconcileReports({ soulReport: soul, recentReport: recent, approachReport: weakApproach });
   assertEqual(weakResult.decision, 'BLOCKED', 'weak AM->PM continuity blocks v0.1 reconciliation');
   assertEqual(weakResult.blockers[0], 'AM->PM continuity is WARN / weak_continuity', 'AM->PM blocker expected');
+
+  const samplePendingApproach = approach.replace(
+    '- AM→PM continuity: PASS / continuity_observed',
+    '- AM→PM continuity: WARN / sample_pending',
+  );
+  const samplePendingResult = reconcileReports({
+    soulReport: soul,
+    recentReport: recent,
+    approachReport: samplePendingApproach,
+  });
+  assertEqual(
+    samplePendingResult.nextAction,
+    'wait for the 13:00-16:59 afternoon evidence window; do not fix code for sample-pending continuity',
+    'sample-pending AM->PM should wait for evidence instead of asking for a fix',
+  );
+
+  const roleActionApproach = [
+    '- Fresh triad samples: 4',
+    '- Runtime health: ok',
+    '- Model policy env: ok',
+    '- Active fallback pollution count: 0',
+    '- Fresh fallback markers: 0',
+    '- Stage-direction leak sum: 0.00',
+    '- Echo penalty sum: 0.00',
+    '- Fresh-window life signals: WARN / pilot_role_action_collapse',
+    '- AM→PM continuity: PASS / continuity_observed',
+  ].join('\n');
+  const roleActionResult = reconcileReports({
+    soulReport: soul,
+    recentReport: recent,
+    approachReport: roleActionApproach,
+  });
+  assertEqual(roleActionResult.decision, 'BLOCKED', 'pilot role-action collapse blocks reconciliation');
+  assertEqual(
+    roleActionResult.blockers[0],
+    'life signals are WARN / pilot_role_action_collapse',
+    'pilot role-action blocker expected',
+  );
 
   const softEchoApproach = [
     '- Fresh triad samples: 3',

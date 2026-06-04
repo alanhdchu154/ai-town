@@ -47,6 +47,7 @@ const PROPOSAL_ONLY = new Set([
   'scene_diversity_thin',
   'daily_rhythm_thin',
   'soul_style_flat',
+  'pilot_role_action_collapse',
   'relationship_flattening',
   'atmosphere_collapse',
   'memory_architecture',
@@ -156,7 +157,7 @@ Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
 - Repair class: auto_fix_allowed
 - Recent failure reason: characterVoiceScore: matched 1/15 character voice cue(s)
 - AM→PM continuity: WARN / sample_pending
-- Life signals: WARN / pilot_role_action_collapse
+- Life signals: PASS / life_signal_observed
 
 Post-fix conversations checked: 6
 Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
@@ -180,8 +181,8 @@ Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
 
 ## Life Signals
 
-- status: WARN
-- decision: pilot_role_action_collapse
+- status: PASS
+- decision: life_signal_observed
 - conversation count: 6
 - repeated line flags: 0
 - administrative drift flags: 0
@@ -198,6 +199,48 @@ Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
     overclaimedEcho.diagnosis.repairConfidenceBlockers,
     'recent_failure_reason_category_mismatch',
     'overclaimed echo category-mismatch blocker',
+  );
+
+  const pilotRoleActionCollapse = evaluateSelfTestReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 4
+- Top failure category: eval_rubric_disagreement
+- Repair class: proposal_only
+- Recent failure reason: previousSpeakerBindingScore: loosely bound
+- AM→PM continuity: WARN / sample_pending
+- Life signals: WARN / pilot_role_action_collapse
+
+Post-fix conversations checked: 4
+Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
+
+## AM→PM Continuity
+
+- status: WARN
+- decision: sample_pending
+- morning samples: 4
+- afternoon samples: 0
+
+## Life Signals
+
+- status: WARN
+- decision: pilot_role_action_collapse
+- conversation count: 4
+- pilot action collapse flags: 2
+`);
+  assertEqual(
+    pilotRoleActionCollapse.diagnosis.category,
+    'pilot_role_action_collapse',
+    'pilot role-action collapse category',
+  );
+  assertEqual(pilotRoleActionCollapse.classification, 'proposal_only', 'pilot role-action classification');
+  assertEqual(pilotRoleActionCollapse.decision.changeSize, 'observe_only', 'pilot role-action decision');
+  assertIncludes(
+    pilotRoleActionCollapse.decision.blockedReasons,
+    'am_pm_sample_pending',
+    'pilot role-action waits for AM-PM blocker',
   );
 
   const amPmGap = evaluateSelfTestReport(`
@@ -690,17 +733,7 @@ function diagnoseReport(report, requestedCategory) {
     !['sample_pending', undefined, ''].includes(amPm.decision) &&
     Number(amPm.afternoonSamples ?? 0) >= MIN_AM_PM_REPAIR_JUDGMENT_SAMPLES;
   const hasLifeSignalGap =
-    [
-      'life_signal_repeated',
-      'prop_echo_repeated',
-      'hygiene_failure',
-      'life_signal_missing',
-      'conversation_shape_collapse',
-      'post_processing_drift',
-      'scene_diversity_thin',
-      'daily_rhythm_thin',
-      'soul_style_flat',
-    ].includes(lifeSignals.decision ?? '') &&
+    isLifeSignalBlockerDecision(lifeSignals.decision) &&
     (freshTriadSamples >= 3 || postFixChecked >= 3);
   const reportCategoryHasPriority =
     PROPOSAL_ONLY.has(reportTopCategory) ||
@@ -871,17 +904,8 @@ function reviewBlockers(diagnosis) {
     blockers.push('am_pm_samples_below_repair_threshold');
   }
   if (
-    [
-      'life_signal_repeated',
-      'prop_echo_repeated',
-      'hygiene_failure',
-      'life_signal_missing',
-      'conversation_shape_collapse',
-      'post_processing_drift',
-      'scene_diversity_thin',
-      'daily_rhythm_thin',
-      'soul_style_flat',
-    ].includes(diagnosis.lifeSignals?.decision ?? '') &&
+    isLifeSignalBlockerDecision(diagnosis.lifeSignals?.decision) &&
+    diagnosis.lifeSignals?.status === 'WARN' &&
     diagnosis.confidence === 'sample_pending' &&
     diagnosis.category !== 'db_cleanup'
   ) {
@@ -897,6 +921,21 @@ function reviewBlockers(diagnosis) {
     blockers.push(`category_mismatch:${diagnosis.reportTopCategory}->${diagnosis.category}`);
   }
   return blockers;
+}
+
+function isLifeSignalBlockerDecision(decision) {
+  return [
+    'life_signal_repeated',
+    'prop_echo_repeated',
+    'hygiene_failure',
+    'life_signal_missing',
+    'conversation_shape_collapse',
+    'post_processing_drift',
+    'scene_diversity_thin',
+    'daily_rhythm_thin',
+    'soul_style_flat',
+    'pilot_role_action_collapse',
+  ].includes(decision ?? '');
 }
 
 async function maybeRunCcReview({ diagnosis, classification, evidence, report }) {
