@@ -68,6 +68,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 09:32 CDT: Continued the v0.1 completion check after the
+  09:29 proof-path wording commit. Current Chicago time was still outside the
+  13:00-16:59 afternoon evidence window, so no afternoon collection was run.
+  Fresh completion audit remained `PENDING` with 0 fail / 3 pending / 5 pass;
+  Alan-facing playtest artifact validation returned expected `MISSING`; latest
+  approach/goal/rubric/AM-PM/life/repair reports still agree that the only
+  machine blocker is AM->PM `sample_pending`, with Alan-facing playtest still
+  pending human evidence. Verification: `npm run
+  underworld:v01-completion-audit` (expected PENDING); `npm run
+  underworld:alan-playtest-check` (expected MISSING); read-only report
+  inspection; `git status --short`.
 - 2026-06-04 09:29 CDT: Updated the afternoon gate summary wording so the
   final report points to the current proof path after a NOT_COMPLETE run.
   `scripts/underworld-v01-afternoon-gate.mjs` now tells the next operator to
