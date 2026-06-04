@@ -50,9 +50,23 @@ historical evidence is needed.
   PASS, pilot expected action match rate 0.83, and 1 pilot action collapse flag.
   Repair gate now treats the current blocker as `eval_rubric_disagreement`
   / proposal-only / observe-only, not a safe prompt auto-fix.
+- As of 2026-06-04 08:44 CDT, local runtime preflight is PASS, `/ai-town`
+  returns HTTP 200, and the default world has been resumed from
+  `stoppedByDeveloper` to `running` for Alan-facing playtest readiness and
+  natural daytime evidence. This is runtime readiness, not v0.1 completion
+  proof.
 
 ## Work Log
 
+- 2026-06-04 08:44 CDT: Prepared the Alan-facing playtest runtime path without
+  collecting controlled samples. `npm run underworld:runtime-preflight` passed,
+  `curl -I http://localhost:5173/ai-town` returned HTTP 200, then
+  `npx convex run testing:resume` moved the default world from
+  `stoppedByDeveloper` to `running`. Follow-up read-only checks confirmed
+  `world:defaultWorldStatus` is `running` and `school:worldClock` is
+  2026-06-04 08:44 CDT / day 17 morning. v0.1 remains `PENDING` with the same
+  three proof gates: AM->PM continuity, Alan-facing playtest result artifact,
+  and final repair/rubric clearance after AM->PM is no longer sample-pending.
 - 2026-06-04 local: Added a durable Alan-facing playtest result path so the
   completion gate no longer depends only on a one-off `--alan-playtest=pass`
   command flag. `scripts/underworld-v01-completion-audit.mjs` now reads
