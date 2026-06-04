@@ -58,6 +58,12 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 local: Still inside night quiet at 00:10 CDT, aligned the command
+  reference with the current v0.1 evidence gates. `umi/COMMAND_REFERENCE.md`
+  now says `underworld:observe:daytime-samples` / `v01-daytime-check` collect a
+  small 3-sample directional batch, not enough by themselves to prove AM->PM
+  continuity, and documents `underworld:v01-afternoon-gate` plus the 12 archived
+  PM-sample requirement. Verification: docs-only; `git diff --check`.
 - 2026-06-04 local: Still inside night quiet at 00:07 CDT, aligned v0.1 source
   docs with the current completion gates without starting runtime or collecting
   samples. `docs/soul/V01_COMPLETION_AUDIT_PREFLIGHT.md` now reflects the latest

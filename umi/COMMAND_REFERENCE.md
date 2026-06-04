@@ -48,10 +48,11 @@ These set pilot env knobs at start and **always** unset them in a
 | Command | What it does | When to use |
 |---|---|---|
 | `npm run underworld:observe` | Snapshot world state + recent events. **Never modifies code.** Writes `umi/reports/v01-approach-latest.md`. | Start every triage session here. |
-| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. | Daytime sample collection. |
+| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. This is enough for a directional repair/eval read, not enough by itself to prove AM→PM continuity. | Daytime sample collection. |
 | `npm run underworld:observe:self-test` | Self-test the observe script without hitting Convex. | CI / pre-loop smoke. |
 | `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
-| `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. | **Canonical first daytime command.** |
+| `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee the 12 archived PM samples required for AM→PM completion. | **Canonical first daytime command.** |
+| `npm run underworld:v01-afternoon-gate` | Guarded 13:00-16:59 America/Chicago wrapper: runtime preflight → daytime check → repair gate → rubric reconciliation → completion audit. Writes `umi/reports/v01-afternoon-gate-latest.md`. | Preferred afternoon v0.1 gate. If AM→PM is still sample-pending, keep natural afternoon evidence going until the report has at least 12 PM samples. |
 | `npm run underworld:repair-gate` | Diagnose + classify allowed small fixes vs. proposal-only changes. Hygiene fixes only; refuses to act if provider health bad or samples < 3. | After observe, before any code edit. |
 | `npm run underworld:repair-gate:self-test` | Validate the repair gate against synthetic evidence. | Smoke. |
 | `npm run underworld:approach:v01` | One director-loop iteration (observe → repair-gate → goal-audit → report). | The v0.1 approach loop's single shot. |
@@ -115,8 +116,11 @@ Verified 2026-05-26 by `grep -r` across the repo.
    fewer than 3 triad samples, do not change conversation or memory
    behavior unless you are fixing a runtime/hygiene bug. The eval will
    print a warning when this rule is in effect.
-3. **Pilot envs stay scoped.** Never set `SOUL_TRIAD_*` or
+3. **AM→PM completion needs a larger PM window.** The continuity report stays
+   `sample_pending` until at least 12 archived afternoon samples exist. Do not
+   treat the 3-sample daytime command as proof of yesterday/today continuity.
+4. **Pilot envs stay scoped.** Never set `SOUL_TRIAD_*` or
    `UMI_MAHIRU_*` envs globally — let the pilot scripts manage them.
-4. **One canonical script per job.** If you find yourself adding a new
+5. **One canonical script per job.** If you find yourself adding a new
    `run_*` shell wrapper, ask whether the underlying `.mjs` can take
    the env knob instead. Shell wrappers tend to silently drift.
