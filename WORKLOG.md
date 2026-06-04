@@ -55,9 +55,19 @@ historical evidence is needed.
   `stoppedByDeveloper` to `running` for Alan-facing playtest readiness and
   natural daytime evidence. This is runtime readiness, not v0.1 completion
   proof.
+- At 2026-06-04 08:46 CDT, the afternoon gate wrapper correctly returned
+  `SKIPPED` outside the 13:00-16:59 CDT window and did not run collection steps.
+  Latest completion audit remains `PENDING` with 0 fail / 3 pending / 5 pass.
 
 ## Work Log
 
+- 2026-06-04 08:46 CDT: Verified the afternoon gate safety guard before the
+  afternoon window. `npm run underworld:v01-afternoon-gate` wrote
+  `umi/reports/v01-afternoon-gate-latest.md` with `Overall: SKIPPED` because
+  the current Chicago time was outside 13:00-16:59, and no collection steps ran.
+  A follow-up `npm run underworld:v01-completion-audit` remained `PENDING` with
+  0 fail / 3 pending / 5 pass. This preserves the AM->PM evidence boundary:
+  do not treat pre-afternoon reads as PM continuity proof.
 - 2026-06-04 08:44 CDT: Prepared the Alan-facing playtest runtime path without
   collecting controlled samples. `npm run underworld:runtime-preflight` passed,
   `curl -I http://localhost:5173/ai-town` returned HTTP 200, then
