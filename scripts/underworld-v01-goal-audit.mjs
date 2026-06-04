@@ -49,6 +49,10 @@ function auditReport(report) {
   const freshLife = parseStatusDecision(field(summary, 'Fresh-window life signals'));
   const amPmSummary = parseStatusDecision(field(summary, 'AM→PM continuity'));
   const activeFallbackPollution = numberValue(field(summary, 'Active fallback pollution count') ?? fallback.active_total);
+  const hardMotifOrHygieneLoop =
+    stageLeak > 0 ||
+    ['prop_echo_repeated', 'life_signal_repeated', 'conversation_shape_collapse'].includes(freshLife.decision ?? topFailure) ||
+    topFailure === 'echo_repetition';
 
   const checks = [
     check(
@@ -83,10 +87,7 @@ function auditReport(report) {
     ),
     check(
       'no_fresh_motif_or_hygiene_loop',
-      freshSamples >= 3 &&
-        echoPenalty === 0 &&
-        stageLeak === 0 &&
-        !['prop_echo_repeated', 'life_signal_repeated', 'conversation_shape_collapse'].includes(freshLife.decision ?? topFailure),
+      freshSamples >= 3 && !hardMotifOrHygieneLoop,
       'Fresh samples do not show motif echo, stage-direction leak, or shape collapse.',
       freshSamples < 3
         ? 'Need at least 3 fresh samples before motif-loop completion can be judged.'
@@ -169,9 +170,7 @@ async function writeAuditReport(audit, sourceReport) {
     '',
     '## Next Action',
     '',
-    audit.overallStatus === 'PASS'
-      ? 'Goal can be considered for completion after a human-facing transcript review.'
-      : 'Keep the goal active. Next daytime command: `npm run underworld:v01-daytime-check`.',
+    nextActionFor(audit),
     '',
     '## Source Report Excerpt',
     '',
@@ -181,6 +180,16 @@ async function writeAuditReport(audit, sourceReport) {
     '',
   ];
   await writeFile(AUDIT_REPORT_PATH, `${lines.join('\n')}\n`, 'utf8');
+}
+
+function nextActionFor(audit) {
+  if (audit.overallStatus === 'PASS') {
+    return 'Goal can be considered for completion after a human-facing transcript review.';
+  }
+  if (audit.amPmSummary.decision === 'sample_pending') {
+    return 'Keep the goal active. Next proof path: during the 13:00-16:59 America/Chicago window, run `npm run underworld:v01-afternoon-gate` or read enough natural PM samples, then rerun the audit.';
+  }
+  return 'Keep the goal active. Rerun `npm run underworld:v01-daytime-check` after the next fresh evidence window.';
 }
 
 function parseBulletSection(report, heading) {
@@ -322,6 +331,46 @@ function runSelfTest() {
 `);
   assertOverall(failedMotif, 'FAIL', 'motif report overall status');
   assertStatus(failedMotif, 'no_fresh_motif_or_hygiene_loop', 'FAIL');
+
+  const rubricDisagreementEcho = auditReport(`
+# GIIS Underworld v0.1 Approach Report
+
+## Summary
+
+- Fresh triad samples: 3
+- Top failure category: eval_rubric_disagreement
+- Fresh fallback markers: 0
+- Stage-direction leak sum: 0.00
+- Echo penalty sum: 1.00
+- Active fallback pollution count: 0
+- AM→PM continuity: WARN / sample_pending
+- Fresh-window life signals: PASS / life_signal_observed
+
+## Fallback Pollution
+
+- active_total: 0
+- policy: proposal-only; do not apply cleanup without Alan approval.
+
+## Model Policy Env
+
+- ready: yes
+- CHARACTER_SOUL_LOCAL_FALLBACK: false
+- SOUL_TRIAD_COLOCATION_PILOT:
+- SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS:
+- SOUL_TRIAD_FOCUS_PAIR:
+
+## AM→PM Continuity
+
+- status: WARN
+- decision: sample_pending
+- PM callbacks found: 0
+
+## Collection
+
+- attempted: yes
+`);
+  assertStatus(rubricDisagreementEcho, 'no_fresh_motif_or_hygiene_loop', 'PASS');
+  assertStatus(rubricDisagreementEcho, 'yesterday_matters_signal', 'PENDING');
 
   const staleEnv = auditReport(`
 # GIIS Underworld v0.1 Approach Report

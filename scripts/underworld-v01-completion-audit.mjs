@@ -74,6 +74,11 @@ function auditSources(sources, options = {}) {
   const repairBlockedReasons = field(repairDecision, 'Blocked reasons') ?? '';
   const repairUmiDecision = field(repairDecision, 'Umi decision') ?? '';
   const rubricDecision = sources.rubric.match(/^Decision:\s*(.+)$/m)?.[1]?.trim();
+  const rubricBlockers = parseListSection(sources.rubric, 'v0.1 Blockers');
+  const motifGateBlockedByPendingContinuity =
+    hasStatus(goal, 'no_fresh_motif_or_hygiene_loop', 'PASS') &&
+    repairChangeSize === 'observe_only' &&
+    onlyAmPmPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision);
   const goalOverall = sources.goalAudit.match(/^Overall:\s*(.+)$/m)?.[1]?.trim();
   const alanPlaytestPending =
     options.alanPlaytest !== 'pass' &&
@@ -144,7 +149,10 @@ function auditSources(sources, options = {}) {
         repairChangeSize !== 'observe_only' &&
         rubricDecision !== 'BLOCKED',
       `goalMotif=${statusOf(goal, 'no_fresh_motif_or_hygiene_loop')}, repairChangeSize=${repairChangeSize}, repairBlockedReasons=${repairBlockedReasons || 'none'}, rubricDecision=${rubricDecision ?? 'unknown'}`,
-      'Latest motif/repair/rubric evidence is still not a clean completion pass.',
+      motifGateBlockedByPendingContinuity
+        ? 'Motif and repair evidence are not failed, but final rubric/repair clearance is waiting on AM->PM continuity evidence.'
+        : 'Latest motif/repair/rubric evidence is still not a clean completion pass.',
+      motifGateBlockedByPendingContinuity ? 'PENDING' : 'FAIL',
     ),
     requirement(
       'night_quiet_policy_preserved',
@@ -298,6 +306,24 @@ function parseBulletSection(report, heading) {
   return Object.fromEntries(
     [...section.matchAll(/^- ([^:\n]+):[ \t]*(.*)$/gm)].map((match) => [normalizeKey(match[1]), match[2].trim()]),
   );
+}
+
+function parseListSection(report, heading) {
+  const section = report.match(new RegExp(`## ${escapeRegExp(heading)}\\n\\n([\\s\\S]*?)(?:\\n\\n## |$)`))?.[1] ?? '';
+  return [...section.matchAll(/^- (.+)$/gm)].map((match) => match[1].trim());
+}
+
+function onlyAmPmPendingBlockers(repairBlockedReasons, rubricBlockers, rubricDecision) {
+  const repairReasons = repairBlockedReasons
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const repairOk = repairReasons.length === 0 || repairReasons.every((item) => item === 'am_pm_sample_pending');
+  const rubricOk =
+    rubricDecision !== 'BLOCKED' ||
+    (rubricBlockers.length > 0 &&
+      rubricBlockers.every((item) => /AM-?>PM continuity is WARN \/ sample_pending/i.test(item)));
+  return repairOk && rubricOk;
 }
 
 function parseRecentSummary(report) {
@@ -531,6 +557,68 @@ Overall: FAIL
       lifePassWithMinorCollapseAudit.nextAction.includes('Alan-facing Umi playtest') &&
       lifePassWithMinorCollapseAudit.nextAction.includes('repair-gate observe-only'),
     'audit should keep naming all remaining blockers after character-soul passes',
+  );
+
+  const amPmOnlyPendingAudit = auditSources({
+    worklog: 'Next Alan <-> Umi playtest should confirm greeting behavior. | pending fresh sample |',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    goalAudit: `
+Overall: PENDING
+- PASS local_fallback_blocked: ok
+- PASS no_fresh_fallback_contamination: ok
+- PASS no_fresh_motif_or_hygiene_loop: ok
+- PENDING yesterday_matters_signal: sample pending
+- PASS night_quiet_not_forced: ok
+`,
+    repairGate: `
+## Decision
+
+- Change size: observe_only
+- Fresh triad samples: 3
+- Blocked reasons: am_pm_sample_pending
+
+## Evidence
+
+- Active fallback pollution count: 0
+- Fresh fallback markers: 0
+`,
+    rubric: `
+Decision: BLOCKED
+
+## Summary
+
+- Fresh triad samples: 3
+
+## v0.1 Blockers
+
+- AM->PM continuity is WARN / sample_pending
+`,
+    amPm: `
+## Summary
+
+- Status: WARN
+- Decision: sample_pending
+- Afternoon sample count: 0
+- AM residue candidates: 9
+- PM callbacks found: 0
+`,
+    life: `
+## Summary
+
+- Status: PASS
+- Decision: life_signal_observed
+- Ordinary-scene conversations: 1
+- Daily rhythm conversations: 3
+- Pilot expected action match rate: 0.83
+- Pilot action collapse flags: 1
+`,
+    recent: 'Post-fix summary: 0 PASS / 2 WARN / 1 FAIL',
+    preflight: '# preflight',
+  });
+  assert(
+    amPmOnlyPendingAudit.requirements.find((item) => item.id === 'motif_hygiene_and_repair_gate')
+      ?.status === 'PENDING',
+    'motif/repair gate should be pending when only AM-PM evidence is missing',
   );
 
   const passAudit = auditSources(

@@ -69,9 +69,17 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   const runtimeHealth = bullet(approachReport, 'Runtime health');
   const modelPolicyEnv = bullet(approachReport, 'Model policy env');
   const amPm = bullet(approachReport, 'AM→PM continuity');
+  const topFailureCategory = bullet(approachReport, 'Top failure category');
+  const freshLifeSignals = parseStatusDecision(bullet(approachReport, 'Fresh-window life signals'));
   const amPmStatus = parseStatusDecision(amPm);
   const recentCounts = parseRecentSummary(recentReport);
   const soulCounts = statusCounts(soulRows);
+  const hardEchoPenalty =
+    echoPenalty > 0 &&
+    (topFailureCategory === 'echo_repetition' ||
+      ['prop_echo_repeated', 'life_signal_repeated', 'conversation_shape_collapse'].includes(
+        freshLifeSignals.decision ?? '',
+      ));
 
   const blockers = [];
   if (runtimeHealth && runtimeHealth !== 'ok') blockers.push('runtime health is not ok');
@@ -79,13 +87,20 @@ function reconcileReports({ soulReport, recentReport, approachReport }) {
   if (freshSamples < 3) blockers.push(`fresh sample count is ${freshSamples}, below 3`);
   if (activeFallbackPollution > 0 || freshFallbackMarkers > 0) blockers.push('fallback pollution is visible in current evidence');
   if (stageLeak > 0) blockers.push('stage-direction leak is present in fresh samples');
-  if (echoPenalty > 0) blockers.push('soul-triad echo penalty is present in fresh samples');
+  if (hardEchoPenalty) blockers.push('soul-triad echo penalty is present in fresh samples');
   if (soulCounts.FAIL > 0) blockers.push('soul-triad harness has FAIL rows');
   if (amPmStatus.status && (amPmStatus.status !== 'PASS' || amPmStatus.decision !== 'continuity_observed')) {
     blockers.push(`AM->PM continuity is ${amPmStatus.status} / ${amPmStatus.decision ?? 'unknown'}`);
   }
 
   const qualityGaps = qualityGapsFromComparisons(comparisons);
+  if (echoPenalty > 0 && !hardEchoPenalty) {
+    qualityGaps.push({
+      category: 'soft_echo_rubric_gap',
+      count: 1,
+      meaning: 'soul-triad echo heuristic fired, but life-signals did not find repeated props, repeated lines, or shape collapse',
+    });
+  }
   const decision =
     blockers.length > 0 ? 'BLOCKED' : qualityGaps.length > 0 ? 'HUMAN_REVIEW_READY' : 'PASS_ALIGNED';
   const nextAction =
@@ -423,6 +438,22 @@ function runSelfTest() {
   const weakResult = reconcileReports({ soulReport: soul, recentReport: recent, approachReport: weakApproach });
   assertEqual(weakResult.decision, 'BLOCKED', 'weak AM->PM continuity blocks v0.1 reconciliation');
   assertEqual(weakResult.blockers[0], 'AM->PM continuity is WARN / weak_continuity', 'AM->PM blocker expected');
+
+  const softEchoApproach = [
+    '- Fresh triad samples: 3',
+    '- Top failure category: eval_rubric_disagreement',
+    '- Runtime health: ok',
+    '- Model policy env: ok',
+    '- Active fallback pollution count: 0',
+    '- Fresh fallback markers: 0',
+    '- Stage-direction leak sum: 0.00',
+    '- Echo penalty sum: 1.00',
+    '- Fresh-window life signals: PASS / life_signal_observed',
+    '- AM→PM continuity: PASS / continuity_observed',
+  ].join('\n');
+  const softEchoResult = reconcileReports({ soulReport: soul, recentReport: recent, approachReport: softEchoApproach });
+  assertEqual(softEchoResult.decision, 'HUMAN_REVIEW_READY', 'soft echo disagreement should route to human review');
+  assertEqual(softEchoResult.blockers.length, 0, 'soft echo should not block v0.1 reconciliation');
   console.log('[underworld-rubric-reconcile:self-test] PASS');
 }
 
