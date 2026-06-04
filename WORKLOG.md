@@ -55,13 +55,16 @@ historical evidence is needed.
   reports human-review quality gaps (`voice_rubric_gap` /
   `reply_binding_rubric_gap`) that should not trigger prompt auto-fixes before
   Alan playtest.
-- As of 2026-06-04 10:10 CDT, local runtime/tooling readiness is stronger but
+- As of 2026-06-04 10:15 CDT, local runtime/tooling readiness is stronger but
   still not v0.1 completion proof: `npm run underworld:afternoon-world-ready`
   can resume an `inactive` default world without overriding `stoppedByDeveloper`;
   the active Codex afternoon heartbeat runs at 13:05/14:05/15:05/16:05 CDT; and
   `npm run underworld:v01-afternoon-gate` uses full collection only for the
   first same-day afternoon pass, then read-only AM->PM/life/repair/rubric/
-  completion refresh for later same-day passes.
+  completion refresh for later same-day passes. A 10:15 no-sample readiness
+  pass resumed the default world from `inactive` to `running`, then `npm run
+  underworld:heartbeat -- --once` reported `heartbeat_ok: yes` and kept the
+  world `running -> running`.
 - Alan-facing playtest evidence is still pending. The ignored local artifact
   `umi/reports/alan-facing-v01-playtest-latest.md` now exists as a non-passing
   `PARTIAL` draft, and `umi/reports/alan-playtest-candidates-latest.md` reports
@@ -76,6 +79,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:15 CDT: Refreshed daytime runtime readiness without collecting
+  samples before the afternoon evidence window. `world:defaultWorldStatus`
+  showed the default world had drifted to `inactive`; `npm run
+  underworld:afternoon-world-ready` resumed it, and `npm run
+  underworld:heartbeat -- --once` wrote
+  `umi/reports/underworld-heartbeat-latest.log` with `heartbeat_ok: yes` and
+  `status_before: running` / `status_after: running`. A fresh completion audit
+  still returned expected `PENDING` with 0 fail / 3 pending / 5 pass, so v0.1
+  remains active pending afternoon AM->PM evidence and Alan-facing playtest.
+  Verification: `npx convex run world:defaultWorldStatus` (running); `npm run
+  underworld:v01-completion-audit` (expected PENDING).
 - 2026-06-04 10:10 CDT: Added a read-only Alan-facing playtest candidate
   scanner so the remaining human gate can search for real existing Alan/Umi
   evidence before asking Alan to repeat a playtest. `npm run
