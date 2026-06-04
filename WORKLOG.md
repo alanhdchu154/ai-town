@@ -83,6 +83,17 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 10:29 CDT: Ran the current pre-afternoon no-sample readiness path
+  again under the updated heartbeat policy. `npm run
+  underworld:afternoon-world-ready` found the default world already `running`;
+  `npm run underworld:heartbeat -- --once` wrote
+  `umi/reports/underworld-heartbeat-latest.log` with `heartbeat_ok: yes` and
+  `status_before: running` / `status_after: running`; `world:defaultWorldStatus`
+  confirmed `running`. A fresh completion audit remained expected `PENDING`
+  with 0 fail / 3 pending / 5 pass. No code or prompt repair was justified.
+  Verification: `npm run underworld:afternoon-world-ready`; `npm run
+  underworld:heartbeat -- --once`; `npx convex run world:defaultWorldStatus`;
+  `npm run underworld:v01-completion-audit` (expected PENDING).
 - 2026-06-04 10:26 CDT: Closed a pre-afternoon automation prompt gap. The
   active Codex heartbeat schedule now includes 11:05/11:35 in addition to the
   12:05/12:35 and 13:05-16:35 half-hour passes
