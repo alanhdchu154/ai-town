@@ -299,11 +299,17 @@ stack to a second LaunchAgent:
 ~/Library/LaunchAgents/com.giis.underworld.dev-stack.plist
 ```
 
-It runs every day at local Mac time 06:00 and calls:
+It runs every 2 hours (`StartInterval 7200`) and calls:
 
 ```bash
 bash umi/underworld_morning_healthcheck.sh
 ```
+
+The running schedule lives in the LaunchAgent plist; a tracked copy is kept at
+`umi/com.giis.underworld.morning-healthcheck.plist`. Running every 2 hours (not
+just once at 06:00) keeps the world resumed through the day, so if the engine
+goes `inactive`/`stoppedByDeveloper` it is brought back within ~2h and characters
+keep developing instead of sitting idle until the next morning.
 
 Behavior:
 
