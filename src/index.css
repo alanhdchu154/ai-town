@@ -1432,9 +1432,9 @@ body {
 }
 
 .giis-live-room-shell.giis-conversation-active .giis-utility-panel {
-  bottom: 1rem;
+  bottom: max(3rem, calc(env(safe-area-inset-bottom) + 2.5rem));
   left: 50%;
-  max-height: min(58vh, 36rem);
+  max-height: min(60dvh, 38rem);
   max-width: min(72rem, calc(100% - 2rem));
   overflow: visible;
   padding: 0;
@@ -1833,21 +1833,21 @@ body {
   }
 
   .giis-live-room-shell.giis-conversation-active .giis-utility-panel {
-    bottom: 0;
-    left: 0;
-    max-height: 78vh;
-    max-width: none;
-    right: auto;
+    bottom: max(1.5rem, calc(env(safe-area-inset-bottom) + 1.25rem));
+    left: 0.65rem;
+    max-height: calc(100dvh - 3rem - env(safe-area-inset-bottom));
+    max-width: calc(100% - 1.3rem);
+    right: 0.65rem;
     transform: none;
-    width: 100%;
+    width: auto;
   }
 
   .giis-side-conversation-panel-active {
-    border-radius: 18px 18px 0 0;
+    border-radius: 18px;
     grid-template-columns: 1fr;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
-    max-height: 78vh;
-    min-height: 62vh;
+    max-height: calc(100dvh - 3rem - env(safe-area-inset-bottom));
+    min-height: min(72dvh, 34rem);
   }
 
   .giis-side-conversation-panel-active .giis-side-conversation-header {
@@ -2220,9 +2220,9 @@ body {
 .giis-vn-panel .giis-chat-input-bubble {
   background: rgba(15, 23, 42, 0.08);
   border-radius: 14px;
+  bottom: 1rem;
   padding: 0.35rem;
   position: sticky;
-  bottom: 0;
 }
 
 .giis-conversation-active .giis-focus-card {
@@ -2312,7 +2312,7 @@ body {
   display: grid;
   grid-template-columns: minmax(11rem, 0.28fr) minmax(0, 0.72fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
-  max-height: min(58vh, 36rem);
+  max-height: min(60dvh, 38rem);
   min-height: min(42vh, 30rem);
 }
 
@@ -2533,7 +2533,7 @@ body {
 .giis-side-conversation-body .giis-chat-input-bubble {
   background: rgba(15, 23, 42, 0.08);
   border-radius: 14px;
-  bottom: 0;
+  bottom: 1rem;
   margin-top: auto;
   padding: 0.35rem;
   position: sticky;

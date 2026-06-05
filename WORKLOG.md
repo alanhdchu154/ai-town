@@ -73,6 +73,13 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 14:57 CDT: Fixed the conversation panel sitting too low in
+  `/ai-town`. Conversation-active utility panel now uses `dvh` height and
+  safe-area-aware bottom spacing; mobile/narrow layouts keep side margins and
+  no longer pin the dialogue panel flush to the viewport bottom; sticky chat
+  input bubbles now keep a 1rem bottom gap. Verified with `npm run build` and
+  Chrome at `http://localhost:5173/ai-town`: entered active conversation mode
+  and confirmed the input area is visible above the viewport bottom.
 - 2026-06-04 12:38 CDT: Replaced the hard AM/PM continuity dependency with a
   rolling two-hour continuity gate for v0.1. Added
   `scripts/underworld-rolling-continuity.mjs`, wired package scripts, refreshed
