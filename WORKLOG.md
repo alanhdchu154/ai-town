@@ -109,9 +109,10 @@ historical evidence is needed.
   exists); remaining scheduled jobs are benign (dev-stack, 6am morning
   healthcheck which writes a log and does not commit, 9am Codex daily-project-sync
   thread). Retired the dead readiness-ritual scripts that only existed to feed
-  that cron — moved `underworld-v01-afternoon-gate`, `-afternoon-world-ready`,
+  that cron — `underworld-v01-afternoon-gate`, `-afternoon-world-ready`,
   `-v01-goal-audit`, `-day-start`, `-approach-v01`, `-heartbeat` and
-  `run_v01_approach_loop.sh` to `scripts/archive/` and removed 10 npm entries.
+  `run_v01_approach_loop.sh` deleted (recoverable from git history at `a14090d`)
+  and removed 10 npm entries.
   Underworld npm scripts: 40 -> 30. Proven safe: the real v0.1 gate
   (`underworld:v01-completion-audit`) depends only on `rolling-continuity`, and
   no kept script / .sh / automation referenced the retired drivers. Fixed

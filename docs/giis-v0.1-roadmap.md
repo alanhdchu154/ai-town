@@ -101,8 +101,9 @@ Optional diagnostics (run on demand, never required to "prove readiness"):
 `:repair-gate`, `:rubric-reconcile`, `:runtime-preflight`, `:am-pm-continuity`.
 
 The heartbeat / afternoon-gate readiness ritual and its cron were retired on
-2026-06-05 (scripts moved to `scripts/archive/`); do not reintroduce scheduled
-"readiness pulse" commits. Use `WORKLOG.md` for handoffs and verification.
+2026-06-05 (scripts deleted; recoverable from git history at commit `a14090d`);
+do not reintroduce scheduled "readiness pulse" commits. Use `WORKLOG.md` for
+handoffs and verification.
 
 ## Deferred
 
