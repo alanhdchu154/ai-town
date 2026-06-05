@@ -2245,6 +2245,11 @@ function UmiBriefingCard({
         fallback="今天校園還算平靜。先選一位角色聊聊。"
       />
       <BriefingSection
+        title="今日生活小事"
+        items={briefing?.dailyLifeBulletin ?? umiBriefing?.dailyLifeBulletin}
+        fallback="今天還沒有整理出明確的生活小事。"
+      />
+      <BriefingSection
         title="最近玩家行動"
         items={briefing?.recentPlayerActions ?? briefing?.yourActions}
         fallback="你目前沒有新的玩家行動。"

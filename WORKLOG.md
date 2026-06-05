@@ -70,9 +70,41 @@ historical evidence is needed.
 - At 2026-06-04 12:38 CDT, the latest completion audit is authoritative:
   v0.1 is still `PENDING` with 0 fail / 1 pending / 7 pass, waiting only on
   Alan-facing playtest PASS or explicit Alan/product-owner defer.
+- At 2026-06-04 21:25 CDT, the Alan->海 / Alan->天澤 chats from earlier tonight
+  still cannot be fully judged from durable evidence because the reports only
+  have Alan-side `human_chat_not_archived` orphan sessions. The runtime queue
+  root cause is now narrowed: Alan message writes could leave conversation
+  inputs pending while the default world engine was inactive. `messages.writeMessage`
+  now wakes/kicks the engine after queuing `finishSendingMessage`, and
+  `school:debugInputQueue` confirms the prior pending input is completed and
+  the world is running. This should protect future Alan-character transcripts,
+  but it does not reconstruct old missing character replies.
+- Daily life density now has a bounded v0.1-aligned layer: `enterCampus` and
+  `advanceWorldTime` ensure one same-day `dailyLifeBulletinItem` set with four
+  ordinary school-life items, Umi briefing exposes `dailyLifeBulletin`, and
+  `npm run underworld:life-density` writes an observer report. Current report is
+  `WARN / conversation_uptake_pending`: density exists, but characters have not
+  yet naturally mentioned the new bulletin items in fresh dialogue.
 
 ## Work Log
 
+- 2026-06-04 21:25 CDT: Fixed the next archival/runtime risk behind Alan-facing
+  chats and added a small daily life-density layer. `messages.writeMessage` now
+  wakes or kicks the world engine after queuing `finishSendingMessage`, while
+  respecting `stoppedByDeveloper`, so user chat inputs should not sit pending
+  when the world is inactive. Added daily life bulletin generation with four
+  ordinary school events per day, wired it into Umi's briefing and the briefing
+  UI, and added `npm run underworld:life-density` / self-test. Verified the
+  old pending queue item completed after `school:enterCampus`, Umi briefing now
+  lists today's life items, and the new density report is `WARN` only because
+  conversation uptake is still pending. Completion audit remains expected
+  `PENDING` with 0 fail / 1 pending / 7 pass because Alan-facing playtest
+  evidence is not complete. Verification: `npx tsc --noEmit --pretty false`,
+  `npm run build`, `npm run underworld:life-density:self-test`,
+  `npm run underworld:life-density`, `npx convex run school:enterCampus`,
+  `npx convex run school:debugInputQueue`, `npx convex run school:umiBriefing`,
+  `npx convex run school:recentConversationEvalData`, `npm run
+  underworld:v01-completion-audit` (expected PENDING), `git diff --check`.
 - 2026-06-04 20:10 CDT: Fixed the "find Alan / start talking while Alan is
   away" UX gap. `/ai-town` now has a topbar `找到 Alan` control; character
   navigation, scene switching, selected-character chat, and character-card chat

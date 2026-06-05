@@ -1401,6 +1401,17 @@ function dailyCampusFocusItems(
   return items.slice(0, 3);
 }
 
+function compactDailyLifeBulletinZh(event: { descriptionZh: string }) {
+  const cleaned = trimZhSentence(naturalizeSchoolText(event.descriptionZh) ?? event.descriptionZh);
+  const match = cleaned.match(/今日生活小事（(.+?)）：「(.+?)」。(.+)/);
+  if (!match) return compactBriefingEventZh({ descriptionZh: cleaned });
+  const [, periodZh, titleZh, body] = match;
+  const firstSentence = body.split(/[。；]/).map((item) => item.trim()).find(Boolean) ?? body;
+  const periodStripped = firstSentence.replace(/^(早晨|午餐時|午餐|放學後|晚上)[，,]/, '').trim();
+  const compactBody = periodStripped.replace(new RegExp(`^${titleZh}[，,。；]?`), '').trim();
+  return compactBody ? `${periodZh}：${titleZh}，${compactBody}` : `${periodZh}：${titleZh}`;
+}
+
 type CampusEventThread = {
   titleZh: string;
   locationId: string;
@@ -1410,6 +1421,19 @@ type CampusEventThread = {
   interpretationZh: string;
   reactionDialogueZh: string;
   futureImplicationsZh: string;
+};
+
+type DailyLifePeriod = 'morning' | 'lunch' | 'afterSchool' | 'evening';
+
+type DailyLifeBulletinItem = {
+  period: DailyLifePeriod;
+  periodZh: string;
+  titleZh: string;
+  locationId: string;
+  locationZh: string;
+  involvedNames: string[];
+  descriptionZh: string;
+  angleZh: string;
 };
 
 function campusEventThreadForClock(clock: Clock, timeZone = 'America/Chicago', now = Date.now()): CampusEventThread | undefined {
@@ -1534,6 +1558,181 @@ async function maybeSeedCampusEventThread(
   }
   activities.push(thread.descriptionZh);
   implications.push(thread.futureImplicationsZh);
+}
+
+function dailyLifeBulletinForClock(clock: Clock, timeZone = 'America/Chicago', now = Date.now()): DailyLifeBulletinItem[] {
+  const rhythm = schoolDayRhythmContext(now, timeZone);
+  const rotations = [
+    [
+      {
+        period: 'morning',
+        periodZh: '早晨',
+        titleZh: '第一節前有人忘了帶筆記',
+        locationId: 'classroom',
+        involvedNames: ['Mahiru', 'Tianze'],
+        descriptionZh: '第一節前，有位學生翻書包翻到一半突然安靜下來，真晝先把自己的筆記本推過去，天澤則挑眉問他是不是又想裝沒事。',
+        angleZh: '真晝會先靠近，天澤會測試那句「沒事」是不是真的。',
+      },
+      {
+        period: 'lunch',
+        periodZh: '午餐',
+        titleZh: '餐廳多出一個沒人坐的空位',
+        locationId: 'aiClubRoom',
+        involvedNames: ['Liu Bei', 'Umi'],
+        descriptionZh: '午餐時，餐廳有個原本留好的空位一直空著；劉備多拿了一份湯，海把這件事記進今天的簡報。',
+        angleZh: '劉備會把空位變成邀請，海會提醒 Alan 不要把午餐也變成待辦。',
+      },
+      {
+        period: 'afterSchool',
+        periodZh: '放學後',
+        titleZh: '放學後有人把窗邊椅子挪遠',
+        locationId: 'courtyard',
+        involvedNames: ['Ichinose', 'CaoCao'],
+        descriptionZh: '放學後，中央庭院窗邊的椅子被人挪遠了一點；一之瀨假裝沒看見，曹操卻注意到那個位置讓某個學生比較敢坐下。',
+        angleZh: '一之瀨會戳破表面的沒看見，曹操會在意位置有沒有保護到人。',
+      },
+      {
+        period: 'evening',
+        periodZh: '晚上',
+        titleZh: '宿舍門口留了一杯溫水',
+        locationId: 'dormitory',
+        involvedNames: ['Mahiru', 'Umi'],
+        descriptionZh: '晚上，宿舍門口多了一杯溫水和一張沒署名的紙條；真晝沒有追問，海只提醒大家今晚別把疲憊講成理性。',
+        angleZh: '真晝會留在附近，海會把節奏降下來。',
+      },
+    ],
+    [
+      {
+        period: 'morning',
+        periodZh: '早晨',
+        titleZh: '點名時有人回答慢了半拍',
+        locationId: 'classroom',
+        involvedNames: ['Umi', 'CaoCao'],
+        descriptionZh: '早晨點名時，有位學生回答慢了半拍；海沒有立刻追問，只在簡報上標了一個小記號，曹操則看見班上幾個人同時轉頭。',
+        angleZh: '海會減少壓力，曹操會觀察秩序裡誰被看見。',
+      },
+      {
+        period: 'lunch',
+        periodZh: '午餐',
+        titleZh: '有人把炸雞分給隔壁桌',
+        locationId: 'aiClubRoom',
+        involvedNames: ['Liu Bei', 'Ichinose'],
+        descriptionZh: '午餐時，有人把最後一塊炸雞分給隔壁桌；劉備笑著說一起吃比較好，一之瀨則小聲吐槽這種善意也會欠人情。',
+        angleZh: '劉備會把它當邀請，一之瀨會看見善意裡的邊界。',
+      },
+      {
+        period: 'afterSchool',
+        periodZh: '放學後',
+        titleZh: '小考錯題被留在黑板角落',
+        locationId: 'classroom',
+        involvedNames: ['Tianze', 'Mahiru'],
+        descriptionZh: '放學後，黑板角落還留著一道小考錯題；天澤把題目往前推半步，真晝則先問那位學生今天有沒有吃飯。',
+        angleZh: '天澤會測理解破綻，真晝會先確認人是不是撐得住。',
+      },
+      {
+        period: 'evening',
+        periodZh: '晚上',
+        titleZh: '校長室的燈比平常早關',
+        locationId: 'studentCouncilRoom',
+        involvedNames: ['Umi', 'Ichinose'],
+        descriptionZh: '晚上，校長室的燈比平常早關；海把待辦縮成三行，一之瀨路過時只說了一句：總算不像在跟宇宙開會。',
+        angleZh: '海會替 Alan 減量，一之瀨會用吐槽提醒邊界。',
+      },
+    ],
+    [
+      {
+        period: 'morning',
+        periodZh: '早晨',
+        titleZh: '宿舍走廊有人晚起',
+        locationId: 'dormitory',
+        involvedNames: ['Mahiru', 'Umi'],
+        descriptionZh: '早晨，宿舍走廊有人晚起，鞋帶還沒綁好就說自己沒事；真晝把聲音放低，海只把第一件事排到午餐後。',
+        angleZh: '真晝會注意身體狀態，海會把任務往後挪。',
+      },
+      {
+        period: 'lunch',
+        periodZh: '午餐',
+        titleZh: '餐盤被端到錯的桌上',
+        locationId: 'aiClubRoom',
+        involvedNames: ['Umi', 'Tianze'],
+        descriptionZh: '午餐時，有個餐盤被端到錯的桌上；海順手端回去，天澤卻笑著問：如果大家都假裝沒看見，錯位是不是就會變成規則。',
+        angleZh: '海會把小混亂收掉，天澤會測規則是不是只是習慣。',
+      },
+      {
+        period: 'afterSchool',
+        periodZh: '放學後',
+        titleZh: '庭院有人練習一句沒說完的話',
+        locationId: 'courtyard',
+        involvedNames: ['Ichinose', 'Liu Bei'],
+        descriptionZh: '放學後，庭院有人反覆練習一句沒說完的話；一之瀨沒有插手，劉備只把旁邊的位置留空。',
+        angleZh: '一之瀨會守住不要代說，劉備會用位置邀請對方慢慢來。',
+      },
+      {
+        period: 'evening',
+        periodZh: '晚上',
+        titleZh: '宿舍有人沒有回晚安',
+        locationId: 'dormitory',
+        involvedNames: ['Mahiru', 'CaoCao'],
+        descriptionZh: '晚上，宿舍有人沒有回晚安；真晝留意到那扇門後太安靜，曹操則把走廊聲音放輕，免得大家假裝沒發生。',
+        angleZh: '真晝會留在附近，曹操會讓走廊不要變成壓力。',
+      },
+    ],
+  ] as const;
+  const picked = rotations[clock.day % rotations.length];
+  const weekendPrefix = rhythm.isWeekend ? '週末版本：' : '';
+  return picked.map((item) => {
+    const location = SchoolLocations.find((candidate) => candidate.id === item.locationId) ?? SchoolLocations[0];
+    return {
+      ...item,
+      locationZh: location.labelZh,
+      involvedNames: [...item.involvedNames],
+      descriptionZh: `${weekendPrefix}${item.descriptionZh}`,
+    };
+  });
+}
+
+async function ensureDailyLifeBulletin(
+  ctx: MutationCtx,
+  world: Doc<'worlds'>,
+  descriptions: Map<string, Doc<'playerDescriptions'>>,
+  clock: Clock,
+  presenceDuringSimulation: AlanPresenceStatus,
+  timeZone = 'America/Chicago',
+) {
+  const existing = (
+    await ctx.db
+      .query('worldEvents')
+      .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'dailyLifeBulletinItem'))
+      .order('desc')
+      .take(20)
+  ).filter((event) => event.clock?.day === clock.day);
+  if (existing.length >= 3) return existing.length;
+
+  const observerPlayerIds = world.players.map((player) => player.id);
+  for (const item of dailyLifeBulletinForClock(clock, timeZone, clock.lastUpdated)) {
+    if (existing.some((event) => event.descriptionZh.includes(`「${item.titleZh}」`))) continue;
+    const primaryName = item.involvedNames[0] ?? 'Umi';
+    const primary = findPlayerByName(world.players, descriptions, primaryName);
+    await appendRecentEvent(ctx, world._id, {
+      type: 'dailyLifeBulletinItem',
+      actorPlayerId: primary?.id,
+      actorName: primaryName,
+      source: 'world_simulation_event',
+      happenedDuringAlanPresence: presenceDuringSimulation,
+      observerPlayerIds,
+      descriptionZh: `今日生活小事（${item.periodZh}）：「${item.titleZh}」。${item.descriptionZh}`,
+      descriptionEn: `Daily life bulletin (${item.period}): ${item.titleZh}`,
+      locationId: item.locationId,
+      locationZh: item.locationZh,
+      interpretationZh: '這不是主線事件，而是今天校園可以被不同角色自然提起的小生活脈絡。',
+      reactionDialogueZh: campusThreadReactionLine(item.titleZh, item.involvedNames),
+      futureImplicationsZh: `${item.angleZh} 之後對話若碰到今天，可以提一個細節，不要每個人都重複同一段摘要。`,
+      outcomeQuality: 'meaningful_new_information',
+      importance: 6,
+      clock,
+    });
+  }
+  return 4;
 }
 
 function storyDigestFromActivities(activities: string[], pressure: WorldPressure): StoryDigestItem[] {
@@ -5255,6 +5454,7 @@ export const enterCampus = mutation({
       await ctx.db.insert('alanPresence', { worldId: world._id, ...payload });
     }
     await ensureDailyOpeningEvent(ctx, refreshedWorld, refreshedDescriptions, clock);
+    await ensureDailyLifeBulletin(ctx, refreshedWorld, refreshedDescriptions, clock, 'online', timeZone);
     const engine = await ctx.db.get(worldStatus.engineId);
     if (engine) {
       if (!engine.running) {
@@ -5513,10 +5713,24 @@ export const umiBriefing = query({
       .filter((event) => event.outcomeQuality !== 'repeated_noise')
       .map(displayWorldEvent)
       .filter(isTodayEvent);
+    const dailyLifeBulletinEvents = (
+      await ctx.db
+        .query('worldEvents')
+        .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'dailyLifeBulletinItem'))
+        .order('desc')
+        .take(8)
+    )
+      .filter((event) => event.outcomeQuality !== 'repeated_noise')
+      .map(displayWorldEvent)
+      .filter(isTodayEvent)
+      .sort((a, b) => (a.clock?.hour ?? 0) - (b.clock?.hour ?? 0) || (a.createdAt ?? 0) - (b.createdAt ?? 0));
     const events = [
       ...latestDailyOpening,
+      ...dailyLifeBulletinEvents,
       ...recentBriefingEvents.filter(
-        (event) => !latestDailyOpening.some((dailyEvent) => dailyEvent.eventId === event.eventId),
+        (event) =>
+          !latestDailyOpening.some((dailyEvent) => dailyEvent.eventId === event.eventId) &&
+          !dailyLifeBulletinEvents.some((dailyEvent) => dailyEvent.eventId === event.eventId),
       ),
     ];
     const importantEvents = events.filter((event) => event.importance >= 7);
@@ -5590,6 +5804,7 @@ export const umiBriefing = query({
           ),
         ].map(compactBriefingRisk).slice(0, 3)
       : ['今天先看誰變安靜、誰在硬撐、誰還記得昨天那句話。'];
+    const dailyLifeBulletin = dailyLifeBulletinEvents.map(compactDailyLifeBulletinZh);
     const dailyFocus = dailyCampusFocusItems(events, worldPressure, clock);
     const suggestedActions = suggestedNextActions(events, worldPressure);
     const principalTasks = principalTasksFromEvents(events, worldPressure);
@@ -5613,7 +5828,12 @@ export const umiBriefing = query({
       principalTasks.find((task) => task.targetCharacter)?.targetCharacter ??
       (worldPressure.studentAnxiety >= 50 ? 'Mahiru' : 'Umi');
     const oneThing = principalTasks[0]?.title ?? suggestedActions[0] ?? '先觀察今天誰的心情變了，找海聽一段生活簡報';
-    const umiCoreBriefing = `海：「校長，昨天留下來的是：${trimZhSentence(
+    const todayLifeLine = dailyLifeBulletin[0]
+      ? dailyLifeBulletin.slice(0, 2).join('；')
+      : dailyFocus[0] ?? '今天校園還在累積生活小事';
+    const umiCoreBriefing = `海：「校長，今天先看這些小事：${trimZhSentence(
+      todayLifeLine,
+    )}。昨天留下來的是：${trimZhSentence(
       mostImportant,
     )}。今天最該注意的是：${trimZhSentence(biggestRisk)}。你先找 ${displayNameZh(
       personToTalk,
@@ -5654,6 +5874,7 @@ export const umiBriefing = query({
         worldPressure,
         pressureInsight,
         dailyFocus,
+        dailyLifeBulletin,
         risks,
         suggestions: suggestedActions,
         principalTasks,
@@ -5665,6 +5886,7 @@ export const umiBriefing = query({
       worldPressure,
       pressureInsight,
       dailyFocus,
+      dailyLifeBulletin,
       suggestedActions,
       principalTasks,
     };
@@ -6185,6 +6407,14 @@ async function advanceWorldTimeImpl(ctx: MutationCtx, hours: number, timeZone = 
     worldStartTimeZone: timeZone,
     worldClock: visibleClock,
   });
+  await ensureDailyLifeBulletin(
+    ctx,
+    world,
+    descriptions,
+    visibleClock,
+    alan ? 'online' : 'away',
+    timeZone,
+  );
   await moveCharactersForWorldTime(ctx, world, descriptions, visibleClock);
   const currentLocation = schoolLocationForClock(visibleClock);
   const alanIsOnline = !!alan;
@@ -7340,10 +7570,23 @@ export const campusSocialState = query({
         .order('desc')
         .take(1)
     ).map(displayWorldEvent).filter(isTodayEvent);
+    const dailyLifeBulletinEvents = (
+      await ctx.db
+        .query('worldEvents')
+        .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'dailyLifeBulletinItem'))
+        .order('desc')
+        .take(8)
+    )
+      .map(displayWorldEvent)
+      .filter(isTodayEvent)
+      .sort((a, b) => (a.clock?.hour ?? 0) - (b.clock?.hour ?? 0) || (a.createdAt ?? 0) - (b.createdAt ?? 0));
     const events = [
       ...latestDailyOpening,
+      ...dailyLifeBulletinEvents,
       ...recentEvents.filter(
-        (event) => !latestDailyOpening.some((dailyEvent) => dailyEvent.eventId === event.eventId),
+        (event) =>
+          !latestDailyOpening.some((dailyEvent) => dailyEvent.eventId === event.eventId) &&
+          !dailyLifeBulletinEvents.some((dailyEvent) => dailyEvent.eventId === event.eventId),
       ),
     ];
     const displayStoredWorldLabel = (createdAt: number, _fallback?: string) =>
@@ -7492,6 +7735,7 @@ export const campusSocialState = query({
       worldMoodDescriptionZh: worldMoodDescriptionZh(worldPressure),
       alanBehaviorProfile,
       dailyFocus: dailyCampusFocusItems(events, worldPressure, socialClock),
+      dailyLifeBulletin: dailyLifeBulletinEvents.map(compactDailyLifeBulletinZh),
       today: {
         focus: dailyCampusFocusItems(events, worldPressure, socialClock)[0],
         moodZh: moodZh(worldPressure.mood),

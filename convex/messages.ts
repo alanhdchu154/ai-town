@@ -1,7 +1,9 @@
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { MutationCtx, mutation, query } from './_generated/server';
 import { insertInput } from './aiTown/insertInput';
+import { kickEngine, startEngine } from './aiTown/main';
 import { conversationId, playerId } from './aiTown/ids';
+import { Id } from './_generated/dataModel';
 
 const DEFAULT_CLOCK = {
   hour: 9,
@@ -17,6 +19,34 @@ const GIIS_WORLD_START_REAL_DATE = Date.UTC(2026, 4, 19, 5, 0, 0);
 function logGiisTiming(payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === 'production') return;
   console.log('[GIIS timing]', payload);
+}
+
+async function wakeWorldForConversationInput(ctx: MutationCtx, worldId: Id<'worlds'>) {
+  const worldStatus = await ctx.db
+    .query('worldStatus')
+    .withIndex('worldId', (q) => q.eq('worldId', worldId))
+    .first();
+  if (!worldStatus || worldStatus.status === 'stoppedByDeveloper') return;
+  const engine = await ctx.db.get(worldStatus.engineId);
+  if (!engine) return;
+  const now = Date.now();
+  if (worldStatus.status !== 'running') {
+    await ctx.db.patch(worldStatus._id, { status: 'running', lastViewed: now });
+  } else if (!worldStatus.lastViewed || worldStatus.lastViewed < now) {
+    await ctx.db.patch(worldStatus._id, { lastViewed: now });
+  }
+  try {
+    if (!engine.running) {
+      await startEngine(ctx, worldId);
+    } else {
+      await kickEngine(ctx, worldId);
+    }
+  } catch (error) {
+    console.warn('[GIIS timing] failed to wake world after conversation input', {
+      worldId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function localTimeParts(now = Date.now(), timeZone = 'America/Chicago') {
@@ -204,6 +234,7 @@ export const writeMessage = mutation({
       playerId: args.playerId,
       timestamp: Date.now(),
     });
+    await wakeWorldForConversationInput(ctx, args.worldId);
     logGiisTiming({
       action: 'writeMessage',
       phase: 'finishSendingInputTime',
