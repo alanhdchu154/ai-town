@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-04
+Last updated: 2026-06-04 (evening — conversation archival durability fix)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -56,6 +56,27 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 - Simple greetings should receive real greetings before analysis.
 - Corrections such as "不是依賴，是喜歡" must not be dodged with unrelated
   analogies.
+- Prerequisite (fixed 2026-06-04): Alan-facing chats must be durably recorded so
+  the playtest can be judged from evidence, not memory. See "Recently Hardened".
+
+## Recently Hardened (2026-06-04 evening)
+
+- Root cause of `human_chat_not_archived` orphan sessions found and fixed:
+  `leaveAlanConversationNow` and `leaveCampus` removed Alan's conversation by
+  directly patching `world.conversations`, which bypassed the engine's
+  `saveDiff` archival. The transcript and Alan's `chatMessage` timeline events
+  were orphaned and never written to `archivedConversations`. This is why
+  playtest chats "could not be recorded".
+- Archival is now a single shared helper, `archiveDeletedConversation`
+  (`convex/aiTown/game.ts`), called by both the engine diff loop and the two
+  direct-leave mutations, so a chat is recorded the same way no matter how it
+  ends. Covered by unit tests in `convex/aiTown/game.test.ts`.
+- Daily-life bulletin content moved out of `convex/school.ts` into
+  `data/dailyLifeBulletin.ts` (content vs. logic separation); the day selector
+  now wraps cleanly and is unit-tested in `data/dailyLifeBulletin.test.ts`.
+- Still open: the wakeWorld fix keeps the engine processing inputs, but verify
+  end-to-end that a fresh Alan chat now produces an `archivedConversations` row
+  on leave/leave-campus before trusting the playtest gate.
 
 ## Current Gates
 
@@ -67,7 +88,10 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
   `continuity_observed` unless Alan/product-owner explicitly defers the
   continuity gate.
 - Do at least one longer Alan playtest where yesterday is felt inside today's
-  conversation.
+  conversation. The transcript-durability blocker is now fixed, so this gate is
+  executable: chat, then leave, then confirm the conversation appears in
+  `recentConversationEvalData` as a real archived conversation (not an
+  `active_conversation_not_archived` / orphan session).
 - Use `WORKLOG.md` for current handoffs and verification evidence.
 
 ## Deferred
@@ -89,3 +113,5 @@ Before changing behavior, ask:
 2. Does this create or preserve emotional residue?
 3. Does this improve memory continuity without memory spam?
 4. Is there fresh evidence, or is the old sample only historical?
+5. Does this move a decision forward, or is it ceremony (heartbeat/readiness
+   commits) standing in for the one human action that is actually blocking?

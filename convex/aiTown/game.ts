@@ -150,6 +150,130 @@ export function deletedConversationArchiveDecisionForTest(args: {
   };
 }
 
+/**
+ * Archive (or intentionally drop) a conversation that has just been removed from
+ * the world. This is the single source of truth for turning a live conversation
+ * into a durable `archivedConversations` row, used both by the engine's
+ * `saveDiff` diff loop and by direct-leave mutations (e.g. Alan leaving a
+ * playtest chat) so transcripts are recorded the same way no matter how the
+ * conversation ended.
+ */
+export async function archiveDeletedConversation(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  conversation: Doc<'worlds'>['conversations'][number],
+  playerNames: Map<string, string>,
+  humanPlayers: Map<string, boolean>,
+): Promise<{ archived: boolean; reason: string }> {
+  const participants = conversation.participants.map((p) => p.playerId as GameId<'players'>);
+  let messages: Doc<'messages'>[] | undefined;
+  const loadMessages = async () => {
+    messages ??= await ctx.db
+      .query('messages')
+      .withIndex('conversationId', (q) =>
+        q.eq('worldId', worldId).eq('conversationId', conversation.id),
+      )
+      .collect();
+    return messages;
+  };
+  const deleteMessages = async () => {
+    for (const message of await loadMessages()) {
+      await ctx.db.delete(message._id);
+    }
+  };
+  const conversationMessages = await loadMessages();
+  const meaningfulMessages = conversationMessages.filter((message) => message.text.trim().length > 0);
+  const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
+  const humanInConversation = participants.some((participant) => humanPlayers.get(participant));
+  const hasCloudCharacter = participants.some((participant) => {
+    const name = playerNames.get(participant);
+    return typeof name === 'string' && isFreeWorldCloudCharacterName(name);
+  });
+  const participantNames = participants
+    .map((participant) => playerNames.get(participant))
+    .filter((name): name is string => typeof name === 'string');
+  const meaningfulMessageTexts = meaningfulMessages.map((message) => message.text);
+  const persistenceRejection = characterSoulPersistenceRejectionReason(
+    participantNames,
+    meaningfulMessageTexts,
+  );
+  const failedCharacterSoulPilot =
+    meaningfulMessages.length < 2 && isFailedCharacterSoulPilot(participants, playerNames);
+  const archiveDecision = deletedConversationArchiveDecisionForTest({
+    conversationNumMessages: conversation.numMessages,
+    meaningfulMessageCount: meaningfulMessages.length,
+    meaningfulAuthorCount: meaningfulAuthors.size,
+    humanInConversation,
+    hasCloudCharacter,
+    failedCharacterSoulPilot,
+    hasGeneratedFallbackText: conversationMessages.some((message) =>
+      isGeneratedFallbackText(message.text),
+    ),
+    persistenceRejection: persistenceRejection !== null,
+  });
+  if (persistenceRejection !== null && archiveDecision.deleteMessages) {
+    console.warn('Skipping archived conversation due to character-soul persistence guard', {
+      conversationId: conversation.id,
+      participantNames,
+      reason: persistenceRejection,
+      messageCount: meaningfulMessages.length,
+    });
+  }
+  if (!archiveDecision.archive) {
+    if (archiveDecision.deleteMessages) {
+      await deleteMessages();
+    }
+    return { archived: false, reason: archiveDecision.reason };
+  }
+  const lastMeaningfulMessage = meaningfulMessages.at(-1);
+  const lastMessage =
+    conversation.lastMessage ??
+    (lastMeaningfulMessage
+      ? {
+          author: lastMeaningfulMessage.author as GameId<'players'>,
+          timestamp: lastMeaningfulMessage._creationTime,
+        }
+      : undefined);
+  const archivedNumMessages = Math.max(conversation.numMessages, meaningfulMessages.length);
+  if (archiveDecision.reason === 'human_single_sided_diagnostic') {
+    console.warn('Archiving single-sided human conversation for diagnostic review', {
+      conversationId: conversation.id,
+      participantNames,
+      messageCount: meaningfulMessages.length,
+    });
+  }
+  const archivedConversation = {
+    worldId,
+    id: conversation.id,
+    created: conversation.created,
+    creator: conversation.creator,
+    ended: Date.now(),
+    lastMessage,
+    numMessages: archivedNumMessages,
+    participants,
+  };
+  await ctx.db.insert('archivedConversations', archivedConversation);
+  if (archiveDecision.writeParticipatedTogether) {
+    for (let i = 0; i < participants.length; i++) {
+      for (let j = 0; j < participants.length; j++) {
+        if (i == j) {
+          continue;
+        }
+        const player1 = participants[i];
+        const player2 = participants[j];
+        await ctx.db.insert('participatedTogether', {
+          worldId,
+          conversationId: conversation.id,
+          player1,
+          player2,
+          ended: Date.now(),
+        });
+      }
+    }
+  }
+  return { archived: true, reason: archiveDecision.reason };
+}
+
 export class Game extends AbstractGame {
   tickDuration = 16;
   stepDuration = 1000;
@@ -377,112 +501,7 @@ export class Game extends AbstractGame {
     }
     for (const conversation of existingWorld.conversations) {
       if (!newWorld.conversations.some((c) => c.id === conversation.id)) {
-        const participants = conversation.participants.map((p) => p.playerId as GameId<'players'>);
-        let messages: Doc<'messages'>[] | undefined;
-        const loadMessages = async () => {
-          messages ??= await ctx.db
-            .query('messages')
-            .withIndex('conversationId', (q) =>
-              q.eq('worldId', worldId).eq('conversationId', conversation.id),
-            )
-            .collect();
-          return messages;
-        };
-        const deleteMessages = async () => {
-          for (const message of await loadMessages()) {
-            await ctx.db.delete(message._id);
-          }
-        };
-        const conversationMessages = await loadMessages();
-        const meaningfulMessages = conversationMessages.filter((message) => message.text.trim().length > 0);
-        const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
-        const humanInConversation = participants.some((participant) => humanPlayers.get(participant));
-        const hasCloudCharacter = participants.some((participant) => {
-          const name = playerNames.get(participant);
-          return typeof name === 'string' && isFreeWorldCloudCharacterName(name);
-        });
-        const participantNames = participants
-          .map((participant) => playerNames.get(participant))
-          .filter((name): name is string => typeof name === 'string');
-        const meaningfulMessageTexts = meaningfulMessages.map((message) => message.text);
-        const persistenceRejection = characterSoulPersistenceRejectionReason(
-          participantNames,
-          meaningfulMessageTexts,
-        );
-        const failedCharacterSoulPilot =
-          meaningfulMessages.length < 2 && isFailedCharacterSoulPilot(participants, playerNames);
-        const archiveDecision = deletedConversationArchiveDecisionForTest({
-          conversationNumMessages: conversation.numMessages,
-          meaningfulMessageCount: meaningfulMessages.length,
-          meaningfulAuthorCount: meaningfulAuthors.size,
-          humanInConversation,
-          hasCloudCharacter,
-          failedCharacterSoulPilot,
-          hasGeneratedFallbackText: conversationMessages.some((message) =>
-            isGeneratedFallbackText(message.text),
-          ),
-          persistenceRejection: persistenceRejection !== null,
-        });
-        if (persistenceRejection !== null && archiveDecision.deleteMessages) {
-          console.warn('Skipping archived conversation due to character-soul persistence guard', {
-            conversationId: conversation.id,
-            participantNames,
-            reason: persistenceRejection,
-            messageCount: meaningfulMessages.length,
-          });
-        }
-        if (!archiveDecision.archive) {
-          if (archiveDecision.deleteMessages) {
-            await deleteMessages();
-          }
-          continue;
-        }
-        const lastMeaningfulMessage = meaningfulMessages.at(-1);
-        const lastMessage =
-          conversation.lastMessage ??
-          (lastMeaningfulMessage
-            ? {
-                author: lastMeaningfulMessage.author as GameId<'players'>,
-                timestamp: lastMeaningfulMessage._creationTime,
-              }
-            : undefined);
-        const archivedNumMessages = Math.max(conversation.numMessages, meaningfulMessages.length);
-        if (archiveDecision.reason === 'human_single_sided_diagnostic') {
-          console.warn('Archiving single-sided human conversation for diagnostic review', {
-            conversationId: conversation.id,
-            participantNames,
-            messageCount: meaningfulMessages.length,
-          });
-        }
-        const archivedConversation = {
-          worldId,
-          id: conversation.id,
-          created: conversation.created,
-          creator: conversation.creator,
-          ended: Date.now(),
-          lastMessage,
-          numMessages: archivedNumMessages,
-          participants,
-        };
-        await ctx.db.insert('archivedConversations', archivedConversation);
-        if (archiveDecision.writeParticipatedTogether) {
-          for (let i = 0; i < participants.length; i++) {
-            for (let j = 0; j < participants.length; j++) {
-              if (i == j) {
-                continue;
-              }
-              const player1 = participants[i];
-              const player2 = participants[j];
-              await ctx.db.insert('participatedTogether', {
-                worldId,
-                conversationId: conversation.id,
-                player1,
-                player2,
-                ended: Date.now(),
-              });
-            }
-          }
-        }
+        await archiveDeletedConversation(ctx, worldId, conversation, playerNames, humanPlayers);
       }
     }
     for (const conversation of existingWorld.agents) {
