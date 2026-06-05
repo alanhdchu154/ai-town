@@ -1403,13 +1403,10 @@ function dailyCampusFocusItems(
 
 function compactDailyLifeBulletinZh(event: { descriptionZh: string }) {
   const cleaned = trimZhSentence(naturalizeSchoolText(event.descriptionZh) ?? event.descriptionZh);
-  const match = cleaned.match(/今日生活小事（(.+?)）：「(.+?)」。(.+)/);
+  const match = cleaned.match(/今日生活小事（(.+?)）：「(.+?)」。/);
   if (!match) return compactBriefingEventZh({ descriptionZh: cleaned });
-  const [, periodZh, titleZh, body] = match;
-  const firstSentence = body.split(/[。；]/).map((item) => item.trim()).find(Boolean) ?? body;
-  const periodStripped = firstSentence.replace(/^(早晨|午餐時|午餐|放學後|晚上)[，,]/, '').trim();
-  const compactBody = periodStripped.replace(new RegExp(`^${titleZh}[，,。；]?`), '').trim();
-  return compactBody ? `${periodZh}：${titleZh}，${compactBody}` : `${periodZh}：${titleZh}`;
+  const [, periodZh, titleZh] = match;
+  return `${periodZh}：${titleZh}`;
 }
 
 type CampusEventThread = {

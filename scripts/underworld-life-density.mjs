@@ -140,11 +140,13 @@ function analyzeConversationUptake(eventAnalyses, conversations) {
       if (!matched) continue;
       const matchedCues = matched.cues.filter((cue) => text.includes(cue));
       const matchedTitleCues = matched.titleCues.filter((cue) => text.includes(cue));
+      const angle = inferMentionAngle(author, text);
       mentions.push({
         conversationId: conversation.conversationId ?? conversation.id,
         source: conversation.evidenceSource ?? 'unknown',
         author,
         titleZh: matched.titleZh,
+        angle,
         matchedCues,
         matchedTitleCues,
         text: compactText(text),
@@ -160,6 +162,7 @@ function summarize(eventAnalyses, mentions) {
   const locations = new Set(eventAnalyses.map((event) => event.locationZh).filter(Boolean));
   const speakers = new Set(mentions.map((mention) => mention.author));
   const mentionedTitles = new Set(mentions.map((mention) => mention.titleZh));
+  const angles = new Set(mentions.map((mention) => mention.angle).filter((angle) => angle !== 'unknown'));
   return {
     eventCount: eventAnalyses.length,
     uniqueTitleCount: uniqueTitles.size,
@@ -168,6 +171,7 @@ function summarize(eventAnalyses, mentions) {
     mentionCount: mentions.length,
     distinctSpeakerCount: speakers.size,
     mentionedTitleCount: mentionedTitles.size,
+    distinctAngleCount: angles.size,
   };
 }
 
@@ -180,7 +184,8 @@ function decideStatus(summary) {
   const uptakePass =
     summary.mentionCount >= 2 &&
     summary.distinctSpeakerCount >= 2 &&
-    summary.mentionedTitleCount >= 2;
+    summary.mentionedTitleCount >= 2 &&
+    summary.distinctAngleCount >= 2;
   if (!densityPass) {
     return { overall: 'FAIL', reason: 'daily_life_bulletin_density_missing', exitCode: 1 };
   }
@@ -208,6 +213,7 @@ async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bu
     `- Dialogue uptake mentions: ${summary.mentionCount}`,
     `- Distinct non-Alan speakers mentioning bulletin items: ${summary.distinctSpeakerCount}`,
     `- Distinct bulletin items mentioned in dialogue: ${summary.mentionedTitleCount}`,
+    `- Distinct uptake angles: ${summary.distinctAngleCount}`,
     `- Today archival verifier conversations included: ${archivalConversations.length}`,
     '',
     '## Today Life Bulletin',
@@ -229,7 +235,8 @@ async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bu
       ? mentionAnalyses.map((mention) => {
           const cues = mention.matchedCues?.length ? ` [cues: ${mention.matchedCues.join('、')}]` : '';
           const source = mention.source ? ` (${mention.source})` : '';
-          return `- ${mention.author}${source} -> ${mention.titleZh}${cues}: ${mention.text}`;
+          const angle = mention.angle ? ` {angle: ${mention.angle}}` : '';
+          return `- ${mention.author}${source} -> ${mention.titleZh}${angle}${cues}: ${mention.text}`;
         })
       : ['- uptake_pending: no recent non-Alan message clearly mentioned a bulletin item yet.']),
     '',
@@ -289,6 +296,33 @@ function lifeCuesFor(text) {
   const cues = LIFE_EVENT_CUES.filter((cue) => text.includes(cue));
   if (text.includes('端到錯')) cues.push('端錯');
   return [...new Set(cues)];
+}
+
+function inferMentionAngle(author, text) {
+  const combined = `${author} ${text}`;
+  if (hasAny(combined, ['規則', '秩序', '測試', '拆穿', '破綻', '慌張', '假裝沒看見'])) {
+    return 'rule_probe';
+  }
+  if (hasAny(combined, ['真晝', '擔心', '安靜', '沉默', '睡', '吃飯', '撐得住', '留在附近', '留意', '先借'])) {
+    return 'quiet_care';
+  }
+  if (hasAny(combined, ['減量', '待辦', '簡報', '排到', '壓力', '記下', '收掉'])) {
+    return 'load_reduction';
+  }
+  if (hasAny(combined, ['一起', '邀請', '留空', '位置留', '多拿', '湯', '慢慢來'])) {
+    return 'invitation_space';
+  }
+  if (hasAny(combined, ['邊界', '吐槽', '戳破', '代說', '沒有插手'])) {
+    return 'boundary_wit';
+  }
+  if (hasAny(combined, ['曹操', '位置', '走廊', '聲音放輕', '保護到人'])) {
+    return 'order_position';
+  }
+  return 'unknown';
+}
+
+function hasAny(text, candidates) {
+  return candidates.some((candidate) => text.includes(candidate));
 }
 
 async function convexRun(functionName, payload) {
@@ -353,7 +387,7 @@ function runSelfTest() {
   ];
   const mentions = analyzeConversationUptake(events, [
     { conversationId: 'a', messages: [{ authorName: '真晝', text: '第一節前有人忘了帶筆記，我先借他。' }] },
-    { conversationId: 'b', messages: [{ authorName: '劉備', text: '餐廳多出一個沒人坐的空位，我留著。' }] },
+    { conversationId: 'b', messages: [{ authorName: '劉備', text: '餐廳多出一個沒人坐的空位，我多拿一份湯，留一個位置慢慢來。' }] },
   ]);
   const summary = summarize(events, mentions);
   const status = decideStatus(summary);

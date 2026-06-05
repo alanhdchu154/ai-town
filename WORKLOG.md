@@ -95,9 +95,38 @@ historical evidence is needed.
   pending gate is Alan-facing Umi playtest quality; `npm run
   underworld:alan-playtest-check` still reports `NOT_PASS_READY` / `PARTIAL`
   with 0/5 PASS rows.
+- At 2026-06-04 21:47 CDT, the Alan-chat archival / daily-life bulletin goal is
+  complete by current evidence: a fresh 海 archival verifier run is `PASS`,
+  Umi briefing reads four concise same-day bulletin items without duplicated
+  body text, and `npm run underworld:life-density` requires and reports two
+  distinct uptake angles (`quiet_care` and `rule_probe`) before returning
+  `PASS / life_density_and_multi_angle_uptake_observed`.
 
 ## Work Log
 
+- 2026-06-04 21:47 CDT: Tightened the last proof gap for the Alan-chat archival
+  and daily-life bulletin goal. Simplified Umi briefing bulletin snippets to
+  period + title only, so items like the 庭院/餐盤 examples no longer repeat the
+  same phrase in the compact briefing. Strengthened
+  `npm run underworld:life-density` so `PASS` now requires at least two
+  distinct non-unknown uptake angles in addition to multiple events, speakers,
+  and mentioned bulletin items; the report now labels angles such as
+  `quiet_care` and `rule_probe`. Fresh evidence: `npm run
+  underworld:alan-chat-archival -- --target=Umi ...` passed with raw/eval Alan
+  marker plus 海 reply, `school:umiBriefing` showed four concise bulletin
+  items, and `npm run underworld:life-density` passed with four bulletin items,
+  four periods, three locations, two speakers, two mentioned items, and two
+  uptake angles. Main v0.1 completion audit remains expected `PENDING` only
+  because Alan-facing Umi playtest is still `PARTIAL` / 0 of 5 PASS.
+  Verification: `node --check scripts/underworld-life-density.mjs`, `npm run
+  underworld:life-density:self-test`, `npx tsc --noEmit --pretty false`,
+  `npm run build`, `npm run underworld:alan-chat-archival:self-test`, `node
+  --check scripts/underworld-alan-chat-archival.mjs`, `npm run
+  underworld:alan-chat-archival -- --target=Umi ...`, `npx convex run
+  school:umiBriefing`, `npm run underworld:life-density`, `npm run
+  underworld:v01-completion-audit` (expected PENDING), `npm run
+  underworld:alan-playtest-check` (expected NOT_PASS_READY), `git diff
+  --check`.
 - 2026-06-04 21:43 CDT: Completed the next Alan-character archival and daily
   life-density proof pass. `messages.writeMessage` now schedules the
   world-wakeup/kick in an internal mutation after queuing `finishSendingMessage`,
