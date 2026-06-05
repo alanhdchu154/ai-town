@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
-import { MutationCtx, mutation, query } from './_generated/server';
+import { MutationCtx, internalMutation, mutation, query } from './_generated/server';
+import { internal } from './_generated/api';
 import { insertInput } from './aiTown/insertInput';
 import { kickEngine, startEngine } from './aiTown/main';
 import { conversationId, playerId } from './aiTown/ids';
@@ -48,6 +49,13 @@ async function wakeWorldForConversationInput(ctx: MutationCtx, worldId: Id<'worl
     });
   }
 }
+
+export const wakeWorldForConversationInputAfterWrite = internalMutation({
+  args: { worldId: v.id('worlds') },
+  handler: async (ctx, args) => {
+    await wakeWorldForConversationInput(ctx, args.worldId);
+  },
+});
 
 function localTimeParts(now = Date.now(), timeZone = 'America/Chicago') {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -234,7 +242,9 @@ export const writeMessage = mutation({
       playerId: args.playerId,
       timestamp: Date.now(),
     });
-    await wakeWorldForConversationInput(ctx, args.worldId);
+    await ctx.scheduler.runAfter(0, internal.messages.wakeWorldForConversationInputAfterWrite, {
+      worldId: args.worldId,
+    });
     logGiisTiming({
       action: 'writeMessage',
       phase: 'finishSendingInputTime',

@@ -55,6 +55,8 @@
     "underworld:life-signals:self-test": "node scripts/underworld-life-signals.mjs --self-test",
     "underworld:life-density": "node scripts/underworld-life-density.mjs",
     "underworld:life-density:self-test": "node scripts/underworld-life-density.mjs --self-test",
+    "underworld:alan-chat-archival": "node scripts/underworld-alan-chat-archival.mjs",
+    "underworld:alan-chat-archival:self-test": "node scripts/underworld-alan-chat-archival.mjs --self-test",
     "underworld:cleanup-fallback-pollution:dry-run": "node scripts/underworld-cleanup-fallback-pollution.mjs",
     "underworld:approach:v01": "node scripts/underworld-approach-v01.mjs",
     "pilot:umi-mahiru:single-sample": "node scripts/run-umi-mahiru-single-sample.mjs",

@@ -82,12 +82,47 @@ historical evidence is needed.
 - Daily life density now has a bounded v0.1-aligned layer: `enterCampus` and
   `advanceWorldTime` ensure one same-day `dailyLifeBulletinItem` set with four
   ordinary school-life items, Umi briefing exposes `dailyLifeBulletin`, and
-  `npm run underworld:life-density` writes an observer report. Current report is
-  `WARN / conversation_uptake_pending`: density exists, but characters have not
-  yet naturally mentioned the new bulletin items in fresh dialogue.
+  `npm run underworld:life-density` writes an observer report. As of
+  2026-06-04 21:43 CDT, current report is `PASS /
+  life_density_and_multi_angle_uptake_observed`: four same-day ordinary events
+  across four periods / three locations, plus 海 and 天澤 mentioning different
+  bulletin items from different angles. The uptake proof uses current
+  `recentConversationEvalData` plus today's append-only
+  `alan-chat-archival-history.jsonl` verifier evidence because active test
+  conversations can be replaced by later targeted chats.
+- At 2026-06-04 21:43 CDT, the latest completion audit remains authoritative:
+  v0.1 is still `PENDING` with 0 fail / 1 pending / 7 pass. The only remaining
+  pending gate is Alan-facing Umi playtest quality; `npm run
+  underworld:alan-playtest-check` still reports `NOT_PASS_READY` / `PARTIAL`
+  with 0/5 PASS rows.
 
 ## Work Log
 
+- 2026-06-04 21:43 CDT: Completed the next Alan-character archival and daily
+  life-density proof pass. `messages.writeMessage` now schedules the
+  world-wakeup/kick in an internal mutation after queuing `finishSendingMessage`,
+  which kept Alan message writes lightweight and avoided the previous timeout
+  path. Added `npm run underworld:alan-chat-archival` /
+  `:self-test`; each verifier run writes the latest transcript report and
+  appends a compact same-day transcript proof to
+  `umi/reports/alan-chat-archival-history.jsonl`. Updated
+  `npm run underworld:life-density` to read current recent conversations plus
+  today's archival verifier history and to require cue-backed matches, so the
+  gate no longer passes on loose repeated motifs. Fresh 海 and 天澤 verifier
+  runs both passed with raw/eval transcripts containing Alan marker plus
+  post-marker character reply, and life-density is now `PASS /
+  life_density_and_multi_angle_uptake_observed`. Main v0.1 completion audit
+  remains expected `PENDING` with 0 fail / 1 pending / 7 pass, blocked only by
+  Alan-facing Umi playtest PASS or explicit Alan defer. Verification:
+  `node --check scripts/underworld-alan-chat-archival.mjs`, `node --check
+  scripts/underworld-life-density.mjs`, `npm run
+  underworld:alan-chat-archival:self-test`, `npm run
+  underworld:life-density:self-test`, `npm run underworld:alan-chat-archival`
+  for 海 and 天澤, `npm run underworld:life-density`, `npx convex run
+  school:umiBriefing`, `npm run underworld:alan-playtest-check` (expected
+  NOT_PASS_READY), `npm run underworld:v01-completion-audit` (expected
+  PENDING), `npx tsc --noEmit --pretty false`, `npm run build`, `git diff
+  --check`.
 - 2026-06-04 21:25 CDT: Fixed the next archival/runtime risk behind Alan-facing
   chats and added a small daily life-density layer. `messages.writeMessage` now
   wakes or kicks the world engine after queuing `finishSendingMessage`, while

@@ -6,7 +6,7 @@
 // started to pick them up from more than one character angle.
 
 import { execFile } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -15,11 +15,41 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'life-density-latest.md');
+const ARCHIVAL_HISTORY_PATH = join(REPO_ROOT, 'umi', 'reports', 'alan-chat-archival-history.jsonl');
 
 const args = parseArgs(process.argv.slice(2));
 const SELF_TEST = args.get('self-test') === 'true';
 const TIME_ZONE = args.get('time-zone') ?? 'America/Chicago';
 const LIMIT = numberArg('limit', 80, 1, 200);
+
+const LIFE_EVENT_CUES = [
+  '第一節',
+  '筆記',
+  '點名',
+  '半拍',
+  '宿舍',
+  '走廊',
+  '鞋帶',
+  '晚起',
+  '晚安',
+  '餐廳',
+  '午餐',
+  '餐盤',
+  '端錯',
+  '桌上',
+  '空位',
+  '炸雞',
+  '庭院',
+  '練習',
+  '沒說完',
+  '椅子',
+  '窗邊',
+  '黑板',
+  '小考',
+  '校長室',
+  '燈',
+  '溫水',
+];
 
 if (SELF_TEST) {
   runSelfTest();
@@ -37,16 +67,32 @@ const [socialState, conversationData] = await Promise.all([
   }),
 ]);
 
+const archivalConversations = await readTodayArchivalConversations(TIME_ZONE);
+const conversations = [
+  ...(conversationData?.conversations ?? []).map((conversation) => ({
+    ...conversation,
+    evidenceSource: conversation.evidenceSource ?? 'recentConversationEvalData',
+  })),
+  ...archivalConversations,
+];
 const events = (Array.isArray(socialState?.events) ? socialState.events : []).filter(
   (event) => event.type === 'dailyLifeBulletinItem',
 );
 const bulletin = Array.isArray(socialState?.dailyLifeBulletin) ? socialState.dailyLifeBulletin : [];
 const eventAnalyses = events.map(analyzeBulletinEvent);
-const mentionAnalyses = analyzeConversationUptake(eventAnalyses, conversationData?.conversations ?? []);
+const mentionAnalyses = analyzeConversationUptake(eventAnalyses, conversations);
 const summary = summarize(eventAnalyses, mentionAnalyses);
 const status = decideStatus(summary);
 
-await writeReport({ socialState, eventAnalyses, mentionAnalyses, summary, status, bulletin });
+await writeReport({
+  socialState,
+  eventAnalyses,
+  mentionAnalyses,
+  summary,
+  status,
+  bulletin,
+  archivalConversations,
+});
 console.log(`[life-density] ${status.overall}: ${status.reason}`);
 console.log(`[life-density] report written: ${relative(REPORT_PATH)}`);
 if (status.exitCode) process.exitCode = status.exitCode;
@@ -56,7 +102,8 @@ function analyzeBulletinEvent(event) {
   const match = text.match(/今日生活小事（(.+?)）：「(.+?)」。(.+)/);
   const periodZh = match?.[1] ?? '未知';
   const titleZh = match?.[2] ?? text.slice(0, 24);
-  const keywords = [...new Set(titleZh.split(/[、，。；：：「」\s]/).filter((item) => item.length >= 2))];
+  const titleCues = lifeCuesFor(titleZh);
+  const cues = lifeCuesFor(`${titleZh} ${text}`);
   return {
     eventId: event.eventId,
     periodZh,
@@ -64,7 +111,8 @@ function analyzeBulletinEvent(event) {
     locationZh: event.locationZh,
     descriptionZh: text,
     futureImplicationsZh: event.futureImplicationsZh,
-    keywords,
+    titleCues,
+    cues,
   };
 }
 
@@ -83,13 +131,22 @@ function analyzeConversationUptake(eventAnalyses, conversations) {
       if (author === 'Alan' || author === 'DEFAULT_NAME') continue;
       const matched = eventAnalyses.find((event) => {
         if (event.titleZh && text.includes(event.titleZh)) return true;
-        return event.keywords.some((keyword) => text.includes(keyword));
+        const matchedTitleCues = event.titleCues.filter((cue) => text.includes(cue));
+        const matchedCues = event.cues.filter((cue) => text.includes(cue));
+        if (event.titleCues.length >= 2) return matchedTitleCues.length >= 2;
+        if (event.titleCues.length === 1) return matchedTitleCues.length >= 1 && matchedCues.length >= 2;
+        return false;
       });
       if (!matched) continue;
+      const matchedCues = matched.cues.filter((cue) => text.includes(cue));
+      const matchedTitleCues = matched.titleCues.filter((cue) => text.includes(cue));
       mentions.push({
         conversationId: conversation.conversationId ?? conversation.id,
+        source: conversation.evidenceSource ?? 'unknown',
         author,
         titleZh: matched.titleZh,
+        matchedCues,
+        matchedTitleCues,
         text: compactText(text),
       });
     }
@@ -133,7 +190,7 @@ function decideStatus(summary) {
   return { overall: 'PASS', reason: 'life_density_and_multi_angle_uptake_observed', exitCode: 0 };
 }
 
-async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bulletin }) {
+async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bulletin, archivalConversations }) {
   await mkdir(dirname(REPORT_PATH), { recursive: true });
   const lines = [
     '# GIIS Underworld Life Density',
@@ -151,6 +208,7 @@ async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bu
     `- Dialogue uptake mentions: ${summary.mentionCount}`,
     `- Distinct non-Alan speakers mentioning bulletin items: ${summary.distinctSpeakerCount}`,
     `- Distinct bulletin items mentioned in dialogue: ${summary.mentionedTitleCount}`,
+    `- Today archival verifier conversations included: ${archivalConversations.length}`,
     '',
     '## Today Life Bulletin',
     '',
@@ -168,11 +226,69 @@ async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bu
     '## Conversation Uptake',
     '',
     ...(mentionAnalyses.length
-      ? mentionAnalyses.map((mention) => `- ${mention.author} -> ${mention.titleZh}: ${mention.text}`)
+      ? mentionAnalyses.map((mention) => {
+          const cues = mention.matchedCues?.length ? ` [cues: ${mention.matchedCues.join('、')}]` : '';
+          const source = mention.source ? ` (${mention.source})` : '';
+          return `- ${mention.author}${source} -> ${mention.titleZh}${cues}: ${mention.text}`;
+        })
       : ['- uptake_pending: no recent non-Alan message clearly mentioned a bulletin item yet.']),
     '',
   ];
   await writeFile(REPORT_PATH, `${lines.join('\n')}\n`, 'utf8');
+}
+
+async function readTodayArchivalConversations(timeZone) {
+  let content = '';
+  try {
+    content = await readFile(ARCHIVAL_HISTORY_PATH, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
+  const today = localDateKey(new Date().toISOString(), timeZone);
+  return content
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return undefined;
+      }
+    })
+    .filter((entry) => {
+      if (!entry || entry.status !== 'PASS') return false;
+      if (localDateKey(entry.generatedAt, timeZone) !== today) return false;
+      return entry.summary?.evalHasAlanMarker && entry.summary?.evalHasPostMarkerReply;
+    })
+    .slice(-20)
+    .map((entry) => ({
+      id: `alan-chat-archival-${entry.conversationId ?? entry.marker}`,
+      conversationId: entry.conversationId,
+      evidenceSource: 'alan-chat-archival-history',
+      targetName: entry.targetName,
+      marker: entry.marker,
+      transcriptMessages: entry.evalTranscriptMessages?.length
+        ? entry.evalTranscriptMessages
+        : entry.rawTranscriptMessages ?? [],
+    }));
+}
+
+function localDateKey(iso, timeZone) {
+  const date = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(date.valueOf())) return 'invalid';
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function lifeCuesFor(text) {
+  const cues = LIFE_EVENT_CUES.filter((cue) => text.includes(cue));
+  if (text.includes('端到錯')) cues.push('端錯');
+  return [...new Set(cues)];
 }
 
 async function convexRun(functionName, payload) {
