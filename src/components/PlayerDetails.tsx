@@ -502,6 +502,7 @@ export default function PlayerDetails({
   const acceptInviteQueued = useSendInputQueued(engineId, 'acceptInvite');
   const rejectInviteQueued = useSendInputQueued(engineId, 'rejectInvite');
   const leaveAlanConversationNow = useMutation(api.school.leaveAlanConversationNow);
+  const enterCampus = useMutation(api.school.enterCampus);
   const kick = useAction(api.school.kick);
   const assignRole = useMutation(api.school.assignRole);
   const advanceWorldTime = useMutation(api.school.advanceWorldTime);
@@ -530,18 +531,22 @@ export default function PlayerDetails({
       : undefined;
   const canStartSelectedChat =
     targetPlayer &&
-    humanPlayer &&
-    targetPlayer.id !== humanPlayer.id &&
+    (!humanPlayer || targetPlayer.id !== humanPlayer.id) &&
     !humanConversation &&
     !targetConversation;
+  const ensureHumanPlayerId = async () => {
+    if (humanPlayer) return humanPlayer.id;
+    const result = await enterCampus({});
+    return result.playerId as GameId<'players'>;
+  };
   const queueConversationStart = async (label: string, inviteeId: GameId<'players'>) => {
-    if (!humanPlayer) return;
     const now = Date.now();
     if (now - lastConversationStartAtRef.current < 3000) return;
     lastConversationStartAtRef.current = now;
     await runWithStatus(label, async () => {
+      const playerId = await ensureHumanPlayerId();
       const queuedAt = performance.now();
-      await startConversationQueued({ playerId: humanPlayer.id, invitee: inviteeId });
+      await startConversationQueued({ playerId, invitee: inviteeId });
       if (import.meta.env.DEV) {
         console.debug('[GIIS timing]', {
           action: 'startConversation',
@@ -560,7 +565,7 @@ export default function PlayerDetails({
   };
 
   const onStartSelectedConversation = async () => {
-    if (!humanPlayer || !targetPlayer || !canStartSelectedChat) {
+    if (!targetPlayer || !canStartSelectedChat) {
       if (targetBusyDescription) {
         setActiveTab('dialogue');
         setActionSummary({
@@ -768,11 +773,12 @@ export default function PlayerDetails({
         });
         return;
       }
-      if (actionType === 'chat' && humanPlayer && actionTargetPlayer && !humanConversation) {
+      if (actionType === 'chat' && actionTargetPlayer && !humanConversation) {
         const now = Date.now();
         if (now - lastConversationStartAtRef.current < 3000) return;
         lastConversationStartAtRef.current = now;
-        await startConversationQueued({ playerId: humanPlayer.id, invitee: actionTargetPlayer.id });
+        const playerId = await ensureHumanPlayerId();
+        await startConversationQueued({ playerId, invitee: actionTargetPlayer.id });
         setActiveTab('dialogue');
       }
       const result: any = await toastOnError(
@@ -985,7 +991,7 @@ export default function PlayerDetails({
   }
   const isMe = humanPlayer && player.id === humanPlayer.id;
   const playerLocation = nearestSchoolLocation(player.position);
-  const canInvite = !isMe && !playerConversation && humanPlayer && !humanConversation;
+  const canInvite = !isMe && !playerConversation && !humanConversation;
   const sameConversation =
     !isMe &&
     humanPlayer &&
@@ -1009,12 +1015,13 @@ export default function PlayerDetails({
     humanStatus?.kind === 'participating';
 
   const onStartConversation = async () => {
-    if (!humanPlayer || !playerId) return;
+    if (!playerId) return;
     const inviteeId = playerId;
     await runWithStatus(
       `正在前往 ${displayAgentName(playerDescription?.name)}`,
       async () => {
-        await startConversationQueued({ playerId: humanPlayer.id, invitee: inviteeId });
+        const alanPlayerId = await ensureHumanPlayerId();
+        await startConversationQueued({ playerId: alanPlayerId, invitee: inviteeId });
       },
       'conversation:start',
     );

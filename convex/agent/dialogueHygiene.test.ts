@@ -44,6 +44,17 @@ describe('dialogue hygiene', () => {
     });
   });
 
+  test('strips pronoun action narration before Tianze-style speech', () => {
+    expect(stripStageDirectionsFromDialogue('她歪了一下頭，欸，你真的不怕我拆穿你嗎？')).toEqual({
+      line: '欸，你真的不怕我拆穿你嗎？',
+      strippedStageDirection: true,
+    });
+    expect(stripStageDirectionsFromDialogue('他挑了一下眉，先別把這句話當成沒事。')).toEqual({
+      line: '先別把這句話當成沒事。',
+      strippedStageDirection: true,
+    });
+  });
+
   test('strips parenthetical actions while preserving speech', () => {
     expect(stripStageDirectionsFromDialogue('（她看向窗外）我們先小聲一點。')).toEqual({
       line: '我們先小聲一點。',

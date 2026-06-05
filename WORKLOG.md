@@ -73,6 +73,21 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-04 20:10 CDT: Fixed the "find Alan / start talking while Alan is
+  away" UX gap. `/ai-town` now has a topbar `找到 Alan` control; character
+  navigation, scene switching, selected-character chat, and character-card chat
+  will auto-enter Alan before moving/starting a conversation when Alan is away.
+  Added a targeted dialogue hygiene guard for pronoun-led stage directions such
+  as `她歪了一下頭...`, preserving the spoken line. Also taught
+  `school:recentConversationEvalData` to include active, not-yet-archived
+  conversation messages when they exist. Latest raw eval data still showed
+  Alan->海 / Alan->天澤 sessions only as `human_chat_not_archived` Alan-side
+  timeline events, so full Alan-facing reply judgment still belongs to the
+  pending playtest / archival gate. Verified with
+  `npm test -- convex/agent/dialogueHygiene.test.ts`, `npm run build`,
+  `npm run eval:conversation:recent -- --since-last-change`, raw
+  `school:recentConversationEvalData`, `curl -I http://localhost:5173/ai-town`,
+  and `git diff --check`.
 - 2026-06-04 14:57 CDT: Fixed the conversation panel sitting too low in
   `/ai-town`. Conversation-active utility panel now uses `dvh` height and
   safe-area-aware bottom spacing; mobile/narrow layouts keep side margins and

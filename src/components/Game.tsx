@@ -113,6 +113,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
   const moveAlanTo = useMutation(api.school.moveAlanTo);
+  const enterCampus = useMutation(api.school.enterCampus);
   const humanTokenIdentifier = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
 
   const game = useServerGame(worldId);
@@ -287,22 +288,28 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       const scene = nearestSchoolLocation(target.position);
       if (scene) setSelectedSceneId(scene.id);
       if (detail.travel) {
-        if (!activeHuman) {
-          setSceneMessage(`Alan 目前離校。先按「進入校園」，再去找 ${targetName}。`);
-        } else if (game.world.playerConversation(activeHuman)) {
+        if (activeHuman && game.world.playerConversation(activeHuman)) {
           setSceneMessage('正在對話中。請先離開目前對話，再去找其他人。');
         } else {
           const destination = {
             x: Math.max(1, Math.min(game.worldMap.width - 2, Math.round(target.position.x + 1))),
             y: Math.max(1, Math.min(game.worldMap.height - 2, Math.round(target.position.y))),
           };
-          void moveAlanTo({ destination }).then((result) => {
+          void (async () => {
+            if (!activeHuman) {
+              await enterCampus({});
+            }
+            const result = await moveAlanTo({ destination });
             setSceneMessage(result.descriptionZh || `Alan 正在前往 ${targetName}。`);
-          }).catch((error) => {
+          })().catch((error) => {
             console.error('[GIIS travel to character failed]', error);
             setSceneMessage(`暫時無法前往 ${targetName}。`);
           });
-          setSceneMessage(`Alan 正在前往 ${targetName} 所在位置。`);
+          setSceneMessage(
+            activeHuman
+              ? `Alan 正在前往 ${targetName} 所在位置。`
+              : `先把 Alan 接回校園，再前往 ${targetName}。`,
+          );
         }
       } else {
         setSceneMessage(`已找到 ${targetName}。`);
@@ -311,7 +318,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     };
     window.addEventListener('giis:navigate-character', onCharacterNavigation);
     return () => window.removeEventListener('giis:navigate-character', onCharacterNavigation);
-  }, [game, humanTokenIdentifier, moveAlanTo, setSelectedElement]);
+  }, [enterCampus, game, humanTokenIdentifier, moveAlanTo, setSelectedElement]);
 
   if (!worldId || !engineId || !game) {
     return null;
@@ -587,18 +594,23 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       return;
     }
     setSelectedSceneId(nextId);
-    if (humanPlayer) {
-      const destination = nextScene.spawnPoints[0] ?? nextScene.position;
-      void moveAlanTo({ destination }).then((result) => {
+    const destination = nextScene.spawnPoints[0] ?? nextScene.position;
+    void (async () => {
+      if (!humanPlayer) {
+        await enterCampus({});
+      }
+      return moveAlanTo({ destination });
+    })().then((result) => {
         setSceneMessage(result.descriptionZh || `Alan 前往：${nextScene.labelZh}。`);
       }).catch((error) => {
         console.error('[GIIS scene travel failed]', error);
         setSceneMessage(`無法前往：${nextScene.labelZh}`);
       });
-    }
     focusOn(nextScene.position, 1.2);
     setSceneMessage(
-      `Alan 前往：${nextScene.labelZh}。此處有 ${nextGroup?.occupants.length ?? 0} 位角色。`,
+      humanPlayer
+        ? `Alan 前往：${nextScene.labelZh}。此處有 ${nextGroup?.occupants.length ?? 0} 位角色。`
+        : `先把 Alan 接回校園，再前往：${nextScene.labelZh}。`,
     );
     if (import.meta.env.DEV) {
       requestAnimationFrame(() => {
@@ -657,6 +669,22 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     );
     focusOn({ x: center.x / scenePlayers.length, y: center.y / scenePlayers.length }, 1.18);
     setSceneMessage(`已顯示 ${currentScene.labelZh} 的所有角色。`);
+  };
+  const focusAlan = () => {
+    if (alanPlayerForFocus) {
+      const scene = nearestSchoolLocation(alanPlayerForFocus.position);
+      switchSceneAndFocus(scene, alanPlayerForFocus.position, '已找到 Alan。', 1.55);
+      return;
+    }
+    void enterCampus({})
+      .then((result) => {
+        setSceneMessage(result.descriptionZh || 'Alan 已回到校園。');
+      })
+      .catch((error) => {
+        console.error('[GIIS enter campus for focus failed]', error);
+        setSceneMessage('暫時無法把 Alan 接回校園。');
+      });
+    setSceneMessage('正在把 Alan 接回校園。');
   };
   const openPanelTab = (tab: RightPanelTab) => {
     setPanelCollapsed(false);
@@ -756,6 +784,13 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
             </select>
           </label>
           <InteractButton />
+          <button
+            className="giis-presence-button giis-find-alan-button"
+            onClick={focusAlan}
+            title={alanPlayerForFocus ? '把鏡頭移到 Alan 所在位置' : 'Alan 離校時先接回校園'}
+          >
+            找到 Alan
+          </button>
           <div className="giis-topbar-meta">
             <span title={timeHoverLabel}>
               {periodLabel === '深夜'

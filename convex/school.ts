@@ -7972,8 +7972,81 @@ export const recentConversationEvalData = query({
         memoryTraces,
         outcomeQuality,
       });
-      if (conversations.length >= limit) break;
     }
+
+    for (const conversation of world.conversations) {
+      if (archivedConversationIds.has(String(conversation.id))) continue;
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      if (!messages.length) continue;
+
+      const participants = conversation.participants.map((participant) =>
+        nameByPlayerId(participant.playerId),
+      );
+      const participantSet = new Set(participants);
+      const hasAlanParticipant = participantSet.has(DEFAULT_NAME);
+      const messageEntries = messages.map((message) => ({
+        author: nameByPlayerId(message.author),
+        text: naturalizeSchoolText(message.text) ?? message.text,
+        timestampLabelZh: displayTimeLabel(message._creationTime, timeZone),
+        createdAt: message._creationTime,
+      }));
+      for (const message of messageEntries) {
+        archivedMessageKeys.add(archivedMessageKey(message.author, message.text, message.createdAt));
+      }
+      const transcriptEntries = messageEntries.sort((a, b) => a.createdAt - b.createdAt);
+      const transcriptSource = messagesPerConversation && !hasAlanParticipant
+        ? transcriptEntries.slice(-messagesPerConversation)
+        : transcriptEntries;
+      const transcriptMessages = transcriptSource.map((message) => ({
+        author: message.author,
+        text: message.text,
+        timestampLabelZh: message.timestampLabelZh,
+        createdAt: message.createdAt,
+      }));
+      const previewMessages = transcriptMessages.slice(-3);
+      const lastText = transcriptMessages.at(-1)?.text ?? '';
+      const createdAt = transcriptEntries.at(-1)?.createdAt ?? conversation.created;
+      const summaryZh = `${participants.join('、')} 仍在進行一段對話：「${lastText.slice(0, 48)}${
+        lastText.length > 48 ? '...' : ''
+      }」`;
+      const outcomeQuality = conversationOutcomeQualityFor(
+        transcriptMessages.map((message) => message.text).join('\n'),
+        summaryZh,
+      );
+
+      conversations.push(args.compact ? {
+        id: `active-conversation-${conversation.id}`,
+        kind: 'conversation',
+        diagnosticKind: 'active_conversation_not_archived',
+        createdAt,
+        involvedCharacters: participants,
+        transcriptMessages,
+        messageCount: transcriptEntries.length,
+        memoryTraces: [],
+        outcomeQuality,
+      } : {
+        id: `active-conversation-${conversation.id}`,
+        kind: 'conversation',
+        diagnosticKind: 'active_conversation_not_archived',
+        createdAt,
+        timestampLabelZh: displayTimeLabel(createdAt, timeZone),
+        involvedCharacters: participants,
+        summaryZh,
+        previewMessages,
+        transcriptMessages,
+        messageCount: transcriptEntries.length,
+        memoryTraces: [],
+        outcomeQuality,
+      });
+    }
+
+    conversations.sort((a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0));
+    const limitedConversations = conversations.slice(0, limit);
 
     const chatEventTake = Math.max(limit * 20, 120);
     const chatEvents = await ctx.db
@@ -8035,7 +8108,7 @@ export const recentConversationEvalData = query({
       });
 
     return {
-      conversations,
+      conversations: limitedConversations,
       orphanChatSessions,
       orphanChatEventCount: orphanChatEvents.length,
       checkedAt: Date.now(),

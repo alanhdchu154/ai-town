@@ -489,6 +489,11 @@ body {
   box-shadow: 0 0 18px color-mix(in srgb, var(--scene-accent, #22d3ee) 28%, transparent);
 }
 
+.giis-find-alan-button {
+  min-width: 5.8rem;
+  padding-inline: 0.7rem;
+}
+
 .giis-focus-card {
   background:
     radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 1.7px),
