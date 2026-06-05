@@ -80,19 +80,29 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 
 ## Current Gates
 
-- Accumulate fresh same-pair samples for Umi / Mahiru / Tianze; sample runners
-  still use the `Tianze` runtime key.
-- Run the latest v0.1 goal audit and soul/recent conversation evals before
-  claiming readiness.
-- Run `npm run underworld:rolling-continuity`; require PASS /
-  `continuity_observed` unless Alan/product-owner explicitly defers the
-  continuity gate.
-- Do at least one longer Alan playtest where yesterday is felt inside today's
-  conversation. The transcript-durability blocker is now fixed, so this gate is
-  executable: chat, then leave, then confirm the conversation appears in
-  `recentConversationEvalData` as a real archived conversation (not an
-  `active_conversation_not_archived` / orphan session).
-- Use `WORKLOG.md` for current handoffs and verification evidence.
+Keep this minimal. Only two gates block v0.1; everything else is an optional
+diagnostic to run when a question comes up, not a ritual to run on a schedule.
+
+Required for v0.1:
+
+1. `npm run underworld:v01-completion-audit` — the single source of truth.
+   Require no `fail`. It internally requires `npm run
+   underworld:rolling-continuity` PASS / `continuity_observed` unless
+   Alan/product-owner explicitly defers continuity.
+2. One real Alan playtest where yesterday is felt inside today's conversation.
+   The transcript-durability blocker is fixed, so this is executable: chat, then
+   leave, then confirm the conversation appears in `recentConversationEvalData`
+   as a real archived conversation (not an `active_conversation_not_archived` /
+   orphan session). Record it in `umi/reports/alan-facing-v01-playtest-latest.md`
+   and validate with `npm run underworld:alan-playtest-check`.
+
+Optional diagnostics (run on demand, never required to "prove readiness"):
+`underworld:observe`, `:life-density`, `:life-signals`, `:alan-chat-archival`,
+`:repair-gate`, `:rubric-reconcile`, `:runtime-preflight`, `:am-pm-continuity`.
+
+The heartbeat / afternoon-gate readiness ritual and its cron were retired on
+2026-06-05 (scripts moved to `scripts/archive/`); do not reintroduce scheduled
+"readiness pulse" commits. Use `WORKLOG.md` for handoffs and verification.
 
 ## Deferred
 
