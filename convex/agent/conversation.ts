@@ -139,6 +139,16 @@ function humanConversationCloudEnabled() {
   );
 }
 
+// When Alan talks to a character, only the soul/cloud characters
+// (Umi/Mahiru/Tianze/Ichinose) spend the paid cloud quota. Everyone else replies
+// with the local model, so Alan can talk to the whole cast without exhausting the
+// soul-triad cloud quota — quota exhaustion was a source of deterministic
+// fallback text leaking into memory. `playerName` here is always the character
+// generating the reply (Alan himself types, he is never the LLM speaker).
+function humanCloudSpeaker(playerName: string) {
+  return humanConversationCloudEnabled() && isFreeWorldCloudCharacterName(playerName);
+}
+
 function normalizedPilotName(name: string) {
   return name.toLowerCase().replace(/\s+/g, '');
 }
@@ -260,7 +270,7 @@ export async function startConversationMessage(
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   if (!pilotPair) prompt.push(lastPrompt);
   const companionCloud = companionMode && companionCloudEnabled();
-  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const humanCloud = humanInConversation && humanCloudSpeaker(player.name);
   const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
   const cloudConversation = Boolean(pilotPair) || freeWorldCloud || companionCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
@@ -454,7 +464,7 @@ export async function continueConversationMessage(
   llmMessages.push({ role: 'user', content: lastPrompt });
 
   const companionCloud = companionMode && companionCloudEnabled();
-  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const humanCloud = humanInConversation && humanCloudSpeaker(player.name);
   const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
   const cloudConversation = Boolean(pilotPair) || freeWorldCloud || companionCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);
@@ -555,7 +565,7 @@ export async function leaveConversationMessage(
   ];
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   llmMessages.push({ role: 'user', content: lastPrompt });
-  const humanCloud = humanInConversation && humanConversationCloudEnabled();
+  const humanCloud = humanInConversation && humanCloudSpeaker(player.name);
   const freeWorldCloud = !humanInConversation && freeWorldCloudSpeaker(player.name, otherPlayer.name);
   const cloudConversation = Boolean(pilotPair) || freeWorldCloud || humanCloud;
   const tuning = conversationGenerationTuning(player.name, Boolean(pilotPair), cloudConversation);

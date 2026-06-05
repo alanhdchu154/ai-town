@@ -16,6 +16,8 @@ This repo follows the global Central Umi coordination contract in `/Users/alanhd
 - Do not require a numeric token/budget cap by default for cc. Use bounded scope, allowed files, expected output, and stop conditions; ask for a hard cap only if extra paid usage is enabled, external paid services are involved, Alan requests one, or the task is too broad to checkpoint safely.
 - Prevent cc timeout by assigning one-pass tasks with exact allowed files and commands. Do not ask cc to run watch mode, long dev servers, full generation jobs, broad eval/browser suites, or full test suites unless explicitly scoped. If cc times out or the root cause is outside scope, stop and report a narrower retry instead of silently deciding or editing broadly.
 - Translate Alan's shorthand into repo terms before assigning cc. For example, if Alan says "we opened character settings; check whether code and goals align," first identify the current Underworld goal, `WORKLOG.md` state, changed files, likely character/settings directories, and whether cc should do all-current-diff alignment review, targeted file review, diagnosis, implementation, or verification.
+- For bug-hunt or alignment questions, cc should get a findings-first review pass over current git diff/status, `WORKLOG.md`, current goals, and relevant adjacent files. Do not over-narrow review to only the files Codex already suspects; let cc find regressions, missing tests, stale assumptions, and scope drift before implementation.
+- Preserve cc's independent review value. When Alan asks for broad "is this aligned / what changed / what problems do you see" feedback, Umi should first scout the repo, then hand cc the current change set, candidate directories, and open questions. Ask cc for top findings, recommended direction, and whether implementation should happen now, wait, or be narrowed.
 - Time-aware continuity applies. Old playtests, handoffs, and memory reports are historical evidence. When Alan asks about today, now, recently, or resumes an old thread, anchor to the current date/time and read current `WORKLOG.md`, handoffs, runtime evidence, or fresh eval output before answering as current.
 - Project-local rules in this file control the AI Town product behavior, Convex/Vite architecture, playtest ritual, and repo-specific verification.
 
@@ -185,7 +187,7 @@ python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600
 python umi/orchestrator.py run umi/workload.md --skip-codex --write --timeout 600
 ```
 
-Default is safe and report-producing. Add `--write` only when Alan has approved file edits for the workload.
+Default is safe and report-producing. Add `--write` only when `umi/workload.md` explicitly grants allowed changes for implementation, debugging, tests, refactor cleanup, or repo-local docs. Review/scouting passes stay read/report unless the handoff says otherwise.
 
 Reports are written to `umi/reports/`.
 

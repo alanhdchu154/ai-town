@@ -78,7 +78,7 @@ Last updated: 2026-05-31.
 |---|---|
 | A scope or acceptance decision | `docs/giis-v0.1-roadmap.md` (dated section) |
 | A session work log | `WORKLOG.md` (append on top) |
-| A new active CC handoff | `umi/workload.md` (overwrite — one task at a time) |
+| A new active CC handoff | `umi/workload.md` (overwrite — one task at a time, with pass type / Umi first look / current change set / open questions for cc) |
 | A character soul change | `docs/soul/pilots/<name>.md` + roadmap note |
 | A new command / script | Document it in `umi/COMMAND_REFERENCE.md` |
 | A new env var | `.env.local.example` + comment block where it's read |

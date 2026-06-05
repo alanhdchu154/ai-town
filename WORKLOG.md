@@ -104,6 +104,46 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-05 early CDT: Fixed the real "Alan chats are not recorded" root cause
+  and shifted memory toward forming more easily.
+  做了什麼:
+  (1) `leaveAlanConversationNow` and `leaveCampus` removed Alan's conversation by
+  patching `world.conversations` directly, bypassing the engine's `saveDiff`
+  archival, so transcripts + Alan `chatMessage` events were orphaned and never
+  reached `archivedConversations`. Extracted one shared `archiveDeletedConversation`
+  helper (`convex/aiTown/game.ts`) and call it before removal in both paths.
+  (2) Re-archived 14 orphaned two-sided Alan conversations and ran the normal
+  (deterministic) memory pipeline for them: 18 conversation memories written
+  (incl. older convos that never got a memory), 0 duplicates. The data was never
+  lost — it sat in `messages` — see `convex/underworldOrphanBackfill.ts`
+  (idempotent; `npx convex run underworldOrphanBackfill:run '{"dryRun":true}'`).
+  (3) Memory date label now uses the conversation's logical `created` instead of
+  the archive row `_creationTime`, so re-archived old chats are dated correctly.
+  (4) When Alan talks to a non-cloud character (anyone outside
+  Umi/Mahiru/Tianze/Ichinose) the reply now uses the local model instead of the
+  paid cloud quota — `humanCloudSpeaker` in `convex/agent/conversation.ts`. This
+  preserves soul-triad cloud quota and avoids the quota-exhaustion path that used
+  to leak deterministic fallback text into memory.
+  (5) The residue repeat-pattern suppression now applies only to autonomous
+  character↔character residues; Alan-facing residues always persist so a
+  recurring emotional theme with Alan can accumulate.
+  (6) Daily-life bulletin content moved to `data/dailyLifeBulletin.ts`.
+  為什麼: archival was the prerequisite for any real Alan-facing continuity; with
+  it broken, characters had no real memory and confabulated when asked to recall.
+  動到哪些檔案: `convex/aiTown/game.ts`, `convex/aiTown/game.test.ts`,
+  `convex/school.ts`, `convex/agent/memory.ts`, `convex/agent/conversation.ts`,
+  `convex/underworldOrphanBackfill.ts`, `data/dailyLifeBulletin.ts`(+test),
+  `docs/giis-v0.1-roadmap.md`.
+  驗證: `npx tsc --noEmit -p convex` clean; `npx jest` 148/148 pass; backfill
+  dry-run + run verified against the local default world; post-backfill snapshot
+  confirmed 14/14 archived, 18 memories with real 1024-dim deterministic
+  embeddings and correct dates, 0 duplicates; orphan sessions dropped 28 -> 21
+  (remainder are one-sided fragments / limit-window artifacts).
+  狀態: archival fix committed as `a35b546`; items (2)-(6) staged/uncommitted
+  pending Alan's go-ahead. NOTE: `MEMORY_LLM_MODE` / `MEMORY_EMBEDDING_MODE` are
+  still `deterministic` by design, so memory summaries are template recaps of the
+  real (LLM) conversation, not LLM reflections — flip those env vars separately
+  if richer memory is wanted.
 - 2026-06-04 21:47 CDT: Tightened the last proof gap for the Alan-chat archival
   and daily-life bulletin goal. Simplified Umi briefing bulletin snippets to
   period + title only, so items like the 庭院/餐盤 examples no longer repeat the

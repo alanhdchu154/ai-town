@@ -686,6 +686,11 @@ export async function rememberConversation(
     ms: Date.now() - summaryStart,
     player: player.name,
   });
+  // Use the conversation's logical start (`created`) rather than the DB row's
+  // `_creationTime`. They coincide for live conversations, but for a re-archived
+  // (backfilled) conversation `_creationTime` is the re-archive moment, which
+  // would mislabel an old chat as having happened "just now".
+  const conversationStartedAt = data.conversation.created ?? data.conversation._creationTime;
   const baseDescription = `與 ${otherPlayer.name} 在 ${new Intl.DateTimeFormat('zh-TW', {
     timeZone: 'America/Chicago',
     year: 'numeric',
@@ -693,7 +698,7 @@ export async function rememberConversation(
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(data.conversation._creationTime))} 的對話：${contentWithCommitment}`;
+  }).format(new Date(conversationStartedAt))} 的對話：${contentWithCommitment}`;
   const candidateResidue = deterministicResidueSentence(
     player,
     otherPlayer,
@@ -702,7 +707,13 @@ export async function rememberConversation(
     allowShortAutonomousSoulMemory,
   );
   let residue = candidateResidue;
-  if (candidateResidue) {
+  // Repeat-pattern gate applies only to autonomous (character↔character)
+  // residues, where a repeated opening prefix becomes a template the next prompt
+  // echoes back (the 2026-05-22 template cycle). Alan-facing residues are exempt:
+  // Alan's input varies enough that echo is not the failure mode, and these are
+  // the memories that most need to persist for continuity to feel real — so a
+  // recurring emotional theme with Alan is allowed to accumulate.
+  if (candidateResidue && !humanInConversation) {
     // Repeat-pattern gate: if the same pair's last two residues already
     // share this opening shape, skip writing a third one. Otherwise the
     // residue prefix becomes a template the next prompt will read back
