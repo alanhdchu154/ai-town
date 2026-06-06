@@ -10,8 +10,26 @@
 
 ## Abstract
 
-`[FILL — 150–200 words, write last]`
+We present **emotional residue**, a deliberately minimal memory pattern for
+persistent LLM-driven character agents, and report it as a design/systems
+contribution built on the AI Town / Generative Agents substrate. Instead of
+representing the aftermath of a conversation as a numeric affect state
+(`sadness +3`) or a full transcript summary, a qualifying conversation leaves a
+**single bounded, human-readable trace line** (e.g. *"殘留：海聽起來很累"* —
+*"residue: Umi sounded tired"*) inside the agent's memory. A later conversation
+between the same pair reads back up to two recent residue lines as *emotional
+pressure* that shapes what a character notices, avoids, or how short they reply —
+**never quoted verbatim**, and time-gated so that older traces cannot be spoken
+of as if they were recent. We situate the pattern in a five-layer soul model
+(Public / Private / Relational / Residue / Drift) with a differentiation rule
+that keeps multiple characters from collapsing into one voice, and evaluate it
+with a *reproducible, deterministic, rule-based* harness measuring soul
+uniqueness and rolling two-hour memory continuity, cross-checked against human
+annotation. The pattern is ablatable via two environment flags with no schema
+migration. We report `[FILL — N]` observations and an ablation `[FILL — result]`,
+and are explicit about what a single-player prototype does **not** establish.
 
+<!-- The paragraph below is the long-form skeleton claim; fold into the abstract above. -->
 Skeleton claim: We present **emotional residue**, a deliberately minimal memory
 pattern for persistent LLM-driven character agents. Instead of representing the
 aftermath of a conversation as a numeric affect state (`sadness +3`) or a full
@@ -156,18 +174,32 @@ In `residuePromptLines()` (`convex/agent/conversation.ts`):
 
 ### 4.5 Why a single human-readable line beats a number
 
-`[FILL — sharpen into the paper's thesis paragraph]`
-- Legible to a human reader without a decoder ring.
-- Carries *who* and *what kind of care*, which a scalar cannot.
-- Resists slogan-leak: a number invites the model to verbalize the number; a
-  trace invites the model to *act differently*.
-- Cheap, reversible, ablatable.
+Our central design argument is that the *unit* of emotional memory should be a
+trace, not a measurement. A scalar affect state (`sadness +3`) is legible to the
+engine but not to the world: it carries no *who* and no *kind of care*, so the
+model, asked to act on it, tends to verbalize it — the number leaks back out as a
+slogan ("你看起來 sadness 升高了"). A full transcript summary has the opposite
+failure: it is so complete that every callback becomes a quotation, which reads as
+recall, not memory. A single human-readable residue line sits between the two: it
+is small enough to resist quotation yet specific enough to redirect attention. It
+names the person and the texture of care ("Mahiru noticed I was still awake before
+I did"), which is exactly the content a believable callback needs and a scalar
+cannot hold. And because it is one bounded line in `memories.description` behind
+two env flags, it is cheap, reversible, and cleanly **ablatable** — the property
+that makes §5.2 possible at all. The claim is therefore not "residue is richer"
+but "residue is the *right size*": less memory, more felt.
 
 ## 5. Evaluation
 
-### 5.1 Soul-uniqueness markers (LLM-as-judge)
+### 5.1 Soul-uniqueness markers (rule-based, deterministic)
 
-From the eval harness (`evals/conversations/`, `eval:soul-triad`):
+**Honest framing:** the current markers are computed by *deterministic, rule-based*
+heuristics (`evaluateConversationCase`, `scoreConversation` in
+`evals/conversations/`), not by an LLM judge — `conversation_judge` is presently
+a documented rule-based stub. We frame this as a strength: the metric is
+reproducible and seed-free. An LLM judge is future work; in its place we validate
+the rule-based markers against **human annotation** (§5.x). From the harness
+(`eval:soul-triad`):
 
 | Marker | Measures |
 |---|---|
@@ -230,8 +262,17 @@ From the eval harness (`evals/conversations/`, `eval:soul-triad`):
 
 ## 8. Conclusion
 
-`[FILL — restate: less memory, more felt; a single human-readable trace as the
-unit of emotional continuity.]`
+Felt continuity in LLM-driven character agents does not require richer memory; it
+requires memory of the right size. We argued for **emotional residue** — a single
+bounded, human-readable trace, written once per qualifying conversation and read
+back as time-gated *pressure* rather than quotable content — as that unit, and
+showed it can live inside an ordinary AI-Town-style stack with no schema change
+and a clean two-flag ablation. The five-layer soul model gives the trace a place
+to be legible across multiple characters, and a deterministic, reproducible
+harness lets us measure whether characters stay distinct and whether yesterday
+surfaces today. We do not claim a validated player effect from a single-player
+prototype; we offer a pattern, an honest evaluation design, and an ablation others
+can re-run. *Less memory, more felt.*
 
 ---
 
