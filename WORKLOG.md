@@ -24,6 +24,7 @@ historical evidence is needed.
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
 | 5 | Post-role-change v0.1 rerun is now machine-gate ready but not fully complete. On 2026-06-04 12:37 CDT, `npm run underworld:rolling-continuity` replaced AM->PM as the primary recent-memory gate and passed: 10:00-12:00 source window -> 12:00-14:00 callback window, 28 source samples, 7 callback samples, 40 residue candidates, and 6 rolling callbacks. `npm run underworld:rubric-reconcile` is `HUMAN_REVIEW_READY` with no v0.1 blockers; `npm run underworld:v01-completion-audit` is `PENDING` with 0 fail / 1 pending / 7 pass. The only remaining completion gate is Alan-facing Umi playtest quality: fill/replace `umi/reports/alan-facing-v01-playtest-latest.md`, validate with `npm run underworld:alan-playtest-check`, then rerun completion audit. Do not call v0.1 complete unless that gate passes or Alan explicitly defers it. | Alan / Umi | active_pending_alan_playtest |
+| 6 | **Paper (emotional residue) — run the live experiments.** Cloud Claude finished everything that does not need a live LLM/world: paper skeleton + filled prose (`docs/paper/emotional-residue.md`), plan for external review (`docs/paper/PAPER_PLAN.md`), submission strategy (`docs/paper/SUBMISSION_STRATEGY.md`), runnable protocol (`docs/paper/EXPERIMENTS.md`), and an **offline-tested analysis pipeline** under `scripts/paper/` (`report_to_dataset.py` + `analyze.py`, both `--selftest` PASS, integration tested end-to-end on synthetic data). Codex action: run Exp 1–3 in `EXPERIMENTS.md` on the live world to produce `dataset.json` + `annotations.csv`, run `analyze.py`, and paste `results/*/summary.md` numbers into the `[FILL]` blocks of the paper. **Decision needed (PAPER_PLAN §9.1):** Exp 2 control = `UNDERWORLD_RESIDUE_READ=false` only (read-mechanism isolation, recommended) vs `WRITE+READ` both off. Codex is also asked to review `PAPER_PLAN.md` §9 (causal claim strength, sample size/power, venue tier, novelty defense vs Generative Agents). | Codex / Alan | ready_to_run |
 
 ## Current State Snapshot
 
@@ -103,6 +104,29 @@ historical evidence is needed.
   `PASS / life_density_and_multi_angle_uptake_observed`.
 
 ## Work Log
+
+- 2026-06-06 (cloud Claude session): Built the first-paper scaffold for the
+  emotional-residue work and handed the live-experiment half to Codex (see Open
+  Handoff #6). Added under `docs/paper/`: `emotional-residue.md` (angle-A
+  design/systems draft; abstract/intro/§4.5/§5.1/§8 prose written, numeric
+  `[FILL]` blocks left for real data), `PAPER_PLAN.md` (review-oriented plan with
+  a "Questions for Codex" section), `SUBMISSION_STRATEGY.md` (tiered venue table:
+  arXiv -> AIIDE EXAG/INT, FDG; CHI PLAY/DIS only with a player study), and
+  `EXPERIMENTS.md` (runnable protocol). Added `scripts/paper/`: `analyze.py`
+  (deterministic stats — bootstrap CIs, permutation test, Cliff's delta, weighted
+  Cohen's kappa / Krippendorff's alpha, Spearman convergent validity; guarded
+  matplotlib) and `report_to_dataset.py` (parses the existing `eval:soul-triad`
+  report table into the `dataset.json` contract). Important correction surfaced:
+  the soul markers are **rule-based/deterministic**, not "LLM-as-judge" as the
+  README implies (`conversation_judge` is a documented stub) — the paper now
+  frames them honestly and the README claim should be softened. Cloud has no
+  Ollama / no running world / Qwen returns 403, so no live samples were
+  collected; the live evals (Exp 1-3) must run on Codex/Alan's machine.
+  Verification: `python3 scripts/paper/report_to_dataset.py --selftest` PASS;
+  `python3 scripts/paper/analyze.py --selftest` PASS (planted residue effect
+  recovered, perm p<0.001, kappa 0.61, convergent rho 0.83); end-to-end
+  integration (synthetic soul-triad report -> report_to_dataset -> merge ->
+  analyze) produced full `results/` tables+figures. `npx tsc --noEmit` clean.
 
 - 2026-06-05 CDT: Slimmed gate ceremony. Confirmed the noisy heartbeat /
   afternoon-gate Codex cron is already gone (its automation dir no longer
