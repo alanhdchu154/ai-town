@@ -5,6 +5,21 @@ Last updated: 2026-06-04 (evening — conversation archival durability fix)
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
 
+## Paper Track Status (2026-06-10)
+
+- **Paper 1** (feasibility / systems contribution, `docs/paper/arxiv/main.tex`)
+  is **submitted to OSF**. Lane 1 is done.
+- **Paper 2** (the empirical residue read-on/off study) is **deferred**, not
+  started. We have no collected data and no confirmed effect yet. Do not write
+  it until: the 24/7 world has accumulated arm-pure on/off data over weeks, a
+  read-on vs read-off signal is actually visible, and human-annotation validity
+  is checked. Writing earlier just produces more protocol/audit docs.
+- The empirical apparatus under `docs/paper/` + `scripts/paper/` is **frozen** —
+  do not expand it (it is already over-built: ~17 audit scripts for one
+  feasibility paper). Consolidate toward ~4 audits only when Paper 2 is real.
+- During the wait the **product is primary**: keep the world running, do the
+  Alan playtest, and let continuity / ablation data accumulate as a by-product.
+
 ## Current Goal
 
 Ship the smallest emotional-continuity loop that makes Underworld feel alive:
@@ -102,8 +117,9 @@ Optional diagnostics (run on demand, never required to "prove readiness"):
 
 The heartbeat / afternoon-gate readiness ritual and its cron were retired on
 2026-06-05 (scripts deleted; recoverable from git history at commit `a14090d`);
-do not reintroduce scheduled "readiness pulse" commits. Use `WORKLOG.md` for
-handoffs and verification.
+do not reintroduce scheduled "readiness pulse" commits. Use `umi/workload.md`
+for active Codex/cc handoffs and `WORKLOG.md` for today / last few days of
+verification evidence.
 
 ## Deferred
 
