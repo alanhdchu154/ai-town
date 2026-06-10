@@ -256,6 +256,7 @@ export async function startConversationMessage(
     : [
         `You are ${player.name}, and you just started a conversation with ${otherPlayer.name}.`,
         `You are in GIIS Underworld, a minimal AI school simulation. Always speak in Traditional Chinese.`,
+        ...(dayAnchorPromptLine(clockContext) ? [dayAnchorPromptLine(clockContext)] : []),
         ...agentPrompts(otherPlayer, agent, otherAgent ?? null),
         ...characterSoulPrompt(player.name, otherPlayer.name),
         ...previousConversationPrompt(otherPlayer, lastConversation, clockContext),
@@ -407,6 +408,7 @@ export async function continueConversationMessage(
         `You are ${player.name}, and you're currently in a conversation with ${otherPlayer.name}.`,
         `Current local school time is ${promptClockLabel(clockContext)} in America/Chicago. The conversation started around ${formatPromptDateTime(conversation.created)}.`,
         `You are in GIIS Underworld, a minimal AI school simulation. Always speak in Traditional Chinese.`,
+        ...(dayAnchorPromptLine(clockContext) ? [dayAnchorPromptLine(clockContext)] : []),
         ...agentPrompts(otherPlayer, agent, otherAgent ?? null),
         ...characterSoulPrompt(player.name, otherPlayer.name),
         ...(companionMode ? companionChatPrompt('continue') : recentEventsPrompt(recentEvents)),
@@ -1064,6 +1066,7 @@ function compactAutonomousStartPrompt({
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
+    dayAnchorPromptLine(clockContext),
     `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
@@ -1133,6 +1136,7 @@ function compactAutonomousContinuePromptBase({
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
+    dayAnchorPromptLine(clockContext),
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName),
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
@@ -1891,6 +1895,16 @@ function localDateContextForPrompt(now = Date.now(), timeZone = 'America/Chicago
 function promptClockLabel(clockContext?: ClockContext) {
   if (!clockContext) return 'today, current local school time unknown';
   return `${clockContext.dateLabelZh ?? 'today'} ${clockContext.weekdayZh ?? ''} ${clockContext.periodLabelZh} (${clockContext.hour}:00 hour block)`;
+}
+
+// A hard, high-priority calendar anchor. Characters kept inventing the weekday
+// (e.g. saying "明天是週末" on a Wednesday). The calendar was already in the
+// prompt but buried among many bullets; this states it as a non-negotiable
+// constraint so the model stops guessing the day.
+function dayAnchorPromptLine(clockContext?: ClockContext): string {
+  if (!clockContext) return '';
+  const today = `${clockContext.dateLabelZh ?? '今天'}${clockContext.weekdayZh ? `（${clockContext.weekdayZh}）` : ''}`;
+  return `日期錨點（最高優先，不可違背）：今天是${today}，${clockContext.schoolDayTypeZh ?? '上課日'}。${clockContext.calendarHintZh ?? ''} 不要自行編造今天星期幾或是不是週末／假日，只能依這一行；除非這一行明確說今天或明天是週末，否則不要說「明天是週末」「快放假了」這類話。`;
 }
 
 function formatPromptDateTime(timestamp: number, timeZone = 'America/Chicago') {
