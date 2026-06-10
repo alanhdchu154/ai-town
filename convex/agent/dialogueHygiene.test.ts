@@ -18,6 +18,26 @@ describe('dialogue hygiene', () => {
     });
   });
 
+  test('keeps only quoted speech when narration is sandwiched between quotes', () => {
+    // Real Ichinose leak: quoted speech, first-person narration, more quoted
+    // speech. The narration verb (繫好) and description (眼神卻像溫柔的網) are not
+    // in the stage-direction whitelist, so quote-dominant extraction handles it.
+    expect(
+      stripStageDirectionsFromDialogue(
+        '「不要？那這頓飯可就不算免費了哦。」我輕輕把圍裙繫好，眼神卻像溫柔的網。「既然你堅持要我做洗碗工，那明天咖哩飯裡，我就多放點『懲罰』的鹽吧？」',
+      ),
+    ).toEqual({
+      line: '不要？那這頓飯可就不算免費了哦。既然你堅持要我做洗碗工，那明天咖哩飯裡，我就多放點『懲罰』的鹽吧？',
+      strippedStageDirection: true,
+    });
+  });
+
+  test('does not treat a short emphasis quote as the whole spoken line', () => {
+    // Here 「依賴」 is an emphasized word inside genuine speech, not the line.
+    const input = '你問得這麼直接，是怕我反悔，還是怕自己太「依賴」這份溫柔？';
+    expect(stripStageDirectionsFromDialogue(input).line).toBe(input);
+  });
+
   test('strips first-person physical action while preserving speech', () => {
     expect(stripStageDirectionsFromDialogue('我放下杯子。先不要急。')).toEqual({
       line: '先不要急。',

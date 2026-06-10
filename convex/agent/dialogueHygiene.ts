@@ -1,5 +1,18 @@
 export function stripStageDirectionsFromDialogue(line: string) {
   const withoutParentheticals = line.replace(/（[^）]{1,100}）|\([^)]{1,100}\)/g, '');
+  // General quote-dominant extraction. When the model wraps the spoken line(s)
+  // in 「」 and sandwiches first- or third-person narration outside the quotes
+  // (e.g. 「…」我輕輕把圍裙繫好，眼神卻像溫柔的網。「…」), keep only the quoted
+  // speech. This is more robust than the stage-direction verb whitelist, which
+  // misses creative narration verbs and pure description. Guarded so a short
+  // emphasis 「word」 inside otherwise-spoken text is not mistaken for the line.
+  const quoteDominant = quoteDominantSpeech(withoutParentheticals);
+  if (quoteDominant) {
+    return {
+      line: quoteDominant,
+      strippedStageDirection: true,
+    };
+  }
   const quotedSpeech = quotedSpeechFromThirdPersonNarration(withoutParentheticals);
   if (quotedSpeech) {
     return {
@@ -107,6 +120,25 @@ function knownCharacterStageDirectionClause(line: string) {
   return /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|歪頭|挑眉|眨眼|笑了?一下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$))/.test(
     trimmed,
   );
+}
+
+// Return the joined 「」 speech when the quotes dominate the line and there is
+// real (non-punctuation) narration text outside them. Returns '' when there are
+// no quotes, when nothing meaningful sits outside the quotes (already clean), or
+// when the quoted portion is smaller than the outside text (the 「」 is an
+// emphasis quote inside genuine speech, not the spoken line itself).
+function quoteDominantSpeech(line: string) {
+  const segments = [...line.matchAll(/「([^」]{1,240})」/g)]
+    .map((match) => match[1].trim())
+    .filter(Boolean);
+  if (!segments.length) return '';
+  const joined = segments.join('');
+  const outsideChars = line
+    .replace(/「[^」]*」/g, '')
+    .replace(/[\s，,。！？!?；;、…—\-～~]/g, '');
+  if (outsideChars.length === 0) return '';
+  if (joined.length < outsideChars.length) return '';
+  return joined;
 }
 
 function quotedSpeechFromThirdPersonNarration(line: string) {
