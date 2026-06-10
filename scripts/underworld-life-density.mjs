@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Underworld daily-life density observer.
+// GIIS Underworld daily-life density observer.
 //
 // This is read-only against Convex. It checks that the world has several
 // ordinary same-day school events and then reports whether recent dialogue has
@@ -198,7 +198,7 @@ function decideStatus(summary) {
 async function writeReport({ eventAnalyses, mentionAnalyses, summary, status, bulletin, archivalConversations }) {
   await mkdir(dirname(REPORT_PATH), { recursive: true });
   const lines = [
-    '# Underworld Life Density',
+    '# GIIS Underworld Life Density',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Overall: ${status.overall}`,

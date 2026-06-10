@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Umi orchestrator for AI Town / Underworld worker coordination.
+"""Umi orchestrator for AI Town / GIIS Underworld worker coordination.
 
 Umi keeps this intentionally small:
 - workload.md is the active contract
@@ -172,7 +172,7 @@ def build_claude_prompt(task_text: str, allow_write: bool, allow_upload: bool) -
         else "Do not upload, deploy, publish, post, email, or call external delivery tools."
     )
 
-    return f"""You are Claude Code working as Umi's focused worker for Alan's AI Town / Underworld repo.
+    return f"""You are Claude Code working as Umi's focused worker for Alan's AI Town / GIIS Underworld repo.
 
 Role:
 - Help with narrow repo audits, conversation-quality inspection, simulation QA, prompt review, or contained implementation tasks.
@@ -212,7 +212,7 @@ def build_codex_prompt(task_text: str, claude_stdout: str, allow_write: bool, al
         else "Do not upload, deploy, publish, post, email, or call external delivery tools."
     )
 
-    return f"""You are Codex working as Umi's engineering/review worker for Alan's AI Town / Underworld repo.
+    return f"""You are Codex working as Umi's engineering/review worker for Alan's AI Town / GIIS Underworld repo.
 
 Role:
 - Review Claude Code's output for repo alignment, implementation accuracy, safety, and integration risk.

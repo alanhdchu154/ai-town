@@ -1,8 +1,8 @@
 # Underworld Soul Docs
 
-This folder is the source of truth for Underworld character-soul design.
+This folder is the source of truth for GIIS Underworld character-soul design.
 
-Underworld v0.1 is a persistent emotional social simulation where
+GIIS Underworld v0.1 is a persistent emotional social simulation where
 characters slowly change through time, memory, relationships, and shared
 atmosphere.
 

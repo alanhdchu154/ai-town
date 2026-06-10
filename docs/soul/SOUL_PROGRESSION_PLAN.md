@@ -1,6 +1,6 @@
 # Underworld Soul Progression Plan
 
-Underworld is not only a conversation system. It is becoming a long-term
+GIIS Underworld is not only a conversation system. It is becoming a long-term
 emotional social simulation.
 
 The current Umi / Mahiru / Tianze soul definitions are important, but they are

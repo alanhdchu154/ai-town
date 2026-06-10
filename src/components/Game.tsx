@@ -736,7 +736,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       >
         <div className="giis-topbar">
           <div className="giis-topbar-title">
-            <span className="giis-kicker">Underworld</span>
+            <span className="giis-kicker">GIIS Underworld</span>
             <b>
               <span className="giis-period-glyph" aria-hidden="true">
                 {periodGlyph}

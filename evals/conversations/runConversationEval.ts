@@ -54,7 +54,7 @@ function printSummary(results: ConversationEvalResult[]) {
     warnings: result.warnings.length,
     notes: [...result.failures, ...result.warnings].slice(0, 2).join(' | ') || '-',
   }));
-  console.log('\nUnderworld Conversation Eval\n');
+  console.log('\nGIIS Underworld Conversation Eval\n');
   console.table(rows);
   const pass = results.filter((result) => result.status === 'PASS').length;
   const warn = results.filter((result) => result.status === 'WARN').length;

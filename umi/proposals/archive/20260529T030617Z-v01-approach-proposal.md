@@ -1,4 +1,4 @@
-# Underworld v0.1 Approach Proposal
+# GIIS Underworld v0.1 Approach Proposal
 
 Created: 2026-05-29T03:06:17.752Z
 Category: db_cleanup
@@ -99,7 +99,7 @@ Move the world closer to v0.1: yesterday emotionally matters, without optimizing
 ## Report Excerpt
 
 ```md
-# Underworld v0.1 Approach Report
+# GIIS Underworld v0.1 Approach Report
 
 Generated: 2026-05-29T03:01:47.360Z
 Mode: observe_once
@@ -230,7 +230,7 @@ Observe only. Do not modify code.
 - next safest action: Keep the world running during the morning window; do not repair prompts.
 
 ```md
-# Underworld AM -> PM Continuity Report
+# GIIS Underworld AM -> PM Continuity Report
 
 Generated: 2026-05-29T03:01:42.708Z
 Target date: 2026-05-28

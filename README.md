@@ -1,8 +1,8 @@
-# Underworld
+# GIIS Underworld
 
 > *A persistent emotional school simulation, where yesterday matters.*
 
-Underworld is a fork of [AI Town](https://github.com/a16z-infra/ai-town) reshaped around one question:
+GIIS Underworld is a fork of [AI Town](https://github.com/a16z-infra/ai-town) reshaped around one question:
 
 > Can characters remember, care, change, and leave emotional traces over time?
 
@@ -106,7 +106,7 @@ Alan is the player.
 
 ## What's different from AI Town
 
-| AI Town | Underworld |
+| AI Town | GIIS Underworld |
 |---|---|
 | Autonomous agents in a shared town | Characters developing continuity in a single school |
 | Focus on agents moving and talking | Focus on memory, residue, drift, silence, atmosphere |
@@ -131,7 +131,7 @@ A read-only archive of recent conversations across the cast. Top strip shows tot
 
 ## Soul architecture
 
-Underworld uses a five-layer soul model for each pilot character:
+GIIS Underworld uses a five-layer soul model for each pilot character:
 
 1. **Public Self** — what they show in front of others
 2. **Private Self** — what they wrestle with alone
@@ -381,9 +381,9 @@ Personal API keys live in `~/.config/giis-underworld/secrets.env` (chmod 600), *
 
 # AI Town foundation
 
-Underworld is forked from [_AI Town_](https://github.com/a16z-infra/ai-town), originally inspired by the research paper [_Generative Agents: Interactive Simulacra of Human Behavior_](https://arxiv.org/pdf/2304.03442.pdf). The original AI Town project provides a virtual town where AI characters live, chat, and socialize — its back-end provides shared global state, transactions, and a simulation engine that Underworld continues to build on.
+GIIS Underworld is forked from [_AI Town_](https://github.com/a16z-infra/ai-town), originally inspired by the research paper [_Generative Agents: Interactive Simulacra of Human Behavior_](https://arxiv.org/pdf/2304.03442.pdf). The original AI Town project provides a virtual town where AI characters live, chat, and socialize — its back-end provides shared global state, transactions, and a simulation engine that GIIS Underworld continues to build on.
 
-The remainder of this README — setup, LLM configuration, Docker / Fly.io deployment, troubleshooting — comes from the AI Town foundation and applies to Underworld with two notes:
+The remainder of this README — setup, LLM configuration, Docker / Fly.io deployment, troubleshooting — comes from the AI Town foundation and applies to GIIS Underworld with two notes:
 
 1. Default chat model is `qwen3:8b` (not the upstream default).
 2. Personal API keys live in `~/.config/giis-underworld/secrets.env`, never in the repo. See [AGENTS.md](AGENTS.md).
@@ -513,9 +513,9 @@ If it says "Ollama is running", it's good! Otherwise, check out the [Troubleshoo
 
 Note: If you want to run the backend in the cloud, you can either use a cloud-based LLM API, like OpenAI or Together.ai or you can proxy the traffic from the cloud to your local Ollama. See [below](#using-local-inference-from-a-cloud-deployment) for instructions.
 
-### Ollama (default for Underworld)
+### Ollama (default for GIIS Underworld)
 
-By default, Underworld uses Ollama with `qwen3:8b` for local conversation generation.
+By default, GIIS Underworld uses Ollama with `qwen3:8b` for local conversation generation.
 
 1. Download and install [Ollama](https://ollama.com/).
 2. Open the app or run `ollama serve` in a terminal. `ollama serve` will warn you if the app is already running.
@@ -559,7 +559,7 @@ Note: You might want to set `NUM_MEMORIES_TO_SEARCH` to `1` in constants.ts, to 
 
 ### GIIS school map layer
 
-Underworld keeps the original AI Town tile map, but adds a small semantic school layer in `data/schoolLocations.ts`. Edit that file to tune named campus areas such as 教室區, 午餐區, 社團活動區, 學生會角落, 行政辦公區, and 中央庭院.
+GIIS Underworld keeps the original AI Town tile map, but adds a small semantic school layer in `data/schoolLocations.ts`. Edit that file to tune named campus areas such as 教室區, 午餐區, 社團活動區, 學生會角落, 行政辦公區, and 中央庭院.
 
 The school backend uses this layer to label observations, recent events, and the current schedule focus without redesigning the map. This is the recommended first place to adjust the school feel before opening the tile map editor.
 

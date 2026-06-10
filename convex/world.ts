@@ -136,7 +136,7 @@ export const joinWorld = mutation({
     return await insertInput(ctx, world._id, 'join', {
       name,
       character: 'f5',
-      description: `${DEFAULT_NAME} is the chaotic builder of Underworld: principal, student, and hands-on system designer.`,
+      description: `${DEFAULT_NAME} is the chaotic builder of GIIS Underworld: principal, student, and hands-on system designer.`,
       // description: `${identity.givenName} is a human player`,
       tokenIdentifier: DEFAULT_NAME,
     });

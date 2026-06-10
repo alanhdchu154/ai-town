@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Full v0.1 completion audit for Underworld.
+// Full v0.1 completion audit for GIIS Underworld.
 //
 // This is read-only. It combines the narrow v0.1 goal audit with the broader
 // roadmap/preflight requirements so completion cannot be inferred from one green
@@ -307,7 +307,7 @@ function humanAlanRequirement({ alanPlaytest, alanPlaytestResult, alanPlaytestPe
 async function writeReport(audit) {
   await mkdir(dirname(PATHS.output), { recursive: true });
   const lines = [
-    '# Underworld v0.1 Completion Audit',
+    '# GIIS Underworld v0.1 Completion Audit',
     '',
     `Generated: ${audit.generatedAt}`,
     `Overall: ${audit.overall}`,

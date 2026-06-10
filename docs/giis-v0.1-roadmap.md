@@ -1,4 +1,4 @@
-# Underworld v0.1 Roadmap
+# GIIS Underworld v0.1 Roadmap
 
 Last updated: 2026-06-04 (evening — conversation archival durability fix)
 
