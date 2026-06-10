@@ -30,6 +30,7 @@ import {
 } from '../data/schoolLocations';
 import { schoolDayRhythmContext } from '../data/schoolCalendar';
 import { DailyLifePeriod, dailyLifeBulletinSourcesForDay } from '../data/dailyLifeBulletin';
+import { SPONTANEOUS_EVENTS } from '../data/spontaneousEvents';
 import { DEFAULT_NAME } from './constants';
 
 const DEFAULT_CLOCK = {
@@ -1619,6 +1620,82 @@ async function ensureDailyLifeBulletin(
   }
   return 4;
 }
+
+const SPONTANEOUS_EVENT_DAILY_CAP = 2;
+const SPONTANEOUS_EVENT_MIN_GAP_MS = 90 * 60 * 1000;
+
+// Insert at most a couple of small, spaced-out "突發事件" per day on top of the
+// fixed daily-life bulletin, so school life has some unscheduled texture and a
+// returning player feels "something happened while I was away". Deliberately
+// bounded — this is a curated pool, not an event engine.
+async function maybeSeedSpontaneousEvent(
+  ctx: MutationCtx,
+  world: Doc<'worlds'>,
+  descriptions: Map<string, Doc<'playerDescriptions'>>,
+  clock: Clock,
+  presenceDuringSimulation: AlanPresenceStatus,
+  now = Date.now(),
+) {
+  const todays = (
+    await ctx.db
+      .query('worldEvents')
+      .withIndex('type', (q) => q.eq('worldId', world._id).eq('type', 'spontaneousCampusEvent'))
+      .order('desc')
+      .take(20)
+  ).filter((event) => event.clock?.day === clock.day);
+  if (todays.length >= SPONTANEOUS_EVENT_DAILY_CAP) return false;
+  const lastAt = todays[0]?.createdAt ?? 0;
+  if (now - lastAt < SPONTANEOUS_EVENT_MIN_GAP_MS) return false;
+
+  const usedTitles = new Set(
+    todays.map((event) => event.descriptionZh.match(/「(.+?)」/)?.[1]).filter(Boolean),
+  );
+  const candidates = SPONTANEOUS_EVENTS.filter((event) => !usedTitles.has(event.titleZh));
+  if (!candidates.length) return false;
+  const item = candidates[Math.floor(Math.random() * candidates.length)];
+
+  const observerPlayerIds = world.players.map((player) => player.id);
+  const primaryName = item.involvedNames[0] ?? 'Umi';
+  const primary = findPlayerByName(world.players, descriptions, primaryName);
+  const location = SchoolLocations.find((candidate) => candidate.id === item.locationId) ?? SchoolLocations[0];
+  await appendRecentEvent(ctx, world._id, {
+    type: 'spontaneousCampusEvent',
+    actorPlayerId: primary?.id,
+    actorName: primaryName,
+    source: 'world_simulation_event',
+    happenedDuringAlanPresence: presenceDuringSimulation,
+    observerPlayerIds,
+    descriptionZh: `今天校園的突發小事：「${item.titleZh}」。${item.descriptionZh}`,
+    descriptionEn: `Spontaneous campus moment: ${item.titleZh}`,
+    locationId: item.locationId,
+    locationZh: location.labelZh,
+    interpretationZh: '這是臨時發生的小插曲，不是主線；之後對話可以自然提一句，不要每個人都重複同一段。',
+    reactionDialogueZh: campusThreadReactionLine(item.titleZh, item.involvedNames),
+    futureImplicationsZh: `${item.angleZh} 之後若聊到今天，可以帶一個細節，不要當成大事件。`,
+    outcomeQuality: 'meaningful_new_information',
+    importance: 5,
+    clock,
+  });
+  return true;
+}
+
+// Cron entrypoint so spontaneous events also appear while the world runs
+// autonomously (not only when Alan enters). Self-caps via maybeSeedSpontaneousEvent.
+export const seedSpontaneousCampusEventTick = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    if (worldStatus.status === 'stoppedByDeveloper') return { seeded: false };
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const now = Date.now();
+    const timeZone = worldStatus.worldStartTimeZone ?? 'America/Chicago';
+    const worldStartRealDate = giisWorldStartRealDate(worldStatus.worldStartRealDate);
+    const clock = clockAt(now, timeZone, worldStartRealDate);
+    const presence: AlanPresenceStatus = resolveAlanPlayer(world, descriptions) ? 'online' : 'away';
+    const seeded = await maybeSeedSpontaneousEvent(ctx, world, descriptions, clock, presence, now);
+    return { seeded };
+  },
+});
 
 function storyDigestFromActivities(activities: string[], pressure: WorldPressure): StoryDigestItem[] {
   const digest: StoryDigestItem[] = [];
@@ -5340,6 +5417,7 @@ export const enterCampus = mutation({
     }
     await ensureDailyOpeningEvent(ctx, refreshedWorld, refreshedDescriptions, clock);
     await ensureDailyLifeBulletin(ctx, refreshedWorld, refreshedDescriptions, clock, 'online', timeZone);
+    await maybeSeedSpontaneousEvent(ctx, refreshedWorld, refreshedDescriptions, clock, 'online');
     const engine = await ctx.db.get(worldStatus.engineId);
     if (engine) {
       if (!engine.running) {

@@ -15,6 +15,15 @@ crons.interval(
 
 crons.interval('restart dead worlds', { seconds: 60 }, internal.world.restartDeadWorlds);
 
+// Occasionally drop a small spontaneous campus event so school life has some
+// unscheduled texture even while no one is watching. Self-capped to a couple per
+// day, spaced out, in school:seedSpontaneousCampusEventTick.
+crons.interval(
+  'seed spontaneous campus events',
+  { minutes: 45 },
+  internal.school.seedSpontaneousCampusEventTick,
+);
+
 crons.daily('vacuum old entries', { hourUTC: 4, minuteUTC: 20 }, internal.crons.vacuumOldEntries);
 
 export default crons;
