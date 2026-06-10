@@ -462,6 +462,16 @@ export function residueFromMemoryDescription(description: string) {
     .trim() ?? '';
 }
 
+// Extract the concrete commitment a conversation recorded (e.g. a promise to
+// make curry). It is stored inline in the memory description after the
+// `具體承諾：` marker; here we pull it back out so the read path can surface it
+// as an actionable open promise rather than leaving it buried in the raw
+// related-memories dump.
+export function commitmentFromMemoryDescription(description: string) {
+  const match = (description ?? '').match(/具體承諾：([^；;。\n]+)/);
+  return match?.[1]?.trim() ?? '';
+}
+
 // First chars of a residue sentence — used to detect when the same pair
 // would write the same residue shape two times in a row. Treat this as a
 // new template forming and skip the write.

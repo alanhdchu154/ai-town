@@ -71,6 +71,13 @@ function logGiisTiming(payload: Record<string, unknown>) {
   console.log('[GIIS timing]', payload);
 }
 
+function residueReadMode() {
+  const raw = (process.env.UNDERWORLD_RESIDUE_READ ?? '').trim().toLowerCase();
+  if (raw === 'false') return 'off';
+  if (raw === 'placebo') return 'placebo';
+  return 'on';
+}
+
 function autonomousConversationPromptMode() {
   return process.env.AUTONOMOUS_CONVERSATION_PROMPT_MODE ?? process.env.CONVERSATION_PROMPT_MODE ?? 'compact';
 }
@@ -201,7 +208,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, openCommitments, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -267,6 +274,9 @@ export async function startConversationMessage(
       `Be sure to include some detail or question about a previous conversation in your greeting.`,
     );
   }
+  for (const line of commitmentPromptLines(openCommitments, otherPlayer.name)) {
+    prompt.push(line);
+  }
   const lastPrompt = `${player.name} to ${otherPlayer.name}:`;
   if (!pilotPair) prompt.push(lastPrompt);
   const companionCloud = companionMode && companionCloudEnabled();
@@ -326,7 +336,7 @@ export async function continueConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, openCommitments, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -416,6 +426,7 @@ export async function continueConversationMessage(
         ...(companionMode && companionIntent && !companionNeedsMemoryContext(companionIntent)
           ? []
           : relatedMemoriesPrompt(memories)),
+        ...commitmentPromptLines(openCommitments, otherPlayer.name),
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         `Below is the current chat history between you and ${otherPlayer.name}.`,
         companionMode
@@ -1364,8 +1375,17 @@ function richUmiMahiruPrompt({
   ];
 }
 
+const PLACEBO_RESIDUE_PROMPT_LINES = [
+  '場景節奏備註（不引用任何先前對話，只保持提示槽位）：',
+  ' - 此刻先把回答縮短一點，讓對方留有反應空間。',
+  ' - 如果要推進，只推進一個小問題，不要把情緒說滿。',
+  '使用方式：只讓它影響語氣長短、停頓或先問誰；不要宣稱這來自任何記憶或先前事件。',
+];
+
 function residuePromptLines(recentResidues: PromptResidue[] | undefined, other: string) {
-  if (process.env.UNDERWORLD_RESIDUE_READ === 'false') return [];
+  const mode = residueReadMode();
+  if (mode === 'off') return [];
+  if (mode === 'placebo') return PLACEBO_RESIDUE_PROMPT_LINES;
   const now = Date.now();
   const residues = (recentResidues ?? [])
     .map((entry) => entry.text.trim())
@@ -1380,6 +1400,37 @@ function residuePromptLines(recentResidues: PromptResidue[] | undefined, other: 
       .map((entry) => ` - ${residueTimeLabelZh(entry.createdAt, now)}：${clipPromptText(entry.text.trim(), 95)}`),
     '使用方式：只讓它影響你注意什麼、避開什麼、語氣變短或先問誰；不要直接說「我記得殘留」。標籤是今天或剛才時，可以用一句很短的「早上那件事」或「剛才那件事」帶出行為變化；標籤是昨天時，只能柔和接「昨天留下的感覺/昨天那件事」，不要編出更精準細節；標籤是之前或具體日期時，不能說成今天、昨天或剛才。',
   ];
+}
+
+export function residuePromptLinesForTest(
+  recentResidues: PromptResidue[] | undefined,
+  other: string,
+) {
+  return residuePromptLines(recentResidues, other);
+}
+
+// Surface unresolved concrete promises (e.g. "make curry for Alan") as an
+// actionable block, separate from residue. Residue is "pressure, do not quote";
+// a commitment is something the character may legitimately honor or bring up. We
+// keep it short and let the model decide whether the current scene fits.
+function commitmentPromptLines(openCommitments: PromptResidue[] | undefined, other: string) {
+  if (residueReadMode() === 'off') return [];
+  const items = (openCommitments ?? [])
+    .map((entry) => entry.text.trim())
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!items.length) return [];
+  return [
+    `未了的約定（你先前和${other}的對話留下的承諾。若這次情境合適，可以自然地主動兌現或提起；若不合適就先放著，不要逐字複述整段對話，也不要硬塞）：`,
+    ...items.map((text) => ` - ${text}`),
+  ];
+}
+
+export function commitmentPromptLinesForTest(
+  openCommitments: PromptResidue[] | undefined,
+  other: string,
+) {
+  return commitmentPromptLines(openCommitments, other);
 }
 
 export function residueTimeLabelZhForTest(
@@ -1456,7 +1507,8 @@ function propDiversityPromptLines(
   playerName?: string,
   otherPlayerName?: string,
 ) {
-  const guard = conversationMotifGuard(previousMessages, recentResidues, playerName, otherPlayerName);
+  const residueInputs = residueReadMode() === 'placebo' ? [] : recentResidues;
+  const guard = conversationMotifGuard(previousMessages, residueInputs, playerName, otherPlayerName);
   const lines: string[] = [];
   if (guard.overusedMotifs.length) {
     lines.push(
@@ -3843,7 +3895,7 @@ export const queryPromptData = internalQuery({
         );
       }
     }
-    const recentResidues = (await ctx.db
+    const samePairMemories = (await ctx.db
       .query('memories')
       .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'conversation'))
       .order('desc')
@@ -3853,9 +3905,21 @@ export const queryPromptData = internalQuery({
           entry.data.type === 'conversation' &&
           entry.data.playerIds.includes(args.otherPlayerId) &&
           memory.shouldExposeMemoryDescription(entry.description),
-      )
+      );
+    const recentResidues = samePairMemories
       .map((entry) => ({
         text: memory.residueFromMemoryDescription(entry.description),
+        createdAt: entry._creationTime,
+      }))
+      .filter((entry) => entry.text)
+      .slice(0, 2);
+    // Open commitments are derived from the same memories but kept on their own
+    // channel: a promise (e.g. "make curry") should be honorable/actionable, not
+    // framed like residue ("don't quote, just pressure"). Commitment-only
+    // memories survive here even when they left no residue line.
+    const openCommitments = samePairMemories
+      .map((entry) => ({
+        text: memory.commitmentFromMemoryDescription(entry.description),
         createdAt: entry._creationTime,
       }))
       .filter((entry) => entry.text)
@@ -3902,6 +3966,7 @@ export const queryPromptData = internalQuery({
         futureImplicationsZh: event.futureImplicationsZh,
       })),
       recentResidues,
+      openCommitments,
       selfState: stateForProfile(selfProfile),
       otherState: stateForProfile(otherProfile),
       sceneContext: sceneLocation

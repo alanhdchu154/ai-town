@@ -1,10 +1,24 @@
 import {
+  commitmentFromMemoryDescription,
   concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
   shouldExposeMemoryDescription,
   shouldPersistConversationMemoryShape,
 } from './memory';
+
+describe('commitmentFromMemoryDescription', () => {
+  test('extracts the concrete commitment embedded in a memory description', () => {
+    const description =
+      '與 Alan 在 2026/6/4 下午7:56 的對話：具體承諾：Umi答應明天為Alan準備咖哩飯；Umi 和 Alan 進行了一段短暫對話\n殘留：世界變得太聰明，卻少了溫度。';
+    expect(commitmentFromMemoryDescription(description)).toBe('Umi答應明天為Alan準備咖哩飯');
+  });
+
+  test('returns empty string when there is no commitment line', () => {
+    expect(commitmentFromMemoryDescription('與 海 的對話：留下的重點是：「今天有點累。」')).toBe('');
+    expect(commitmentFromMemoryDescription('')).toBe('');
+  });
+});
 
 describe('memory post-processing hygiene', () => {
   test('hides system-language conversation memories from prompts and reports', () => {
