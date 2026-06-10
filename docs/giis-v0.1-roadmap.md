@@ -55,6 +55,19 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
   adjacent two-hour windows should show concrete residue -> callback or behavior
   change. AM -> PM remains a broader day-arc cross-check, not the only hard
   completion blocker.
+- Recall now has two channels: emotional **residue** (pressure, never quoted) and
+  **concrete commitments** (e.g. a promise to make curry), surfaced at read time
+  as an actionable "未了的約定" block (added 2026-06-10). Before this, only residue
+  was recalled — commitments sat buried in the raw memory dump and were skipped.
+- Next memory directions (not yet built), in priority order:
+  1. **Commitment lifecycle** — mark a commitment fulfilled/expired once honored
+     so stale promises stop resurfacing; let residue fade with age.
+  2. **Anti-confabulation** — when the human corrects an invented recall
+     (e.g. "不是，我說的是咖哩飯"), down-weight the false memory instead of letting
+     the fabrication persist as canon. (Observed: 海 recalled a line she herself
+     invented on 6/4.)
+  3. **Importance-weighted recall**, not recency-only — use the existing
+     `importance` field so a high-importance older memory can still surface.
 
 ### 4. Event Thread Continuity
 
