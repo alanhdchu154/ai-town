@@ -40,7 +40,7 @@ const DEFAULT_CLOCK = {
   semester: 1,
   timeSpeed: Number(process.env.TIME_SPEED) || 60,
 };
-// GIIS Underworld v0.1 canonical start: 2026-05-19 00:00 in Alan's
+// Underworld v0.1 canonical start: 2026-05-19 00:00 in Alan's
 // America/Chicago timezone. Day labels are intentionally project-relative:
 // 5/19/2026 = 第 1 天, 5/20/2026 = 第 2 天.
 const GIIS_WORLD_START_REAL_DATE = Date.UTC(2026, 4, 19, 5, 0, 0);
@@ -5533,7 +5533,7 @@ export const resetWorldStartDate = mutation({
       worldClock: clock,
     });
     return {
-      descriptionZh: '已重設世界開始時間為 GIIS Underworld 開學日：2026/5/19。5/20 會顯示為第 2 天。',
+      descriptionZh: '已重設世界開始時間為 Underworld 開學日：2026/5/19。5/20 會顯示為第 2 天。',
       worldStartRealDate: GIIS_WORLD_START_REAL_DATE,
       clock,
       worldTimeLabelZh: worldTimeLabelZh(clock),
@@ -6044,7 +6044,7 @@ async function performKick(
         {
           role: 'system',
           content:
-            '你在 GIIS Underworld 中寫角色反應。只輸出 JSON，不要 markdown。所有文字使用繁體中文。',
+            '你在 Underworld 中寫角色反應。只輸出 JSON，不要 markdown。所有文字使用繁體中文。',
         },
         {
           role: 'user',

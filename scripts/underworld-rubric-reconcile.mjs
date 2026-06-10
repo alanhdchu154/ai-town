@@ -238,7 +238,7 @@ function qualityGapMeaning(category) {
 async function writeReport(reconciliation) {
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   const lines = [
-    '# GIIS Underworld v0.1 Rubric Reconciliation',
+    '# Underworld v0.1 Rubric Reconciliation',
     '',
     `Generated: ${reconciliation.generatedAt}`,
     `Decision: ${reconciliation.decision}`,
@@ -522,7 +522,7 @@ function runSelfTest() {
     'sample-pending AM->PM should wait for evidence instead of asking for a fix',
   );
   const rollingPassReport = `
-# GIIS Underworld Rolling 2-Hour Continuity Report
+# Underworld Rolling 2-Hour Continuity Report
 
 ## Summary
 

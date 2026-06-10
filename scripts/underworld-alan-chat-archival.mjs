@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// GIIS Underworld Alan-facing chat archival verifier.
+// Underworld Alan-facing chat archival verifier.
 //
 // This writes one small Alan -> character test message, waits for a character
 // reply, and verifies both the raw messages table and recentConversationEvalData
@@ -260,7 +260,7 @@ async function writeReport(result) {
   const rawMessages = result.raw?.messages ?? [];
   const evalMessages = result.evalConversation?.conversation?.transcriptMessages ?? [];
   const lines = [
-    '# GIIS Underworld Alan Chat Archival',
+    '# Underworld Alan Chat Archival',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Overall: ${result.status}`,

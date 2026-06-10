@@ -117,7 +117,7 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
     <section className="giis-conversation-wall">
       <header className="giis-conversation-wall-header">
         <div>
-          <p className="giis-wall-kicker">GIIS Underworld</p>
+          <p className="giis-wall-kicker">Underworld</p>
           <h2>對話牆</h2>
         </div>
         <button className="giis-wall-world-button" type="button" onClick={onOpenWorld}>

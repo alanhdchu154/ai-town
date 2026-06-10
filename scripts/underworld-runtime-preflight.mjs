@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Read-only Convex runtime preflight for GIIS Underworld gates.
+// Read-only Convex runtime preflight for Underworld gates.
 
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -84,7 +84,7 @@ async function writeReport(results) {
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   const failed = results.filter((item) => item.exitCode !== 0);
   const lines = [
-    '# GIIS Underworld Runtime Preflight',
+    '# Underworld Runtime Preflight',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Overall: ${failed.length === 0 ? 'PASS' : 'FAIL'}`,

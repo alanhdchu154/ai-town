@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// GIIS Underworld everyday-life signal observer.
+// Underworld everyday-life signal observer.
 //
 // Read-only against Convex. This checks whether recent/free-world dialogue is
 // grounded in ordinary campus life instead of drifting into administrative,
@@ -885,7 +885,7 @@ function decideStatus(summary) {
 
 async function writeReport({ data, window, queryWindow, conversations, analyses, repeatedLines, summary, status }) {
   const report = [
-    '# GIIS Underworld Life Signals Report',
+    '# Underworld Life Signals Report',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Mode: ${SINCE_CREATED_AT === undefined ? 'day_window' : 'fresh_window'}`,

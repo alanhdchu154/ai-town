@@ -447,7 +447,7 @@ async function writeReport(
     .sort((a, b) => a.result.overallScore - b.result.overallScore)
     .slice(0, 5);
   const markdown = [
-    '# GIIS Underworld Recent Conversation Eval',
+    '# Underworld Recent Conversation Eval',
     '',
     `Generated: ${new Date().toISOString()}`,
     '',

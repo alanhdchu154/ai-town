@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// GIIS Underworld AM -> PM continuity observer.
+// Underworld AM -> PM continuity observer.
 //
 // Read-only against Convex: this script reads archived conversations, buckets
 // them by same-day morning/afternoon windows, and writes a local markdown report.
@@ -633,7 +633,7 @@ async function writeReport(data) {
       ? `\n- Data cap warning: one time-window query returned the max ${LIMIT} conversations; increase --limit before judging continuity.`
       : '';
   const report = [
-    '# GIIS Underworld AM -> PM Continuity Report',
+    '# Underworld AM -> PM Continuity Report',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Target date: ${TARGET_DATE}`,

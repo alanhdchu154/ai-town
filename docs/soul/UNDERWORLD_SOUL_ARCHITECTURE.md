@@ -1,8 +1,8 @@
-# GIIS Underworld Soul Architecture
+# Underworld Soul Architecture
 
 ## v0.1 North Star
 
-GIIS Underworld v0.1 is a persistent emotional social simulation where
+Underworld v0.1 is a persistent emotional social simulation where
 characters slowly change through time, memory, relationships, and shared
 atmosphere.
 
@@ -14,7 +14,7 @@ The goal is:
 
 > A world where yesterday emotionally matters.
 
-GIIS Underworld is an experimental emotional social simulation built on top of
+Underworld is an experimental emotional social simulation built on top of
 the AI Town foundation. The goal is not simply to make agents move and talk. The
 goal is to let characters accumulate memory, emotional residue, relationship
 drift, and behavioral change over time.
@@ -30,7 +30,7 @@ prompt design, eval design, and future memory/behavior work.
 
 AI Town demonstrates autonomous agents in a shared world.
 
-GIIS Underworld is becoming a long-term social world where Alan can return
+Underworld is becoming a long-term social world where Alan can return
 tomorrow and feel that yesterday mattered. Conversation is only one layer of the
 world. Silence, availability, initiative, movement, daily state, and memory
 residue matter too.
@@ -145,7 +145,7 @@ their roots should remain recognizable.
 
 ## Soul Differentiation Rule
 
-GIIS Underworld should not only produce emotional dialogue. It should produce
+Underworld should not only produce emotional dialogue. It should produce
 distinct emotional existence.
 
 Each character should:

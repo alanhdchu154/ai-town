@@ -1,4 +1,4 @@
-# GIIS Underworld v0.1 Approach Proposal
+# Underworld v0.1 Approach Proposal
 
 ## Problem
 

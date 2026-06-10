@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// GIIS Underworld v0.1 repair gate.
+// Underworld v0.1 repair gate.
 //
 // This script decides whether a finding may be auto-fixed, must become a
 // proposal, or should remain observe-only. It does not edit runtime code.
@@ -114,7 +114,7 @@ async function main() {
 
 function runSelfTest() {
   const samplePending = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -149,7 +149,7 @@ Post-fix summary: 0 PASS / 0 WARN / 0 FAIL
   assertEqual(samplePending.decision.changeSize, 'observe_only', 'sample pending decision');
 
   const overclaimedEcho = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -203,7 +203,7 @@ Post-fix summary: 0 PASS / 1 WARN / 5 FAIL
   );
 
   const pilotRoleActionCollapse = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -245,7 +245,7 @@ Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
   );
 
   const rollingPassReport = `
-# GIIS Underworld Rolling 2-Hour Continuity Report
+# Underworld Rolling 2-Hour Continuity Report
 
 ## Summary
 
@@ -255,7 +255,7 @@ Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
 `;
   const pilotRoleActionWithRolling = evaluateSelfTestReport(
     `
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -291,7 +291,7 @@ Post-fix summary: 0 PASS / 3 WARN / 1 FAIL
   }
 
   const amPmGap = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -326,7 +326,7 @@ Post-fix summary: 0 PASS / 2 WARN / 1 FAIL
   assertEqual(amPmGap.decision.changeSize, 'large_change_proposal_required', 'AM→PM gap decision');
 
   const freshLifeRepetition = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -361,7 +361,7 @@ Post-fix summary: 1 PASS / 2 WARN / 0 FAIL
   assertEqual(freshLifeRepetition.decision.changeSize, 'large_change_proposal_required', 'fresh life repetition decision');
 
   const freshPropEcho = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -397,7 +397,7 @@ Post-fix summary: 1 PASS / 2 WARN / 0 FAIL
   assertEqual(freshPropEcho.decision.changeSize, 'large_change_proposal_required', 'fresh prop echo decision');
 
   const freshShapeCollapse = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -435,7 +435,7 @@ Post-fix summary: 0 PASS / 1 WARN / 2 FAIL
   assertEqual(freshShapeCollapse.decision.changeSize, 'large_change_proposal_required', 'fresh shape collapse decision');
 
   const freshThinScenes = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -475,7 +475,7 @@ Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
   assertEqual(freshThinScenes.decision.changeSize, 'large_change_proposal_required', 'fresh thin scene decision');
 
   const freshThinRhythm = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -517,7 +517,7 @@ Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
   assertEqual(freshThinRhythm.decision.changeSize, 'large_change_proposal_required', 'fresh thin rhythm decision');
 
   const freshFlatSoulStyle = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -561,7 +561,7 @@ Post-fix summary: 1 PASS / 4 WARN / 0 FAIL
   assertEqual(freshFlatSoulStyle.decision.changeSize, 'large_change_proposal_required', 'fresh flat soul-style decision');
 
   const hygieneFailure = evaluateSelfTestReport(`
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -614,7 +614,7 @@ Post-fix summary: 0 PASS / 0 WARN / 1 FAIL
 
   const dbCleanup = evaluateSelfTestReport(
     `
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -641,7 +641,7 @@ Post-fix summary: 0 PASS / 0 WARN / 1 FAIL
 
   const lowSampleLifeRepetition = evaluateSelfTestReport(
     `
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 ## Summary
 
@@ -999,7 +999,7 @@ async function maybeRunCcReview({ diagnosis, classification, evidence, report })
   if (!available || CC_MODE === 'unavailable') return { status: 'unavailable', output: '' };
 
   const prompt = [
-    'GIIS Underworld v0.1 two-hour conversation repair review.',
+    'Underworld v0.1 two-hour conversation repair review.',
     'Role: cc second-opinion / code-review advisor.',
     'Do not modify files. Do not run Convex/provider commands. Read this report excerpt only.',
     '',
@@ -1027,7 +1027,7 @@ async function maybeRunCcReview({ diagnosis, classification, evidence, report })
 async function writeReviewReport({ diagnosis, classification, evidence, ccReview, umiDecision, proposalPath, report }) {
   await mkdir(dirname(REVIEW_REPORT_PATH), { recursive: true });
   const lines = [
-    '# GIIS Underworld v0.1 Two-Hour Repair Review',
+    '# Underworld v0.1 Two-Hour Repair Review',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Mode: repair_gate${DRY_RUN ? ' dry_run' : ''}`,
@@ -1097,7 +1097,7 @@ async function writeProposal({ category, evidence, report, diagnosis, ccReview }
   await mkdir(PROPOSAL_DIR, { recursive: true });
   const path = join(PROPOSAL_DIR, `${timestampSlug(Date.now())}-v01-approach-proposal.md`);
   const lines = [
-    '# GIIS Underworld v0.1 Approach Proposal',
+    '# Underworld v0.1 Approach Proposal',
     '',
     `Created: ${new Date().toISOString()}`,
     `Category: ${category}`,

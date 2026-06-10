@@ -1,4 +1,4 @@
-# GIIS Underworld v0.1 Approach Proposal
+# Underworld v0.1 Approach Proposal
 
 Created: 2026-05-25T22:21:29.190Z
 Category: eval_rubric_disagreement
@@ -89,7 +89,7 @@ Move the world closer to v0.1: yesterday emotionally matters, without optimizing
 ## Report Excerpt
 
 ```md
-# GIIS Underworld v0.1 Approach Report
+# Underworld v0.1 Approach Report
 
 Generated: 2026-05-25T22:14:32.336Z
 Mode: observe_once
@@ -198,7 +198,7 @@ conversation-c:39026 | 海 / 真晝 | 3 | PASS | 0.99 | 0.50 | 0.00 | 0.50 | 1.0
 ## Recent Eval Excerpt
 
 ```md
-# GIIS Underworld Recent Conversation Eval
+# Underworld Recent Conversation Eval
 
 Generated: 2026-05-25T22:14:31.059Z
 

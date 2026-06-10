@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Dry-run/report wrapper for GIIS Underworld fallback-pollution cleanup.
+// Dry-run/report wrapper for Underworld fallback-pollution cleanup.
 //
 // Safe default: dry-run only. Passing --apply is intentionally required for
 // destructive cleanup, and Codex should still ask Alan before using it.
@@ -65,7 +65,7 @@ async function convexRun(functionName, payload) {
 
 async function writeReport(result, audit, dryRun) {
   const lines = [
-    '# GIIS Underworld Fallback Pollution Cleanup',
+    '# Underworld Fallback Pollution Cleanup',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Mode: ${dryRun ? 'dry-run' : 'apply'}`,

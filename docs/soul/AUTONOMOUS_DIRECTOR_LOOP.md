@@ -1,4 +1,4 @@
-# GIIS Underworld Autonomous Director Loop
+# Underworld Autonomous Director Loop
 
 ## Goal
 

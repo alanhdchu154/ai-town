@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Semi-autonomous GIIS Underworld soul QA loop.
+// Semi-autonomous Underworld soul QA loop.
 //
 // Safe defaults:
 // - Runs one loop unless --loop is passed.

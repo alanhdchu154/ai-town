@@ -1,4 +1,4 @@
-# GIIS Underworld Conversation Evals
+# Underworld Conversation Evals
 
 This folder contains a small local regression harness for conversation quality.
 

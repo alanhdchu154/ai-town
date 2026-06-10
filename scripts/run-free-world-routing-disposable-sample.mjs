@@ -237,7 +237,7 @@ function representativeSoulPrompt() {
     {
       role: 'system',
       content: [
-        'GIIS Underworld v0.1 cloud provider preflight.',
+        'Underworld v0.1 cloud provider preflight.',
         'Characters: 海(Umi), 真晝(Mahiru), 天澤(Tianze).',
         'Goal: spoken dialogue only, Traditional Chinese, natural and short.',
         'Avoid fallback/template slogans, stage directions, over-analysis, and exact echo.',

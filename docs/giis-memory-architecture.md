@@ -1,4 +1,4 @@
-# GIIS Underworld Memory Architecture
+# Underworld Memory Architecture
 
 Status: v0.1 foundation, not a full storage refactor.
 

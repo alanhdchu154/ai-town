@@ -1,4 +1,4 @@
-# GIIS Underworld v0.1 Prop / Motif Lock Proposal
+# Underworld v0.1 Prop / Motif Lock Proposal
 
 ## Problem
 

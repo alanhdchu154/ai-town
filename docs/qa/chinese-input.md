@@ -1,4 +1,4 @@
-# GIIS Underworld Chinese Input QA
+# Underworld Chinese Input QA
 
 Manual regression for v0.0.9 conversation input:
 

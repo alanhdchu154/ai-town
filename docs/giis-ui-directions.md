@@ -1,4 +1,4 @@
-# GIIS Underworld UI Directions
+# Underworld UI Directions
 
 Last updated: 2026-05-31.
 

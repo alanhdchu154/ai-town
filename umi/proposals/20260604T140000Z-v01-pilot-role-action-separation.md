@@ -1,4 +1,4 @@
-# GIIS Underworld v0.1 Pilot Role-Action Separation Proposal
+# Underworld v0.1 Pilot Role-Action Separation Proposal
 
 ## Problem
 
