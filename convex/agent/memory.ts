@@ -462,6 +462,21 @@ export function residueFromMemoryDescription(description: string) {
     .trim() ?? '';
 }
 
+// Detect when the other party corrected the speaker's recall in this
+// conversation (e.g. "不是，我說的是…", "你記錯了", "我沒說過"). Such a turn means
+// the speaker probably confabulated a memory, so we should not write residue
+// from it (otherwise the invention becomes durable, confidently-recalled truth).
+export function conversationHasRecallCorrection(
+  messages: { author: string; text: string }[],
+  speakerPlayerId: string,
+) {
+  const correction =
+    /你記錯|你搞錯|記錯了|我沒有?說過|我又沒說|才不是|不是[，,]?[^。！？!?]{0,12}我[^。！？!?]{0,8}說|不對[，,]?[^。！？!?]{0,8}我說/;
+  return messages.some(
+    (message) => message.author !== speakerPlayerId && correction.test(message.text),
+  );
+}
+
 // Extract the concrete commitment a conversation recorded (e.g. a promise to
 // make curry). It is stored inline in the memory description after the
 // `具體承諾：` marker; here we pull it back out so the read path can surface it
@@ -749,6 +764,20 @@ export async function rememberConversation(
       });
       residue = '';
     }
+  }
+  // Anti-confabulation: if the other party corrected the speaker's recall in this
+  // conversation ("不是，我說的是…", "你記錯了"), the speaker likely invented a
+  // memory. Do not canonize that turn's residue, or the fabrication becomes
+  // durable "truth" the speaker confidently recalls later. The base summary and
+  // any concrete commitment (often the corrected, real one) are still kept.
+  if (residue && conversationHasRecallCorrection(messages, player.id as GameId<'players'>)) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipResidueRecallCorrected',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+    });
+    residue = '';
   }
   const descriptionForClassification = residue
     ? `${baseDescription}\n${RESIDUE_PREFIX}${residue}`

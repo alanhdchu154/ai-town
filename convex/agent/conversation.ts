@@ -1067,6 +1067,7 @@ function compactAutonomousStartPrompt({
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
+    ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
     `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
@@ -1137,6 +1138,7 @@ function compactAutonomousContinuePromptBase({
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
+    ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName),
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
@@ -1907,6 +1909,13 @@ function dayAnchorPromptLine(clockContext?: ClockContext): string {
   return `日期錨點（最高優先，不可違背）：今天是${today}，${clockContext.schoolDayTypeZh ?? '上課日'}。${clockContext.calendarHintZh ?? ''} 不要自行編造今天星期幾或是不是週末／假日，只能依這一行；除非這一行明確說今天或明天是週末，否則不要說「明天是週末」「快放假了」這類話。`;
 }
 
+// Shared guards for the compact autonomous prompts: (c) break the
+// every-line-is-a-question tic, and (a) do not fabricate recall without evidence.
+const COMPACT_RHYTHM_AND_RECALL_GUARDS = [
+  '節奏：不要每一句都用問句結尾；一則回覆最多一個問句，其餘用陳述、一個小動作、一個決定或一句停頓收尾。',
+  '不要捏造回憶：若上面的記憶／殘留／約定裡沒有對應證據，就說不太確定或請對方提醒，不要把想像的往事說成事實。',
+];
+
 function formatPromptDateTime(timestamp: number, timeZone = 'America/Chicago') {
   return new Intl.DateTimeFormat('zh-TW', {
     timeZone,
@@ -2594,6 +2603,8 @@ function everydayLifePrompt(
     ' - If tomorrow is weekend, let the holiday-eve feeling appear in small ways: someone stays up too late, delays a task, asks about tomorrow, or says they can talk after breakfast.',
     ' - If AI 社 or 學生會 has already appeared recently, lower its priority and shift toward sleep, food, loneliness, awkwardness, hobbies, stress, relationships, or ordinary emotional texture.',
     ' - Relationship-driven topics are preferred: shared memories, trust, disappointment, admiration, concern, feeling left out, fear of disappointing someone.',
+    ' - 節奏：不要每一句都用問句結尾。一則回覆最多一個問句，其餘用陳述、一個小動作、一個決定、或一句停頓收尾。連續被問句逼問會讓人累。',
+    ' - 不要捏造回憶：如果對方問你記不記得某件事，而上面的殘留／未了的約定／對話記錄裡沒有對應證據，就誠實說「我不太確定」或請對方提醒，不要編一段聽起來合理的往事當成事實。寧可承認記不清，也不要把想像說成記得。',
   ];
 }
 

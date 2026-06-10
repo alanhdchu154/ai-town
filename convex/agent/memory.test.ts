@@ -1,11 +1,54 @@
 import {
   commitmentFromMemoryDescription,
+  conversationHasRecallCorrection,
   concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
   shouldExposeMemoryDescription,
   shouldPersistConversationMemoryShape,
 } from './memory';
+
+describe('conversationHasRecallCorrection', () => {
+  const UMI = 'p:0';
+  const ALAN = 'p:alan';
+
+  test('detects the other party correcting the speakers invented recall', () => {
+    // Real 海 case: Umi recalled a line Alan never said; Alan corrects her.
+    const messages = [
+      { author: UMI, text: '我記得你說過世界變得太聰明卻少了溫度。' },
+      { author: ALAN, text: '不是，我前幾天說要吃咖哩飯，你說要給我做。' },
+    ];
+    expect(conversationHasRecallCorrection(messages, UMI)).toBe(true);
+  });
+
+  test('detects explicit memory-correction phrases', () => {
+    expect(
+      conversationHasRecallCorrection(
+        [{ author: ALAN, text: '你記錯了，那是上禮拜的事。' }],
+        UMI,
+      ),
+    ).toBe(true);
+    expect(
+      conversationHasRecallCorrection([{ author: ALAN, text: '我沒說過那種話。' }], UMI),
+    ).toBe(true);
+  });
+
+  test('does not fire on ordinary conversation, or on the speaker correcting themselves', () => {
+    expect(
+      conversationHasRecallCorrection(
+        [
+          { author: UMI, text: '今天有點累，先坐一下吧。' },
+          { author: ALAN, text: '好啊。' },
+        ],
+        UMI,
+      ),
+    ).toBe(false);
+    // A correction in the speaker's own message must not count against them.
+    expect(
+      conversationHasRecallCorrection([{ author: UMI, text: '你記錯了嗎？' }], UMI),
+    ).toBe(false);
+  });
+});
 
 describe('commitmentFromMemoryDescription', () => {
   test('extracts the concrete commitment embedded in a memory description', () => {
