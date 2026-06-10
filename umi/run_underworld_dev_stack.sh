@@ -13,7 +13,12 @@ fi
 
 # Convex local sometimes needs longer than the CLI default 30s to decide the
 # backend is ready after a Mac sleep/wake or large local-state replay.
-export CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS="${CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:-180}"
+# 900s (not 180s): the backend state lives on the external T9-Active SSD, and a
+# cold open of the multi-GB sqlite + search/vector index bootstrap over USB took
+# ~520s under the dev stack. A 180s timeout tripped convex dev mid-bootstrap and
+# caused a launchd restart loop; 900s leaves comfortable margin. Warm restarts
+# (OS page cache) are much faster.
+export CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS="${CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:-900}"
 
 cd "$REPO_ROOT"
 exec ./node_modules/.bin/npm-run-all --parallel dev:backend dev:frontend
