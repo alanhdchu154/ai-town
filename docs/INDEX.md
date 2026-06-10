@@ -5,7 +5,7 @@ looking for something and it is not here, ask before grepping — adding a
 new doc location without updating this index is how the project
 accumulates 3 contradictory sources of truth.
 
-Last updated: 2026-05-31.
+Last updated: 2026-06-10.
 
 ---
 
@@ -13,10 +13,20 @@ Last updated: 2026-05-31.
 
 | Document | Purpose | When to read / update |
 |---|---|---|
-| [docs/giis-v0.1-roadmap.md](giis-v0.1-roadmap.md) | **The** v0.1 contract. North-star scope, current foregrounding rules, Phase 1 residue contract, dangerous-scope guardrail, open Codex handoffs, recent-context entries (2026-05-28+). Earlier phases live in git log only (use `git log -p docs/giis-v0.1-roadmap.md` to recover historical content). | Update on every significant scope decision or phase completion. |
+| [docs/giis-v0.1-roadmap.md](giis-v0.1-roadmap.md) | **The** v0.1 contract. North-star scope, current foregrounding rules, Phase 1 residue contract, dangerous-scope guardrail, durable follow-ups, recent-context entries (2026-05-28+). Earlier phases live in git log only (use `git log -p docs/giis-v0.1-roadmap.md` to recover historical content). | Update on every significant scope decision or phase completion. |
 | [../README.md](../README.md) | Outward-facing project overview, v0.1 goal, screenshots, what's-next gate. | Keep in sync with roadmap when v0.1 scope shifts. |
 | [../AGENTS.md](../AGENTS.md) | Working agreement: how Codex / CC / Umi collaborate, secrets policy, where keys live. | Update only when collaboration rules actually change. |
-| [../WORKLOG.md](../WORKLOG.md) | Append-only chronological log of work done, by whom, with verification. New entries on top. Shipped older entries get trimmed; only entries with active follow-ups or recent v0.1 context remain. | After every meaningful session. |
+| [../WORKLOG.md](../WORKLOG.md) | Today / last few days of activity, current evidence, open follow-ups, and verification notes. Not append-only; completed/stale/duplicate items can be removed, summarized, or archived. | After meaningful sessions that change current state, risk, evidence, or next action. |
+
+## Paper / preprint package
+
+| Document | Purpose |
+|---|---|
+| [paper/ALAN_HANDOFF.md](paper/ALAN_HANDOFF.md) | One-page boundary summary for the emotional-residue paper. |
+| [paper/OSF_RELEASE_RECORD.md](paper/OSF_RELEASE_RECORD.md) | OSF submission record. Alan reported OSF submission on 2026-06-10; URL / DOI still need to be recorded locally. |
+| [paper/ARXIV_PREPRINT_RELEASE_PACKET.md](paper/ARXIV_PREPRINT_RELEASE_PACKET.md) | Conservative arXiv A-path packet retained for a future arXiv mirror; arXiv is currently blocked by endorsement. |
+| [paper/PUBLISH_READY_CHECKLIST.md](paper/PUBLISH_READY_CHECKLIST.md) | Detailed local checklist of completed paper hardening and remaining blockers. |
+| [paper/CLAIM_EVIDENCE_MATRIX.md](paper/CLAIM_EVIDENCE_MATRIX.md) | Claim-to-artifact ledger and reviewer-safe boundaries. |
 
 ## Soul / character architecture
 
@@ -32,17 +42,20 @@ Last updated: 2026-05-31.
 | [soul/pilots/caocao.md](soul/pilots/caocao.md) | Cao Cao soul definition (secondary local-LLM). |
 | [soul/pilots/ichinose.md](soul/pilots/ichinose.md) | Ichinose soul definition (secondary local-LLM, Convex runtime key `Ichinose`). |
 | [soul/pilots/liubei.md](soul/pilots/liubei.md) | Liu Bei soul definition (secondary local-LLM). |
-| [soul/AM_PM_CONTINUITY_GOAL.md](soul/AM_PM_CONTINUITY_GOAL.md) | AM→PM continuity contract; strict gate currently treats motif-only callbacks as WARN. |
 | [soul/README.md](soul/README.md) | Soul docs sub-index. |
+
+Recent-memory continuity is now contracted by **rolling two-hour continuity**
+(`npm run underworld:rolling-continuity`); the old AM→PM goal doc was retired on
+2026-06-10 (recoverable via git history).
 
 ## Design notes (deeper than the roadmap, may decay)
 
 | Document | Purpose | Status |
 |---|---|---|
 | [giis-memory-architecture.md](giis-memory-architecture.md) | Working design note for memory storage. Not yet migrated — kept as reference. | Deferred to v0.2+. |
-| [giis-soul-systems-revisit-plan.md](giis-soul-systems-revisit-plan.md) | Five soul markers and how to score them. | Mostly absorbed into `evals/conversations/runSoulTriadEval.ts`. |
 | [umi-emotional-response-examples.md](umi-emotional-response-examples.md) | Voice references for Umi. | Active. |
 | [giis-ui-directions.md](giis-ui-directions.md) | UI direction note: make residue visible, separate player value from dev tooling, briefing as front door, freeze-don't-churn. Judged against the north star, not a contract. | Active (may decay). |
+| [giis-vn-art-spec.md](giis-vn-art-spec.md) | VN full-render art brief (Route A): character render generation prompts, emotion set, naming, scene backgrounds, React overlay outline. Exploratory, v0.2+, implementation needs a proposal. | Exploratory (v0.2+). |
 
 ## Eval output (machine-generated, gets overwritten)
 
@@ -76,8 +89,8 @@ Last updated: 2026-05-31.
 
 | If you have… | Put it in… |
 |---|---|
-| A scope or acceptance decision | `docs/giis-v0.1-roadmap.md` (dated section) |
-| A session work log | `WORKLOG.md` (append on top) |
+| A scope or acceptance decision | `docs/giis-v0.1-roadmap.md` (brief durable milestone or direction) |
+| A session work log | `WORKLOG.md` (today / last few days only; clean completed/stale items) |
 | A new active CC handoff | `umi/workload.md` (overwrite — one task at a time, with pass type / Umi first look / current change set / open questions for cc) |
 | A character soul change | `docs/soul/pilots/<name>.md` + roadmap note |
 | A new command / script | Document it in `umi/COMMAND_REFERENCE.md` |
@@ -93,8 +106,11 @@ Last updated: 2026-05-31.
 1. **Do not write the same fact in two places.** Link instead. Stale
    duplicates are how the project drifted into three soul docs that
    contradicted each other.
-2. **`WORKLOG.md` is append-only and chronological. `umi/workload.md`
-   is overwritable and holds the active task.** Do not mix them.
+2. **`WORKLOG.md` is today / last few days of current evidence.
+   `umi/workload.md` is overwritable and holds the active Codex/cc task.
+   `docs/giis-v0.1-roadmap.md` is durable direction.** Do not mix them.
+   Remove, summarize, or archive completed/stale/duplicate worklog items when
+   they no longer drive the next action.
 3. **`docs/giis-v0.1-roadmap.md` overrides everything else for v0.1
    scope.** If a design note conflicts with the roadmap, the roadmap
    wins until it is updated.

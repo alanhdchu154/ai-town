@@ -125,17 +125,17 @@ prompts.
 
 ## Deprecated / removed candidates
 
-Verified 2026-05-26 by `grep -r` across the repo.
+Three pre-triad manual eval-loop wrappers (`fast_pilot_watch.sh`,
+`umi_mahiru_eval_15min_loop.sh`, `umi_mahiru_fast_loop.sh`) were deleted on
+2026-06-10. They belonged to the manual soul-tuning phase; the world now runs
+autonomously and soul evidence comes from `eval:soul-triad` /
+`pilot:soul-triad:single-sample` and the rolling-continuity gate. Recover from
+git history if ever needed.
 
-**Truly orphaned — safe to `rm` (only referenced from this section and historical WORKLOG/roadmap entries):**
-
-- `umi/fast_pilot_watch.sh` — pre-triad fast loop; replaced by `pilot:soul-triad:single-sample`.
-- `umi/umi_mahiru_eval_15min_loop.sh` — pre-triad eval loop; replaced by `eval:soul-triad:hourly`.
-- `umi/umi_mahiru_fast_loop.sh` — pre-triad sample collection; replaced by triad single-sample.
-
-**Still wired (delete requires removing the npm alias too):**
-
-- `umi/umi_mahiru_soul_depth_30min_loop.sh` — pre-triad depth eval; replaced by triad eval. **Still referenced via [`package.json` `eval:umi-mahiru:soul-loop`](../package.json)** — remove that npm script before deleting the shell wrapper.
+`umi_mahiru_soul_depth_30min_loop.sh` is the same generation but is kept for now
+because its `eval:umi-mahiru:soul-loop` npm alias is entangled with an
+uncommitted batch of `paper:*` package.json changes; delete the wrapper and the
+alias together once that batch lands.
 
 ---
 
