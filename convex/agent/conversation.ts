@@ -1419,24 +1419,37 @@ export function residuePromptLinesForTest(
 // actionable block, separate from residue. Residue is "pressure, do not quote";
 // a commitment is something the character may legitimately honor or bring up. We
 // keep it short and let the model decide whether the current scene fits.
-function commitmentPromptLines(openCommitments: PromptResidue[] | undefined, other: string) {
+function commitmentPromptLines(
+  openCommitments: PromptResidue[] | undefined,
+  other: string,
+  now = Date.now(),
+) {
   if (residueReadMode() === 'off') return [];
   const items = (openCommitments ?? [])
-    .map((entry) => entry.text.trim())
-    .filter(Boolean)
+    .map((entry) => ({ text: entry.text.trim(), createdAt: entry.createdAt }))
+    .filter((entry) => entry.text)
     .slice(0, 2);
   if (!items.length) return [];
   return [
     `未了的約定（你先前和${other}的對話留下的承諾。若這次情境合適，可以自然地主動兌現或提起；若不合適就先放著，不要逐字複述整段對話，也不要硬塞）：`,
-    ...items.map((text) => ` - ${text}`),
+    ...items.map((entry) => {
+      // A commitment whose promised date already passed must not be surfaced
+      // as still honorable — that invites "明天煮給你" said three days later.
+      // Keep it visible (so the character can own the miss) but labeled.
+      const expired = memory.commitmentIsExpired(entry.text, entry.createdAt, now);
+      return expired
+        ? ` - ${entry.text}（已過了說好的時間：提起時要承認錯過，不要假裝還來得及）`
+        : ` - ${entry.text}`;
+    }),
   ];
 }
 
 export function commitmentPromptLinesForTest(
   openCommitments: PromptResidue[] | undefined,
   other: string,
+  now?: number,
 ) {
-  return commitmentPromptLines(openCommitments, other);
+  return commitmentPromptLines(openCommitments, other, now);
 }
 
 export function residueTimeLabelZhForTest(
@@ -1597,15 +1610,34 @@ const CONVERSATION_MOTIF_FAMILIES = [
   },
   {
     label: '清單/報告/文件',
-    cues: ['清單', '報告', '文件', '表格', '資料', '檔案', '排程表', '流程表', '作業本', '備忘錄'],
+    cues: ['清單', '報告', '文件', '表格', '資料', '檔案', '排程表', '流程表', '作業本', '備忘錄', '簡報'],
   },
   {
     label: '窗邊/走廊/空椅',
-    cues: ['窗邊', '窗', '走廊', '椅子', '空椅', '座位', '桌子', '角落'],
+    cues: ['窗邊', '窗', '走廊', '椅子', '空椅', '座位', '桌子', '角落', '那扇門'],
   },
   {
     label: '分一半/扛責任',
     cues: ['分一半', '分給', '一起分', '接走', '交接', '交給', '硬扛', '扛著', '扛下', '負責', '幫我'],
+  },
+  // 2026-06-10 adjudication: the cold-drink observation + stop-pushing care
+  // shape recurred across ≥3 fresh samples (湯匙都涼了 / 茶都涼了 / 湯涼了,
+  // 先別推 / 別再推 / 先停, 你手在抖 x2). Both 海 and 真晝 collapse into this
+  // identical opener move, so it counts as one motif family to rotate away from.
+  {
+    label: '涼掉的飲食',
+    cues: ['涼了', '涼掉', '都涼', '快化完'],
+  },
+  {
+    label: '先停/先別推',
+    cues: ['先別推', '別再推', '先停', '停一下', '先別急', '先別想', '手在抖'],
+  },
+  // 2026-06-10 21:04 Alan/海: four consecutive turns leaned on sysadmin
+  // imagery (伺服器閃紅燈 / 發高燒 / 數據流慢半拍 / 關掉螢幕). The metaphor is
+  // in-voice for 海 once per conversation, not as every turn's engine.
+  {
+    label: '伺服器/螢幕隱喻',
+    cues: ['伺服器', '螢幕', '數據流', '紅燈', '頻率', 'queue', '雜訊'],
   },
 ];
 
@@ -1914,6 +1946,7 @@ function dayAnchorPromptLine(clockContext?: ClockContext): string {
 const COMPACT_RHYTHM_AND_RECALL_GUARDS = [
   '節奏：不要每一句都用問句結尾；一則回覆最多一個問句，其餘用陳述、一個小動作、一個決定或一句停頓收尾。',
   '不要捏造回憶：若上面的記憶／殘留／約定裡沒有對應證據，就說不太確定或請對方提醒，不要把想像的往事說成事實。',
+  '不要空口說「我記得」：要說記得，下一句就必須說出上面依據裡實際存在的具體內容；說不出來就改成「我不太確定」。也不要憑空宣稱眼前有不存在的物品或已發生的事（例如把沒有的食物說成「趁熱吃」）。',
 ];
 
 function formatPromptDateTime(timestamp: number, timeZone = 'America/Chicago') {
@@ -2605,6 +2638,7 @@ function everydayLifePrompt(
     ' - Relationship-driven topics are preferred: shared memories, trust, disappointment, admiration, concern, feeling left out, fear of disappointing someone.',
     ' - 節奏：不要每一句都用問句結尾。一則回覆最多一個問句，其餘用陳述、一個小動作、一個決定、或一句停頓收尾。連續被問句逼問會讓人累。',
     ' - 不要捏造回憶：如果對方問你記不記得某件事，而上面的殘留／未了的約定／對話記錄裡沒有對應證據，就誠實說「我不太確定」或請對方提醒，不要編一段聽起來合理的往事當成事實。寧可承認記不清，也不要把想像說成記得。',
+    ' - 不要空口說「我記得」：要說記得，同一句或下一句就必須說出上面依據裡實際存在的具體內容（哪一天、說了什麼）；說不出具體內容就改成「我不太確定」。也不要憑空宣稱眼前有不存在的物品或已發生的事——沒有人給你咖哩飯，就不要說「趁它還熱著」。',
   ];
 }
 
@@ -3938,11 +3972,28 @@ export const queryPromptData = internalQuery({
       }))
       .filter((entry) => entry.text)
       .slice(0, 2);
-    // Open commitments are derived from the same memories but kept on their own
-    // channel: a promise (e.g. "make curry") should be honorable/actionable, not
-    // framed like residue ("don't quote, just pressure"). Commitment-only
-    // memories survive here even when they left no residue line.
-    const openCommitments = samePairMemories
+    // Open commitments are kept on their own channel: a promise (e.g. "make
+    // curry") should be honorable/actionable, not framed like residue ("don't
+    // quote, just pressure"). They also need a much deeper scan window than
+    // residues: with the residues' take(24) over all-partner conversation
+    // memories, a promise made days ago scrolls out of view within hours (海's
+    // 6/4 curry promise was unreachable by 6/10 despite importance 7). A
+    // promise from days ago is exactly the one worth honoring.
+    const commitmentMemories = (
+      await ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', args.playerId).eq('data.type', 'conversation'),
+        )
+        .order('desc')
+        .take(150)
+    ).filter(
+      (entry) =>
+        entry.data.type === 'conversation' &&
+        entry.data.playerIds.includes(args.otherPlayerId) &&
+        memory.shouldExposeMemoryDescription(entry.description),
+    );
+    const openCommitments = commitmentMemories
       .map((entry) => ({
         text: memory.commitmentFromMemoryDescription(entry.description),
         createdAt: entry._creationTime,

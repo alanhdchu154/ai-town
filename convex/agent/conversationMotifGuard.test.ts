@@ -2,10 +2,21 @@ import {
   closingBeatPromptLineForTest,
   directObjectBindingPromptLinesForTest,
   motifGuardPromptLinesForTest,
+  residuePromptLinesForTest,
   residueTimeLabelZhForTest,
 } from './conversation';
 
 describe('conversation motif guard', () => {
+  const originalResidueRead = process.env.UNDERWORLD_RESIDUE_READ;
+
+  afterEach(() => {
+    if (originalResidueRead === undefined) {
+      delete process.env.UNDERWORLD_RESIDUE_READ;
+    } else {
+      process.env.UNDERWORLD_RESIDUE_READ = originalResidueRead;
+    }
+  });
+
   test('warns away from recently repeated prop families in residues', () => {
     const lines = motifGuardPromptLinesForTest(
       [],
@@ -22,6 +33,24 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('清單/報告/文件');
     expect(lines).toContain('角色行動分化 / 海');
     expect(lines).toContain('not-now boundary');
+  });
+
+  test('flags the 6/10 cold-drink + stop-pushing motif family across messages', () => {
+    // Real c:94473 / c:94448 shape: both 海 and 真晝 opened with a
+    // cold-drink observation and a stop-pushing care move.
+    const lines = motifGuardPromptLinesForTest(
+      [
+        '真晝 to 天澤: 你手邊的湯匙都涼了，先停一下，別再推那條規則了。',
+        '海 to 真晝: 你手邊那杯茶都涼了，先別急著壓簡報。',
+      ],
+      [],
+      'Mahiru',
+      'Tianze',
+    ).join('\n');
+
+    expect(lines).toContain('涼掉的飲食');
+    expect(lines).toContain('先停/先別推');
+    expect(lines).toContain('不要再靠這些物件或場景推進');
   });
 
   test('adds a response-move guard when the last speaker already split responsibility', () => {
@@ -113,5 +142,49 @@ describe('conversation motif guard', () => {
 
     expect(label).toBe('之前 5/29 下午 15:15');
     expect(label).not.toMatch(/今天|昨天|剛才/);
+  });
+
+  test('residue read mode supports on, off, and placebo without leaking residue text', () => {
+    const residues = [
+      {
+        text: '海還記得真晝把冷茶和清單放在窗邊，還說不要一個人硬扛。',
+        createdAt: Date.UTC(2026, 5, 1, 19, 30),
+      },
+    ];
+
+    delete process.env.UNDERWORLD_RESIDUE_READ;
+    const onLines = residuePromptLinesForTest(residues, '真晝').join('\n');
+    expect(onLines).toContain('殘留記憶');
+    expect(onLines).toContain('海還記得真晝');
+
+    process.env.UNDERWORLD_RESIDUE_READ = 'false';
+    expect(residuePromptLinesForTest(residues, '真晝')).toEqual([]);
+
+    process.env.UNDERWORLD_RESIDUE_READ = 'placebo';
+    const placeboLines = residuePromptLinesForTest(residues, '真晝').join('\n');
+    expect(placeboLines).toContain('場景節奏備註');
+    expect(placeboLines).not.toContain('殘留');
+    expect(placeboLines).not.toContain('海還記得真晝');
+    expect(placeboLines).not.toContain('冷茶');
+    expect(placeboLines).not.toContain('清單');
+    expect(placeboLines).not.toContain('窗邊');
+    expect(placeboLines).not.toContain('硬扛');
+  });
+
+  test('placebo read mode prevents residue text from driving motif guard lines', () => {
+    process.env.UNDERWORLD_RESIDUE_READ = 'placebo';
+    const lines = motifGuardPromptLinesForTest(
+      [],
+      [
+        '今天早上他把冷茶放在窗邊，清單還沒收。',
+        '下午又提到茶、窗邊座位和那份清單。',
+      ],
+      'Umi',
+      'Tianze',
+    ).join('\n');
+
+    expect(lines).not.toContain('冷茶/杯子');
+    expect(lines).not.toContain('窗邊/走廊/空椅');
+    expect(lines).not.toContain('清單/報告/文件');
   });
 });

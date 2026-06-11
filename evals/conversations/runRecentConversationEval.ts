@@ -574,6 +574,9 @@ function suggestedFixCategory(result: ConversationEvalResult) {
   if (text.includes('wrongAddresseeScore')) return 'fix wrong addressee before changing tone';
   if (text.includes('bannedPhraseCount')) return 'remove stale template phrase or deterministic fallback';
   if (text.includes('repetitionScore')) return 'add intra-conversation response move diversity';
+  if (text.includes('mirror repetition')) {
+    return 'break cross-speaker mirror/motif loop (vary objects and care moves)';
+  }
   if (text.includes('previousSpeakerBindingScore')) return 'strengthen emotional hook binding to previous speaker';
   if (text.includes('directAnswerScore')) return 'answer the actual question before persona/world analysis';
   if (text.includes('administrativeLanguageScore')) return 'replace administrative/meeting language with ordinary school life';
@@ -589,6 +592,7 @@ function postFixFailureCategory(result: ConversationEvalResult) {
   const text = [...result.failures, ...result.warnings].join('\n');
   if (text.includes('wrongAddresseeScore')) return 'wrong addressee';
   if (text.includes('repetitionScore')) return 'repeated fallback';
+  if (text.includes('mirror repetition')) return 'mirror/motif repetition across speakers';
   if (text.includes('previousSpeakerBindingScore') || text.includes('directAnswerScore')) {
     return 'not responding to previous speaker';
   }
