@@ -24,7 +24,7 @@ const SELF_TEST = args.get('self-test') === 'true';
 const MIN_AFTERNOON_CALLBACK_JUDGMENT_SAMPLES = 12;
 
 const PRIMARY_NAMES = new Set(['海', '真晝', '天澤', '天澤', 'Umi', 'Mahiru', 'Tianze']);
-const SECONDARY_NAMES = new Set(['曹操', '一之瀨', '一之瀨', '劉備', 'CaoCao', 'Ichinose', 'Liu Bei']);
+const SECONDARY_NAMES = new Set(['貓貓', '一之瀨', '一之瀨', '祥子', 'Maomao', 'Ichinose', 'Sakiko']);
 
 const CONCRETE_CUES = [
   'Alan',
@@ -221,41 +221,41 @@ function runSelfTest() {
       ['真晝', '下午餐廳比較安靜。'],
       ['天澤', '這條規則先別推了。'],
     ]),
-    fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['曹操', '劉備'], [
-      ['曹操', '庭院那張椅子先不要動。'],
-      ['劉備', '我去看看誰自己吃飯。'],
+    fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['貓貓', '祥子'], [
+      ['貓貓', '庭院那張椅子先不要動。'],
+      ['祥子', '我去看看誰自己吃飯。'],
     ]),
-    fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['一之瀨', '曹操'], [
+    fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['一之瀨', '貓貓'], [
       ['一之瀨', '你又把問題說得太工整。'],
-      ['曹操', '規矩先放著。'],
+      ['貓貓', '規矩先放著。'],
     ]),
-    fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
-      ['劉備', '我先去餐廳。'],
+    fixtureConversation('conversation-pm-6', '2026-05-27T19:50:00.000Z', ['祥子', '一之瀨'], [
+      ['祥子', '我先去餐廳。'],
       ['一之瀨', '別繞了。'],
     ]),
-    fixtureConversation('conversation-pm-7', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
+    fixtureConversation('conversation-pm-7', '2026-05-27T20:00:00.000Z', ['真晝', '祥子'], [
       ['真晝', '下午餐廳比較安靜。'],
-      ['劉備', '我先去看看座位。'],
+      ['祥子', '我先去看看座位。'],
     ]),
-    fixtureConversation('conversation-pm-8', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
-      ['曹操', '庭院那邊先不要公開問。'],
+    fixtureConversation('conversation-pm-8', '2026-05-27T20:10:00.000Z', ['貓貓', '真晝'], [
+      ['貓貓', '庭院那邊先不要公開問。'],
       ['真晝', '嗯，慢一點。'],
     ]),
-    fixtureConversation('conversation-pm-9', '2026-05-27T20:20:00.000Z', ['海', '曹操'], [
+    fixtureConversation('conversation-pm-9', '2026-05-27T20:20:00.000Z', ['海', '貓貓'], [
       ['海', '下午先別整理成報告。'],
-      ['曹操', '我只看門口。'],
+      ['貓貓', '我只看門口。'],
     ]),
     fixtureConversation('conversation-pm-10', '2026-05-27T20:30:00.000Z', ['真晝', '海'], [
       ['真晝', '先坐一下。'],
       ['海', '好。'],
     ]),
-    fixtureConversation('conversation-pm-11', '2026-05-27T20:40:00.000Z', ['天澤', '曹操'], [
+    fixtureConversation('conversation-pm-11', '2026-05-27T20:40:00.000Z', ['天澤', '貓貓'], [
       ['天澤', '這條規則先別碰。'],
-      ['曹操', '我知道。'],
+      ['貓貓', '我知道。'],
     ]),
-    fixtureConversation('conversation-pm-12', '2026-05-27T20:50:00.000Z', ['一之瀨', '劉備'], [
+    fixtureConversation('conversation-pm-12', '2026-05-27T20:50:00.000Z', ['一之瀨', '祥子'], [
       ['一之瀨', '那份善意先記著。'],
-      ['劉備', '我先留座位。'],
+      ['祥子', '我先留座位。'],
     ]),
   ];
   const candidates = extractAmResidueCandidates(morning);
@@ -295,53 +295,53 @@ function runSelfTest() {
   const noCallbackStatus = decideStatus({
     morning,
     afternoon: [
-      fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['曹操', '劉備'], [
-        ['曹操', '今天庭院的座位先不要動。'],
-        ['劉備', '我去看看誰自己吃飯。'],
+      fixtureConversation('conversation-pm-4', '2026-05-27T19:30:00.000Z', ['貓貓', '祥子'], [
+        ['貓貓', '今天庭院的座位先不要動。'],
+        ['祥子', '我去看看誰自己吃飯。'],
       ]),
-      fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['曹操', '一之瀨'], [
+      fixtureConversation('conversation-pm-5', '2026-05-27T19:40:00.000Z', ['貓貓', '一之瀨'], [
         ['一之瀨', '你又把問題說得太工整。'],
-        ['曹操', '規矩先放著。'],
+        ['貓貓', '規矩先放著。'],
       ]),
-      fixtureConversation('conversation-pm-6b', '2026-05-27T19:50:00.000Z', ['劉備', '一之瀨'], [
-        ['劉備', '我先去餐廳。'],
+      fixtureConversation('conversation-pm-6b', '2026-05-27T19:50:00.000Z', ['祥子', '一之瀨'], [
+        ['祥子', '我先去餐廳。'],
         ['一之瀨', '別繞了。'],
       ]),
-      fixtureConversation('conversation-pm-7b', '2026-05-27T20:00:00.000Z', ['真晝', '劉備'], [
+      fixtureConversation('conversation-pm-7b', '2026-05-27T20:00:00.000Z', ['真晝', '祥子'], [
         ['真晝', '下午餐廳比較安靜。'],
-        ['劉備', '我先去看看座位。'],
+        ['祥子', '我先去看看座位。'],
       ]),
-      fixtureConversation('conversation-pm-8b', '2026-05-27T20:10:00.000Z', ['曹操', '真晝'], [
-        ['曹操', '庭院那邊先不要公開問。'],
+      fixtureConversation('conversation-pm-8b', '2026-05-27T20:10:00.000Z', ['貓貓', '真晝'], [
+        ['貓貓', '庭院那邊先不要公開問。'],
         ['真晝', '嗯，慢一點。'],
       ]),
-      fixtureConversation('conversation-pm-9b', '2026-05-27T20:20:00.000Z', ['海', '曹操'], [
+      fixtureConversation('conversation-pm-9b', '2026-05-27T20:20:00.000Z', ['海', '貓貓'], [
         ['海', '下午先別整理成報告。'],
-        ['曹操', '我只看門口。'],
+        ['貓貓', '我只看門口。'],
       ]),
       fixtureConversation('conversation-pm-10b', '2026-05-27T20:30:00.000Z', ['真晝', '海'], [
         ['真晝', '先坐一下。'],
         ['海', '好。'],
       ]),
-      fixtureConversation('conversation-pm-11b', '2026-05-27T20:40:00.000Z', ['天澤', '曹操'], [
+      fixtureConversation('conversation-pm-11b', '2026-05-27T20:40:00.000Z', ['天澤', '貓貓'], [
         ['天澤', '這條規則先別碰。'],
-        ['曹操', '我知道。'],
+        ['貓貓', '我知道。'],
       ]),
-      fixtureConversation('conversation-pm-12b', '2026-05-27T20:50:00.000Z', ['一之瀨', '劉備'], [
+      fixtureConversation('conversation-pm-12b', '2026-05-27T20:50:00.000Z', ['一之瀨', '祥子'], [
         ['一之瀨', '那份善意先記著。'],
-        ['劉備', '我先留座位。'],
+        ['祥子', '我先留座位。'],
       ]),
-      fixtureConversation('conversation-pm-13b', '2026-05-27T21:00:00.000Z', ['曹操', '劉備'], [
-        ['曹操', '位置先別改。'],
-        ['劉備', '我去問一聲。'],
+      fixtureConversation('conversation-pm-13b', '2026-05-27T21:00:00.000Z', ['貓貓', '祥子'], [
+        ['貓貓', '位置先別改。'],
+        ['祥子', '我去問一聲。'],
       ]),
       fixtureConversation('conversation-pm-14b', '2026-05-27T21:10:00.000Z', ['真晝', '一之瀨'], [
         ['真晝', '晚一點再說吧。'],
         ['一之瀨', '我先記著。'],
       ]),
-      fixtureConversation('conversation-pm-15b', '2026-05-27T21:20:00.000Z', ['海', '劉備'], [
+      fixtureConversation('conversation-pm-15b', '2026-05-27T21:20:00.000Z', ['海', '祥子'], [
         ['海', '今天先到這裡。'],
-        ['劉備', '好，我陪他走回去。'],
+        ['祥子', '好，我陪他走回去。'],
       ]),
     ],
     amResidueCandidates: candidates,
@@ -840,7 +840,7 @@ function isLowSignalFragment(fragment) {
   return (
     fragment.length < 4 ||
     /^(今天|下午|早上|上午|中午|剛才|剛剛|我們|你們|是不是|可是|自己|一直|那個|這個|有沒有|我覺得|我先|你先)$/.test(fragment) ||
-    /^(Alan|海|真晝|天澤|一之瀨|天澤|曹操|一之瀨|劉備)$/.test(fragment)
+    /^(Alan|海|真晝|天澤|一之瀨|天澤|貓貓|一之瀨|祥子)$/.test(fragment)
   );
 }
 
@@ -865,7 +865,7 @@ function hasSoulOrLifeSignal(text, conversation) {
   const lifeSignal = /休息|吃飯|午餐|手|肩|杯|窗|門口|座位|宿舍|餐廳|教室|庭院|校長室|清單|簡報|任務|責任|交接|硬撐|安靜|沒說完|看見|照顧/.test(
     text,
   );
-  const relationSignal = /Alan|海|真晝|天澤|一之瀨|天澤|曹操|一之瀨|劉備|你|我們/.test(text);
+  const relationSignal = /Alan|海|真晝|天澤|一之瀨|天澤|貓貓|一之瀨|祥子|你|我們/.test(text);
   return (primary || secondary) && lifeSignal && relationSignal;
 }
 

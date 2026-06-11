@@ -315,7 +315,7 @@ function inferMentionAngle(author, text) {
   if (hasAny(combined, ['邊界', '吐槽', '戳破', '代說', '沒有插手'])) {
     return 'boundary_wit';
   }
-  if (hasAny(combined, ['曹操', '位置', '走廊', '聲音放輕', '保護到人'])) {
+  if (hasAny(combined, ['貓貓', '位置', '走廊', '聲音放輕', '保護到人'])) {
     return 'order_position';
   }
   return 'unknown';
@@ -382,12 +382,12 @@ function relative(path) {
 function runSelfTest() {
   const events = [
     analyzeBulletinEvent({ descriptionZh: '今日生活小事（早晨）：「第一節前有人忘了帶筆記」。真晝把筆記本推過去。', locationZh: '教室' }),
-    analyzeBulletinEvent({ descriptionZh: '今日生活小事（午餐）：「餐廳多出一個沒人坐的空位」。劉備多拿了一份湯。', locationZh: '餐廳' }),
+    analyzeBulletinEvent({ descriptionZh: '今日生活小事（午餐）：「餐廳多出一個沒人坐的空位」。祥子多拿了一份湯。', locationZh: '餐廳' }),
     analyzeBulletinEvent({ descriptionZh: '今日生活小事（晚上）：「宿舍門口留了一杯溫水」。真晝沒有追問。', locationZh: '宿舍' }),
   ];
   const mentions = analyzeConversationUptake(events, [
     { conversationId: 'a', messages: [{ authorName: '真晝', text: '第一節前有人忘了帶筆記，我先借他。' }] },
-    { conversationId: 'b', messages: [{ authorName: '劉備', text: '餐廳多出一個沒人坐的空位，我多拿一份湯，留一個位置慢慢來。' }] },
+    { conversationId: 'b', messages: [{ authorName: '祥子', text: '餐廳多出一個沒人坐的空位，我多拿一份湯，留一個位置慢慢來。' }] },
   ]);
   const summary = summarize(events, mentions);
   const status = decideStatus(summary);

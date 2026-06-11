@@ -30,10 +30,11 @@ const args = new Map(
     }),
 );
 
-const FOCUS_PAIR = (args.get('focus-pair') ?? 'Tianze:Liu Bei').trim();
+const FOCUS_PAIR = (args.get('focus-pair') ?? 'Tianze:Sakiko').trim();
 const [LEFT_NAME, RIGHT_NAME] = FOCUS_PAIR.split(':').map((name) => name.trim());
 const TIMEOUT_MS = Number(args.get('timeout-ms') ?? 180_000);
 const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 7_000);
+const MIN_MESSAGES = Number(args.get('min-messages') ?? 2);
 const KEEP = args.get('keep') === 'true';
 const RUN_TIMESTAMP = Date.now();
 const LOCAL_LLM_PREFLIGHT_ARG = args.get('local-llm-preflight');
@@ -45,7 +46,15 @@ if (!LEFT_NAME || !RIGHT_NAME) {
   process.exit(1);
 }
 
-const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'tianze', 'ichinose']);
+const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set([
+  'umi',
+  'mahiru',
+  'mahirushiina',
+  'tianze',
+  'ichinose',
+  'maomao',
+  'sakiko',
+]);
 const ORIGINAL_TRIAD_CLOUD_CHARACTER_NAMES = new Set(['umi', 'mahiru', 'mahirushiina', 'tianze']);
 
 function normalizedCharacterName(name) {
@@ -238,7 +247,7 @@ function representativeSoulPrompt() {
       role: 'system',
       content: [
         'GIIS Underworld v0.1 cloud provider preflight.',
-        'Characters: 海(Umi), 真晝(Mahiru), 天澤(Tianze).',
+        'Characters: 海(Umi), 真晝(Mahiru), 天澤(Tianze), 一之瀨(Ichinose), 貓貓(Maomao), 祥子(Sakiko).',
         'Goal: spoken dialogue only, Traditional Chinese, natural and short.',
         'Avoid fallback/template slogans, stage directions, over-analysis, and exact echo.',
         'Emotion should show through tone, attention, and small behavior.',
@@ -339,9 +348,9 @@ function nameAliases(name) {
   if (name === 'Umi') aliases.add('海').add('朝凪海');
   if (name === 'Mahiru') aliases.add('Mahiru').add('真晝').add('椎名真晝');
   if (name === 'Tianze') aliases.add('天澤');
-  if (name === 'Liu Bei') aliases.add('LiuBei').add('劉備');
+  if (name === 'Sakiko') aliases.add('Sakiko').add('祥子');
   if (name === 'Ichinose') aliases.add('一之瀨');
-  if (name === 'CaoCao') aliases.add('Cao Cao').add('曹操');
+  if (name === 'Maomao') aliases.add('Maomao').add('貓貓');
   return aliases;
 }
 
@@ -366,13 +375,22 @@ async function pollForFreshSample(worldId) {
     const conversations = Array.isArray(data?.conversations) ? data.conversations : [];
     const fresh = conversations.find((conversation) => {
       const names = new Set(conversation?.involvedCharacters ?? []);
+      const messageCount =
+        typeof conversation?.messageCount === 'number'
+          ? conversation.messageCount
+          : Array.isArray(conversation?.transcriptMessages)
+            ? conversation.transcriptMessages.length
+            : Array.isArray(conversation?.messages)
+              ? conversation.messages.length
+              : 0;
       return (
         conversation?.createdAt >= RUN_TIMESTAMP &&
+        messageCount >= MIN_MESSAGES &&
         includesAnyAlias(names, LEFT_ALIASES) &&
         includesAnyAlias(names, RIGHT_ALIASES)
       );
     });
-    log(`poll #${attempts}: fresh archived conversations=${conversations.length}`);
+    log(`poll #${attempts}: fresh conversations=${conversations.length}; waiting for ${MIN_MESSAGES}+ focus messages`);
     if (fresh) return fresh;
     await sleep(POLL_INTERVAL_MS);
   }
@@ -404,8 +422,9 @@ async function main() {
   await assertLocalLlmReady(localModel);
 
   let sample;
+  let shouldResumeWorld = false;
   try {
-    if (isOriginalTriadCloudPair(LEFT_NAME, RIGHT_NAME)) {
+    if (isCoreCloudPair(LEFT_NAME, RIGHT_NAME)) {
       await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM', 'false');
       await convexEnvSet('AUTONOMOUS_CONVERSATION_LLM_PAIRS', 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose');
     } else {
@@ -419,6 +438,7 @@ async function main() {
     await convexRun('testing:resume');
     const worldStatus = await convexRun('world:defaultWorldStatus');
     const worldId = worldStatus?.worldId;
+    shouldResumeWorld = worldStatus?.status === 'running';
     log(`world=${worldId} status=${worldStatus?.status}`);
 
     const coLocation = await convexRun('school:coLocateCharactersForTest', {
@@ -444,8 +464,13 @@ async function main() {
       return;
     }
 
-    const transcript = (sample.messages ?? [])
-      .map((message) => messageText(message))
+    const transcriptMessages = sample.transcriptMessages ?? sample.messages ?? [];
+    const transcript = transcriptMessages
+      .map((message) => {
+        const text = messageText(message);
+        if (!text) return '';
+        return message?.author ? `${message.author}: ${text}` : text;
+      })
       .filter(Boolean)
       .join(' / ');
     log(`fresh sample ${sample.id}: ${(sample.involvedCharacters ?? []).join(' / ')}`);
@@ -503,6 +528,11 @@ async function main() {
       console.warn(`[free-world-routing] cleanup failed before env restore: ${error.message ?? error}`);
     } finally {
       await restoreEnv(previousEnv);
+      if (shouldResumeWorld) {
+        await convexRun('testing:resume').catch((error) => {
+          console.warn(`[free-world-routing] world resume failed after cleanup: ${error.message ?? error}`);
+        });
+      }
     }
     if (cleanupError) {
       throw cleanupError;

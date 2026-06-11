@@ -7,7 +7,7 @@
 // legacy AM -> PM day-arc observer.
 
 import { execFile } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -16,6 +16,9 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '..');
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'rolling-continuity-latest.md');
+const MEMORY_HYGIENE_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'memory-hygiene-latest.md');
+const LIFE_SIGNALS_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md');
+const COMPLETION_AUDIT_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-completion-audit-latest.md');
 
 const args = parseArgs(process.argv.slice(2));
 const SELF_TEST = args.get('self-test') === 'true';
@@ -151,6 +154,29 @@ try {
     );
   }
 }
+
+const memoryBefore = await readOptionalText(MEMORY_HYGIENE_REPORT_PATH);
+await runReadOnlyFollowUp('memory hygiene', [
+  process.execPath,
+  join(REPO_ROOT, 'scripts', 'underworld-memory-hygiene-audit.mjs'),
+]);
+const memoryAfter = await readOptionalText(MEMORY_HYGIENE_REPORT_PATH);
+const memoryDelta = compareMemoryHygieneReports(memoryBefore, memoryAfter);
+if (memoryDelta) {
+  console.log(`[rolling-continuity] memory hygiene ${memoryDelta}`);
+}
+
+await runReadOnlyFollowUp('life signals', [
+  process.execPath,
+  join(REPO_ROOT, 'scripts', 'underworld-life-signals.mjs'),
+]);
+await logReportSummary('life-signals', LIFE_SIGNALS_REPORT_PATH, ['Status', 'Decision']);
+
+await runReadOnlyFollowUp('v0.1 completion audit', [
+  process.execPath,
+  join(REPO_ROOT, 'scripts', 'underworld-v01-completion-audit.mjs'),
+]);
+await logCompletionAuditSummary(COMPLETION_AUDIT_REPORT_PATH);
 
 if (evaluation.status.label !== 'PASS') process.exitCode = 1;
 
@@ -491,6 +517,96 @@ function parseJsonFromStdout(stdout) {
   return JSON.parse(stdout.slice(first, last + 1));
 }
 
+async function runReadOnlyFollowUp(label, command) {
+  try {
+    const { stdout, stderr } = await execFileAsync(command[0], command.slice(1), {
+      cwd: REPO_ROOT,
+      timeout: 180_000,
+      maxBuffer: 1024 * 1024 * 16,
+    });
+    const summary = firstInterestingLine(`${stdout}\n${stderr}`);
+    console.log(`[rolling-continuity] refreshed ${label}${summary ? `: ${summary}` : ''}`);
+  } catch (error) {
+    const output = `${error?.stdout ?? ''}\n${error?.stderr ?? ''}`;
+    const summary =
+      firstInterestingLine(output) || (error instanceof Error ? error.message.split('\n')[0] : String(error));
+    console.log(`[rolling-continuity] refreshed ${label} with non-pass status: ${summary}`);
+  }
+}
+
+function firstInterestingLine(output) {
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith('>') && !line.includes('ExperimentalWarning'));
+}
+
+async function readOptionalText(path) {
+  try {
+    return await readFile(path, 'utf8');
+  } catch {
+    return '';
+  }
+}
+
+function compareMemoryHygieneReports(beforeText, afterText) {
+  if (!afterText) return 'report unavailable';
+  const before = memoryHygieneCounts(beforeText);
+  const after = memoryHygieneCounts(afterText);
+  const suspectBefore = before.known + before.unverified;
+  const suspectAfter = after.known + after.unverified;
+  const pieces = [
+    `suspect=${suspectAfter}`,
+    `known=${after.known}`,
+    `unverified=${after.unverified}`,
+    `legacy=${after.legacy}`,
+  ];
+  if (beforeText && suspectAfter > suspectBefore) {
+    pieces.push(`WARN increased from ${suspectBefore}`);
+  }
+  return pieces.join(' ');
+}
+
+function memoryHygieneCounts(text) {
+  return {
+    known: (text.match(/KNOWN_FRAGMENT/g) ?? []).length,
+    unverified: (text.match(/UNVERIFIED_ALAN_CLAIM/g) ?? []).length,
+    legacy: (text.match(/LEGACY_FORMAT/g) ?? []).length,
+  };
+}
+
+async function logReportSummary(label, path, keys) {
+  const text = await readOptionalText(path);
+  if (!text) {
+    console.log(`[rolling-continuity] ${label} report unavailable`);
+    return;
+  }
+  const fields = keys
+    .map((key) => {
+      const value = text.match(new RegExp(`^- ${escapeRegExp(key)}:\\s*(.+)$`, 'm'))?.[1]?.trim();
+      return value ? `${key.toLowerCase()}=${value}` : '';
+    })
+    .filter(Boolean);
+  if (fields.length) console.log(`[rolling-continuity] ${label} ${fields.join(' ')}`);
+}
+
+async function logCompletionAuditSummary(path) {
+  const text = await readOptionalText(path);
+  if (!text) {
+    console.log('[rolling-continuity] v0.1 completion audit report unavailable');
+    return;
+  }
+  const overall = text.match(/^Overall:\s*(.+)$/m)?.[1]?.trim();
+  const reason = text.match(/^Reason:\s*(.+)$/m)?.[1]?.trim();
+  if (overall) {
+    console.log(`[rolling-continuity] v0.1 completion overall=${overall}${reason ? ` reason=${reason}` : ''}`);
+  }
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function dateKeyFor(timestamp, timeZone) {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-US', {
@@ -557,15 +673,15 @@ function runSelfTest() {
       ],
       [{ characterName: '海', residueLineZh: '海還記得真晝沒有催她繼續有用。 觸發：通知。' }],
     ),
-    fixtureConversation('conversation-source-2', 10, ['曹操', '天澤'], [
-      { author: '曹操', text: '那個空椅子先留著，別急著把人塞回格子。' },
+    fixtureConversation('conversation-source-2', 10, ['貓貓', '天澤'], [
+      { author: '貓貓', text: '那個空椅子先留著，別急著把人塞回格子。' },
     ]),
   ];
   const callback = [
     fixtureConversation('conversation-callback-1', 12, ['海', '真晝'], [
       { author: '海', text: '剛才那個通知我已經關掉了，等下課鈴響再把沒說完的話接起來。' },
     ]),
-    fixtureConversation('conversation-callback-2', 12, ['曹操', '天澤'], [
+    fixtureConversation('conversation-callback-2', 12, ['貓貓', '天澤'], [
       { author: '天澤', text: '下次再問空椅子的規則吧，現在先別把大家塞進格子。' },
     ]),
   ];

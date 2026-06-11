@@ -65,7 +65,7 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:day-start` | Day-start readiness check (clock, engine, fallback audit). | Start-of-day. |
 | `npm run underworld:life-signals` | Scan day-window life signals (conversation shape, scene diversity, daily rhythm, soul style). Writes `umi/reports/life-signals-latest.md`. | Quality observation. |
 | `npm run underworld:life-signals:self-test` | Self-test for the life-signal harness. | CI smoke. |
-| `npm run underworld:rolling-continuity` | Scan adjacent two-hour windows for concrete residue -> callback / behavior shift. Writes `umi/reports/rolling-continuity-latest.md`. | Primary v0.1 recent-memory continuity gate. |
+| `npm run underworld:rolling-continuity` | Scan adjacent two-hour windows for concrete residue -> callback / behavior shift. Writes `umi/reports/rolling-continuity-latest.md`, refreshes Alan-facing candidate scan, then refreshes memory hygiene, day-window life-signals, and the v0.1 completion audit as read-only follow-ups. | Primary v0.1 recent-memory continuity gate plus current-state refresh. A rolling PASS alone is not completion if life-signals, memory hygiene, or Alan-facing playtest remain unresolved. |
 | `npm run underworld:rolling-continuity:self-test` | Self-test the rolling continuity scan. | CI smoke. |
 | `npm run underworld:am-pm-continuity` | Scan AM→PM continuity: does an afternoon callback connect to morning residue? Writes `umi/reports/am-pm-continuity-latest.md`. | After AM and PM have both happened. |
 | `npm run underworld:am-pm-continuity:self-test` | Self-test the continuity scan. | CI smoke. |
