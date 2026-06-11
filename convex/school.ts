@@ -20,6 +20,7 @@ import { archiveDeletedConversation } from './aiTown/game';
 import { chatCompletion } from './util/llm';
 import { isGeneratedFallbackText } from './modelPolicy';
 import { hasDialogueSystemPhraseLeak } from './agent/dialogueHygiene';
+import { RECALL_CORRECTED_MARKER } from './agent/memory';
 import { AlanProfile, GiisProfiles, RelationshipDimensions } from '../data/giisProfiles';
 import { ClassroomCenter, ClassroomWalkBounds, clampToClassroom } from '../data/classroomBounds';
 import {
@@ -3640,6 +3641,102 @@ async function ensureDailyOpeningEvent(
     clock,
   });
 }
+
+// Read-only export of every pilot character's recent memories, for the
+// offline memory-hygiene audit (`npm run underworld:memory-hygiene`). Returns
+// description text plus enough metadata to flag legacy formats, known
+// fabrication fragments, and unverified Alan-quote claims.
+export const exportPilotMemoriesForAudit = query({
+  args: { perCharacter: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const take = Math.min(Math.max(args.perCharacter ?? 300, 10), 500);
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const alanIds = new Set(
+      [...descriptions.values()]
+        .filter((description) => description.name === DEFAULT_NAME)
+        .map((description) => description.playerId),
+    );
+    const characters = [];
+    for (const description of descriptions.values()) {
+      if (description.name === DEFAULT_NAME) continue;
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId', (q) => q.eq('playerId', description.playerId))
+        .order('desc')
+        .take(take);
+      characters.push({
+        name: displayNameZh(description.name),
+        memories: memories.map((memoryDoc) => ({
+          id: memoryDoc._id,
+          createdAt: memoryDoc._creationTime,
+          importance: memoryDoc.importance,
+          type: memoryDoc.data.type,
+          aboutAlan:
+            memoryDoc.data.type === 'conversation'
+              ? memoryDoc.data.playerIds.some((id) => alanIds.has(id))
+              : false,
+          description: memoryDoc.description,
+        })),
+      });
+    }
+    return { checkedAt: Date.now(), characters };
+  },
+});
+
+// One-off / manual memory hygiene: stamp memories whose content was fabricated
+// and later corrected (e.g. 海's 6/4 「世界變得太聰明」 line) so they stop
+// surfacing as canon. Read paths hide marked memories; importance drops to 0.
+// Usage:
+//   npx convex run school:downweightFalseMemory \
+//     '{"characterName":"海","fragment":"世界變得太聰明"}'
+// Run with {"dryRun":true} first to see what would be marked.
+export const downweightFalseMemory = mutation({
+  args: {
+    characterName: v.string(),
+    fragment: v.string(),
+    dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const fragment = args.fragment.trim();
+    if (fragment.length < 6) {
+      return { error: 'fragment must be at least 6 characters to avoid over-matching' };
+    }
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const match = [...descriptions.values()].find(
+      (description) =>
+        description.name === args.characterName ||
+        displayNameZh(description.name) === args.characterName,
+    );
+    if (!match) return { error: `character not found: ${args.characterName}` };
+    const memories = await ctx.db
+      .query('memories')
+      .withIndex('playerId', (q) => q.eq('playerId', match.playerId))
+      .order('desc')
+      .take(Math.min(Math.max(args.limit ?? 200, 1), 500));
+    const marked: Array<{ id: string; preview: string }> = [];
+    for (const memoryDoc of memories) {
+      if (memoryDoc.description.includes(RECALL_CORRECTED_MARKER)) continue;
+      if (!memoryDoc.description.includes(fragment)) continue;
+      if (!args.dryRun) {
+        await ctx.db.patch(memoryDoc._id, {
+          description: `${RECALL_CORRECTED_MARKER}${memoryDoc.description}`,
+          importance: 0,
+        });
+      }
+      marked.push({ id: memoryDoc._id, preview: memoryDoc.description.slice(0, 80) });
+    }
+    return {
+      character: displayNameZh(match.name),
+      fragment,
+      dryRun: args.dryRun ?? false,
+      markedCount: marked.length,
+      marked,
+    };
+  },
+});
 
 export const gatherInClassroom = mutation({
   args: {},

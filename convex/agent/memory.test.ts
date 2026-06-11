@@ -1,12 +1,48 @@
 import {
+  RECALL_CORRECTED_MARKER,
+  claimedRecallFragmentsFromMessages,
   commitmentFromMemoryDescription,
+  commitmentIsExpired,
   conversationHasRecallCorrection,
   concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
+  resolveCommitmentDueAt,
   shouldExposeMemoryDescription,
   shouldPersistConversationMemoryShape,
 } from './memory';
+
+describe('recall-corrected memory downweighting', () => {
+  test('marked memories are hidden from prompt read paths', () => {
+    const description =
+      '與 Alan 在 2026/6/4 下午7:56 的對話：我們談過世界變得太聰明卻少了溫度。';
+    expect(shouldExposeMemoryDescription(description)).toBe(true);
+    expect(shouldExposeMemoryDescription(`${RECALL_CORRECTED_MARKER}${description}`)).toBe(false);
+  });
+
+  test('extracts what the speaker claimed to remember for downweighting', () => {
+    // Real 6/4 shape: 海 claims a fabricated recall, Alan corrects her.
+    const fragments = claimedRecallFragmentsFromMessages(
+      [
+        { author: 'p:umi', text: '我記得你說過世界變得太聰明卻少了溫度。' },
+        { author: 'p:alan', text: '不是，我前幾天說要吃咖哩飯。' },
+      ],
+      'p:umi',
+    );
+    expect(fragments).toEqual(['世界變得太聰明卻少了溫度']);
+
+    // Other-party messages and too-short fragments are ignored.
+    expect(
+      claimedRecallFragmentsFromMessages(
+        [{ author: 'p:alan', text: '我記得你說過世界變得太聰明卻少了溫度。' }],
+        'p:umi',
+      ),
+    ).toEqual([]);
+    expect(
+      claimedRecallFragmentsFromMessages([{ author: 'p:umi', text: '我記得那天。' }], 'p:umi'),
+    ).toEqual([]);
+  });
+});
 
 describe('conversationHasRecallCorrection', () => {
   const UMI = 'p:0';
@@ -177,6 +213,100 @@ describe('memory post-processing hygiene', () => {
     );
 
     expect(curryCommitment).toBe('具體承諾：天澤答應明天為Alan準備咖哩飯');
+  });
+
+  test('keeps the promiser as the offerer when the other party only accepts', () => {
+    // Real 一之瀨 case (c:94554): she offers to cook, Alan closes with "好".
+    // Without offer detection the commitment direction inverts to Alan cooking.
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:ichinose', name: '一之瀨' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        {
+          author: 'p:ichinose',
+          text: '「現在」太吵了，Alan。不如明天吧？那時候教室只剩我們兩人，我煮咖哩飯給你吃……但你要先答應，吃完後要負責把碗洗乾淨。',
+        },
+        { author: 'p:human', text: '好。' },
+      ],
+    );
+
+    expect(commitment).toBe('具體承諾：一之瀨答應明天為Alan準備咖哩飯');
+  });
+
+  test('captures an unrejected first-person offer even without an explicit acceptance', () => {
+    // Real c:94554 failure: 一之瀨 offered inside a question-marked line and
+    // Alan never typed a bare "好" — the commitment silently vanished.
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:ichinose', name: '一之瀨' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        {
+          author: 'p:ichinose',
+          text: '「現在」太吵了，Alan。不如明天吧？那時候教室只剩我們兩人，我煮咖哩飯給你吃……但你要先答應，吃完後要負責把碗洗乾淨，不能像以前一樣只顧著把責任丟給我哦？',
+        },
+        { author: 'p:human', text: '現在就要！餵我' },
+      ],
+    );
+
+    expect(commitment).toBe('具體承諾：一之瀨答應明天為Alan準備咖哩飯');
+
+    // But an offer the other party rejected is not a commitment.
+    const rejectedCommitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:ichinose', name: '一之瀨' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:ichinose', text: '不如明天吧？我煮咖哩飯給你吃……' },
+        { author: 'p:human', text: '算了，不用了' },
+      ],
+    );
+
+    expect(rejectedCommitment).toBe('');
+  });
+
+  test('resolves relative commitment time to absolute date and weekday when saidAt is given', () => {
+    // 2026-06-10 noon Chicago is a Wednesday.
+    const saidAt = Date.UTC(2026, 5, 10, 17, 0, 0);
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:ichinose', name: '一之瀨' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:ichinose', text: '不如明天吧？我煮咖哩飯給你吃。' },
+        { author: 'p:human', text: '好。' },
+      ],
+      { saidAt },
+    );
+
+    expect(commitment).toBe('具體承諾：一之瀨答應明天（6/11 週四）為Alan準備咖哩飯（說於6/10 週三）');
+  });
+
+  test('resolves weekend and weekday commitment times against the said date', () => {
+    const wednesday = Date.UTC(2026, 5, 10, 17, 0, 0); // 2026-06-10 週三
+    const dayMs = 24 * 60 * 60 * 1000;
+
+    // 週末 from Wednesday -> the coming Saturday 6/13.
+    expect(resolveCommitmentDueAt('週末', wednesday)).toBe(wednesday + 3 * dayMs);
+    // 下週末 from Wednesday -> Saturday 6/20.
+    expect(resolveCommitmentDueAt('下週末', wednesday)).toBe(wednesday + 10 * dayMs);
+    // 週三 said on a Wednesday means next Wednesday, not today.
+    expect(resolveCommitmentDueAt('週三', wednesday)).toBe(wednesday + 7 * dayMs);
+    // 週五 said on Wednesday -> this Friday.
+    expect(resolveCommitmentDueAt('週五', wednesday)).toBe(wednesday + 2 * dayMs);
+    expect(resolveCommitmentDueAt('某個時候', wednesday)).toBeUndefined();
+  });
+
+  test('commitmentIsExpired compares the embedded due date with today', () => {
+    const saidAt = Date.UTC(2026, 5, 10, 17, 0, 0); // 6/10 週三
+    const dayMs = 24 * 60 * 60 * 1000;
+    const text = '一之瀨答應明天（6/11 週四）為Alan準備咖哩飯（說於6/10 週三）';
+
+    expect(commitmentIsExpired(text, saidAt, saidAt)).toBe(false);
+    expect(commitmentIsExpired(text, saidAt, saidAt + dayMs)).toBe(false); // due day itself
+    expect(commitmentIsExpired(text, saidAt, saidAt + 2 * dayMs)).toBe(true);
+    // Legacy undated 「明天」 commitments expire 48h after creation…
+    expect(commitmentIsExpired('Umi答應明天為Alan準備咖哩飯', saidAt, saidAt + dayMs)).toBe(false);
+    expect(commitmentIsExpired('Umi答應明天為Alan準備咖哩飯', saidAt, saidAt + 30 * dayMs)).toBe(true);
+    // …but other legacy shapes stay non-expiring (too ambiguous to judge).
+    expect(commitmentIsExpired('Umi答應週末為Alan準備咖哩飯', saidAt, saidAt + 30 * dayMs)).toBe(false);
   });
 
   test('requires enough autonomous exchange before writing conversation memory', () => {

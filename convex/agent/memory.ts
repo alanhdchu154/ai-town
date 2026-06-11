@@ -144,9 +144,10 @@ function deterministicConversationSummary(
   player: { name: string },
   otherPlayer: { name: string },
   messages: Doc<'messages'>[],
+  options?: { saidAt?: number },
 ) {
   const anchorText = memoryAnchorTextForMessages(messages);
-  const commitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages);
+  const commitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages, options);
   const preview = anchorText
     ? `留下的情緒重點是：「${anchorText.slice(0, 96)}${anchorText.length > 96 ? '...' : ''}」`
     : '這段對話沒有留下明確訊息。';
@@ -174,6 +175,7 @@ export function concreteCommitmentSummaryForMessages(
   player: { id?: string; name: string },
   otherPlayer: { id?: string; name: string },
   messages: Array<{ author?: string; text: string }>,
+  options?: { saidAt?: number; timeZone?: string },
 ) {
   const normalizedMessages = messages.map((message) => ({
     ...message,
@@ -182,22 +184,162 @@ export function concreteCommitmentSummaryForMessages(
   const speakerName = (message: { author?: string }) =>
     message.author === player.id ? player.name : message.author === otherPlayer.id ? otherPlayer.name : '';
 
+  const formatCommitment = (speaker: string, time: string, object: string) => {
+    const target = speaker === player.name ? otherPlayer.name : player.name;
+    const base = `具體承諾：${speaker}答應${time}`;
+    if (options?.saidAt === undefined) {
+      return `${base}為${target}準備${object}`;
+    }
+    // Resolve the relative time against when it was said, so the surfaced
+    // commitment can answer "哪一天說的、哪一天要兌現" instead of carrying a
+    // stale "明天" forever.
+    const timeZone = options.timeZone ?? 'America/Chicago';
+    const saidLabel = commitmentDateLabelZh(options.saidAt, timeZone);
+    const dueAt = resolveCommitmentDueAt(time, options.saidAt, timeZone);
+    const dueLabel = dueAt === undefined ? '' : `（${commitmentDateLabelZh(dueAt, timeZone)}）`;
+    return `${base}${dueLabel}為${target}準備${object}（說於${saidLabel}）`;
+  };
+
+  // Pass 1: acceptance-anchored. Someone closed with a clean commitment
+  // response ("好", "我會", ...).
   for (let index = 0; index < normalizedMessages.length; index += 1) {
     const message = normalizedMessages[index];
     if (!looksLikeCommitmentResponse(message.text)) continue;
+    const windowMessages = normalizedMessages.slice(Math.max(0, index - 4), index + 1);
+    const windowText = windowMessages.map((item) => item.text).join('\n');
+    const object = commitmentObjectFromText(windowText);
+    const time = commitmentTimeFromText(windowText);
+    if (!object || !time) continue;
+    // The promiser is whoever will actually do the making, not necessarily the
+    // author of the acceptance line. If someone in the window made a
+    // first-person offer ("我煮咖哩飯給你吃"), that offer's author is the
+    // promiser even when the other party closed with "好". Without this, an
+    // offer + "好" inverts the commitment direction. Search backward from the
+    // acceptance so an acceptance that itself contains a making verb
+    // ("好，我做一份") still wins.
+    const offerMessage = [...windowMessages]
+      .reverse()
+      .find((item) => item.author && COMMITMENT_OFFER_PATTERN.test(item.text));
+    const speaker = speakerName(offerMessage ?? message);
+    if (!speaker) continue;
+    return formatCommitment(speaker, time, object);
+  }
+
+  // Pass 2: offer-anchored. A first-person offer ("我煮咖哩飯給你吃……") that
+  // nobody rejected is still a commitment, even when no clean acceptance line
+  // exists — the 一之瀨 c:94554 case: she offered inside a question-marked
+  // line, Alan never typed a bare "好", and the promise silently vanished.
+  for (let index = 0; index < normalizedMessages.length; index += 1) {
+    const message = normalizedMessages[index];
+    if (!message.author || !COMMITMENT_OFFER_PATTERN.test(message.text)) continue;
     const windowText = normalizedMessages
-      .slice(Math.max(0, index - 4), index + 1)
+      .slice(Math.max(0, index - 2), index + 1)
       .map((item) => item.text)
       .join('\n');
     const object = commitmentObjectFromText(windowText);
     const time = commitmentTimeFromText(windowText);
     if (!object || !time) continue;
+    const rejected = normalizedMessages
+      .slice(index + 1)
+      .some(
+        (later) =>
+          later.author !== message.author &&
+          /(不行|不要|不用|不吃|不能|不必|算了|先別|先不要|改天|下次)/.test(later.text),
+      );
+    if (rejected) continue;
     const speaker = speakerName(message);
     if (!speaker) continue;
-    const target = speaker === player.name ? otherPlayer.name : player.name;
-    return `具體承諾：${speaker}答應${time}為${target}準備${object}`;
+    return formatCommitment(speaker, time, object);
   }
   return '';
+}
+
+// First-person making verb — "我煮…", "我來做…", "我會準備…". Used both to find
+// the real promiser behind an acceptance line and to detect offers that were
+// never explicitly accepted.
+const COMMITMENT_OFFER_PATTERN = /我(?:來|會|再)?\s*(?:煮|做|準備|帶)/;
+
+const COMMITMENT_WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
+
+// "6/11 週四" — month/day plus weekday, in the given time zone.
+export function commitmentDateLabelZh(at: number, timeZone = 'America/Chicago') {
+  const parts = chicagoDateParts(at, timeZone);
+  return `${parts.month}/${parts.day} 週${COMMITMENT_WEEKDAYS_ZH[parts.weekday]}`;
+}
+
+function chicagoDateParts(at: number, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    weekday: 'short',
+  });
+  const fields = new Map(formatter.formatToParts(new Date(at)).map((part) => [part.type, part.value]));
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(fields.get('weekday') ?? '');
+  return {
+    year: Number(fields.get('year')),
+    month: Number(fields.get('month')),
+    day: Number(fields.get('day')),
+    weekday: weekday < 0 ? 0 : weekday,
+  };
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Resolve a relative commitment time ("明天" / "週末" / "週三") to an absolute
+// timestamp, anchored on when it was said. Returns undefined for shapes we do
+// not understand; callers then keep the relative wording only.
+export function resolveCommitmentDueAt(time: string, saidAt: number, timeZone = 'America/Chicago') {
+  const saidWeekday = chicagoDateParts(saidAt, timeZone).weekday;
+  if (time === '明天') return saidAt + DAY_MS;
+  if (time === '週末') {
+    // Already Sat/Sun -> this weekend (same day); otherwise the coming Saturday.
+    if (saidWeekday === 6 || saidWeekday === 0) return saidAt;
+    return saidAt + (6 - saidWeekday) * DAY_MS;
+  }
+  if (time === '下週末') {
+    const daysToSaturday = saidWeekday === 6 || saidWeekday === 0 ? 7 : 6 - saidWeekday + 7;
+    return saidAt + daysToSaturday * DAY_MS;
+  }
+  const weekdayMatch = time.match(/^週([一二三四五六日])$/);
+  if (weekdayMatch) {
+    const target = COMMITMENT_WEEKDAYS_ZH.indexOf(weekdayMatch[1]);
+    if (target < 0) return undefined;
+    // Next occurrence strictly after the day it was said ("週三說「週三」"
+    // means next week, not today).
+    const delta = ((target - saidWeekday + 7 - 1) % 7) + 1;
+    return saidAt + delta * DAY_MS;
+  }
+  return undefined;
+}
+
+// Parse the "（6/11 週四）" due label back out of a surfaced commitment and
+// decide whether the promised time has already passed (date-level, in the
+// commitment's time zone). `createdAt` supplies the year context.
+export function commitmentIsExpired(
+  commitmentText: string,
+  createdAt: number,
+  now = Date.now(),
+  timeZone = 'America/Chicago',
+) {
+  const due = commitmentText.match(/（(\d{1,2})\/(\d{1,2}) 週[一二三四五六日]）/);
+  if (!due) {
+    // Legacy rows without a due label: a "明天" promise read 48h+ later is
+    // certainly past — without this, 海's 6/4 「答應明天」 would surface on
+    // 6/10 as still honorable. Other relative shapes stay non-expiring.
+    if (/答應明天/.test(commitmentText) && now - createdAt > 2 * DAY_MS) return true;
+    return false;
+  }
+  const created = chicagoDateParts(createdAt, timeZone);
+  const month = Number(due[1]);
+  const day = Number(due[2]);
+  // Year wraparound: a December commitment due in January belongs to next year.
+  const year = month < created.month - 6 ? created.year + 1 : created.year;
+  const today = chicagoDateParts(now, timeZone);
+  const dueOrdinal = year * 10000 + month * 100 + day;
+  const todayOrdinal = today.year * 10000 + today.month * 100 + today.day;
+  return dueOrdinal < todayOrdinal;
 }
 
 function normalizeTraditionalFoodText(text: string) {
@@ -285,8 +427,36 @@ export function hasMemoryPostProcessingDrift(description: string) {
   );
 }
 
+// Prefix stamped onto a memory whose content the other party later corrected
+// ("不是，我說的是…"). Marked memories are hidden from prompt read paths so the
+// fabrication stops resurfacing as canon.
+export const RECALL_CORRECTED_MARKER = '〔此記憶曾被對方糾正，內容不可靠〕';
+
 export function shouldExposeMemoryDescription(description: string) {
+  if (description.includes(RECALL_CORRECTED_MARKER)) return false;
   return !hasMemoryPostProcessingDrift(description);
+}
+
+// When a correction happened, find what the speaker claimed to remember
+// ("我記得你說過X" -> X) so the matching older false memory can be
+// down-weighted. Best-effort text extraction; the manual school mutation
+// covers anything this misses.
+export function claimedRecallFragmentsFromMessages(
+  messages: { author?: string; text: string }[],
+  speakerPlayerId: string,
+) {
+  const fragments: string[] = [];
+  for (const message of messages) {
+    if (message.author !== speakerPlayerId) continue;
+    const matches = message.text.matchAll(
+      /(?:我記得|我們談過|你曾說|你說過|你提過)+[，,：:]?「?([^。！？!?\n「」]{6,40})/g,
+    );
+    for (const match of matches) {
+      const fragment = match[1].trim();
+      if (fragment.length >= 6 && !fragments.includes(fragment)) fragments.push(fragment);
+    }
+  }
+  return fragments;
 }
 
 export function shouldPersistConversationMemoryShape(
@@ -522,6 +692,41 @@ export const recentSamePairResidues = internalQuery({
   },
 });
 
+// Down-weight memories whose content was later corrected by the other party:
+// stamp RECALL_CORRECTED_MARKER (which hides them from prompt read paths) and
+// zero their importance so embedding recall stops preferring them. Matching is
+// substring-based and bounded; returns how many memories were updated.
+export const downweightMemoriesMatching = internalMutation({
+  args: {
+    playerId,
+    fragment: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const fragment = args.fragment.trim();
+    if (fragment.length < 6) return 0;
+    const memories = await ctx.db
+      .query('memories')
+      .withIndex('playerId', (q) => q.eq('playerId', args.playerId))
+      .order('desc')
+      .take(Math.min(Math.max(args.limit ?? 100, 1), 200));
+    let updated = 0;
+    for (const memoryDoc of memories) {
+      if (memoryDoc.description.includes(RECALL_CORRECTED_MARKER)) continue;
+      const hit =
+        memoryDoc.description.includes(fragment) ||
+        (fragment.length > 10 && memoryDoc.description.includes(fragment.slice(0, 10)));
+      if (!hit) continue;
+      await ctx.db.patch(memoryDoc._id, {
+        description: `${RECALL_CORRECTED_MARKER}${memoryDoc.description}`,
+        importance: 0,
+      });
+      updated += 1;
+    }
+    return updated;
+  },
+});
+
 function deterministicImportance(description: string) {
   if (/決定|承諾|拒絕|答應|不再|開始|改變|信任|疏遠|依賴|害怕|不安|孤單|排除/.test(description)) {
     return 6;
@@ -669,7 +874,9 @@ export async function rememberConversation(
     return;
   }
 
-  const fallbackSummary = deterministicConversationSummary(player, otherPlayer, messages);
+  const fallbackSummary = deterministicConversationSummary(player, otherPlayer, messages, {
+    saidAt: data.conversation.created ?? data.conversation._creationTime,
+  });
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
@@ -700,7 +907,14 @@ export async function rememberConversation(
         },
         fallbackSummary,
       );
-  const concreteCommitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages);
+  // Use the conversation's logical start (`created`) rather than the DB row's
+  // `_creationTime`. They coincide for live conversations, but for a re-archived
+  // (backfilled) conversation `_creationTime` is the re-archive moment, which
+  // would mislabel an old chat as having happened "just now".
+  const conversationStartedAt = data.conversation.created ?? data.conversation._creationTime;
+  const concreteCommitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages, {
+    saidAt: conversationStartedAt,
+  });
   const contentWithCommitment =
     concreteCommitment && !content.includes(concreteCommitment)
       ? `${concreteCommitment}；${content}`
@@ -711,11 +925,6 @@ export async function rememberConversation(
     ms: Date.now() - summaryStart,
     player: player.name,
   });
-  // Use the conversation's logical start (`created`) rather than the DB row's
-  // `_creationTime`. They coincide for live conversations, but for a re-archived
-  // (backfilled) conversation `_creationTime` is the re-archive moment, which
-  // would mislabel an old chat as having happened "just now".
-  const conversationStartedAt = data.conversation.created ?? data.conversation._creationTime;
   const baseDescription = `與 ${otherPlayer.name} 在 ${new Intl.DateTimeFormat('zh-TW', {
     timeZone: 'America/Chicago',
     year: 'numeric',
@@ -770,7 +979,8 @@ export async function rememberConversation(
   // memory. Do not canonize that turn's residue, or the fabrication becomes
   // durable "truth" the speaker confidently recalls later. The base summary and
   // any concrete commitment (often the corrected, real one) are still kept.
-  if (residue && conversationHasRecallCorrection(messages, player.id as GameId<'players'>)) {
+  const recallCorrected = conversationHasRecallCorrection(messages, player.id as GameId<'players'>);
+  if (residue && recallCorrected) {
     logGiisTiming({
       action: 'rememberConversation',
       phase: 'skipResidueRecallCorrected',
@@ -778,6 +988,30 @@ export async function rememberConversation(
       otherPlayer: otherPlayer.name,
     });
     residue = '';
+  }
+  // Retroactive anti-confabulation: the correction also means an OLDER memory
+  // likely holds the original fabrication (the 6/4 「世界變得太聰明」 case kept
+  // resurfacing for days). Down-weight matching prior memories so the false
+  // recall stops being canon.
+  if (recallCorrected) {
+    const fragments = claimedRecallFragmentsFromMessages(
+      messages,
+      player.id as GameId<'players'>,
+    ).slice(0, 2);
+    for (const fragment of fragments) {
+      const updated = await ctx.runMutation(selfInternal.downweightMemoriesMatching, {
+        playerId: player.id as GameId<'players'>,
+        fragment,
+      });
+      if (updated > 0) {
+        logGiisTiming({
+          action: 'rememberConversation',
+          phase: 'downweightCorrectedRecall',
+          player: player.name,
+          count: updated,
+        });
+      }
+    }
   }
   const descriptionForClassification = residue
     ? `${baseDescription}\n${RESIDUE_PREFIX}${residue}`
