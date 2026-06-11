@@ -121,10 +121,10 @@ describe('dialogue hygiene', () => {
 
   test('strips third-person self narration around quoted speech', () => {
     const line =
-      '海看著你面前那杯沒喝完的果汁，問：「如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，劉備，你會怎麼自然地邀請他？」';
+      '海看著你面前那杯沒喝完的果汁，問：「如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，祥子，你會怎麼自然地邀請他？」';
 
     expect(stripStageDirectionsFromDialogue(line)).toEqual({
-      line: '如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，劉備，你會怎麼自然地邀請他？',
+      line: '如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，祥子，你會怎麼自然地邀請他？',
       strippedStageDirection: true,
     });
     expect(hasThirdPersonSelfNarrationLeak(line)).toBe(true);
@@ -142,17 +142,17 @@ describe('dialogue hygiene', () => {
 
   test('normalizes unquoted third-person self narration into first person speech', () => {
     const line =
-      '海注意到你害怕每個圈子都有人被孤立，劉備。我們來想想如何讓大家都感到自己是重要的一分子。';
+      '海注意到你害怕每個圈子都有人被孤立，祥子。我們來想想如何讓大家都感到自己是重要的一分子。';
 
     expect(stripStageDirectionsFromDialogue(line)).toEqual({
-      line: '我注意到你害怕每個圈子都有人被孤立，劉備。我們來想想如何讓大家都感到自己是重要的一分子。',
+      line: '我注意到你害怕每個圈子都有人被孤立，祥子。我們來想想如何讓大家都感到自己是重要的一分子。',
       strippedStageDirection: true,
     });
     expect(hasThirdPersonSelfNarrationLeak(line)).toBe(true);
   });
 
   test('strips named third-person stage narration and keeps following speech', () => {
-    const line = '劉備看天澤有點心事重重的樣子，你要不要先問她午餐有沒有吃？';
+    const line = '祥子看天澤有點心事重重的樣子，你要不要先問她午餐有沒有吃？';
 
     expect(stripStageDirectionsFromDialogue(line)).toEqual({
       line: '你要不要先問她午餐有沒有吃？',

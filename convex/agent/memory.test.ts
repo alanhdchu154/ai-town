@@ -124,7 +124,7 @@ describe('memory post-processing hygiene', () => {
 
   test('hides campus emotion-map report drift without hiding ordinary emotion residue', () => {
     const driftDescription =
-      '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「我得先整理幾份關於校園情緒地圖的報告。」';
+      '與 貓貓 在 5/28/2026 的對話：最後留下的重點是：「我得先整理幾份關於校園情緒地圖的報告。」';
     const everydayDescription =
       '殘留：真晝還記得教室午餐後變安靜，海把 Alan 今天需要先看見的人列少一點。';
 
@@ -138,9 +138,9 @@ describe('memory post-processing hygiene', () => {
     const driftDescription =
       '與 天澤 在 5/28/2026 的對話：最後留下的重點是：「我會開始掃描教室，確保所有人都有任務和支援。」';
     const flowDescription =
-      '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「名單已交接清楚，我累了，需要去整理明天的流程。」';
+      '與 貓貓 在 5/28/2026 的對話：最後留下的重點是：「名單已交接清楚，我累了，需要去整理明天的流程。」';
     const helperDescription =
-      '與 劉備 在 5/28/2026 的對話：最後留下的重點是：「暫時不覺得累。看看窗邊是否有人需要幫助。」';
+      '與 祥子 在 5/28/2026 的對話：最後留下的重點是：「暫時不覺得累。看看窗邊是否有人需要幫助。」';
 
     expect(hasMemoryPostProcessingDrift(driftDescription)).toBe(true);
     expect(shouldExposeMemoryDescription(driftDescription)).toBe(false);
@@ -168,11 +168,11 @@ describe('memory post-processing hygiene', () => {
 
   test('hides efficiency-collaboration template drift from memory', () => {
     const efficiencyDescription =
-      '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「嗯，但這也是個提醒，讓我思考怎麼讓個人準備更有效率。」';
+      '與 貓貓 在 5/28/2026 的對話：最後留下的重點是：「嗯，但這也是個提醒，讓我思考怎麼讓個人準備更有效率。」';
     const collaborationDescription =
       '與 一之瀨 在 5/28/2026 的對話：最後留下的重點是：「這樣一起合作看看可行嗎？我們可以互相補充信息。」';
     const selfOrganizeDescription =
-      '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「我覺得目前還是我自己組織比較好，別的想法。」';
+      '與 貓貓 在 5/28/2026 的對話：最後留下的重點是：「我覺得目前還是我自己組織比較好，別的想法。」';
 
     expect(hasMemoryPostProcessingDrift(efficiencyDescription)).toBe(true);
     expect(shouldExposeMemoryDescription(efficiencyDescription)).toBe(false);
@@ -184,7 +184,7 @@ describe('memory post-processing hygiene', () => {
 
   test('hides generic agreement closure from memory', () => {
     const genericClosureDescription =
-      '與 曹操 在 5/28/2026 的對話：最後留下的重點是：「你剛才說的正中窩心，那就這樣做吧。」';
+      '與 貓貓 在 5/28/2026 的對話：最後留下的重點是：「你剛才說的正中窩心，那就這樣做吧。」';
 
     expect(hasMemoryPostProcessingDrift(genericClosureDescription)).toBe(true);
     expect(shouldExposeMemoryDescription(genericClosureDescription)).toBe(false);

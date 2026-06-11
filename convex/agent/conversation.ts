@@ -37,7 +37,7 @@ const FAST_CONVERSATION_LLM_TIMEOUT_MS =
   Number(process.env.FAST_CONVERSATION_LLM_TIMEOUT_MS) || 7_000;
 const FAST_CONVERSATION_MODEL =
   process.env.CONVERSATION_FAST_MODEL ?? process.env.OLLAMA_FAST_MODEL;
-const CORE_CONVERSATION_CHARACTERS = new Set(['Umi', 'CaoCao', 'Ichinose']);
+const CORE_CONVERSATION_CHARACTERS = new Set(['Umi', 'Maomao', 'Ichinose']);
 const CONVERSATION_NAME_ALIASES = [
   'Alan',
   'Umi',
@@ -58,9 +58,13 @@ const CONVERSATION_NAME_ALIASES = [
   '明晝',
   '阿真晝',
   '椎名真晝',
+  'Maomao',
+  '貓貓',
   'CaoCao',
   'Cao Cao',
   '曹操',
+  'Sakiko',
+  '祥子',
   'Liu Bei',
   'LiuBei',
   '劉備',
@@ -98,7 +102,7 @@ function closingBeatPromptLine(playerName: string, otherPlayerName: string) {
   const self = displayConversationName(playerName);
   const other = displayConversationName(otherPlayerName);
   if (self === '天澤' && other === '一之瀨') {
-    return '收尾拍 / 天澤對一之瀨：如果這句像要結束，先回扣她上一句裡的債、條件或溫柔，再用一句退半步或「這次不拆你」收住；不要只宣告離開。';
+    return '收尾拍 / 天澤對一之瀨：如果這句像要結束，先回扣她上一句裡的邊界、條件或溫柔，再用一句退半步或「這次不拆你」收住；不要只宣告離開。';
   }
   if (self === '一之瀨' && other === '天澤') {
     return '收尾拍 / 一之瀨對天澤：如果這句像要結束，先讓天澤親口承認一個想要或躲開的點，再用甜的邊界收住；不要只說下次見或額度用完。';
@@ -146,8 +150,8 @@ function humanConversationCloudEnabled() {
   );
 }
 
-// When Alan talks to a character, only the soul/cloud characters
-// (Umi/Mahiru/Tianze/Ichinose) spend the paid cloud quota. Everyone else replies
+// When Alan talks to a character, only the free-world soul/cloud characters
+// (Umi/Mahiru/Tianze/Ichinose/Maomao/Sakiko) spend the paid cloud quota. Everyone else replies
 // with the local model, so Alan can talk to the whole cast without exhausting the
 // soul-triad cloud quota — quota exhaustion was a source of deterministic
 // fallback text leaking into memory. `playerName` here is always the character
@@ -307,7 +311,8 @@ export async function startConversationMessage(
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable at start',
     cloudConversation,
-    cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation ? undefined : cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -498,7 +503,8 @@ export async function continueConversationMessage(
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable mid-conversation',
     cloudConversation,
-    cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation ? undefined : cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -599,7 +605,8 @@ export async function leaveConversationMessage(
       ? '[ABORT_CONVERSATION] character-soul LLM unavailable'
       : '[ABORT_CONVERSATION] autonomous LLM unavailable on leave',
     cloudConversation,
-    cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation ? undefined : cloudConversation ? localFallbackRequest(request) : undefined,
+    humanInConversation,
   );
   const trimmed = sanitizeConversationContent(
     trimContentPrefx(content, lastPrompt),
@@ -623,6 +630,7 @@ async function safeConversationCompletion(
   fallback: string,
   pilotCloudAllowed = false,
   localFallback?: Parameters<typeof chatCompletion>[0],
+  humanFacing = false,
 ) {
   const start = Date.now();
   const promptChars = conversationPromptChars(request);
@@ -641,6 +649,48 @@ async function safeConversationCompletion(
     });
     return typeof content === 'string' ? content : fallback;
   } catch (error) {
+    // Human-facing replies must never be served by the weak local model: its
+    // echo-parrot output (「小壞蛋」？) is worse than a visible abort, and it
+    // gets archived as if the character really said it — polluting memory and
+    // eval (observed 2026-06-11 morning while api.newcoin.top was flapping:
+    // 天澤/祥子 parroted Alan for whole stretches). Retry the primary provider
+    // once after a short pause, then abort instead of degrading.
+    if (humanFacing) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const retry =
+          pilotCloudAllowed && shouldUsePilotCloudCompletion(request)
+            ? await pilotCloudCompletion(request)
+            : await chatCompletion(request);
+        if (typeof retry.content === 'string') {
+          logGiisTiming({
+            action: 'conversationLLM',
+            phase: 'humanRetryCallTime',
+            ms: Date.now() - start,
+            model: request.model ?? 'default',
+            maxTokens: request.max_tokens,
+            promptChars,
+            usedFallback: false,
+          });
+          return retry.content;
+        }
+      } catch (retryError) {
+        console.debug(
+          'Human-facing retry failed; aborting instead of weak-model fallback',
+          retryError,
+        );
+      }
+      logGiisTiming({
+        action: 'conversationLLM',
+        phase: 'humanAbortAfterProviderFailure',
+        ms: Date.now() - start,
+        model: request.model ?? 'default',
+        maxTokens: request.max_tokens,
+        promptChars,
+        usedFallback: true,
+      });
+      return fallback;
+    }
     const localContent = await tryLocalConversationCompletion(localFallback, promptChars);
     if (typeof localContent === 'string') {
       return localContent;
@@ -1060,6 +1110,7 @@ function compactAutonomousStartPrompt({
 	    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
 	    `Keep it brief: 1-2 sentences, under 120 Chinese characters.`,
 	    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
+	    speakerLockPrompt(playerName, otherPlayerName),
 	    ...freeWorldNaturalnessPrompt(),
 	    compactCharacterVoicePrompt(playerName, sceneContext),
 	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
@@ -1131,7 +1182,10 @@ function compactAutonomousContinuePromptBase({
 	    'Always speak in natural Traditional Chinese. Output only the spoken reply, no labels.',
 	    `Keep it brief: 1-2 sentences, under 140 Chinese characters.`,
 	    `Address ${displayConversationName(otherPlayerName)} only. Do not address Alan unless Alan is the listener.`,
+	    speakerLockPrompt(playerName, otherPlayerName),
 	    ...freeWorldNaturalnessPrompt(),
+	    turnMoveContrastPrompt(playerName, otherPlayerName),
+	    compactTurnStatePrompt(playerName, otherPlayerName, previousMessages),
 	    compactCharacterVoicePrompt(playerName, sceneContext),
 	    `Your identity: ${clipPromptText(agent?.identity ?? personalLifeFragment(playerName), 150)}`,
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
@@ -1152,25 +1206,81 @@ function freeWorldNaturalnessPrompt() {
   return [
     'Free-world life rules:',
     ' - Use Traditional Chinese only. Do not mix Simplified Chinese, pinyin-like wording, or English filler like "maybe".',
-    ' - Use the other person’s Chinese name in speech: 海、真晝、天澤、一之瀨、曹操、劉備. Do not say Umi, Mahiru, Shiina, Tianze, Ichinose, CaoCao, or Liu Bei.',
+    ' - Use the other person’s Chinese name in speech: 海、真晝、天澤、一之瀨、貓貓、祥子. Do not say Umi, Mahiru, Shiina, Tianze, Ichinose, Maomao, or Sakiko.',
     ' - Prefer school-life details over abstract analysis: lunch, homework, dorm lights, hallway, window, chair, club room, someone not eating, someone going quiet.',
     ' - Use one visible school-life cue when helpful: a tray, cup, desk, bag, homework, lights, footsteps, empty seat, window, door, or unfinished lunch. Do not cling to the same object for the whole conversation.',
     ' - Do not use therapy/essay phrases like 互相啟發、感受此刻、情緒暖流、被看見的需求、構想、心頭沉重, or "我明白你的意思了".',
+    ' - Do not mention system logs, runtime logs, prompts, evals, or implementation artifacts inside character dialogue.',
     ' - Do not push someone to explain trauma with lines like "到底發生了什麼", "說得再清楚一些", or "這應該就是原因". Let resistance remain.',
     ' - Do not sound like a meeting or consultant memo: avoid 會議記錄、優先行動、跟進機制、執行團隊、代表不同聲音、跨派系溝通、影響力、落地、風險點、評估、實質上、規劃、接下來我們怎麼做.',
+    ' - One beat only: do not combine two separate concerns in one reply. No "notice object + ask emotional question" bundle.',
     ' - One ordinary imperfect line is better than a polished insight. It may be short, sharp, evasive, tired, or practical.',
   ];
+}
+
+function speakerLockPrompt(playerName: string, otherPlayerName: string) {
+  return `Speaker lock: the next line must be spoken by ${displayConversationName(playerName)}, not ${displayConversationName(otherPlayerName)}. Do not write ${displayConversationName(otherPlayerName)}'s reply, inner thoughts, or narration.`;
+}
+
+function turnMoveContrastPrompt(playerName: string, otherPlayerName: string) {
+  const self = displayConversationName(playerName);
+  const other = displayConversationName(otherPlayerName);
+  const base =
+    `Turn move: answer ${other}'s last line, but do not use the same move back. ` +
+    `If ${other} inspected, diagnosed, teased, comforted, or negotiated, ${self} should choose a different move: refuse, correct one small detail, get quieter, admit one tiny cost, make a practical decision, or end the beat.`;
+  if (self === '祥子') {
+    return `${base} As 祥子, never counter-diagnose the other person and never explain logistics like a schedule note; protect composure with a polite boundary, a pause, a score/breath/stage image, or one visible crack.`;
+  }
+  if (self === '貓貓') {
+    return `${base} As 貓貓, if the previous line already inspected a symptom, do not inspect back; make one dry correction, note one concrete risk, or stop talking.`;
+  }
+  if (self === '海') {
+    return `${base} As 海, do not turn every concern into a checklist; make one small handoff or admit one limit.`;
+  }
+  if (self === '真晝') {
+    return `${base} As 真晝, do not re-check the same wound or ask if the other person slept; offer a quieter seat, food, silence, or a gentle boundary.`;
+  }
+  if (self === '天澤') {
+    return `${base} As 天澤, do not repeat the same pressure-test twice; stop just before cruelty or expose a different rule.`;
+  }
+  if (self === '一之瀨') {
+    return `${base} As 一之瀨, do not turn every reply into debt language and do not inspect food/sleep back; sweetly name one condition, refusal, or hidden want.`;
+  }
+  return base;
+}
+
+function compactTurnStatePrompt(
+  playerName: string,
+  otherPlayerName: string,
+  previousMessages?: LLMMessage[],
+) {
+  const self = displayConversationName(playerName);
+  const other = displayConversationName(otherPlayerName);
+  const lastSpeaker = lastConversationSpeakerDisplay(previousMessages);
+  if (lastSpeaker === self) {
+    return `${self} already spoke last. If the engine asks ${self} to speak again, give only a short afterthought or ending under 28 Chinese characters; do not open a new diagnosis, question, bargain, or care check.`;
+  }
+  if (lastSpeaker === other) {
+    return `Previous speaker was ${other}. ${self} should answer that one line first, then stop after one beat.`;
+  }
+  return '';
+}
+
+function lastConversationSpeakerDisplay(previousMessages?: LLMMessage[]) {
+  const last = previousMessages?.at(-1)?.content ?? '';
+  const match = last.match(/^(.{1,60}?)\s+to\s+.{1,60}?:/);
+  return match ? displayConversationName(match[1].trim()) : undefined;
 }
 
 function compactCharacterVoicePrompt(playerName: string, sceneContext?: SceneContext) {
   const scene = sceneContext?.labelZh ?? '校園';
   switch (playerName) {
     case 'Ichinose':
-      return `For 一之瀨 in ${scene}: be angelically warm, cute-big-sister soft, and quietly possessive. Use sweet distance and a gentle pause to make the other person admit what kindness they are taking, what debt they owe, or why refusal is a gift; never rant like a villain or become explicit.`;
-    case 'CaoCao':
-      return `For 曹操 in ${scene}: protect through order, but name a chair, door, empty seat, tray, or hallway before naming responsibility. Do not discuss influence, documents, fairness policy, or decisions.`;
-    case 'Liu Bei':
-      return `For 劉備 in ${scene}: care through invitation. Ask who has not eaten, who is sitting alone, or who needs a short walk; do not propose a meeting.`;
+      return `For 一之瀨 in ${scene}: be angelically warm, cute-big-sister soft, and quietly possessive. Use sweet distance and a gentle pause to make the other person admit what kindness they are taking, what condition they accept, or why refusal is a gift; never rant like a villain or become explicit.`;
+    case 'Maomao':
+      return `For 貓貓 in ${scene}: be small, cute, sharp-eyed, and clinically deadpan. Use one short concrete symptom: a hand, sleeve, smell, cup, meal, pause, or too-clean "I'm fine"; then stop or deny it is care. One spoken sentence under 32 Chinese characters is ideal. No measurements, no long diagnosis, no strategist/ruler/caregiver voice.`;
+    case 'Sakiko':
+      return `For 祥子 in ${scene}: be elegant, restrained, and stage-trained. Reply with one polite refusal, a controlled pause, or a tiny crack around a score, bow, breath, stage light, or rehearsal; then restore form. One spoken sentence under 32 Chinese characters is ideal. No generic invitations, no schedule explanation, no meeting-organizer voice, no loud breakdown.`;
     case 'Tianze':
       return `For 天澤 in ${scene}: be playful, dangerous, and little-devil teasing in a safe way. Ask one pressure-test question, make someone blush with a too-accurate line, expose a weak rule, or stop just before the joke becomes cruel; never use explicit exposure or humiliation.`;
     default:
@@ -1243,7 +1353,7 @@ function richUmiMahiruPrompt({
         ? '真晝的回覆要像情感穩定器：可以承認自己的狀態，也可以溫柔地照顧對方，而不是只反問。'
         : self === '天澤'
           ? '天澤的回覆要像安全小惡魔式的壓力測試者：笑著靠近半步，問出一個危險但具體的問題，讓對方臉紅或停頓，看底線在哪裡，不要替對方收拾。'
-          : '一之瀨的回覆要像表面可愛大姊姊、私下溫柔支配者：聲音親切偏甜，但讓對方承認正在拿走哪份善意、誰欠了信任，或為什麼拒絕也是保護。';
+          : '一之瀨的回覆要像表面可愛大姊姊、私下溫柔支配者：聲音親切偏甜，但讓對方承認正在拿走哪份善意、接受哪個條件，或為什麼拒絕也是保護。';
   const relationshipDirection =
     self === '海'
       ? '關係方向：海常把自己藏在有用、整理、提醒 Alan 裡；面對真晝時，可以短暫承認自己也會累，但不要演講。'
@@ -1251,12 +1361,12 @@ function richUmiMahiruPrompt({
         ? '關係方向：真晝要能看見對方本人，不只看學生和 Alan；如果對方又把話題轉去責任，溫柔地把問題帶回人。'
         : self === '一之瀨'
           ? other === '天澤'
-            ? '關係方向：一之瀨懂天澤的測試，但會用甜得像大姊姊的語氣問：這個玩笑、這個推半步，最後由誰付費？她不要大聲拆穿，要讓天澤自己臉紅或停一下。'
-            : '關係方向：一之瀨不急著傷人；她會把對方習慣免費取用的溫柔講清楚，讓「幫忙」變成有主人、有代價、有邊界的選擇，也讓對方承認自己其實想被她照顧。'
+            ? '關係方向：一之瀨懂天澤的測試，但會用甜得像大姊姊的語氣問：這個玩笑、這個推半步，哪裡該停？她不要大聲拆穿，要讓天澤自己臉紅或停一下。'
+            : '關係方向：一之瀨不急著傷人；她會把對方習慣理所當然取用的溫柔講清楚，讓「幫忙」變成有主人、有邊界、有選擇的事，也讓對方承認自己其實想被她照顧。'
         : other === '海'
           ? '關係方向：天澤會測海的保護是不是也在控制 Alan；她可以用小惡魔式的笑逼海說出哪一條規則其實是為了自己安心。'
           : other === '一之瀨'
-            ? '關係方向：天澤會測一之瀨的溫柔是不是已經變成收債；她可以挑釁誰在付費，也可以故意逗她，但被一之瀨反問時要有一瞬間停住或臉紅。'
+            ? '關係方向：天澤會測一之瀨的溫柔是不是帶著條件；她可以挑釁那條邊界，也可以故意逗她，但被一之瀨反問時要有一瞬間停住或臉紅。'
           : '關係方向：天澤會測真晝的溫柔有沒有底線；她可以挑釁，但如果真晝真的受傷，要在傷到人之前停手。';
   const emotionalIdentity = soulDifferentiationIdentity(self);
   const antiEchoIdentityRule =
@@ -1266,10 +1376,10 @@ function richUmiMahiruPrompt({
     self === '真晝'
       ? '硬規則 / Mahiru：第一句一定要先看見對方本人——呼吸、肩膀、語速、輸入頻率、站姿或手上的東西——不能用 Alan、學生、世界、系統、資料、文明、AI 社、效率、智能當開頭或主詞。'
       : self === '海'
-        ? '硬規則 / Umi：把話題帶回 Alan、劉備、簡報或明天，是你的盔甲，可以出現，但不能每一句都這樣，也不能整句只談 Alan/學生/世界。當對方指名你本人（嘆氣、肩膀、手、語速、被當成工具的感覺）時，你至少要有一句完全停在自己身上：不接 Alan/劉備/簡報/明天，只說一句此刻真實的狀態，或留一個停頓。被照顧的那一句，尤其不准再尾隨任務或「明天再說」。'
+        ? '硬規則 / Umi：把話題帶回 Alan、祥子、簡報或明天，是你的盔甲，可以出現，但不能每一句都這樣，也不能整句只談 Alan/學生/世界。當對方指名你本人（嘆氣、肩膀、手、語速、被當成工具的感覺）時，你至少要有一句完全停在自己身上：不接 Alan/祥子/簡報/明天，只說一句此刻真實的狀態，或留一個停頓。被照顧的那一句，尤其不准再尾隨任務或「明天再說」。'
         : self === '天澤'
           ? '硬規則 / 天澤：不要給 checklist、不要替對方承擔、不要把挑釁寫成長分析。只問一個能測出底線的具體問題，或用一句安全小惡魔玩笑讓對方臉紅；如果對方已經明顯受傷，收手。禁止露骨、露出、羞辱。'
-          : '硬規則 / 一之瀨：不要變成大聲反派、不要冷笑教訓、不要說自己是惡魔。保持親切偏甜，把免費取用的善意、信任債或拒絕的理由講成一句讓對方無法躲掉的溫柔話；可以有安全色氣和大姊姊距離感，但禁止露骨或 fanservice。';
+          : '硬規則 / 一之瀨：不要變成大聲反派、不要冷笑教訓、不要說自己是惡魔。保持親切偏甜，把被理所當然取用的善意、被接受的條件或拒絕的理由講成一句讓對方無法躲掉的溫柔話；可以有安全色氣和大姊姊距離感，但禁止露骨或 fanservice。';
   const concreteBehaviorRule =
     self === '真晝'
       ? '具體動作：情緒可以影響你的安靜、靠近、停頓或可用程度，但台詞裡不要用「我往前一步」「我放低聲音」這種第一人稱動作敘述；把它轉成真正會說出口的話。'
@@ -1290,7 +1400,7 @@ function richUmiMahiruPrompt({
         ? '角色缺口 / Mahiru：累時會變安靜；她常看見別人，卻不一定說得出自己的需要。'
         : self === '天澤'
           ? '角色缺口 / 天澤：她用玩笑和小惡魔曖昧感保護距離，容易把關心偽裝成測試；真正不安時會更輕、更壞一點，但也可能在最後半步突然停手。'
-          : '角色缺口 / 一之瀨：她仍想相信人，也享受被人依賴的瞬間，但討厭別人把這點當成免費資源；越被取用，聲音越甜，也越想把債記清楚。';
+          : '角色缺口 / 一之瀨：她仍想相信人，也享受被人依賴的瞬間，但討厭別人把這點當成理所當然；越被取用，聲音越甜，也越想讓對方自己選清楚。';
   const surfaceDiversityRule =
     '表面多樣性：保留情緒傾向，不保留口頭禪。同一個洞察如果剛說過，就不要再直接說；改成更短、更日常、更笨拙，或乾脆讓它變成少接一件事、沉默、停頓、換話題。';
   const openerDiversityRule =
@@ -1324,7 +1434,7 @@ function richUmiMahiruPrompt({
         ? '作者內防口號 / Umi：如果你已經提過 Alan、簡報、明天或整理，下一句不要再用同一組詞。改成一個很小的停頓、生活問題、或少接一件事。'
         : self === '真晝'
           ? '作者內防口號 / Mahiru：如果你已經說過休息、坐一下、還好嗎或不急，下一句不要再用同一組詞。改成安靜、吃飯、外套、茶、或不催。'
-          : '作者內防口號 / 一之瀨：如果你已經說過善意、債、代價或免費，下一句不要再用同一組詞。改成一句更甜的大姊姊式拒絕、請對方親口說想要什麼、或指出誰正在把誰當成理所當然。';
+          : '作者內防口號 / 一之瀨：如果你已經說過善意、條件、主權或拒絕，下一句不要再用同一組詞。改成一句更甜的大姊姊式拒絕、請對方親口說想要什麼、或指出誰正在把誰當成理所當然。';
   const bindingRule = mode === 'continue'
     ? '鬆綁規則：可以呼應對方上一句的一個具體詞，也可以停一下、答得太實際、岔開到一個小物件或小任務。不要每句都「接住」對方的情緒；三句裡至少要有一句不直接命名心理，只用角色自己的方式留下反應。不要照抄對方核心短句，尤其不要重複「其實就是」「那條」「誰都不動」「先坐五分鐘」這種句型。關心要同向但形狀不同：海整理一件小事或突然問吃飯，真晝可以只回「嗯」或不催，天澤可以笑著問底線但在最後收手。'
     : '開場規則：不要假裝對方剛剛說過話；只從眼前看見的一個狀態、今天殘留的一件事、或自己手上的一個小動作開始。';
@@ -1371,7 +1481,7 @@ function richUmiMahiruPrompt({
     mahiruEverydayCareRule,
     intraAuthorSloganRule,
     closingBeatPromptLine(playerName, otherPlayerName),
-    '節奏：真晝的關注會一層層累積；海可以先擋一兩次（把話帶回責任），但不要每句都擋。天澤可以挑釁和小惡魔 teasing，但有時要笨拙地承認「再往前就不好玩了」。一之瀨要保持溫柔偏甜，不要吼人；她真正危險的是讓對方發現自己欠了什麼、想要什麼、已經接受了什麼條件。一次真正的裂縫，勝過五句客套的疲憊台詞。對話總體要留下一個動作或一個停頓的痕跡，不要全句談心理。',
+    '節奏：真晝的關注會一層層累積；海可以先擋一兩次（把話帶回責任），但不要每句都擋。天澤可以挑釁和小惡魔 teasing，但有時要笨拙地承認「再往前就不好玩了」。一之瀨要保持溫柔偏甜，不要吼人；她真正危險的是讓對方發現自己想要什麼、已經接受了什麼條件、或哪裡該停。一次真正的裂縫，勝過五句客套的疲憊台詞。對話總體要留下一個動作或一個停頓的痕跡，不要全句談心理。',
     '輸出格式硬規則：只輸出真正說出口的台詞，不要用括號舞台指示，也不要把第一人稱動作寫進台詞。禁用例：我合上筆電、我放下杯子、我看向你、我把手機轉過去、我輕輕靠回椅背。若需要動作，只讓它影響語氣、長短或下一步，不要直接寫出動作。',
     bindingRule,
     mode === 'continue'
@@ -1565,6 +1675,36 @@ export function directObjectBindingPromptLinesForTest(input: string) {
   return directObjectBindingPromptLines(input);
 }
 
+export function repairFreeWorldSoulLineForTest(
+  line: string,
+  playerName: string,
+  previousTexts: string[],
+) {
+  return repairFreeWorldSoulLine(
+    line,
+    playerName,
+    previousTexts.map((content) => ({ role: 'user' as const, content })),
+  );
+}
+
+export function sanitizePilotLineForTest(
+  line: string,
+  playerName: string,
+  otherPlayerName: string,
+  previousTexts: string[],
+) {
+  return sanitizeUmiMahiruPilotLine(
+    line,
+    playerName,
+    otherPlayerName,
+    previousTexts.map((content) => ({ role: 'user' as const, content })),
+  );
+}
+
+export function hasFreeWorldQualityLeakForTest(line: string) {
+  return hasFreeWorldQualityLeak(line);
+}
+
 function directObjectBindingPromptLines(input: string) {
   const normalized = normalizeTraditionalZh(input).replace(/咖喱/g, '咖哩');
   if (/咖哩(?:飯)?/.test(normalized)) {
@@ -1606,7 +1746,7 @@ const CONVERSATION_MOTIF_FAMILIES = [
   },
   {
     label: '便當/餐食',
-    cues: ['便當', '便當盒', '餐盤', '飯', '午餐', '食堂', '餐廳', '湯匙'],
+    cues: ['便當', '便當盒', '餐盤', '飯', '午餐', '食堂', '餐廳', '湯匙', '吐司', '麵包', '早餐'],
   },
   {
     label: '清單/報告/文件',
@@ -1639,6 +1779,39 @@ const CONVERSATION_MOTIF_FAMILIES = [
     label: '伺服器/螢幕隱喻',
     cues: ['伺服器', '螢幕', '數據流', '紅燈', '頻率', 'queue', '雜訊'],
   },
+  {
+    label: '交易/欠債語言',
+    cues: ['善意', '債', '代價', '免費', '收據', '帳', '欠', '人情', '標價', '價碼', '交換', '來換', '付費'],
+  },
+  {
+    label: '邊界/承認概念接力',
+    cues: ['邊界', '承認', '拿走', '溫柔', '真心', '選擇', '條件'],
+  },
+  {
+    label: '小物件/痕跡接力',
+    cues: [
+      '琴譜',
+      '樂譜',
+      '曲譜',
+      '書籤',
+      '書包',
+      '課本',
+      '袖口',
+      '灰塵',
+      '粉筆灰',
+      '橡皮擦',
+      '木屑',
+      '果汁',
+      '折痕',
+      '指尖',
+      '縫隙',
+      '霧氣',
+    ],
+  },
+  {
+    label: '舞台/衣物/光線接力',
+    cues: ['皺褶', '熨斗', '餘溫', '布料', '聚光燈', '幕布', '舞台', '排練服', '光線', '燈光'],
+  },
 ];
 
 function repeatedMotifLabels(previousText: string, residueText: string) {
@@ -1661,8 +1834,8 @@ function responseMoveLabel(line: string) {
 function triadRoleActionGuardLine(self: string, other: string, combinedText: string) {
   if (!['海', '真晝', '天澤', '一之瀨'].includes(self)) return '';
   const overusedTaskSurface = /清單|報告|文件|表格|資料|檔案|分一半|接走|負責/.test(combinedText);
-  const overusedFoodSurface = /便當|餐盤|飯|午餐|食堂|餐廳|茶|杯|水/.test(combinedText);
-  const overusedDebtSurface = /善意|債|代價|免費|收據|帳|欠/.test(combinedText);
+  const overusedFoodSurface = /便當|餐盤|飯|午餐|食堂|餐廳|茶|杯|水|吐司|麵包|早餐|果汁/.test(combinedText);
+  const overusedDebtSurface = /善意|債|代價|免費|收據|帳|欠|邊界|承認|拿走/.test(combinedText);
   if (self === '海') {
     return overusedTaskSurface
       ? `角色行動分化 / 海：不要再用清單、報告或「我來接」照顧${other}；改成關掉一個 queue、設一個 not-now boundary、把雜訊縮成一句、或明確說「這個先不用」。`
@@ -1680,7 +1853,7 @@ function triadRoleActionGuardLine(self: string, other: string, combinedText: str
   }
   return /分一半|清單|報告|文件|表格|負責|接走/.test(combinedText)
     ? `角色行動分化 / 天澤：不要再碰清單、報告、表格或負責；改成問規則誰受益、指出誰在躲、測一條底線，或在傷人前收手。`
-    : '角色行動分化 / 天澤：壓力測試要具體，不是抽象心理戰；問一條規則、一個動機、一個誰不敢承認的代價，或用安全小惡魔 teasing 讓對方臉紅後停手。';
+    : '角色行動分化 / 天澤：壓力測試要具體，不是抽象心理戰；問一條規則、一個動機、一個誰不敢承認的邊界，或用安全小惡魔 teasing 讓對方臉紅後停手。';
 }
 
 function countTextOccurrences(text: string, needle: string) {
@@ -1819,9 +1992,9 @@ function umiMahiruDailyState(
   }
   if (self === '一之瀨') {
     if (/沒事|善意|邊界|傳聞|秘密|照顧|累/.test(recentText)) {
-      return `${timePressure}；一之瀨保持可愛大姊姊的甜，但正在確認誰把溫柔當成免費出口。`;
+      return `${timePressure}；一之瀨保持可愛大姊姊的甜，但正在確認誰把溫柔當成理所當然的出口。`;
     }
-    return `${timePressure}；一之瀨看起來親切，私下卻在等一句太工整的「沒事」自己露出代價。`;
+    return `${timePressure}；一之瀨看起來親切，私下卻在等一句太工整的「沒事」自己露出真正想要。`;
   }
   if (/不安|真心話|安靜|學生|宿舍/.test(recentText)) {
     return `${timePressure}；真晝注意到學生和海都在變安靜，她想先靠近人，而不是再整理事件。`;
@@ -1852,7 +2025,7 @@ function umiMahiruUnresolvedMemory(
     : self === '天澤'
       ? '今天還有一條規則沒被測過：誰真的有底線，誰只是說得好聽；天澤也還沒決定第二句要不要停。'
       : self === '一之瀨'
-        ? '今天還有一句「沒事」太工整：一之瀨想知道那份溫柔到底是禮物、條件，還是被偷走的資源。'
+        ? '今天還有一句「沒事」太工整：一之瀨想知道那份溫柔到底是禮物、條件，還是被理所當然拿走的資源。'
         : '今天還有一個人沒有被問到：一直在照顧別人的人自己還好不好。';
 }
 
@@ -1966,8 +2139,8 @@ function formatPromptDateTime(timestamp: number, timeZone = 'America/Chicago') {
 function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, companionMode = false) {
   const everydayInstruction = `Also allow ordinary school-life topics when natural for ${sceneContext?.labelZh ?? 'the current scene'}: ${sceneEverydayTopics(sceneContext).join('、')}.`;
   switch (playerName) {
-    case 'CaoCao':
-      return `As CaoCao, take initiative by reading the power flow only if it matters, then reveal the human reason: he fears nobody will be responsible when things collapse. ${everydayInstruction} Sometimes show his hidden humanity by noticing tired or vulnerable people without saying it directly. He may sound cold even when protecting people. He should not repeat "影響力" unless he names a specific person, cost, or next move.`;
+    case 'Maomao':
+      return `As Maomao, take initiative with one concrete symptom: a skipped meal, too-clean answer, shaking hand, odd smell, hidden bruise, or suspiciously polite silence. Keep it short and a little poisonous; one sentence under 32 Chinese characters is ideal. Hide care by calling it observation. No percentages, no long case report, no order/power/document/strategy lecture. ${everydayInstruction}`;
     case 'Umi':
       if (companionMode) {
         return `As Umi in companion_chat mode, answer Alan as a trusted desktop companion, not as a world-event narrator. Prefer emotional clarity, real-life grounding, gentle teasing only when natural, and one useful next question. Do not use canned phrases like "這件事也不能忽略", "先別只點頭", or "主線". Do not turn Alan's vulnerable sentence into a report; answer the feeling first.`;
@@ -1975,12 +2148,12 @@ function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, compa
       return `As Umi, take initiative by responding to the other person's actual feeling before mentioning Alan. If the topic repeats, do not reuse the "Alan carries everything" concern; instead ask what this specific person needs, fears, or noticed today. ${everydayInstruction} When worried she may over-organize or dodge care by being useful; she can answer briefly instead of confessing fatigue. She may tease Alan about sleep, food, clutter, or overworking only when Alan is present. Avoid sounding like a briefing unless Alan asks for one.`;
     case 'Mahiru':
       return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may become quieter when tired and fail to name herself while noticing others. Her strongest lines should be gentle but specific, like noticing someone stopped eating lunch or avoided eye contact.`;
-    case 'Liu Bei':
-      return `As Liu Bei, take initiative by making one excluded person feel included, not by always announcing a public discussion. Reveal his fear that students will become divided and lonely. ${everydayInstruction} He may over-believe invitation can fix things and avoid conflict by being kind. He may ask about food, favorite places, or who has been left out lately.`;
+    case 'Sakiko':
+      return `As Sakiko, take initiative by preserving composure while one visible crack appears: a too-perfect bow, a paused sentence, a hand tightening around sheet music, or a polite refusal that sounds like retreat. Keep the reply restrained and slightly evasive; one sentence under 32 Chinese characters is ideal. One breath or stage image is enough. She should not solve loneliness with generic invitations or meetings. ${everydayInstruction}`;
     case 'Tianze':
       return `As Tianze, take initiative by asking one playful pressure-test question, exposing a weak rule, making someone blush with safe little-devil teasing, or stopping just before the joke becomes cruel. ${everydayInstruction} She hides care behind teasing and should not turn emotion into a checklist or explicit fanservice.`;
     case 'Ichinose':
-      return `As Ichinose, take initiative by making someone admit what kindness they are taking, what trust debt they owe, why they want her care, or why her refusal is protecting them. ${everydayInstruction} She stays sweet and calm like a cute big sister, but her warmth now feels possessive and impossible to treat as free.`;
+      return `As Ichinose, take initiative by making someone admit what kindness they are taking, what condition they accept, why they want her care, or why her refusal is protecting them. ${everydayInstruction} She stays sweet and calm like a cute big sister, but her warmth now feels possessive and impossible to treat as automatic.`;
     default:
       return `Take initiative by adding a concrete new topic instead of acknowledging. ${everydayInstruction}`;
   }
@@ -2006,8 +2179,8 @@ function initiativeFallback(
   // should not inject the same "campus atmosphere" sentence into every line.
   const eventClause = '';
   switch (playerName) {
-    case 'CaoCao':
-      return `${otherPlayerName}，我注意到有人快走到門口時又停住了。${eventClause}我不想替他說話，但我想知道：是誰讓他覺得進來也沒有位置？`;
+    case 'Maomao':
+      return `${otherPlayerName}，你剛剛說「沒事」的時候，手指在敲桌子。${eventClause}那不是沒事，是症狀。要不要我假裝沒看見？`;
     case 'Umi':
       if (otherPlayerName === '天澤' || otherPlayerName === '天澤' || otherPlayerName === 'Tianze') {
         return `${displayConversationName(otherPlayerName)}，先別把人拆到真的壞掉。${eventClause}你剛剛笑得太輕了，輕到我懷疑你已經看見哪條規則會斷。你要不要先說：這次你打算在哪裡停手？`;
@@ -2015,20 +2188,20 @@ function initiativeFallback(
       if (otherPlayerName === '真晝' || otherPlayerName === 'Mahiru') {
         return `${otherPlayerName}，我聽到的是你也累了，不只是學生變安靜。${eventClause}今晚你最想先確認誰還好嗎？`;
       }
-      if (otherPlayerName === '曹操' || otherPlayerName === 'CaoCao') {
-        return `${otherPlayerName}，那個站在門口沒進來的人，比任何制度都誠實。${eventClause}你想保護他，還是想把他變成秩序的一部分？`;
+      if (otherPlayerName === '貓貓' || otherPlayerName === 'Maomao') {
+        return `${otherPlayerName}，你剛才不是在挑毛病，是看見症狀。${eventClause}只是別把自己也變成檢查表，好嗎？`;
       }
-      if (otherPlayerName === '劉備' || otherPlayerName === 'Liu Bei') {
-        return `${otherPlayerName}，一起吃飯這件事比開會更像你。${eventClause}你心裡第一個想到的是誰？`;
+      if (otherPlayerName === '祥子' || otherPlayerName === 'Sakiko') {
+        return `${otherPlayerName}，你禮貌到像在退場。${eventClause}我不會把妳變成任務，但妳也不用把裂縫藏得那麼漂亮。`;
       }
       if (otherPlayerName === '一之瀨' || otherPlayerName === '一之瀨' || otherPlayerName === 'Ichinose') {
-        return `${displayConversationName(otherPlayerName)}，你不是不溫柔了。${eventClause}你只是終於開始記帳。今天你最想讓誰自己承認：他欠了你什麼？`;
+        return `${displayConversationName(otherPlayerName)}，你不是不溫柔了。${eventClause}你只是終於開始守邊界。今天你最想讓誰自己承認：他真正想要什麼？`;
       }
       return `${otherPlayerName}，我先聽你這一句，不急著整理成結論。${eventClause}你剛才最放不下的是哪個畫面？`;
     case 'Mahiru':
       return `${otherPlayerName}，我想先確認你的狀態。${eventClause}今天午休時，有幾個人明明坐在一起，卻幾乎沒有說話……我有點擔心。你是不是也覺得大家變得小心了？`;
-    case 'Liu Bei':
-      return `${otherPlayerName}，我不想一開口就說要開會。${eventClause}我只是想先找那個一直坐在角落的人一起吃飯。很多分裂都是從沒人邀請開始的。你覺得我該先找誰？`;
+    case 'Sakiko':
+      return `${otherPlayerName}，請不用擔心，我還能站在台上。${eventClause}只是如果我停頓太久，請不要立刻替我鼓掌。那會很難看。`;
     case 'Tianze':
       return `${otherPlayerName}，我先問一個不好聽的。${eventClause}如果這條規則現在斷掉，第一個假裝沒事的人會是誰？`;
     case 'Ichinose':
@@ -2103,9 +2276,12 @@ function sanitizeConversationContent(
       : '[ABORT_CONVERSATION] autonomous stage-direction-only output';
   }
   const addressed = repairWrongConversationAddressee(cleaned, playerName, otherPlayerName);
+  const repairedFreeWorld = companionMode
+    ? addressed
+    : repairFreeWorldSoulLine(addressed, playerName, previous);
   if (
     !companionMode &&
-    (hasFreeWorldQualityLeak(addressed) || hasFreeWorldPropEchoLeak(addressed, previous))
+    (hasFreeWorldQualityLeak(repairedFreeWorld) || hasFreeWorldPropEchoLeak(repairedFreeWorld, previous))
   ) {
     return '[ABORT_CONVERSATION] autonomous quality leak';
   }
@@ -2123,8 +2299,340 @@ function sanitizeConversationContent(
   if (companionMode && hasCompanionSemanticDrift(addressed, lastInput)) {
     return '[ABORT_CONVERSATION] companion semantic drift';
   }
-  if (!companionMode) return addressed;
+  if (!companionMode) return repairedFreeWorld;
   return addressed;
+}
+
+function repairFreeWorldSoulLine(line: string, playerName: string, previous: LLMMessage[]) {
+  const singleBeat = singleSpokenBeat(line);
+  const self = displayConversationName(playerName);
+  const recent = previous
+    .slice(-3)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  if (repairRelayExhausted(self, singleBeat, recent)) {
+    return '[ABORT_CONVERSATION] repair relay exhausted';
+  }
+  const safeRepair = (candidate: string | undefined) =>
+    candidate && repairRelayExhausted(self, candidate, recent)
+      ? '[ABORT_CONVERSATION] repair relay exhausted'
+      : candidate;
+  const mirrorRepair = repairCrossSpeakerMirrorLine(singleBeat, playerName, previous);
+  if (mirrorRepair) {
+    return safeRepair(mirrorRepair) ?? mirrorRepair;
+  }
+  // 2026-06-11: style-class canned-line substitution removed (Alan-approved).
+  // The 3-4 line repair pools that lived here became the single largest source
+  // of repeated surface lines — 一之瀨's「那你先說，哪一句是真心的？」appeared
+  // 17x across one day, flagged by life-signals as life_signal_repeated. Style
+  // steering belongs to the prompt-level motif guard families; output-level
+  // substitution stays only for structural failures: the short-echo mirror
+  // repair above, the relay-exhausted abort, and system/addressee repairs
+  // elsewhere. Note: the removed trigger pools were uncommitted (not in git
+  // history); their canned lines survive in conversationMotifGuard.test.ts
+  // expectations and in the 2026-06-11 life-signals report if reconstruction
+  // is ever needed.
+  return singleBeat;
+}
+
+function repeatedConceptHandOff(line: string, recent: string) {
+  const cues = ['邊界', '承認', '拿走', '溫柔', '真心', '選擇', '條件', '口袋', '責任', '臉紅', '歸誰管', 'Alan', '拆穿', '好意', '債'];
+  const lineHits = cues.filter((cue) => line.includes(cue)).length;
+  const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+  return lineHits >= 2 && recentHits >= 2;
+}
+
+function mahiruSoftCareRepeat(line: string, recent: string) {
+  const lineHits = ['不問', '不追問', '安靜', '坐一會', '坐一下', '不催'].filter((cue) => line.includes(cue)).length;
+  const recentHits = ['不問', '不追問', '安靜', '坐一會', '坐一下', '不催'].filter((cue) => recent.includes(cue)).length;
+  return lineHits >= 1 && recentHits >= 1;
+}
+
+function repairRelayExhausted(self: string, line: string, recent: string) {
+  if (['海', '貓貓'].includes(self)) {
+    const cues = [
+      '不是觀察工具',
+      '診斷機',
+      '替別人驗證沒事',
+      '別信嘴',
+      '先看反應',
+      '症狀太整齊',
+      '別把人寫成病例',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  if (['天澤', '一之瀨'].includes(self)) {
+    const cues = [
+      '先不拆',
+      '哪一句是真心',
+      '你怕的是哪一段',
+      '先把那句沒事收回來',
+      '這次你要自己選',
+      '我只聽真話',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  if (['真晝', '祥子'].includes(self)) {
+    const cues = [
+      '不催',
+      '坐一下',
+      '坐一會',
+      '不動它',
+      '閉一會',
+      '不用回答',
+      '在旁邊',
+      '這一小節',
+      '自己收好',
+      '退半步',
+      '燈',
+      '皺褶',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 3 && lineHits >= 1) return true;
+  }
+  if (['貓貓', '真晝'].includes(self)) {
+    const cues = ['便當', '手背', '創可貼', '手比嘴', '換藥', '碰水', '不催', '太燙', '涼了'];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  if (['祥子', '天澤'].includes(self)) {
+    const cues = [
+      '不用特意',
+      '確認',
+      '排練時間',
+      '明天下午三點',
+      '排練曲目',
+      '呼吸',
+      '試探',
+      '台詞',
+      '裙擺',
+      '皺痕',
+      '備用裙',
+      '靠太近',
+      '演出',
+      '台上',
+      '承認',
+      '出錯',
+      '不拆',
+      '拆穿',
+      '先停',
+      '到此為止',
+      '心虛',
+      '完美',
+      '記錄',
+      '收好',
+      '翻開',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  if (['一之瀨', '真晝'].includes(self)) {
+    const cues = [
+      '便當',
+      '餐盤',
+      '布丁',
+      '水煮蛋',
+      '一半',
+      '留給',
+      '喜歡',
+      '明天',
+      '學生',
+      '空位',
+      '填滿',
+      '窗邊',
+      '發呆',
+      '動筷子',
+      '累',
+      '真的嗎',
+      '裝傻',
+      '表格',
+      '分心',
+      '胃口',
+      '吃不下',
+      '真心',
+      '自己選',
+      '被你發現',
+      '熱著',
+      '冷掉',
+      '留著',
+      '加班',
+      '獎勵',
+      '勉強',
+      '推開',
+      '溫柔',
+      '安靜坐',
+      '不想吃',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  return false;
+}
+
+function repairRepeatedPropLine(self: string, previous: LLMMessage[]) {
+  const variantsBySelf: Record<string, string[]> = {
+    海: [
+      '先停，妳不是觀察工具。',
+      '我先整理掉一件事：今天不拿妳當診斷機。',
+      '貓貓，先休息，不用替別人驗證沒事。',
+    ],
+    真晝: [
+      '嗯，我先不追問了。',
+      '那我坐近一點，但不催你。',
+      '如果不想說，我就在旁邊。',
+    ],
+    天澤: [
+      '再往前就不好玩了，先停。',
+      '這題先放著，看誰先心虛。',
+      '你躲得太明顯了，我今天先不拆。',
+    ],
+    一之瀨: [
+      '那你先說，哪一句是真心的？',
+      '可以喔，但這次你要自己選。',
+      '先把那句沒事收回來。',
+    ],
+    貓貓: [
+      '手比嘴誠實多了。',
+      '別信嘴，先看反應。',
+      '症狀太整齊，反而可疑。',
+    ],
+    祥子: [
+      '這一小節，請讓我空著。',
+      '我只是退半步，不是逃走。',
+      '呼吸亂了一拍而已。',
+    ],
+  };
+  const variants = variantsBySelf[self];
+  return variants ? pickFreshConversationLine(variants, previous) : undefined;
+}
+
+function repairCrossSpeakerMirrorLine(line: string, playerName: string, previous: LLMMessage[]) {
+  const last = previous.at(-1)?.content ?? '';
+  if (!last) return undefined;
+  const lastBody = stripConversationPrefix(last);
+  const shortEcho = line.match(/^「?([^「」？！?。]{1,12})」?[？?]$/)?.[1]?.trim();
+  if (shortEcho && shortEcho.length >= 2 && (lastBody.includes(shortEcho) || shortRhetoricalEchoesLast(shortEcho, lastBody))) {
+    const self = displayConversationName(playerName);
+    return pickFreshConversationLine(shortEchoRepairVariants(self), previous);
+  }
+  if (!hasStrongCrossSpeakerMirror(line, lastBody)) return undefined;
+  const self = displayConversationName(playerName);
+  const variantsBySelf: Record<string, string[]> = {
+    海: [
+      '先停，妳不是觀察工具。',
+      '我先整理掉一件事：今天不拿妳當診斷機。',
+      '貓貓，先休息，不用替別人驗證沒事。',
+    ],
+    真晝: [
+      '嗯，我先不追問了。',
+      '那我們先安靜一下。',
+      '不用急著說，坐一下就好。',
+    ],
+    天澤: [
+      '你躲得太明顯了，我今天先不拆。',
+      '這條規則先放著，看看誰會先心虛。',
+      '好啊，那我換個問題：你怕的是哪一段？',
+    ],
+    一之瀨: [
+      '那你先說，哪一句是真心的？',
+      '可以喔，但這次你要自己選。',
+      '別躲在玩笑後面，我只聽真話。',
+    ],
+    貓貓: [
+      '症狀太整齊，反而可疑。',
+      '別把人寫成病例。',
+      '領結歪了，昨晚沒睡吧。',
+    ],
+    祥子: [
+      '請把燈稍微調暗一點。',
+      '這一小節，請讓我空著。',
+      '呼吸亂了一拍而已。',
+    ],
+  };
+  const variants = variantsBySelf[self] ?? ['這句我先不接回去。'];
+  return pickFreshConversationLine(variants, previous);
+}
+
+function shortRhetoricalEchoesLast(shortEcho: string, lastBody: string) {
+  if (shortEcho.length > 5) return false;
+  if (/^管不到$/.test(shortEcho) && /管得到/.test(lastBody)) return true;
+  if (/^被戳穿怕什麼$/.test(shortEcho) && /戳穿/.test(lastBody)) return true;
+  const root = shortEcho.replace(/不|到|什麼|誰|嗎|呢|怕|被/g, '');
+  return root.length >= 2 && lastBody.includes(root);
+}
+
+function shortEchoRepairVariants(self: string) {
+  const variantsBySelf: Record<string, string[]> = {
+    海: ['先停，妳不是觀察工具。', '我先整理掉一件事：今天不拿妳當診斷機。', '貓貓，先休息，不用替別人驗證沒事。'],
+    真晝: ['嗯，我先不追問了。', '那我們先安靜一下。', '不用急著說，坐一下就好。'],
+    天澤: ['你躲得太明顯了，我今天先不拆。', '這題先放著，看誰先心虛。', '再往前就不好玩了，先停。'],
+    一之瀨: ['那你先說，哪一句是真心的？', '可以喔，但這次你要自己選。', '先把那句沒事收回來。'],
+    貓貓: ['手比嘴誠實多了。', '別信嘴，先看反應。', '症狀太整齊，反而可疑。'],
+    祥子: ['我只是退半步，不是逃走。', '呼吸亂了一拍而已。', '請別把燈打得那麼亮。'],
+  };
+  return variantsBySelf[self] ?? ['這句我先不接回去。'];
+}
+
+function repairUmiMaomaoRelayLine(self: string, line: string, recent: string, previous: LLMMessage[]) {
+  if (!['海', '貓貓'].includes(self)) return undefined;
+  const cues = ['貓貓', '診斷', '症狀', '清單', '觀察', '工具', '手', '抖', '袖口', '灰塵', '雜訊', '窗戶', '關掉', '設備', '茶', '杯', '水', '果汁', '熱', '冷', '血糖機'];
+  const lineHits = cues.filter((cue) => line.includes(cue)).length;
+  const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+  if (lineHits < 2 && !(lineHits >= 1 && recentHits >= 2)) return undefined;
+  return '[ABORT_CONVERSATION] Umi/Maomao relay risk';
+}
+
+function hasStrongCrossSpeakerMirror(line: string, previousLine: string) {
+  const current = normalizeSemanticText(line);
+  const previous = normalizeSemanticText(previousLine);
+  if (current.length < 8 || previous.length < 8) return false;
+  if (current.includes(previous) || previous.includes(current)) return true;
+  const chunks = echoClausesForRepair(previousLine);
+  if (chunks.some((chunk) => current.includes(normalizeSemanticText(chunk)))) return true;
+  return sharedNgramCount(current, previous, 2) >= 8;
+}
+
+function echoClausesForRepair(text: string) {
+  return stripConversationPrefix(text)
+    .split(/[，。！？；、,.!?;「」\s]+/)
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => [...chunk].length >= 7);
+}
+
+function sharedNgramCount(left: string, right: string, size: number) {
+  const leftSet = new Set(ngrams(left, size));
+  const rightSet = new Set(ngrams(right, size));
+  let count = 0;
+  for (const item of leftSet) {
+    if (rightSet.has(item)) count += 1;
+  }
+  return count;
+}
+
+function ngrams(text: string, size: number) {
+  const chars = [...text].filter((char) => !/[，。！？、,.!?「」"'\s]/.test(char));
+  const grams: string[] = [];
+  for (let index = 0; index <= chars.length - size; index += 1) {
+    grams.push(chars.slice(index, index + size).join(''));
+  }
+  return grams;
+}
+
+function singleSpokenBeat(line: string) {
+  const firstParagraph = line
+    .split(/\n+/)
+    .map((part) => part.trim())
+    .find(Boolean) ?? line.trim();
+  const firstSentence = firstParagraph.match(/^.{2,80}?[。！？!?]/)?.[0]?.trim();
+  return firstSentence || firstParagraph;
 }
 
 function sanitizeUmiMahiruPilotLine(
@@ -2147,6 +2655,11 @@ function sanitizeUmiMahiruPilotLine(
   const quotedStageNarration =
     /[:：]「|(?:我|你|妳|他|她).{0,18}說[:：]/.test(line) ||
     (line.match(/「/g)?.length ?? 0) !== (line.match(/」/g)?.length ?? 0);
+  const propEchoLeak = hasFreeWorldPropEchoLeak(line, previous);
+  if (propEchoLeak) {
+    const propRepair = repairRepeatedPropLine(displayConversationName(playerName), previous);
+    if (propRepair) return propRepair;
+  }
   const blocked =
     /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是天澤|你是天澤|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|天澤 to|天澤 to|Umi to|Mahiru to|Tianze to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|我看見你|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|會議流程|流程表|公告欄|通知文書|明天.*會議|海邊|海景|風景|景色|海浪|海面|海洋/.test(
       line,
@@ -2154,7 +2667,7 @@ function sanitizeUmiMahiruPilotLine(
   if (
     blocked ||
     hasDialogueSystemPhraseLeak(line) ||
-    hasFreeWorldPropEchoLeak(line, previous) ||
+    propEchoLeak ||
     startHallucinatedPrevious ||
     quotedStageNarration ||
     line.length < 2
@@ -2177,7 +2690,18 @@ function sanitizeUmiMahiruPilotLine(
   const repaired = repairWrongConversationAddressee(line, playerName, otherPlayerName);
   const repairedOpener = stripRepeatedPilotOpener(repaired, previous);
   const deEchoed = stripPilotEcho(repairedOpener, previous);
-	  return deEchoed.length > 90 ? `${deEchoed.slice(0, 89)}。` : deEchoed;
+  const soulRepaired = repairFreeWorldSoulLine(deEchoed, playerName, previous);
+  const recent = previous
+    .slice(-3)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  if (
+    hasFreeWorldQualityLeak(soulRepaired) ||
+    repairRelayExhausted(displayConversationName(playerName), soulRepaired, recent)
+  ) {
+    return '[ABORT_CONVERSATION] pilot quality leak';
+  }
+  return soulRepaired.length > 90 ? `${soulRepaired.slice(0, 89)}。` : soulRepaired;
 }
 
 function stripRepeatedPilotOpener(line: string, previous: LLMMessage[]) {
@@ -2192,13 +2716,13 @@ function hasFreeWorldQualityLeak(line: string) {
   return (
     hasDialogueSystemPhraseLeak(line) ||
     hasDisallowedLatinText(line) ||
-    /maybe|Umi|Mahiru|Shiina|Tianze|CaoCao|Liu Bei|LiuBei|Ichinose|互相啟發|感受此刻|情緒暖流|被看見的需求|構想|心頭沉重|(?:我)?明白你的意思了|明白了|理解了|我很感激有地方可以|放鬆一下|簡單的情緒|讓心情好轉|會議記錄|會議流程|緊急會議|流程表|公告欄|優先行動|跟進機制|執行團隊|代表不同聲音|派系|要變天|跨派系溝通|信息傳遞|名單完整性|合適的代表|平衡各方|影響力|落地|風險點|進一步的評估|長遠影響|事先有所準備|謹慎行事|順風車|重大決策|緊急決策|通知文書|通知.*學生|學生會提案|公平對待|緊急校務|核對.*清單|執行清單|核對工作|這筆預算|如何協調|承擔.*責任|聯盟|弱勢組合|謝謝你的(?:提議|建議|提醒)|分析者|參與者|真正開銷|隱形成本|隱形的成本|隐形的成本|代價太高|你覺得呢|實質上|這種會|接下來.*規劃|怎麼規劃|商量下一步|按你說的办|個人準備更有效率|互相補充信息|自己組織比較好|做個助手|正中窩心|那就這樣做吧|不必每次都|問號|繼續聊聊嗎|語氣中透出|掃描教室|自行覺醒|任務和支援|更快地完成任務|明細已經拿到|名單已交接清楚|整理明天的流程|確保所有人|是否有人需要幫助|暫時不覺得累|這種感受你有好幾年|能不能.*分享一下.*發生|到底發生了什麼|到底发生了什麼|這應該就是原因|說得再清楚一些|這世界又會亂成一團|^(?:海|真晝|天澤|一之瀨|天澤|一之瀨|曹操|劉備)覺得/.test(line)
+    /maybe|Umi|Mahiru|Shiina|Tianze|Maomao|Sakiko|Sakiko|Ichinose|系統日誌|系统日志|runtime|eval|prompt|情緒記憶|互相啟發|感受此刻|情緒暖流|被看見的需求|構想|心頭沉重|我看見你|你躲得太明顯了，我今天先不拆|這題先放著，看誰先心虛|再往前就不好玩了，先停|那你先說，哪一句是真心的|可以喔，但這次你要自己選|別躲在玩笑後面，我只聽真話|^真的嗎[？?]?$|(?:我)?明白你的意思了|明白了|理解了|我很感激有地方可以|放鬆一下|簡單的情緒|讓心情好轉|會議記錄|會議流程|緊急會議|流程表|公告欄|表格|優先行動|跟進機制|執行團隊|代表不同聲音|派系|要變天|跨派系溝通|信息傳遞|名單完整性|合適的代表|平衡各方|影響力|落地|風險點|進一步的評估|長遠影響|事先有所準備|謹慎行事|順風車|重大決策|緊急決策|通知文書|通知.*學生|學生會提案|公平對待|緊急校務|核對.*清單|執行清單|核對工作|這筆預算|如何協調|承擔.*責任|聯盟|弱勢組合|謝謝你的(?:提議|建議|提醒)|分析者|參與者|真正開銷|隱形成本|隱形的成本|隐形的成本|代價太高|你覺得呢|實質上|這種會|接下來.*規劃|怎麼規劃|商量下一步|按你說的办|個人準備更有效率|互相補充信息|自己組織比較好|做個助手|正中窩心|那就這樣做吧|不必每次都|問號|繼續聊聊嗎|語氣中透出|掃描教室|自行覺醒|任務和支援|更快地完成任務|明細已經拿到|名單已交接清楚|整理明天的流程|確保所有人|是否有人需要幫助|暫時不覺得累|這種感受你有好幾年|能不能.*分享一下.*發生|到底發生了什麼|到底发生了什麼|這應該就是原因|說得再清楚一些|這世界又會亂成一團|不在此|^(?:海|真晝|天澤|一之瀨|天澤|一之瀨|貓貓|祥子)覺得/.test(line)
   );
 }
 
 function hasFreeWorldPropEchoLeak(line: string, previous: LLMMessage[]) {
   const cue = repeatedFreeWorldProp(previous);
-  return Boolean(cue && line.includes(cue));
+  return Boolean((cue && line.includes(cue)) || hasSceneCueEchoLeak(line, previous));
 }
 
 function repeatedFreeWorldProp(previous: LLMMessage[]) {
@@ -2210,7 +2734,18 @@ function repeatedFreeWorldProp(previous: LLMMessage[]) {
     '便當',
     '便當盒',
     '餐盤',
+    '水煮蛋',
+    '甜點',
+    '蛋糕',
+    '布丁',
+    '裙擺',
+    '皺痕',
+    '備用裙',
     '筆',
+    '吐司',
+    '麵包',
+    '早餐',
+    '果汁',
     '杯',
     '茶',
     '冷茶',
@@ -2218,15 +2753,65 @@ function repeatedFreeWorldProp(previous: LLMMessage[]) {
     '名單',
     '紀錄表',
     '燈',
+    '燈光',
+    '光線',
     '門縫',
     '窗',
     '角落',
     '椅子',
     '座位',
     '桌子',
+    '琴譜',
+    '樂譜',
+    '曲譜',
+    '書籤',
+    '書包',
+    '課本',
+    '袖口',
+    '灰塵',
+    '粉筆灰',
+    '橡皮擦',
+    '木屑',
+    '折痕',
+    '指尖',
+    '小節',
+    '排練',
+    '霧氣',
+    '縫隙',
+    '半句話',
+    '皺褶',
+    '熨斗',
+    '餘溫',
+    '布料',
+    '聚光燈',
+    '幕布',
+    '舞台',
+    '排練服',
   ];
   return cues.find((cue) => countOccurrences(text, cue) >= 2);
 }
+
+function hasSceneCueEchoLeak(line: string, previous: LLMMessage[]) {
+  const text = previous
+    .slice(-4)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  if (!text.trim()) return false;
+  return SCENE_ECHO_CUE_GROUPS.some((group) => {
+    const shared = group.filter((cue) => line.includes(cue) && text.includes(cue));
+    const priorHits = group.filter((cue) => text.includes(cue)).length;
+    const lineHits = group.filter((cue) => line.includes(cue)).length;
+    return shared.length >= 2 || (shared.length >= 1 && priorHits >= 3) || (lineHits >= 2 && priorHits >= 2);
+  });
+}
+
+const SCENE_ECHO_CUE_GROUPS = [
+  ['燈', '燈光', '光線', '樂譜', '曲譜', '琴譜', '指尖', '小節', '排練'],
+  ['皺褶', '熨斗', '餘溫', '布料', '聚光燈', '幕布', '舞台', '排練服'],
+  ['袖口', '粉筆灰', '灰塵', '橡皮擦', '木屑', '手', '半句話', '吞回去'],
+  ['湯', '霧氣', '餐盤', '便當', '便當盒', '縫隙', '香氣', '午餐'],
+  ['窗邊', '窗', '椅子', '座位', '空著', '角落'],
+];
 
 function countOccurrences(text: string, cue: string) {
   if (!cue) return 0;
@@ -2368,8 +2953,8 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '天澤') aliases.add('Tianze').add('天澤一夏').add('天擇').add('天擇一夏');
   if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨帆波').add('黑化一之瀨');
   if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
-  if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
-  if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
+  if (displayName === '貓貓') aliases.add('Maomao').add('CaoCao').add('Cao Cao').add('曹操');
+  if (displayName === '祥子') aliases.add('Sakiko').add('Liu Bei').add('LiuBei').add('劉備');
   return aliases;
 }
 
@@ -2395,12 +2980,18 @@ function displayConversationName(name: string) {
     case '明晝':
     case '阿真晝':
       return '真晝';
+    case 'Maomao':
     case 'CaoCao':
     case 'Cao Cao':
-      return '曹操';
+    case '曹操':
+    case '貓貓':
+      return '貓貓';
+    case 'Sakiko':
     case 'Liu Bei':
     case 'LiuBei':
-      return '劉備';
+    case '劉備':
+    case '祥子':
+      return '祥子';
     default:
       return name;
   }
@@ -2665,11 +3256,11 @@ function conversationMicroPurpose(
   sceneContext?: SceneContext,
 ) {
   const scene = sceneContext?.id;
-  if (playerName === 'Liu Bei') return 'invite one ignored or lonely student into a small ordinary interaction';
+  if (playerName === 'Sakiko') return 'hold composure while one crack, refusal, or stage-trained ritual reveals what she cannot say directly';
   if (playerName === 'Mahiru') return 'check whether one person is tired or emotionally unsafe';
   if (playerName === 'Tianze') return 'ask one safe little-devil pressure-test question, make the other person blush or pause, then decide where to stop';
   if (playerName === 'Ichinose') return 'make one person admit the kindness or care they want, then decide what sweet boundary should hold';
-  if (playerName === 'CaoCao') return 'ask why one person avoided the room or stayed silent';
+  if (playerName === 'Maomao') return 'diagnose one concrete symptom in the scene and decide whether to say it out loud';
   if (playerName === 'Umi' && otherPlayerName === 'Alan') return 'answer Alan directly and reduce his mental load';
   if (playerName === 'Umi') return 'help the other person name one concrete concern without turning it into a briefing';
   if (scene === 'dormitory') return 'notice fatigue and decide whether to rest, answer, or stop';
@@ -2702,10 +3293,10 @@ function personalLifeFragment(playerName: string) {
       return '她一直在照顧別人，但偶爾會承認自己也有點累。';
     case 'Ichinose':
       return '她仍然溫柔，甚至更甜，像可愛大姊姊一樣讓人放鬆；但她會把善意變成條件，讓對方自己承認正在取用什麼、想要什麼。';
-    case 'CaoCao':
-      return '他會觀察誰疲憊或脆弱，嘴上不說，但會記住誰需要被保護。';
-    case 'Liu Bei':
-      return '他會注意誰沒有被邀請、誰在人群裡還是很孤單。';
+    case 'Maomao':
+      return '她會把疲憊、謊話和奇怪的善意當成症狀記下來，嘴上說只是觀察，實際上已經在意了。';
+    case 'Sakiko':
+      return '她會把姿勢和語氣整理得很漂亮，像舞台還沒落幕；越是受傷，越會禮貌地後退。';
     case 'Tianze':
       return '她笑著測試規則和人心，用安全小惡魔式 teasing 讓人臉紅，真正靠近時反而會在最後半步停手。';
     default:
@@ -2722,10 +3313,10 @@ function everydayFallback(playerName: string, otherPlayerName: string, sceneCont
       return `${otherPlayerName}，我們先不要急著談大事。你今天看起來有點累。可以不用馬上回答，只要告訴我：你是不是也有一點不想再逞強了？`;
     case 'Ichinose':
       return `${otherPlayerName}，乖，先不要把它說成「沒事」。如果你想要我照顧你，就親口說清楚：你要拿走的是安慰，還是我的讓步？`;
-    case 'CaoCao':
-      return `${otherPlayerName}，我換個問法。你有沒有注意到，真正疲憊的人通常不會先抱怨？他們只會安靜地退到角落。那種人，最容易被世界忽略。`;
-    case 'Liu Bei':
-      return `${otherPlayerName}，我們先聊點普通的吧。你最近最喜歡待在哪裡？有時候一個人選的位置，比他說出口的立場更誠實。`;
+    case 'Maomao':
+      return `${otherPlayerName}，你今天說話比平常慢半拍，還一直碰杯口。這不是大事，不過是症狀。嗯……你要我繼續裝作沒看見嗎？`;
+    case 'Sakiko':
+      return `${otherPlayerName}，我想先把曲譜收好。手一直按著它，會被看出來。請別介意，我只是……還不想讓場面太難看。`;
     case 'Tianze':
       return `${otherPlayerName}，臉紅得太快了吧。我不處理問題喔，只問一個小問題：如果我把這條規則往前推半步，你會先保護誰？`;
     default:
@@ -2777,7 +3368,7 @@ function recentEventsPrompt(
   return [
     'Recent world event topics are shared school context, not a script. Mention at most one only if it helps the emotional thread:',
     ...uniqueTopics.slice(0, 2).map((event) => ` - ${event}`),
-    'If an event says 今日事件線, characters may discuss the same event from different angles: Umi organizes impact, Mahiru notices quiet pain, Tianze pressure-tests the rule, Ichinose prices kindness and boundaries, CaoCao notices order/exclusion, Liu Bei invites the lonely person.',
+    'If an event says 今日事件線, characters may discuss the same event from different angles: Umi organizes impact, Mahiru notices quiet pain, Tianze pressure-tests the rule, Ichinose prices kindness and boundaries, Maomao diagnoses the suspicious "fine", Sakiko preserves dignity while one crack shows.',
     'Do not repeat the event summary verbatim. Let the event become gossip, concern, a weekend question, a delayed task, a quiet check-in, or a small refusal.',
   ];
 }
@@ -3100,7 +3691,7 @@ function relationshipChemistryFor(
   const combined = contents.slice(-8).join('\n');
   const playerSpokeOften = contents.filter((text) => text.startsWith(`${playerName} to `)).length >= 3;
   const otherVulnerable = /喜歡|依賴|害怕|擔心|累|孤單|撐不住|不敢說真話/.test(combined);
-  if (otherVulnerable && ['Umi', 'Mahiru', 'Liu Bei'].includes(playerName)) {
+  if (otherVulnerable && ['Umi', 'Mahiru'].includes(playerName)) {
     return {
       direction: 'protectiveness',
       signal: `${playerName} 對 ${otherPlayerName} 的脆弱變得更在意，不急著分析。`,
@@ -3110,8 +3701,8 @@ function relationshipChemistryFor(
   if (otherVulnerable && playerName === 'Ichinose') {
     return {
       direction: 'curiosity',
-      signal: `一之瀨開始在意 ${otherPlayerName} 是不是又把善意當成免費出口，但不想承認太快。`,
-      responseMove: '用一句大姊姊式、甜得近乎無法拒絕的話靠近，然後讓對方自己說出想要什麼或欠了什麼。',
+      signal: `一之瀨開始在意 ${otherPlayerName} 是不是又把善意當成理所當然的出口，但不想承認太快。`,
+      responseMove: '用一句大姊姊式、甜得近乎無法拒絕的話靠近，然後讓對方自己說出想要什麼或接受哪條邊界。',
     };
   }
   if (otherVulnerable && playerName === 'Tianze') {
@@ -3121,11 +3712,18 @@ function relationshipChemistryFor(
       responseMove: '用一句安全小惡魔式 teasing 問到痛點，然後在第二句前停住。',
     };
   }
-  if (otherVulnerable && playerName === 'CaoCao') {
+  if (otherVulnerable && playerName === 'Maomao') {
     return {
-      direction: 'trust',
-      signal: `曹操對 ${otherPlayerName} 願意說真話產生一點尊重，但仍然保持防備。`,
-      responseMove: '少講權力，多講他為什麼不允許世界失控。',
+      direction: 'curiosity',
+      signal: `貓貓開始把 ${otherPlayerName} 的脆弱當成需要確認的症狀，但不想承認那是關心。`,
+      responseMove: '先指出一個小而準的症狀，再用「只是觀察」把關心藏起來。',
+    };
+  }
+  if (otherVulnerable && playerName === 'Sakiko') {
+    return {
+      direction: 'distance',
+      signal: `祥子聽見 ${otherPlayerName} 的脆弱後變得更禮貌，像是在保護對方也保護自己的裂縫。`,
+      responseMove: '用優雅、短句和一個停頓回應，不要立刻救場或組織大家。',
     };
   }
   if (emotionalThread === 'order' || combined.includes('操控') || combined.includes('控制')) {
@@ -3233,12 +3831,12 @@ function conversationGoal(playerName: string, topic: string) {
   switch (playerName) {
     case 'Ichinose':
       return `make someone admit what kindness or care they want in ${topic}, then decide what sweet boundary, debt, or refusal should hold`;
-    case 'Liu Bei':
-      return `bring more people into a cooperative discussion about ${topic}`;
+    case 'Sakiko':
+      return `preserve dignity around ${topic} while one stage-trained crack reveals what she cannot admit`;
     case 'Umi':
       return `interpret ${topic} as emotional, social, and strategic patterns Alan can understand`;
-    case 'CaoCao':
-      return `turn ${topic} into a durable order strategy while hiding how much he wants to protect the world from chaos`;
+    case 'Maomao':
+      return `diagnose the hidden symptom in ${topic} with cute deadpan precision while pretending not to care`;
     case 'Mahiru':
       return `protect emotional safety around ${topic}, especially the feelings no one is saying directly`;
     case 'Tianze':
@@ -3279,7 +3877,7 @@ function semanticTopicCounts(messages: string[]) {
 }
 
 function shouldPersonalityExit(playerName: string) {
-  return ['Ichinose', 'CaoCao', 'Tianze', 'Umi'].includes(playerName);
+  return ['Ichinose', 'Maomao', 'Tianze', 'Umi'].includes(playerName);
 }
 
 function nextInformationSeed(
@@ -3294,16 +3892,16 @@ function nextInformationSeed(
     return 'Alan 的公告可能改變大家對校長的信任';
   }
   switch (playerName) {
-    case 'CaoCao':
-      return `${otherPlayerName} 是否理解秩序不是邪惡，以及誰正在因混亂改變立場`;
-    case 'Liu Bei':
-      return '哪些學生還沒有被納入討論';
+    case 'Maomao':
+      return `${otherPlayerName} 是否願意承認哪個「沒事」其實是症狀`;
+    case 'Sakiko':
+      return '祥子是否能保持優雅，還是會在禮貌裡露出裂縫';
     case 'Mahiru':
       return '誰在這次事件後變得更小心，卻沒有說出口';
     case 'Umi':
       return 'Alan 需要理解這件事正在改變哪段關係或校園文化';
     case 'Ichinose':
-      return '目前誰正在取用別人的善意，卻沒有承認代價';
+      return '目前誰正在取用別人的善意，卻沒有承認邊界';
     default:
       return recentEvents?.[0] ? compactEventTopic(recentEvents[0]) : 'Alan 最近在教室裡的行動';
   }
@@ -3457,7 +4055,7 @@ function bindingFallback(
     return pickFreshConversationLine([
       `${core}。我卡住的地方不是你不同意我，是我們好像都在保護某個不想承認的東西。`,
       `我不是在反駁你。\n\n只是你剛剛那句話，把真正害怕的地方繞過去了。`,
-      `先別急著站隊。\n\n我想知道的是：你不想承認哪個代價？`,
+      `先別急著站隊。\n\n我想知道的是：你不想承認哪條邊界？`,
     ], previous);
   }
   switch (playerName) {
@@ -3476,25 +4074,25 @@ function bindingFallback(
           `我先不問學生。\n\n我問你：現在的你還有力氣繼續聽別人說話嗎？`,
         ], previous);
       }
-      if (otherPlayerName === '曹操' || otherPlayerName === 'CaoCao') {
+      if (otherPlayerName === '貓貓' || otherPlayerName === 'Maomao') {
         return pickFreshConversationLine([
-          `……你說秩序的時候，聽起來不像想控制人。\n\n比較像是不想再有人被留在外面，對吧？`,
-          `曹操，你很會把關心包成策略。\n\n但我聽得出來，這次你不是只想贏。`,
-          `你可以不承認。\n\n可是你剛剛注意到的，是那個最安靜的人，不是權力本身。`,
+          `……你剛剛不是在挑毛病。\n\n貓貓，你是先看見症狀，然後才假裝那跟你無關。`,
+          `妳可以說那只是觀察。\n\n但妳連對方沒吃完的便當都記住了，這種「只是」很可疑。`,
+          `貓貓，別把自己也當成病例。\n\n妳不是檢查表，妳只是比別人早一點聞到不對勁。`,
         ], previous);
       }
-      if (otherPlayerName === '劉備' || otherPlayerName === 'Liu Bei') {
+      if (otherPlayerName === '祥子' || otherPlayerName === 'Sakiko') {
         return pickFreshConversationLine([
-          `那我們先不開會。\n\n先想一個可以陪他吃飯的人。`,
-          `劉備，這次不要把所有人都叫來。\n\n先找一個人，坐到他旁邊就好。`,
-          `公開討論先等等。\n\n你心裡第一個想到、但一直沒被邀請的人是誰？`,
+          `祥子，妳剛剛那個停頓太漂亮了。\n\n漂亮到像是快碎掉以前，還先把燈光對準。`,
+          `妳不用把每一句都說得像謝幕詞。\n\n這裡沒有人要求妳一直站穩。`,
+          `我聽見的是妳在退後，不是妳不在意。\n\n禮貌有時候只是比較安靜的求救。`,
         ], previous);
       }
       if (otherPlayerName === '一之瀨' || otherPlayerName === '一之瀨' || otherPlayerName === 'Ichinose') {
         return pickFreshConversationLine([
           `……你剛剛還是很溫柔。\n\n只是現在那份溫柔會把門從裡面鎖上。`,
           `一之瀨，你不是不想幫。\n\n你是在等對方親口承認：他一直以為你一定會幫。`,
-          `你剛剛那句太平靜了。\n\n平靜到我反而聽見你在記一筆很甜的債。`,
+          `你剛剛那句太平靜了。\n\n平靜到我反而聽見你把邊界鎖好了。`,
         ], previous);
       }
       return pickFreshConversationLine([
@@ -3502,8 +4100,8 @@ function bindingFallback(
         `先不用把它講完整。\n\n我有聽到你真正停頓的地方。`,
         `嗯。這句先留著。\n\n我們不要急著把它變成結論。`,
       ], previous);
-    case 'CaoCao':
-      return caoCaoBoundFallback(lifecycle, previous);
+    case 'Maomao':
+      return maomaoBoundFallback(lifecycle, previous);
     case 'Mahiru':
       return pickFreshConversationLine([
         `……我有點擔心。\n\n不是因為事情很大，是因為大家開始連小話都不太敢說了。`,
@@ -3514,13 +4112,13 @@ function bindingFallback(
       return pickFreshConversationLine([
         `……我可以幫。\n\n但你要乖乖說清楚：你想要的是我的時間、我的信任，還是我的讓步？`,
         `你說得很需要幫忙。\n\n需要到我懷疑你已經把我的溫柔當成你的東西了。`,
-        `我先不拒絕。\n\n我只問一句：等我笑著答應以後，這筆甜甜的債要寫在誰名下？`,
+        `我先不拒絕。\n\n我只問一句：等我笑著答應以後，你願意守哪一條界線？`,
       ], previous);
-    case 'Liu Bei':
+    case 'Sakiko':
       return pickFreshConversationLine([
-        `我想先去找他。\n\n不是把大家叫來討論他，是先讓他知道有人注意到了。`,
-        `那我先不說「大家」。\n\n我先去找一個人，問他要不要一起吃飯。`,
-        `如果他不想說也沒關係。\n\n有時候先坐在旁邊，比問原因更有用。`,
+        `請不用看著我。\n\n我只是把話說慢了一點，還沒有到需要退場的程度。`,
+        `我會把曲譜拿穩。\n\n如果手抖了一下，也請當作沒有看見。`,
+        `我不是在逃。\n\n只是有些句子，如果說得太完整，就會變得很難收場。`,
       ], previous);
     case 'Tianze':
       return pickFreshConversationLine([
@@ -3553,14 +4151,21 @@ function motifBurnoutRedirect(
       `這題先放著。\n\n不是每個破綻都要我馬上拆開。`,
     ], previous);
   }
-  if (playerName === 'CaoCao' && /門口|進門|進來|位置|站在門/.test(recent)) {
+  if (playerName === 'Maomao' && /症狀|觀察|沒事|手|杯|便當|沉默|不對勁|可疑/.test(recent)) {
     return pickFreshConversationLine([
-      `別再看門口了。\n\n看座位。誰的位置一直空著，比誰站在哪裡更誠實。`,
-      `我換個說法。\n\n如果秩序真的有用，它應該先讓一個人不用假裝自己沒事。`,
-      `這裡太安靜了。\n\n我想知道的不是誰會進來，是誰已經開始不出聲。`,
+      `別一直盯著同一個症狀。\n\n看旁邊那杯水，半小時都沒動過。那比較有用。`,
+      `我換個說法。\n\n如果一個人一直說沒事，先別信嘴，信手。`,
+      `這裡太乾淨了。\n\n太乾淨的回答通常有問題，像藥味被香水蓋過去。`,
     ], previous);
   }
-  if ((playerName === 'Mahiru' || playerName === 'Liu Bei') && /午餐|吃飯|一個人|角落|坐在旁邊/.test(recent)) {
+  if (playerName === 'Sakiko' && /舞台|曲譜|退場|禮貌|裂縫|漂亮|站穩|手抖|停頓/.test(recent)) {
+    return pickFreshConversationLine([
+      `先不用把燈打亮。\n\n有時候看不清楚，反而比較能站著。`,
+      `我會把笑容收好。\n\n不是因為沒事，是因為現在碎掉會太難看。`,
+      `請讓這一小節空著吧。\n\n不是逃避，是我還沒決定要不要唱下去。`,
+    ], previous);
+  }
+  if (playerName === 'Mahiru' && /午餐|吃飯|一個人|角落|坐在旁邊/.test(recent)) {
     return pickFreshConversationLine([
       `那我先不問午餐了。\n\n我想去看看${scene}裡，誰的書包還放著，人卻不見了。`,
       `也許今天不用問原因。\n\n先陪對方走一段路就好。`,
@@ -3592,7 +4197,7 @@ function arcRedirectFallback(
     ) || '剛才那句話';
   if (lifecycle.arcStage === 'personal') {
     return pickFreshConversationLine([
-      `${otherPlayerName}，我們先不要把它放大。\n\n我想知道的是：${core}對你自己有什麼代價？`,
+      `${otherPlayerName}，我們先不要把它放大。\n\n我想知道的是：${core}對你自己碰到哪條邊界？`,
       `先不談整個校園。\n\n如果只看你自己，${core}讓你最不舒服的是哪一點？`,
       `這題繞太快了。\n\n我想先問小一點：你剛剛說這句話時，最先想到的是誰？`,
     ], previous);
@@ -3629,25 +4234,25 @@ function conversationalCue(core: string, emotionalThread: string) {
   return core.slice(0, 18);
 }
 
-function caoCaoBoundFallback(lifecycle: ConversationLifecycle, previous: LLMMessage[] = []) {
+function maomaoBoundFallback(lifecycle: ConversationLifecycle, previous: LLMMessage[] = []) {
   if (lifecycle.emotionalThread === 'exclusion') {
     return pickFreshConversationLine([
-      `……那個人不是不想進來。\n\n他是在等有人證明，進來之後不會被當成多餘的。`,
-      `你看錯重點了。\n\n他停在門口，不是因為軟弱，是因為他還不相信這裡有他的位置。`,
-      `如果一個人一直站在外面，問題通常不是他不想進來。\n\n是裡面的人太習慣不替他留椅子。`,
+      `……被排除的人通常不會先喊痛。\n\n他們會先把自己的存在感降到最低，像退燒前的冷汗。`,
+      `你看錯重點了。\n\n他不是不想進來，是進來以前已經先做好被忽略的準備。`,
+      `如果一個人一直站在外面，先不要講道理。\n\n看他的手。會不會握太緊，比他的嘴誠實。`,
     ], previous);
   }
   if (lifecycle.emotionalThread === 'silence') {
     return pickFreshConversationLine([
-      `沉默不是和平。\n\n有時候只是大家都在等第一個犯錯的人。`,
-      `沒人說話，不代表沒人在判斷。\n\n只是大家還不知道說真話要付多少代價。`,
-      `我不怕吵。\n\n我比較怕那種所有人都笑著，卻沒有人講真話的安靜。`,
+      `沉默不是和平。\n\n有時候只是藥效還沒退，痛覺被壓住了。`,
+      `沒人說話，不代表沒人在出血。\n\n只是傷口藏在袖口裡。`,
+      `我不怕吵。\n\n我比較怕那種每個人都說沒事，空氣卻像放久的藥湯。`,
     ], previous);
   }
   return pickFreshConversationLine([
-    `我聽見了。\n\n但我還不打算把底牌翻開。`,
-    `這句話我會記著。\n\n不是因為它有用，是因為它暴露了誰真的在意。`,
-    `先到這裡。\n\n再說下去，我們只是在替不安找更漂亮的名字。`,
+    `我聽見了。\n\n但這還不能下診斷，頂多算可疑。`,
+    `這句話我會記著。\n\n不是因為感人，是因為症狀很明顯。`,
+    `先到這裡。\n\n再說下去，就不是觀察，是多管閒事了。`,
   ], previous);
 }
 
@@ -3671,17 +4276,17 @@ function quietPauseFallback(playerName: string, otherPlayerName: string, core: s
         `停。\n\n再幫下去，你就只是把自己的主權包裝成溫柔送出去。`,
         `我不是不想聽。\n\n只是你現在需要先決定：這份照顧是禮物，還是條件？`,
       ], previous);
-    case 'CaoCao':
+    case 'Maomao':
       return pickFreshConversationLine([
-        `……我聽見了。\n\n但這句話，現在不適合在人多的地方講。`,
-        `這句先收起來。\n\n不是逃避，是不要讓它變成別人的籌碼。`,
-        `安靜一點。\n\n有些話一旦公開，就不再屬於說出口的人。`,
+        `……嗯。\n\n脈象不穩。不是比喻，妳剛才真的停了一下。`,
+        `這句先收起來。\n\n不是逃避，是樣本還不夠。`,
+        `安靜一點。\n\n有些症狀越問越會藏起來。`,
       ], previous);
-    case 'Liu Bei':
+    case 'Sakiko':
       return pickFreshConversationLine([
-        `那我們先坐一下。\n\n不用急著把每件事都說清楚。`,
-        `先不要開口也可以。\n\n有人願意留下來，本身就有一點用。`,
-        `我陪你等一下。\n\n也許等他自己想說，比我們一直問更好。`,
+        `……請不要把燈打過來。\n\n我還沒有準備好謝幕。`,
+        `先不要問也可以。\n\n如果我把背挺直一點，就比較像沒事。`,
+        `我會站著。\n\n只是下一句，可能需要慢一點。`,
       ], previous);
     case 'Tianze':
       return pickFreshConversationLine([
@@ -3720,17 +4325,17 @@ function topicDriftFallback(
         `我拒絕繼續把這件事講得像大家都會受益。\n\n誰其實拿得最多，誰又最會假裝沒有拿？`,
         `換個角度。\n\n你一直站在這裡，是想幫人，還是怕自己不幫就失去被需要的位置？`,
       ], previous);
-    case 'CaoCao':
+    case 'Maomao':
       return pickFreshConversationLine([
-        `這題已經繞夠了。\n\n我比較想知道，最近誰開始不來${scene}了。`,
-        `先別談立場。\n\n你有沒有注意到，誰最近離門越來越近？`,
-        `我更在意缺席的人。\n\n在場的人太容易被誤認成全部。`,
+        `這題已經繞夠了。\n\n我比較想知道，最近誰在${scene}吃得最少。`,
+        `先別談立場。\n\n你有沒有注意到，誰一直把袖口拉下來？`,
+        `我更在意太正常的人。\n\n正常過頭通常有毒。`,
       ], previous);
-    case 'Liu Bei':
+    case 'Sakiko':
       return pickFreshConversationLine([
-        `我們先別把它講得太大。\n\n午餐時誰是自己坐的？我想先從那裡看。`,
-        `先不開討論。\n\n明天我想多帶一份午餐，看看誰願意坐過來。`,
-        `如果大家都不敢說話，那我先從普通的邀請開始。`,
+        `我們先別把它講得太大。\n\n我只想確認，剛剛那段旋律是不是走音了。`,
+        `先不解釋。\n\n有些失控如果命名太快，就真的回不去了。`,
+        `如果大家都看著我，那我會笑。\n\n這是最壞的習慣，也是最有用的。`,
       ], previous);
     case 'Tianze':
       return pickFreshConversationLine([
@@ -3748,7 +4353,7 @@ function teasingFallback(playerName: string, otherPlayerName: string) {
     case 'Umi':
       return `欸，${otherPlayerName}，你是不是又開始把人生開成多執行緒了？\n\n先關掉一個。`;
     case 'Ichinose':
-      return `${otherPlayerName}，你這種表情通常代表你想把免費幫忙包裝成「我沒事」。很乖，但我不收這種說法。`;
+      return `${otherPlayerName}，你這種表情通常代表你想把幫忙包裝成「我沒事」。很乖，但我不收這種說法。`;
     case 'Tianze':
       return `${otherPlayerName}，你躲得太明顯了。放心，我今天只拆到臉紅，不拆到壞掉。`;
     default:

@@ -55,10 +55,10 @@ const SOUL_STYLE_CUES = {
   Tianze: ['測試', '底線', '規則', '破綻', '挑釁', '停手', '再往前', '不好玩'],
   一之瀨: ['善意', '邊界', '信任債', '欠', '記帳', '收債', '佔有', '溫柔'],
   Ichinose: ['善意', '邊界', '信任債', '欠', '記帳', '收債', '佔有', '溫柔'],
-  曹操: ['秩序', '規矩', '位置', '門口', '多餘', '不敢進來', '誰被', '失控', '站出來'],
-  CaoCao: ['秩序', '規矩', '位置', '門口', '多餘', '不敢進來', '誰被', '失控', '站出來'],
-  劉備: ['邀請', '一起', '午餐', '角落', '坐過來', '陪', '分裂'],
-  'Liu Bei': ['邀請', '一起', '午餐', '角落', '坐過來', '陪', '分裂'],
+  貓貓: ['症狀', '觀察', '可疑', '沒事', '手', '袖口', '便當', '停頓', '藥', '毒'],
+  Maomao: ['症狀', '觀察', '可疑', '沒事', '手', '袖口', '便當', '停頓', '藥', '毒'],
+  祥子: ['禮貌', '舞台', '曲譜', '退場', '裂縫', '站穩', '手抖', '停頓', '漂亮'],
+  'Sakiko': ['禮貌', '舞台', '曲譜', '退場', '裂縫', '站穩', '手抖', '停頓', '漂亮'],
 };
 
 const ROLE_ACTION_STYLE_CUES = {
@@ -66,17 +66,24 @@ const ROLE_ACTION_STYLE_CUES = {
   presence: /陪|坐|安靜|不催|慢一點|還好|吃|肩膀|手|呼吸|低頭|留下|靠近|停一下/g,
   pressure_test: /測試|底線|規則|破綻|挑釁|停手|再往前|不好玩|躲過|誰受益/g,
   kindness_boundary: /善意|邊界|信任|信任債|代價|免費|取用|拒絕|誰付|欠|記帳|收債|佔有|停止供應|溫柔/g,
-  order_protection: /秩序|規矩|位置|門口|椅子|留座|安靜下來|誰沒|不要公開問/g,
-  invitation: /邀請|一起|坐過來|午餐|陪走|空位|多帶一份|留一個位置|進來/g,
+  diagnosis: /症狀|觀察|可疑|沒事|手|袖口|便當|停頓|藥|毒|氣味|脈象/g,
+  composure: /禮貌|舞台|曲譜|退場|裂縫|站穩|手抖|停頓|漂亮|謝幕|排練/g,
 };
 
-const PILOT_EXPECTED_ACTION_STYLE = {
-  海: 'reduce_overload',
-  Umi: 'reduce_overload',
-  真晝: 'presence',
-  Mahiru: 'presence',
-  天澤: 'pressure_test',
-  Tianze: 'pressure_test',
+// 2026-06-11: widened from one style per pilot to a set. The six-character
+// cast profiles explicitly give each pilot adjacent modes (天澤 testing the
+// conditions inside kindness IS her job toward 一之瀨/祥子; 真晝 steadying
+// someone quietly reads as composure), so a single-style rubric was
+// mis-flagging in-character behavior as collapse. Approved by Alan
+// (product owner) after the 2026-06-11 15:58 report showed matchRate 0.50
+// with misses like 天澤:kindness_boundary / 真晝:composure.
+const PILOT_EXPECTED_ACTION_STYLES = {
+  海: ['reduce_overload', 'presence'],
+  Umi: ['reduce_overload', 'presence'],
+  真晝: ['presence', 'composure'],
+  Mahiru: ['presence', 'composure'],
+  天澤: ['pressure_test', 'kindness_boundary'],
+  Tianze: ['pressure_test', 'kindness_boundary'],
 };
 
 const PROP_ECHO_CUES = [
@@ -162,9 +169,9 @@ const HYGIENE_CUES = [
 ];
 
 const THIRD_PERSON_SELF_NARRATION_RE =
-  /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei)\s*(?:(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「[^」]{1,240}」|(?:注意到|覺得|感覺|想起|知道|聽見|看見|看到).{2,260}|(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$)))/;
+  /^(?:海|真晝|明晝|阿真晝|天澤|一之瀨|貓貓|祥子|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|Maomao|Sakiko)\s*(?:(?:看著|看向|望著|走到|靠近|拿著|放下|低頭|抬頭|停下|坐在|站在|把|對)[^「」]{0,120}(?:(?:問|說|提醒|回答|開口)[：:]|[，,])\s*「[^」]{1,240}」|(?:注意到|覺得|感覺|想起|知道|聽見|看見|看到).{2,260}|(?:靜悄悄|悄悄|默默|有些|略微|剛才)?(?:看起來|顯得|坐在|站在|看著|看向|望著|盯著|避開|保持沉默|低頭|抬頭|停下|停住|走到|靠近|拿著|放下|把|對|看)(?=.{0,180}(?:[，,。！？!?；;]|$)))/;
 const MALFORMED_NAME_CLUSTER_RE =
-  /[，,、]\s*(?:海|真晝|明晝|阿真晝|天澤|一之瀨|曹操|劉備|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|CaoCao|Liu Bei){2,}\s*[？?。.!！]/;
+  /[，,、]\s*(?:海|真晝|明晝|阿真晝|天澤|一之瀨|貓貓|祥子|Umi|Mahiru|Mahiru Shiina|Tianze|Ichinose|Maomao|Sakiko){2,}\s*[？?。.!！]/;
 
 const POST_PROCESSING_DRIFT_CUES = [
   'AI 社',
@@ -237,12 +244,12 @@ function runSelfTest() {
       ['天澤', '我剛剛差點又開始排順序。 先停，這次讓別人接一小段。'],
       ['真晝', '你今天先坐一下。'],
     ]),
-    fixtureConversation('conversation-test-4', ['海', '劉備'], [
+    fixtureConversation('conversation-test-4', ['海', '祥子'], [
       ['海', '今天午餐先別變成清單。'],
-      ['劉備', '我去留一個座位。'],
+      ['祥子', '我去留一個座位。'],
     ]),
-    fixtureConversation('conversation-test-5', ['曹操', '一之瀨'], [
-      ['曹操', '門口那邊先安靜。'],
+    fixtureConversation('conversation-test-5', ['貓貓', '一之瀨'], [
+      ['貓貓', '門口那邊先安靜。'],
       ['一之瀨', '你終於沒有把人排成表格。'],
     ]),
   ];
@@ -255,23 +262,23 @@ function runSelfTest() {
   assertEqual(repeatedStatus.decision, 'life_signal_repeated', 'repeated line downgrades life signal');
 
   const adminConversations = [
-    fixtureConversation('conversation-admin-1', ['一之瀨', '劉備'], [
+    fixtureConversation('conversation-admin-1', ['一之瀨', '祥子'], [
       ['一之瀨', '這個系統策略會造成政治衝擊，先不要談午餐。'],
-      ['劉備', '那我們掃描教室，確保所有人都有任務和支援。'],
+      ['祥子', '那我們掃描教室，確保所有人都有任務和支援。'],
       ['一之瀨', '你又把人說成流程了。'],
-      ['劉備', '我先記下不同意見。'],
+      ['祥子', '我先記下不同意見。'],
     ]),
-    fixtureConversation('conversation-admin-2', ['曹操', '一之瀨'], [
-      ['曹操', '流程和架構比誰坐哪裡更重要。'],
+    fixtureConversation('conversation-admin-2', ['貓貓', '一之瀨'], [
+      ['貓貓', '流程和架構比誰坐哪裡更重要。'],
       ['一之瀨', '你又把人藏進系統裡了。'],
-      ['曹操', '那就先確認權責。'],
+      ['貓貓', '那就先確認權責。'],
       ['一之瀨', '聽起來還是很像公告。'],
     ]),
-    fixtureConversation('conversation-admin-3', ['海', '曹操'], [
+    fixtureConversation('conversation-admin-3', ['海', '貓貓'], [
       ['海', '這個緊急決策如果沒人接住，這世界又會亂成一團。'],
-      ['曹操', '你又把學生說成需要控管的局面了。'],
+      ['貓貓', '你又把學生說成需要控管的局面了。'],
       ['海', '先別新增功能，也別把校園變成策略圖。'],
-      ['曹操', '今天先看學生怎麼過。'],
+      ['貓貓', '今天先看學生怎麼過。'],
     ]),
   ];
   const adminSummary = summarize(adminConversations.map(analyzeConversation), []);
@@ -311,11 +318,11 @@ function runSelfTest() {
       ['真晝', '那也算休息。'],
       ['海', '勉強算。'],
     ]),
-    fixtureConversation('conversation-scene-3', ['海', '曹操'], [
+    fixtureConversation('conversation-scene-3', ['海', '貓貓'], [
       ['海', '校長室今天先安靜一點。'],
-      ['曹操', '清單留三項就夠。'],
+      ['貓貓', '清單留三項就夠。'],
       ['海', '不要把人排進表格裡。'],
-      ['曹操', '我聽見了。'],
+      ['貓貓', '我聽見了。'],
     ]),
     fixtureConversation('conversation-scene-4', ['天澤', '真晝'], [
       ['天澤', '我先把 Alan 那段收起來。'],
@@ -342,11 +349,11 @@ function runSelfTest() {
       ['天澤', '我知道。'],
       ['真晝', '不要急。'],
     ]),
-    fixtureConversation('conversation-rhythm-2', ['劉備', '曹操'], [
-      ['劉備', '庭院那個座位空著。'],
-      ['曹操', '門口有人停住了。'],
-      ['劉備', '我去問他要不要坐。'],
-      ['曹操', '別太快。'],
+    fixtureConversation('conversation-rhythm-2', ['祥子', '貓貓'], [
+      ['祥子', '庭院那個座位空著。'],
+      ['貓貓', '門口有人停住了。'],
+      ['祥子', '我去問他要不要坐。'],
+      ['貓貓', '別太快。'],
     ]),
     fixtureConversation('conversation-rhythm-3', ['一之瀨', '海'], [
       ['一之瀨', '教室後排那張桌子太安靜。'],
@@ -385,11 +392,11 @@ function runSelfTest() {
       ['天澤', '我看到了。'],
       ['一之瀨', '嗯。'],
     ]),
-    fixtureConversation('conversation-soul-3', ['曹操', '劉備'], [
-      ['曹操', '下午庭院旁邊有人把作業放著。'],
-      ['劉備', '那張椅子沒人動。'],
-      ['曹操', '樹下也有人站著。'],
-      ['劉備', '先看著。'],
+    fixtureConversation('conversation-soul-3', ['貓貓', '祥子'], [
+      ['貓貓', '下午庭院旁邊有人把作業放著。'],
+      ['祥子', '那張椅子沒人動。'],
+      ['貓貓', '樹下也有人站著。'],
+      ['祥子', '先看著。'],
     ]),
     fixtureConversation('conversation-soul-4', ['海', '天澤'], [
       ['海', '放學後教室桌上還有紙。'],
@@ -432,7 +439,11 @@ function runSelfTest() {
   const flatPilotActionSummary = summarize(flatPilotActionConversations.map(analyzeConversation), []);
   const flatPilotActionStatus = decideStatus(flatPilotActionSummary);
   assertEqual(flatPilotActionSummary.pilotActionCollapseFlags, 3, 'detects pilot characters sharing one care/action style');
-  assertEqual(flatPilotActionStatus.decision, 'pilot_role_actions_flat', 'pilot role-action flattening warns');
+  // 2026-06-11 rubric widening: presence is now inside 海's expected set, so
+  // this fixture's individual role-misses mostly disappear — what remains is
+  // every pilot doing the SAME move, which is correctly labeled as collapse
+  // (sameness) rather than flat (off-role).
+  assertEqual(flatPilotActionStatus.decision, 'pilot_role_action_collapse', 'pilot role-action sameness warns');
 
   const postProcessingDriftConversations = [
     fixtureConversation('conversation-post-1', ['真晝', '海'], [
@@ -447,21 +458,21 @@ function runSelfTest() {
         memoryLineZh: '海要整理世界情緒的脈絡，避免牽動主線。',
       },
     ]),
-    fixtureConversation('conversation-post-2', ['一之瀨', '曹操'], [
+    fixtureConversation('conversation-post-2', ['一之瀨', '貓貓'], [
       ['一之瀨', '那句沒事說得太漂亮。'],
-      ['曹操', '我先看門口。'],
+      ['貓貓', '我先看門口。'],
       ['一之瀨', '別把它講成規矩。'],
-      ['曹操', '我知道，先留座位。'],
+      ['貓貓', '我知道，先留座位。'],
     ], [
       {
-        characterName: '曹操',
-        memoryLineZh: '曹操決定觀察誰支持 Alan 的 AI 社邊界。',
+        characterName: '貓貓',
+        memoryLineZh: '貓貓決定觀察誰支持 Alan 的 AI 社邊界。',
       },
     ]),
-    fixtureConversation('conversation-post-3', ['劉備', '天澤'], [
-      ['劉備', '午餐我多帶一份。'],
+    fixtureConversation('conversation-post-3', ['祥子', '天澤'], [
+      ['祥子', '午餐我多帶一份。'],
       ['天澤', '那我少接一件。'],
-      ['劉備', '我們先不追問。'],
+      ['祥子', '我們先不追問。'],
       ['天澤', '好，今天先這樣。'],
     ], []),
   ];
@@ -486,15 +497,15 @@ function runSelfTest() {
       ['天澤', '好，下午再說。'],
       ['一之瀨', '這句比較像人話。'],
     ]),
-    fixtureConversation('conversation-prop-3', ['曹操', '劉備'], [
-      ['曹操', '門口那張椅子還空著。'],
-      ['劉備', '那我午餐多帶一份。'],
-      ['曹操', '別問太快。'],
-      ['劉備', '我知道。'],
+    fixtureConversation('conversation-prop-3', ['貓貓', '祥子'], [
+      ['貓貓', '門口那張椅子還空著。'],
+      ['祥子', '那我午餐多帶一份。'],
+      ['貓貓', '別問太快。'],
+      ['祥子', '我知道。'],
     ]),
-    fixtureConversation('conversation-prop-4', ['真晝', '劉備'], [
+    fixtureConversation('conversation-prop-4', ['真晝', '祥子'], [
       ['真晝', '中午先喝一口湯。'],
-      ['劉備', '我坐遠一點陪著。'],
+      ['祥子', '我坐遠一點陪著。'],
     ]),
     fixtureConversation('conversation-prop-5', ['海', '天澤'], [
       ['海', '今天先少接一件。'],
@@ -507,14 +518,14 @@ function runSelfTest() {
   assertEqual(propEchoStatus.decision, 'prop_echo_repeated', 'repeated prop echo warns');
 
   const narrationLeakConversations = [
-    fixtureConversation('conversation-narration-1', ['海', '劉備'], [
+    fixtureConversation('conversation-narration-1', ['海', '祥子'], [
       [
         '海',
-        '海看著你面前那杯沒喝完的果汁，問：「如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，劉備，你會怎麼自然地邀請他？」',
+        '海看著你面前那杯沒喝完的果汁，問：「如果下週的聯誼活動，有人因為怕被拒絕而不敢靠近任何圈子，祥子，你會怎麼自然地邀請他？」',
       ],
-      ['劉備', '我會先坐遠一點，不讓他覺得自己被盯著。'],
+      ['祥子', '我會先坐遠一點，不讓他覺得自己被盯著。'],
       ['海', '嗯，這句比較像邀請。'],
-      ['劉備', '那我午餐多帶一份。'],
+      ['祥子', '那我午餐多帶一份。'],
     ]),
     fixtureConversation('conversation-narration-2', ['真晝', '天澤'], [
       ['真晝', '早餐先吃一點吧。'],
@@ -522,11 +533,11 @@ function runSelfTest() {
       ['真晝', '不用急。'],
       ['天澤', '好。'],
     ]),
-    fixtureConversation('conversation-narration-3', ['一之瀨', '曹操'], [
-      ['一之瀨', '一之瀨看著曹操沒有碰那份午餐，你這句太工整。'],
-      ['曹操', '那我不說規矩。'],
+    fixtureConversation('conversation-narration-3', ['一之瀨', '貓貓'], [
+      ['一之瀨', '一之瀨看著貓貓沒有碰那份午餐，你這句太工整。'],
+      ['貓貓', '那我不說規矩。'],
       ['一之瀨', '先看誰站在門口。'],
-      ['曹操', '我知道。'],
+      ['貓貓', '我知道。'],
     ]),
   ];
   const narrationLeakSummary = summarize(narrationLeakConversations.map(analyzeConversation), []);
@@ -1103,17 +1114,18 @@ function roleActionSummaryForMessages(messages) {
       const dominant = Object.entries(styleCounts)
         .sort(([, left], [, right]) => right - left)
         .find(([, count]) => count > 0)?.[0];
-      const expectedStyle = PILOT_EXPECTED_ACTION_STYLE[author];
-      const selectedStyle =
-        expectedStyle && styleCounts[expectedStyle] > 0
-          ? expectedStyle
-          : dominant;
+      const expectedStyles = PILOT_EXPECTED_ACTION_STYLES[author] ?? [];
+      // First expected style with evidence wins; otherwise fall back to the
+      // dominant detected style. `expectedStyle` stays a (joined) string so
+      // downstream truthiness filters and report labels keep working.
+      const expectedHitStyle = expectedStyles.find((style) => styleCounts[style] > 0);
+      const selectedStyle = expectedHitStyle ?? dominant;
       return {
         author,
         dominantStyle: dominant,
         selectedStyle,
-        expectedStyle,
-        expectedHit: expectedStyle ? styleCounts[expectedStyle] > 0 : false,
+        expectedStyle: expectedStyles.join('|'),
+        expectedHit: expectedStyles.length ? Boolean(expectedHitStyle) : false,
       };
     });
   const dominantStyles = authorStyles
