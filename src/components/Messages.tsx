@@ -203,7 +203,7 @@ export function Messages({
           </div>
         ) : null}
         <div className={clsx('bubble', m.author === humanPlayerId && 'bubble-mine')}>
-          <p className="bg-white -mx-3 -my-1">{displayTextWithNames(m.text)}</p>
+          <p className="-mx-3 -my-1">{displayTextWithNames(m.text)}</p>
           {m.pending ? <span className="mt-1 block text-[10px] opacity-60">送出中...</span> : null}
         </div>
       </div>
@@ -228,7 +228,7 @@ export function Messages({
         membershipNodes.push({
           node: (
             <div key={`joined-${playerId}`} className="leading-tight mb-6">
-              <p className="text-brown-700 text-center">{displayAgentName(playerName)} 加入了對話。</p>
+              <p className="text-center text-xs text-slate-300/80">{displayAgentName(playerName)} 加入了對話。</p>
             </div>
           ),
           time: started,
@@ -244,7 +244,7 @@ export function Messages({
       membershipNodes.push({
         node: (
           <div key={`joined-${playerId}`} className="leading-tight mb-6">
-            <p className="text-brown-700 text-center">{displayAgentName(playerName)} 加入了對話。</p>
+            <p className="text-center text-xs text-slate-300/80">{displayAgentName(playerName)} 加入了對話。</p>
           </div>
         ),
         time: started,
@@ -253,7 +253,7 @@ export function Messages({
       membershipNodes.push({
         node: (
           <div key={`left-${playerId}`} className="leading-tight mb-6">
-            <p className="text-brown-700 text-center">{displayAgentName(playerName)} 離開了對話。</p>
+            <p className="text-center text-xs text-slate-300/80">{displayAgentName(playerName)} 離開了對話。</p>
           </div>
         ),
         // Always sort all "left" messages after the last message.
@@ -266,7 +266,7 @@ export function Messages({
   nodes.sort((a, b) => a.time - b.time);
   return (
     <div className="chats text-base sm:text-sm">
-      <div ref={conversationLogRef} className="giis-conversation-log bg-brown-200 text-black p-2">
+      <div ref={conversationLogRef} className="giis-conversation-log p-2">
         {nodes.length > 0 && nodes.map((n) => n.node)}
         {currentlyTyping && currentlyTyping.playerId !== humanPlayerId && (
           <div key="typing" className="leading-tight mb-6">
@@ -278,7 +278,7 @@ export function Messages({
               </time>
             </div>
             <div className={clsx('bubble')}>
-              <p className="bg-white -mx-3 -my-1">
+              <p className="-mx-3 -my-1">
                 <i>{displayAgentName(currentlyTypingName) === '海' ? '海正在思考...' : '正在思考...'}</i>
               </p>
             </div>
@@ -296,7 +296,7 @@ export function Messages({
               </time>
             </div>
             <div className={clsx('bubble')}>
-              <p className="bg-white -mx-3 -my-1">
+              <p className="-mx-3 -my-1">
                 <i>
                   {displayAgentName(awaitingReply.targetName ?? placeholderTargetName) === '海'
                     ? '海正在思考...'

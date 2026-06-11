@@ -104,6 +104,11 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }>();
   const [minuteTick, setMinuteTick] = useState(() => Math.floor(Date.now() / 60_000));
   const lastAlanFocusKey = useRef('');
+  // Camera-follow switch. When the user manually views a scene, following
+  // pauses (otherwise every Alan step yanks selectedSceneId + camera back to
+  // him — the per-second [GIIS focus] loop that made scene switching feel
+  // stuck). 「找到 Alan」 re-enables following.
+  const followAlanRef = useRef(true);
   const initialSceneAutoSelectRef = useRef(false);
   const previousMovingStateRef = useRef<Map<string, boolean>>(new Map());
   const [gameWrapperRef, { width, height }] = useElementSize();
@@ -208,6 +213,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
 
   useEffect(() => {
     if (!alanPlayerForFocus?.position) return;
+    if (!followAlanRef.current) return;
     const focusKey = `${alanPlayerForFocus.id}:${Math.round(alanPlayerForFocus.position.x * 10)}:${Math.round(
       alanPlayerForFocus.position.y * 10,
     )}`;
@@ -679,9 +685,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const viewScene = (nextId: SchoolLocationId) => {
     const nextScene = SchoolLocations.find((location) => location.id === nextId);
     if (!nextScene) return;
+    followAlanRef.current = false;
     setSelectedSceneId(nextId);
     window.setTimeout(() => focusOn(nextScene.position, 1.2), 60);
-    setSceneMessage(`切換視角到：${nextScene.labelZh}（Alan 沒有移動）。`);
+    setSceneMessage(`切換視角到：${nextScene.labelZh}（Alan 沒有移動，按「找到 Alan」回到他身邊）。`);
   };
   const switchScene = (nextId: SchoolLocationId) => {
     const clickStart = performance.now();
@@ -691,6 +698,9 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       setSceneMessage('正在對話中。請先離開目前對話，再切換場景。');
       return;
     }
+    // Keep the camera on the DESTINATION while Alan travels; following him
+    // mid-walk snaps the view back to his old room (the 「選教室卻到餐廳」 bug).
+    followAlanRef.current = false;
     setSelectedSceneId(nextId);
     const destination = nextScene.spawnPoints[0] ?? nextScene.position;
     void (async () => {
@@ -769,9 +779,11 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     setSceneMessage(`已顯示 ${currentScene.labelZh} 的所有角色。`);
   };
   const focusAlan = () => {
+    followAlanRef.current = true;
+    lastAlanFocusKey.current = '';
     if (alanPlayerForFocus) {
       const scene = nearestSchoolLocation(alanPlayerForFocus.position);
-      switchSceneAndFocus(scene, alanPlayerForFocus.position, '已找到 Alan。', 1.55);
+      switchSceneAndFocus(scene, alanPlayerForFocus.position, '已找到 Alan，鏡頭會跟著他。', 1.55);
       return;
     }
     void enterCampus({})
@@ -1242,16 +1254,22 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
             )}
           </div>
           <div className="giis-bottom-actions">
-            {contextualActions.map((action) => (
-              <button
-                key={`scene-${action.label}`}
-                className="giis-action-pill giis-action-pill-scene"
-                title={ACTION_TOOLTIPS[action.actionType]}
-                onClick={() => runQuickAction(action.actionType)}
-              >
-                {action.label}
-              </button>
-            ))}
+            {/* Verb consolidation (2026-06-11): with a target selected, the
+                generic scene 「聊天」 duplicated 「聊聊 X」 — hide it then.
+                關心近況/邀請 moved under 更多互動 alongside 問傳聞/送禮/留訊息,
+                so the row stays: scene verbs ｜ 聊聊 X ｜ 更多互動. */}
+            {contextualActions
+              .filter((action) => !(selectedName && !isConversationMode && action.actionType === 'chat'))
+              .map((action) => (
+                <button
+                  key={`scene-${action.label}`}
+                  className="giis-action-pill giis-action-pill-scene"
+                  title={ACTION_TOOLTIPS[action.actionType]}
+                  onClick={() => runQuickAction(action.actionType)}
+                >
+                  {action.label}
+                </button>
+              ))}
             {selectedName && !isConversationMode ? (
               <>
                 <span className="giis-action-divider" aria-hidden="true" />
@@ -1263,22 +1281,6 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                 >
                   聊聊 {displayAgentName(selectedName)}
                 </button>
-                <button
-                  className="giis-action-pill"
-                  title={ACTION_TOOLTIPS.checkIn}
-                  onClick={() => runQuickAction('checkIn')}
-                >
-                  關心近況
-                </button>
-                <button
-                  className="giis-action-pill"
-                  title={ACTION_TOOLTIPS.invite}
-                  onClick={() => runQuickAction('invite')}
-                >
-                  邀請
-                </button>
-                {/* 問傳聞 / 送禮 / 留訊息 live under 更多互動 to keep the
-                    primary action row scannable. */}
               </>
             ) : null}
             <span className="giis-action-divider" aria-hidden="true" />

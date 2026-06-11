@@ -1066,24 +1066,22 @@ export default function PlayerDetails({
 
   return (
     <>
-      <div className="flex gap-4">
-        <div className="box w-3/4 sm:w-full mr-auto">
-          <div className="bg-brown-700 p-2 shadow-solid flex items-center justify-center">
-            <CharacterPortrait
-              name={playerDescription?.name}
-              size="lg"
-              emotion={emotionFor(playerDescription?.name)}
-            />
-          </div>
+      <div className="flex items-start gap-4">
+        <div className="giis-vn-card mr-auto flex w-3/4 items-center justify-center p-2 sm:w-full">
+          <CharacterPortrait
+            name={playerDescription?.name}
+            size="lg"
+            emotion={emotionFor(playerDescription?.name)}
+          />
         </div>
-        <a
-          className="button text-white shadow-solid text-2xl cursor-pointer pointer-events-auto"
+        <button
+          className="giis-panel-close pointer-events-auto"
           onClick={() => setSelectedElement(undefined)}
+          title="關閉"
+          aria-label="關閉"
         >
-          <h2 className="h-full bg-clay-700">
-            <img className="w-4 h-4 sm:w-5 sm:h-5" src={closeImg} />
-          </h2>
-        </a>
+          <img src={closeImg} alt="" />
+        </button>
       </div>
       <div className="mt-3">{renderTabs()}</div>
       {activeTab === 'action' ? (
@@ -1132,7 +1130,7 @@ export default function PlayerDetails({
           </details>
         </>
       ) : null}
-      <div className="mt-3 bg-brown-800/60 border border-brown-500/60 p-2 text-sm leading-tight">
+      <div className="giis-vn-card mt-3 p-2 text-sm leading-tight">
         {isMe ? (
           <span>Alan｜{playerLocation?.labelZh ?? currentScene?.labelZh ?? schoolObservation?.currentLocation?.labelZh ?? '校園'}｜{timeBlock.title}</span>
         ) : (
@@ -1143,19 +1141,17 @@ export default function PlayerDetails({
       </div>
       {canInvite && (
         <button
-          className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto w-full disabled:opacity-60"
+          className="action-pill action-pill-active pointer-events-auto mt-3 w-full disabled:opacity-60"
           disabled={!!runningActionKeys['conversation:start']}
           onClick={onStartConversation}
         >
-          <div className="h-full bg-clay-700 text-center">
-            <span>{runningActionKeys['conversation:start'] ? '正在前往...' : '開始對話'}</span>
-          </div>
+          {runningActionKeys['conversation:start'] ? '正在前往...' : '開始對話'}
         </button>
       )}
       {activeTab === 'action' && (schoolLoading || activeActionLabel || queueItems.length) ? (
         <div className="mt-4 space-y-2">
           {(schoolLoading || activeActionLabel) && (
-            <div className="action-panel-status bg-brown-700 border border-brown-500 p-2 text-sm">
+            <div className="action-panel-status giis-vn-card p-2 text-sm">
               {activeActionLabel ? `正在執行：${activeActionLabel}` : '更新校園狀態中...'}
             </div>
           )}
@@ -1174,18 +1170,10 @@ export default function PlayerDetails({
         </div>
       ) : null}
       {waitingForAccept && (
-        <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-          <div className="h-full bg-clay-700 text-center">
-            <span>等待接受...</span>
-          </div>
-        </a>
+        <div className="giis-vn-card mt-3 p-2 text-center text-sm opacity-80">等待接受...</div>
       )}
       {waitingForNearby && (
-        <a className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto opacity-50">
-          <div className="h-full bg-clay-700 text-center">
-            <span>正在走近...</span>
-          </div>
-        </a>
+        <div className="giis-vn-card mt-3 p-2 text-center text-sm opacity-80">正在走近...</div>
       )}
       {inConversationWithMe && (
         // Compact, right-aligned: leaving is an escape hatch, not the main
@@ -1193,47 +1181,39 @@ export default function PlayerDetails({
         // single most prominent element on the screen.
         <div className="mt-2 flex justify-end">
           <button
-            className="button text-white shadow-solid text-sm cursor-pointer pointer-events-auto disabled:opacity-60"
+            className="action-pill pointer-events-auto disabled:opacity-60"
             disabled={!!runningActionKeys['conversation:leave']}
             onClick={onLeaveConversation}
             title="結束這段對話（Esc）"
           >
-            <div className="h-full bg-clay-700 text-center px-3">
-              <span>{runningActionKeys['conversation:leave'] ? '處理中...' : '離開對話'}</span>
-            </div>
+            {runningActionKeys['conversation:leave'] ? '處理中...' : '離開對話'}
           </button>
         </div>
       )}
       {haveInvite && (
-        <>
-          <div className="mt-4 bg-brown-700 border border-brown-500 p-2 text-sm">
-            這是角色向你發出的對話邀請，你可以接受或拒絕。
+        <div className="giis-invite-card pointer-events-auto mt-3">
+          <p>{displayAgentName(playerDescription?.name) || '對方'} 想跟你聊聊</p>
+          <div className="giis-invite-actions">
+            <button
+              className="action-pill action-pill-active disabled:opacity-60"
+              disabled={!!runningActionKeys['conversation:accept']}
+              onClick={onAcceptInvite}
+            >
+              {runningActionKeys['conversation:accept'] ? '處理中...' : '接受'}
+            </button>
+            <button
+              className="action-pill disabled:opacity-60"
+              disabled={!!runningActionKeys['conversation:reject']}
+              onClick={onRejectInvite}
+            >
+              {runningActionKeys['conversation:reject'] ? '處理中...' : '拒絕'}
+            </button>
           </div>
-          <button
-            className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto w-full disabled:opacity-60"
-            disabled={!!runningActionKeys['conversation:accept']}
-            onClick={onAcceptInvite}
-          >
-            <div className="h-full bg-clay-700 text-center">
-              <span>{runningActionKeys['conversation:accept'] ? '處理中...' : '接受邀請'}</span>
-            </div>
-          </button>
-          <button
-            className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto w-full disabled:opacity-60"
-            disabled={!!runningActionKeys['conversation:reject']}
-            onClick={onRejectInvite}
-          >
-            <div className="h-full bg-clay-700 text-center">
-              <span>{runningActionKeys['conversation:reject'] ? '處理中...' : '拒絕邀請'}</span>
-            </div>
-          </button>
-        </>
+        </div>
       )}
       {!playerConversation && player.activity && player.activity.until > Date.now() && (
-        <div className="box flex-grow mt-6">
-          <h2 className="bg-brown-700 text-base sm:text-lg text-center">
-            {player.activity.description}
-          </h2>
+        <div className="giis-vn-card mt-3 flex-grow p-2">
+          <h2 className="text-center text-base sm:text-lg">{player.activity.description}</h2>
         </div>
       )}
       {activeTab === 'characters' ? (
