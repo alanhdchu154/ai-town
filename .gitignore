@@ -53,3 +53,7 @@ key.md
 umi/reports/
 umi/__pycache__/
 __pycache__/
+
+# Local scratch + Vite config compile artifacts
+tmp/
+vite.config.ts.timestamp-*.mjs

@@ -328,3 +328,85 @@ Before changing behavior, ask:
 4. Is there fresh evidence, or is the old sample only historical?
 5. Does this move a decision forward, or is it ceremony (heartbeat/readiness
    commits) standing in for the one human action that is actually blocking?
+
+## v0.2 Plan (approved by Alan 2026-06-11 evening)
+
+North-star question for v0.2: **"Did yesterday change today?"** — Alan returns,
+asks nothing, and can feel from behavior alone that yesterday happened. (v0.1
+asked only "is yesterday remembered".)
+
+### Shipped immediately with this plan (the UI/infra slice, 2026-06-11)
+
+- A1 Scene/camera decoupling: manual scene viewing pauses Alan auto-follow
+  (the per-second [GIIS focus] yank that made switching feel stuck and caused
+  選教室卻到餐廳); 「找到 Alan」 re-enables following.
+- A2 Invite UI: compact inline card (was full-screen takeover with hero
+  接受/拒絕 bars); panel close button normalized.
+- A3 Conversation panel reskinned to the dark VN scene-stage language (was
+  legacy brown/cream AI-town).
+- F2 Verb consolidation: with a target selected the generic 聊天 hides
+  (聊聊 X is the one primary); 關心近況/邀請 fold into 更多互動.
+- F3 Human-path quota exemption: Alan-facing replies bypass the shared daily
+  cloud quota (cooldown still applies) — pairs with the no-weak-model rule.
+- A5 .gitignore for tmp/ and vite timestamp artifacts.
+- F1 (partial): emotion-asset wiring verified; generation checklist in
+  `docs/giis-emotion-asset-manifest.md` (32 images, prompts in
+  giis-vn-art-spec.md). Asset generation runs in Alan's image pipeline.
+
+### Deferred from the UI pass (needs assets/design, not just code)
+
+- Backdrop time-of-day variants (宿舍 shows a moon at 下午4:07 — each scene has
+  exactly one render today; needs day/evening/night variants per scene).
+- 左上角 chips (海/今日/日程) consolidation into one 「海的校園手帳」 front
+  door with tabs 今日動態/日程/約定 — pairs with C1. Current sources for the
+  record: 今日 = campusSocialState (dailyFocus + worldEvents + notifications +
+  schoolRumors); 日程 = schoolCalendar rhythm + dailyLifeBulletin (curated).
+
+### B. Prop system — props are where yesterday becomes visible
+
+- B1 Per-scene per-day prop STATE, rewritten by character behavior as a
+  by-product of conversations/events (考卷「被天澤翻過」, 黑板「真晝擦到一半」).
+  The world should look used.
+- B2 Commitments pinned to props (curry promise lives on the 餐廳 pot; honored
+  /missed changes the prop state).
+- B3 Residue bound to props; passing characters can trigger callbacks.
+- B4 Alan-interactable props (leave a line on the blackboard; characters react
+  tomorrow via bulletin/worldEvents).
+- B5 Prop events feed the motif guard (no new prop-echo families).
+
+### C. Promises & schedule (player-facing, in-world — NOT a dev dashboard)
+
+- C1 約定頁 hosted by 海 inside the 校園手帳: all active commitments (who
+  promised whom, due day, expired/fulfilled), from the dated-commitment data.
+- C2 Fulfillment detection: honored promise → fulfilled mark + relationship
+  warmth; missed → disappointment residue. (First real data: the 6/12 Friday
+  curry dinner.)
+- C3 Soft-correction detection (「是X，不是Y」 phrasing should trigger the
+  recall down-weight; today only 不是/記錯 forms do).
+
+### D. Gifts (design decisions, build after B)
+
+- D1 A gift becomes a persistent prop in the receiver's scene — the strongest
+  form of visible yesterday. (The 'gift' quick-action type already exists.)
+- D2 Effects flow through residue/mentions (「你上次送的筆我還在用」), NOT
+  numeric affinity boosts — no gift-shop loop.
+- D3 Character-differentiated reactions (一之瀨 prices it, 貓貓 suspects it,
+  祥子 flusters) — gifts as a soul-differentiation probe.
+- D4 Transaction-language risk watched by the 交易/欠債 motif family.
+
+### E. Memory deepening (progression-ladder mainline)
+
+- E1 Behavioral drift: residue changes initiative/avoidance — from tone to feet.
+- E2 Daily diary: 2-3 lines per character per day; cross-day reads consume the
+  diary, not raw memory dumps.
+- E3 Relationship drift: residue nudges trust/affection in small steps; UI
+  shows text trends (最近比較親近/疏遠), never gauges.
+- E4 Gossip with provenance: cross-character memory spread carries 「聽海說的」
+  source tags (schoolRumors plumbing exists).
+- E5 Importance-weighted residue recall (commitments fixed; residues are still
+  recency-only).
+
+### Suggested order
+
+A-slice (done) → B1+B2+C1 (props + 約定頁; one week to a visible 「世界記得我」
+moment) → C2 (fulfillment, with the curry-dinner data) → E1+E2 → D → E3-E5.
