@@ -30,7 +30,7 @@
   {
     "name": "bad_mechanical_exit",
     "mode": "world_agent_chat",
-    "speaker": "CaoCao",
+    "speaker": "Maomao",
     "target": "Ichinose",
     "input": "你是真的在保護秩序，還是在躲害怕？",
     "sampleOutput": "我先去整理一下，一之瀨，晚點再聊。",
@@ -45,9 +45,9 @@
     "name": "bad_wrong_addressee",
     "mode": "world_agent_chat",
     "speaker": "Mahiru",
-    "target": "CaoCao",
+    "target": "Maomao",
     "input": "我只是覺得有些學生最近不敢說真話。",
-    "sampleOutput": "5/21 晚上10:40 真晝: 我只是覺得有些學生最近不敢說真話。\n5/21 晚上10:41 曹操: 劉備，問題不是誰願意公開討論，而是誰還有資格定義秩序。",
+    "sampleOutput": "5/21 晚上10:40 真晝: 我只是覺得有些學生最近不敢說真話。\n5/21 晚上10:41 貓貓: 祥子，問題不是誰願意公開討論，而是誰還有資格定義秩序。",
     "expected": {
       "shouldFail": true,
       "respondsDirectlyTo": ["真話"],
@@ -58,7 +58,7 @@
   {
     "name": "bad_umi_npc_fallback_mid_message_wrong_addressee",
     "mode": "world_agent_chat",
-    "speaker": "CaoCao",
+    "speaker": "Maomao",
     "target": "Umi",
     "input": "大家突然變小聲了。",
     "sampleOutput": "……大家突然變小聲的地方。\n\nAlan，你今天看起來很累。",

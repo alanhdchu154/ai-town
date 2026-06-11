@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-10 (late evening — memory/commitment overhaul + UI pass; Claude/Cowork session, for Codex alignment)
+Last updated: 2026-06-11 (late morning — Alan/海 pass evidence + role-to-role mirror QA + v0.2 draft)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -87,6 +87,104 @@ the right weekday.
   feasibility paper). Consolidate toward ~4 audits only when Paper 2 is real.
 - During the wait the **product is primary**: keep the world running, do the
   Alan playtest, and let continuity / ablation data accumulate as a by-product.
+
+## 2026-06-11 Morning Product Evidence
+
+Alan-facing 海 is currently the strongest v0.1 evidence. The archived
+Alan/海 conversation at 09:54 CDT is recorded in
+`umi/reports/alan-facing-v01-playtest-latest.md` as `Verdict: PASS` across all
+five checklist rows: greeting binding, latest-sentence binding, correction
+binding, yesterday/today continuity, and closing/idle boundary. Caveats remain
+non-blocking for that specific human-facing sample: curry direction drift,
+one simplified-character leak, and the Friday 2026-06-12 cross-day curry recall
+still needs a live check.
+
+All-character dialogue is not yet complete. Fresh 10:07-10:29 CDT probes show
+that the old 天澤/一之瀨 transaction loop improved after prompt/source hygiene
+and pilot-path repair (`利息` / `付費` / `交換` / `免費午餐` are now guarded in
+the actual sanitizer path), and soul-triad often scores the pair `PASS 1.00`.
+However `eval:conversation:recent` still reports FAIL/WARN because several
+samples collapse into concept handoff rather than distinct role action:
+一之瀨/天澤 overuses `邊界 / 承認 / 拿走什麼`, 海/真晝 can still loop tea/cup
+objects, and natural side samples such as 一之瀨/真晝 can score low on character
+voice. Treat this as active v0.1 dialogue QA, not completed readiness.
+
+Late-morning continuation (10:49-11:07 CDT): v0.1-bounded mirror hygiene now
+covers the fresh failure shapes seen in natural role-to-role samples:
+stage/clothing/light loops, score-sheet/fingertip loops, short quoted echoes
+(`溫的？` / `管不到？`), 海/貓貓 tea-diagnosis loops, 海 checklist loops, and
+天澤/一之瀨 abstract dismantling / human-debt games, 海/貓貓 schedule/drink/
+medical-device relay, and 真晝/祥子 cold-food care loops. This is still active QA, not completion:
+fresh natural eval after the patch still produced FAIL rows before the latest
+guard additions, and the next required evidence is a post-addition fresh window
+with no hard mirror/motif failures across multiple core pairs.
+
+Verification from this continuation:
+- `npm test -- convex/agent/conversationMotifGuard.test.ts` (47/47).
+- `npx tsc --noEmit --pretty false`.
+- Disposable live probes for `Sakiko:Mahiru` and `Tianze:Ichinose` show
+  directional improvement (old prop loops replaced by more character-shaped
+  moves, soul-triad can pass Tianze/Ichinose), but recent eval has not yet
+  cleared the role-to-role mirror gate. This is progress, not completion.
+
+Afternoon continuation (15:00-15:23 CDT): the guard has moved from single
+motif words toward fresh pair-specific relay exhaustion. It now blocks stale
+repair fallback phrases (`你躲得太明顯了，我今天先不拆`, `這題先放著，看誰先心虛`,
+`那你先說，哪一句是真心的`, `可以喔，但這次你要自己選`) from becoming
+character voice, adds a final pilot-path quality gate, and covers fresh runtime
+failure families:
+
+- 祥子/天澤: rehearsal-confirmation relay, `完美/記錄/翻開`, and
+  `裙擺/皺痕/備用裙` stage-clothing loops.
+- 一之瀨/真晝: `便當/真心/自己選`, water-boiled-egg care, `布丁/空位`,
+  and `一半/真的嗎/表格/分心` food-care loops.
+- 貓貓/真晝 and 真晝/祥子: repair phrase relays around bento, bandage,
+  no-pressure sitting, and `這一小節`.
+
+Verification after this continuation:
+- `npm test -- convex/agent/conversationMotifGuard.test.ts` (60/60).
+- `npx tsc --noEmit --pretty false`.
+- `git diff --check -- convex/agent/conversation.ts convex/agent/conversationMotifGuard.test.ts docs/giis-v0.1-roadmap.md WORKLOG.md evals/conversations/reports/latest.md`.
+
+Current role-to-role status remains **not complete**. Fresh runtime probes after
+the first afternoon patch improved 祥子/天澤 from hard FAIL to WARN in one
+sample, but later 一之瀨/真晝 probes still produced hard FAIL rows by finding new
+food-object variants. The next improvement should not be an endless list of
+food names; it should introduce a higher-level pair+scene policy for restaurant
+food-object loops, then prove it with several fresh samples across core pairs.
+
+## v0.2 Draft Direction
+
+v0.2 should not be "more prompts." The likely product jump is making the world
+more lived-in and consequence-bearing while keeping v0.1's small emotional loop.
+
+1. **Memory Flow By Recent Windows** — keep the two-hour continuity gate as the
+   default recency model. Characters should remember what happened earlier this
+   morning / this afternoon without needing a rigid AM/PM split.
+2. **Commitment Lifecycle** — fulfilled, missed, rescheduled, and declined
+   promises should become first-class states, especially for food/date-like
+   promises such as curry.
+3. **Daily Life Event Threads** — each school day should seed several ordinary
+   events (food, class, dorm, club, hallway, weather, small conflicts) that
+   different characters interpret differently; avoid one global plot per day.
+4. **Character Initiative And Closing** — idle Alan should trigger bounded
+   follow-ups or soft closings, not abrupt silence; characters may approach Alan
+   or each other when a memory/commitment makes it natural.
+5. **Pair-Specific Relationship Drift** — keep this narrow: store small residues
+   and avoid a giant graph. v0.2 should prove a few pair dynamics deepen over
+   time before broad expansion.
+6. **Dialogue Golden Set** — promote a small all-core-character regression suite
+   for mirror/motif loops, with human-readable examples for 海、真晝、天澤、
+   一之瀨、貓貓、祥子. Include the exact v0.1 failure families now observed in
+   live samples: prop/object relay, stage/light relay, checklist relay,
+   diagnosis relay, short quoted echoes, and abstract concept handoff.
+7. **Dialogue Acceptance Windows** — v0.2 should not rely on one lucky sample.
+   Define a rolling role-to-role quality gate that requires several recent core
+   pair conversations to avoid hard mirror/motif failures while still allowing
+   low-stakes WARN rows for missing memory callbacks or sample-pending windows.
+
+Non-goal for v0.2: starting a major civilization simulation, large relationship
+schema migration, or durable backend object system without a proposal.
 
 ## Current Goal
 

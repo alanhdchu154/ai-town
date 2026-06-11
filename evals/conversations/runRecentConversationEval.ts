@@ -79,7 +79,7 @@ async function main() {
   const data = await fetchRecentConversations(fetchLimit, sinceLastChangeAt);
   const orphanChatSessions = data.orphanChatSessions ?? [];
   const conversations = (data.conversations ?? [])
-    .filter((entry) => entry.kind === 'conversation' && entry.transcriptMessages?.length)
+    .filter((entry) => entry.kind === 'conversation' && (entry.transcriptMessages?.length ?? 0) >= 2)
     .slice(0, fetchLimit);
   const items = conversations.map((entry) => {
     const testCase = conversationToEvalCase(entry);
@@ -619,8 +619,8 @@ function displayNameZh(name: string) {
   if (name === 'Tianze' || name === '天澤' || name === '天澤一夏' || name === '天擇' || name === '天擇一夏' || name === '天澤' || name === '天澤') return '天澤';
   if (name === 'Ichinose' || name === '一之瀨' || name === '一之瀨帆波' || name === '黑化一之瀨' || name === '一之瀨' || name === '一之瀨') return '一之瀨';
   if (name === 'Mahiru' || name === 'Mahiru Shiina' || name === '真晝' || name === '椎名真晝') return '真晝';
-  if (name === 'CaoCao' || name === 'Cao Cao') return '曹操';
-  if (name === 'Liu Bei' || name === 'LiuBei') return '劉備';
+  if (name === 'Maomao' || name === '貓貓' || name === 'CaoCao' || name === 'Cao Cao' || name === '曹操') return '貓貓';
+  if (name === 'Sakiko' || name === '祥子' || name === 'Liu Bei' || name === 'LiuBei' || name === '劉備') return '祥子';
   return name;
 }
 
@@ -632,10 +632,14 @@ function naturalizeSchoolText(text: string) {
     .replaceAll('一之瀨', displayNameZh('一之瀨'))
     .replaceAll('朝凪海', displayNameZh('朝凪海'))
     .replaceAll('Mahiru', displayNameZh('Mahiru'))
-    .replaceAll('Cao Cao', displayNameZh('Cao Cao'))
+    .replaceAll('Maomao', displayNameZh('Maomao'))
     .replaceAll('CaoCao', displayNameZh('CaoCao'))
-    .replaceAll('Liu Bei', displayNameZh('Liu Bei'))
+    .replaceAll('Cao Cao', displayNameZh('Cao Cao'))
+    .replaceAll('曹操', displayNameZh('曹操'))
+    .replaceAll('Sakiko', displayNameZh('Sakiko'))
     .replaceAll('LiuBei', displayNameZh('LiuBei'))
+    .replaceAll('Liu Bei', displayNameZh('Liu Bei'))
+    .replaceAll('劉備', displayNameZh('劉備'))
     .replaceAll('Tianze', displayNameZh('Tianze'))
     .replaceAll('Umi', displayNameZh('Umi'))
     .replaceAll('Ichinose', displayNameZh('Ichinose'));

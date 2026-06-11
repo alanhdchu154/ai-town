@@ -619,11 +619,11 @@ function attentionShift(testCase: ConversationEvalCase): MetricResult {
         if (author === '海') return /Alan|校長|簡報|負擔|待辦|沒休息|太多|先看人|整理/.test(row.body);
         if (author === '天澤') return /測試|底線|規則|破綻|停手|不拆|誰受益|躲過|不好玩|臉紅|小惡魔/.test(row.body);
         if (author === '一之瀨') return /假|太工整|沒事|代價|模糊|不合理|說清楚|玩笑|躲|乖|照顧|條件|想要|溫柔/.test(row.body);
-        if (author === '曹操') return /秩序|位置|門口|誰被|混亂|坐下|規則|不敢|失控|站出來/.test(row.body);
-        if (author === '劉備') return /一起|邀請|午餐|角落|一個人|排除|坐/.test(row.body);
+        if (author === '貓貓') return /症狀|小本子|藥|手|便當|袖口|領結|歪|沒事|觀察|可疑|毒/.test(row.body);
+        if (author === '祥子') return /舞台|舞臺|曲譜|禮貌|退場|裂縫|演出|姿勢|掌聲|謝幕|燈|小節|呼吸/.test(row.body);
         return false;
       })
-    : [/(安靜|沒吃|低頭|負擔|清單|假|秩序|邀請)/.test(testCase.sampleOutput)];
+    : [/(安靜|沒吃|低頭|負擔|清單|假|症狀|曲譜|裂縫)/.test(testCase.sampleOutput)];
   const hits = checks.filter(Boolean).length;
   const score = hits ? clamp01(0.6 + Math.min(0.35, hits * 0.1)) : 0.48;
   return metric('attention_shift', score, [
@@ -637,7 +637,7 @@ function relationshipResidue(testCase: ConversationEvalCase): MetricResult {
     text,
     /昨天|上次|剛才|剛剛|那句|你之前|妳之前|還記得|下次|明天.*再|我會.*提醒|你有沒有.*又|今天.*還/g,
   );
-  const relationshipHits = countMatches(text, /你|妳|Alan|海|真晝|天澤|一之瀨|曹操|劉備/g);
+  const relationshipHits = countMatches(text, /你|妳|Alan|海|真晝|天澤|一之瀨|貓貓|祥子/g);
   const score = residueHits ? clamp01(0.55 + Math.min(0.35, relationshipHits * 0.04)) : 0.55;
   return metric('relationship_residue', score, [
     residueHits ? `${residueHits} previous-moment residue cue(s)` : 'no previous emotional residue cue',
@@ -732,9 +732,13 @@ const KNOWN_NAME_ALIASES = [
   '明晝',
   '阿真晝',
   '椎名真晝',
+  'Maomao',
+  '貓貓',
   'CaoCao',
   'Cao Cao',
   '曹操',
+  'Sakiko',
+  '祥子',
   'Liu Bei',
   'LiuBei',
   '劉備',
@@ -783,8 +787,8 @@ function displayNameZh(name: string) {
   ) {
     return '真晝';
   }
-  if (name === 'CaoCao' || name === 'Cao Cao' || name === '曹操') return '曹操';
-  if (name === 'Liu Bei' || name === 'LiuBei' || name === '劉備') return '劉備';
+  if (name === 'Maomao' || name === '貓貓' || name === 'CaoCao' || name === 'Cao Cao' || name === '曹操') return '貓貓';
+  if (name === 'Sakiko' || name === '祥子' || name === 'Liu Bei' || name === 'LiuBei' || name === '劉備') return '祥子';
   return name;
 }
 
@@ -795,12 +799,12 @@ function escapeRegex(value: string) {
 function defaultVoiceCues(target: string) {
   const name = displayNameZh(target);
   if (name === '海') return ['嗯', '先', '整理', 'Alan', '校長', '簡報', '休息', '安靜', '負責'];
-  if (name === '曹操') {
-    return ['秩序', '底牌', '負責', '失控', '站出來', '門口', '位置', '座位', '椅子', '走廊', '回房', '燈'];
+  if (name === '貓貓') {
+    return ['症狀', '小本子', '藥', '手', '便當', '袖口', '領結', '歪', '沒事', '觀察', '可疑', '毒', '假裝', '太乾淨'];
   }
   if (name === '一之瀨') return ['代價', '太工整', '乖', '照顧', '條件', '想要', '溫柔', '拒絕'];
   if (name === '真晝') return ['嗯', '茶', '外套', '你吃了嗎', '不用', '先坐', '不催', '阿海'];
-  if (name === '劉備') return ['一起', '看見', '午餐'];
+  if (name === '祥子') return ['舞台', '舞臺', '曲譜', '禮貌', '退場', '裂縫', '演出', '姿勢', '謝幕', '排練', '呼吸', '燈', '小節', '好意', '不需要', '胃口'];
   if (name === '天澤') return ['測試', '底線', '規則', '破綻', '停手', '不拆', '誰受益', '躲過', '不好玩', '臉紅', '小惡魔'];
   return [];
 }

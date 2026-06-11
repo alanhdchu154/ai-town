@@ -39,9 +39,9 @@ Last updated: 2026-06-10.
 | [soul/pilots/umi.md](soul/pilots/umi.md) | Umi pilot soul definition (v0.1 primary). |
 | [soul/pilots/mahiru.md](soul/pilots/mahiru.md) | Mahiru pilot soul definition (v0.1 primary). |
 | [soul/pilots/tianze.md](soul/pilots/tianze.md) | Tianze pilot soul definition (v0.1 primary, Convex runtime key `Tianze`). |
-| [soul/pilots/caocao.md](soul/pilots/caocao.md) | Cao Cao soul definition (secondary local-LLM). |
-| [soul/pilots/ichinose.md](soul/pilots/ichinose.md) | Ichinose soul definition (secondary local-LLM, Convex runtime key `Ichinose`). |
-| [soul/pilots/liubei.md](soul/pilots/liubei.md) | Liu Bei soul definition (secondary local-LLM). |
+| [soul/pilots/ichinose.md](soul/pilots/ichinose.md) | Ichinose soul definition (secondary cloud-Qwen, Convex runtime key `Ichinose`). |
+| [soul/pilots/maomao.md](soul/pilots/maomao.md) | Maomao soul definition (secondary cloud-Qwen). |
+| [soul/pilots/sakiko.md](soul/pilots/sakiko.md) | Sakiko soul definition (secondary cloud-Qwen). |
 | [soul/README.md](soul/README.md) | Soul docs sub-index. |
 
 Recent-memory continuity is now contracted by **rolling two-hour continuity**

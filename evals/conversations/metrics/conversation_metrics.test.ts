@@ -30,7 +30,7 @@ describe('conversation quality metrics', () => {
     const metric = metricStatus(
       [
         '天澤: 我把便條放在桌角。',
-        '劉備: 太好了，謝謝你的建議！我會開始掃描教室，確保所有人都有任務和支援。',
+        '祥子: 太好了，謝謝你的建議！我會開始掃描教室，確保所有人都有任務和支援。',
       ].join('\n'),
       'administrativeLanguageScore',
     );
@@ -41,7 +41,7 @@ describe('conversation quality metrics', () => {
       metricStatus('天澤: 名單已交接清楚，混亂暫時止住了。我累了，需要去整理明天的流程。', 'bannedPhraseCount')?.status,
     ).toBe('FAIL');
     expect(
-      metricStatus('劉備: 我現在在寫作業。暫時不覺得累。看看窗邊是否有人需要幫助。', 'bannedPhraseCount')?.status,
+      metricStatus('祥子: 我現在在寫作業。暫時不覺得累。看看窗邊是否有人需要幫助。', 'bannedPhraseCount')?.status,
     ).toBe('FAIL');
   });
 
@@ -63,7 +63,7 @@ describe('conversation quality metrics', () => {
 
   it('flags efficiency-collaboration template drift', () => {
     const sample = [
-      '曹操: 這樣一起合作看看可行嗎？我們可以互相補充信息。',
+      '貓貓: 這樣一起合作看看可行嗎？我們可以互相補充信息。',
       '一之瀨: 我覺得目前還是我自己組織比較好，個人準備更有效率。',
     ].join('\n');
     const admin = metricStatus(sample, 'administrativeLanguageScore');
@@ -76,7 +76,7 @@ describe('conversation quality metrics', () => {
   });
 
   it('flags generic agreement closure drift', () => {
-    const sample = '曹操: 你剛才說的正中窩心，那就這樣做吧。';
+    const sample = '貓貓: 你剛才說的正中窩心，那就這樣做吧。';
     const admin = metricStatus(sample, 'administrativeLanguageScore');
     const banned = metricStatus(sample, 'bannedPhraseCount');
 
@@ -116,7 +116,7 @@ describe('conversation quality metrics', () => {
   it('flags observed hallucinated addressee names outside the participants', () => {
     const metric = metricStatus(
       [
-        '劉備: 曉夢同學，你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。',
+        '祥子: 曉夢同學，你也沒有吃飯嗎？我們現在是教室裏，你今天可能沒有吃到午餐。',
         '天澤: 你是不是叫錯人了？',
       ].join('\n'),
       'wrongAddresseeScore',
@@ -128,7 +128,7 @@ describe('conversation quality metrics', () => {
   it('flags Mahiru-like wrong name artifacts when they address the wrong participant', () => {
     const metric = metricStatus(
       [
-        '曹操: 明晝，你為什麼那天沒有來？',
+        '貓貓: 明晝，你為什麼那天沒有來？',
         '天澤: 你是不是把名字記錯了？我是天澤。',
       ].join('\n'),
       'wrongAddresseeScore',
@@ -137,11 +137,23 @@ describe('conversation quality metrics', () => {
     expect(metric?.notes.join(' ')).toContain('真晝');
   });
 
-  it('rewards CaoCao quiet order-as-care vocabulary aligned with the live prompt', () => {
+  it('rewards Maomao diagnostic symptom vocabulary aligned with the live prompt', () => {
     const metric = metricStatus(
       [
-        '曹操: 門口那張椅子先留著。',
-        '曹操: 誰要回房休息，就不要再站在走廊裡硬撐。',
+        '貓貓: 不要看嘴。看手。',
+        '貓貓: 那句沒事太乾淨了，我先記進小本子。',
+      ].join('\n'),
+      'characterVoiceScore',
+    );
+
+    expect(metric?.status).toBe('PASS');
+  });
+
+  it('rewards Sakiko controlled-composure vocabulary aligned with the live prompt', () => {
+    const metric = metricStatus(
+      [
+        '祥子: 多謝你的好意。不過我不需要替我保管什麼。',
+        '祥子: 只是今天的排練，連呼吸都要算準。',
       ].join('\n'),
       'characterVoiceScore',
     );

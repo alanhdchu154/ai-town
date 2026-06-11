@@ -48,14 +48,14 @@ A daily experience can become a long-term candidate when it includes:
 Examples:
 
 - `真晝開始覺得 Alan 會把所有人的疲憊扛在自己身上。`
-- `曹操不再只把 Alan 視為混亂源，而開始觀察他是否願意負責秩序。`
+- `貓貓不再只把 Alan 視為異常源，而開始觀察他是否願意確認症狀。`
 - `海發現自己越來越擔心 Alan 不肯休息。`
 
 Non-examples:
 
 - `今天午餐很安靜。`
 - `一之瀨看著窗外。`
-- `劉備去了中央庭院。`
+- `祥子去了中央庭院。`
 
 Those can stay as daily texture unless they repeat or later become meaningful.
 

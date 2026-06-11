@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-10
+Last updated: 2026-06-11
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -23,9 +23,11 @@ historical evidence is needed.
 | 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; fill the existing ignored local `PARTIAL` draft at `umi/reports/alan-facing-v01-playtest-latest.md`, then validate it with `npm run underworld:alan-playtest-check`. The read-only candidate scan at `umi/reports/alan-playtest-candidates-latest.md` found `NO_COMPLETE_CANDIDATE`, so do not backfill this gate from old chats. | Alan / Umi | pending fresh playtest |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
-| 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
+| 4 | CC timeout is an orchestration issue, not a reason to give up on cc. `umi/orchestrator.py` now follows a Claude Code timeout with a read-only recovery pass that narrows the task and reports exact retry/auth/tooling evidence. If cc returns auth/provider errors, diagnose and fix that layer or produce the smallest explicit blocker; do not silently mark cc as unusable. | Umi / Codex | watch_and_recover |
 | 5 | Post-role-change v0.1 rerun remains active, not complete. On 2026-06-10 10:35 CDT, `npm run underworld:v01-completion-audit` is `FAIL` with 2 fail / 2 pending / 4 pass after a fresh morning observe pass. The useful evidence is mixed: runtime/provider/fallback are healthy, two fresh archived triad samples passed soul-triad eval, but the third focused sample timed out and left an active incomplete 海/天澤 conversation; recent eval marked 0 PASS / 0 WARN / 3 FAIL, while `v01-approach` labels the blocker `eval_rubric_disagreement` / proposal-only. Later evidence improved one gate: the 18:58 CDT `rolling-continuity-latest.md` is now `PASS / continuity_observed` with 34 callbacks from the 10:00-12:00 source window to the 12:00-14:00 callback window, so rolling continuity is no longer the leading blocker. The 20:26 CDT Alan-facing candidate scan still found `NO_COMPLETE_CANDIDATE`, and the durable Alan-facing playtest artifact remains `PARTIAL` with 0/5 PASS rows. The next safe actions are to reconcile eval framing before changing dialogue code, and fill/replace `umi/reports/alan-facing-v01-playtest-latest.md` only from a real Alan <-> Umi playtest or explicit Alan/product-owner defer. | Alan / Umi | active_fail_eval_framing_and_alan_playtest |
-| 6 | Paper (emotional residue) is local-source ready only as a conservative design/systems preprint, and Alan reported submitting the A-path preprint on OSF on 2026-06-10 because arXiv upload is blocked by endorsement. `docs/paper/OSF_RELEASE_RECORD.md` is the current OSF posting ledger; public OSF URL / DOI / submitted file / license metadata remain `TO_RECORD` locally. `docs/paper/arxiv/main.tex` now includes provider/model-path disclosure, measured-limits text for untested verbatim leakage, an explicit ethics/scope note, denominator-safe wording for the 15-candidate/2-callback rolling window, reflexivity disclosure for author-designed rule markers, narrowed read-block-suppression wording instead of "primary causal ablation", social-agent evaluation context via SOTOPIA / Lifelong SOTOPIA, and a disclosure that `UNDERWORLD_RESIDUE_READ=placebo` is draft runtime plumbing that is not preregistered, collected, or analyzed in this paper. `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` remains the future arXiv mirror packet; arXiv is paused until endorsement/account readiness and platform preview are resolved. `docs/paper/CITATION_PROVENANCE.md` plus `npm run paper:citation-audit` cover all 17 bibliography keys and primary/official URLs for recent LLM-agent / AI Town / social-agent references. `docs/paper/PREREGISTRATION_PROTOCOL.md` is a machine-audited draft for the future empirical study, not an accepted collection authorization; it now records continuing-world carryover/read-eligibility, dyad fallback, no interim effect peeking, and a concrete final-N selection procedure from pilot baseline/MDE/design-effect. `paper:residue-arm-window` still requires both `SCHEDULE_ACCEPTANCE.json` and `PREREGISTRATION_ACCEPTANCE.json` before it can change `UNDERWORLD_RESIDUE_READ` or hold a collection window; it now writes `run-provenance.json` / `artifact-hashes.json` and attaches `run_provenance` to future dataset rows so long-window collection preserves secret-safe git state, accepted schedule/preregistration hashes, source-archive hash, command args, runtime, env policy, and artifact/log hashes. Legacy forced runners `paper:residue-ablation` and `paper:residue-ablation:blocks` now refuse to run unless `--allow-legacy-forced-pilot` is explicitly provided, so accidental short forced collection is blocked by default. `paper:run-provenance-audit` can check each completed arm-window run directory before merge, and `paper:merge-ablation-runs` now writes a merge manifest and refuses to merge failed-provenance arm-window runs. Human annotation plumbing is ready but unrun: `annotation_sheet.csv` is still a blank blinded worksheet with only 4 rows; `annotation_packet_manifest.json` and `transcript_packet_manifest.json` now prove the pre-rater sheet/key/transcript hashes, selected blind IDs, exact blind-id-to-source-report mapping, missing-transcript status, source-report hashes, and blinding flags; `paper:annotation-audit` now verifies those source report paths/hashes and future completed rater sheet paths/hashes. `scripts/paper/merge_rater_annotations.py` must later merge completed independent rater sheets into analysis-ready `annotations.csv` with `annotations_manifest.json`, and now refuses completed rater sheets that include leaked/unblinded columns or non-blinded `case_ref` values. `paper:annotation-audit` reports `PACKET_READY_INCOMPLETE_STUDY`: 0 FAIL, with empirical blockers for stale mutable source-report hash, 4 rows, no merged annotations, and one dyad. `docs/paper/ALAN_HANDOFF.md` is the one-page boundary summary; `docs/paper/REVIEWER_PREMORTEM.md` records cc-reviewed objections including between-arm carryover. `paper:archive-audit` rebuilds the local arXiv/source archive with atomic output replacement, verifies the manifest/SHA/member allowlist, and checks for accidental data/results/annotation/transcript or obvious secret leakage. Current `npm run paper:readiness` verdict is `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, archive SHA-256 `099a8fbcdb2c588e3678b850d6f1ba40fc36f563bae3657a434827d857f222ab`. Empirical/mechanism claims remain blocked: n=4, one dyad, no completed independent rater merge, stale annotation source-report packet, saturated aftertaste proxy, missing generation metadata/provenance on old rows, trace-overlap audit only has 11 callback cases, final N is not fixed, no accepted long-window schedule or preregistration, and the local placebo plumbing is not preregistered, collected, or analyzed. | Alan / Codex | osf_submitted_arxiv_endorsement_blocked_empirical_blocked |
+| 6 | Paper (emotional residue) is local-source ready only as a conservative design/systems preprint, and Alan reported submitting the A-path preprint on OSF on 2026-06-10 because arXiv upload is blocked by endorsement. `docs/paper/OSF_RELEASE_RECORD.md` is the current OSF posting ledger; public OSF URL / DOI / license metadata remain `TO_RECORD` locally, while the local OSF-ready PDF is `docs/paper/results/osf/emotional-residue-osf-preprint.pdf` (SHA-256 `27e03968d30bb09d6449ca2121afa9ff721d9516a6ebda21e17a5110aea1da8f`). `docs/paper/arxiv/main.tex` now uses public author text `Alan Hwader Chu / Independent Researcher`, uses `Underworld` rather than `GIIS Underworld`, describes pilot characters by role/personality rather than public character names, includes provider/model-path disclosure, measured-limits text for untested verbatim leakage, an explicit ethics/scope note, denominator-safe wording for the 15-candidate/2-callback rolling window, reflexivity disclosure for author-designed rule markers, narrowed read-block-suppression wording instead of "primary causal ablation", social-agent evaluation context via SOTOPIA / Lifelong SOTOPIA, and a disclosure that `UNDERWORLD_RESIDUE_READ=placebo` is draft runtime plumbing that is not preregistered, collected, or analyzed in this paper. `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` remains the future arXiv mirror packet; arXiv is paused until endorsement/account readiness and platform preview are resolved. `docs/paper/CITATION_PROVENANCE.md` plus `npm run paper:citation-audit` cover all 17 bibliography keys and primary/official URLs for recent LLM-agent / AI Town / social-agent references. `docs/paper/PREREGISTRATION_PROTOCOL.md` is a machine-audited draft for the future empirical study, not an accepted collection authorization; it now records continuing-world carryover/read-eligibility, dyad fallback, no interim effect peeking, and a concrete final-N selection procedure from pilot baseline/MDE/design-effect. `paper:residue-arm-window` still requires both `SCHEDULE_ACCEPTANCE.json` and `PREREGISTRATION_ACCEPTANCE.json` before it can change `UNDERWORLD_RESIDUE_READ` or hold a collection window; it now writes `run-provenance.json` / `artifact-hashes.json` and attaches `run_provenance` to future dataset rows so long-window collection preserves secret-safe git state, accepted schedule/preregistration hashes, source-archive hash, command args, runtime, env policy, and artifact/log hashes. Legacy forced runners `paper:residue-ablation` and `paper:residue-ablation:blocks` now refuse to run unless `--allow-legacy-forced-pilot` is explicitly provided, so accidental short forced collection is blocked by default. `paper:run-provenance-audit` can check each completed arm-window run directory before merge, and `paper:merge-ablation-runs` now writes a merge manifest and refuses to merge failed-provenance arm-window runs. Human annotation plumbing is ready but unrun: `annotation_sheet.csv` is still a blank blinded worksheet with only 4 rows; `annotation_packet_manifest.json` and `transcript_packet_manifest.json` now prove the pre-rater sheet/key/transcript hashes, selected blind IDs, exact blind-id-to-source-report mapping, missing-transcript status, source-report hashes, and blinding flags; `paper:annotation-audit` now verifies those source report paths/hashes and future completed rater sheet paths/hashes. `scripts/paper/merge_rater_annotations.py` must later merge completed independent rater sheets into analysis-ready `annotations.csv` with `annotations_manifest.json`, and now refuses completed rater sheets that include leaked/unblinded columns or non-blinded `case_ref` values. `paper:annotation-audit` reports `PACKET_READY_INCOMPLETE_STUDY`: 0 FAIL, with empirical blockers for stale/missing source-report hashes, 4 rows, no merged annotations, and one dyad. `docs/paper/ALAN_HANDOFF.md` is the one-page boundary summary; `docs/paper/REVIEWER_PREMORTEM.md` records cc-reviewed objections including between-arm carryover. `paper:archive-audit` rebuilds the local arXiv/source archive with atomic output replacement, verifies the manifest/SHA/member allowlist, and checks for accidental data/results/annotation/transcript or obvious secret leakage. Current `npm run paper:readiness` verdict is `LOCAL_SOURCE_READY_WITH_WARNINGS`, archive SHA-256 `d9a7b2a928403b12976b9422381b5353a340394728c840b54375c59097c5e911`. Empirical/mechanism claims remain blocked: n=4, one dyad, no completed independent rater merge, stale/missing annotation source-report packet, saturated aftertaste proxy, missing generation metadata/provenance on old rows, trace-overlap audit only has 11 callback cases, final N is not fixed, no accepted long-window schedule or preregistration, and the local placebo plumbing is not preregistered, collected, or analyzed. | Alan / Codex | osf_pdf_ready_arxiv_endorsement_blocked_empirical_blocked |
+| 7 | Scene-first UI lane is now active: the main world defaults to generated VN-style Scene Mode, while the original Pixi map remains behind the `地圖` toggle. Scene objects are intentionally UI-only hotspots/event seeds for now; do not add durable backend object/event behavior without a proposal because that would affect world continuity and memory. Corrected transparent default-emotion standees now exist for the active core cast (`海`, `天澤`, `一之瀨`, `貓貓`, `祥子`, `真晝`); the next art task is completing consistent multi-emotion render sets, not another Tianze rescue. | Alan / Umi / Codex | scene_mode_landed_phase2_emotion_renders_pending |
+| 8 | CaoCao / Liu Bei live replacement is implemented as Maomao / Sakiko, while old conversations/memories remain as transfer-student history unless Alan later approves a destructive purge. Code/profile/docs/eval/assets now use Maomao diagnostic-symptom soul and Sakiko stage-composure soul; legacy aliases map old names to new display/runtime names. Local Convex profile migration ran non-destructively with `school:migrateCharacterRuntimeNames` (`scope=profiles`, `clearHistory=false`), and `school:debugState` confirms active roster has `Maomao` and `Sakiko` with no active `CaoCao` / `Liu Bei`; target short-term state is cleared. LLM active path is cloud-Qwen for all free-world soul characters (`Umi`, `Mahiru`, `Tianze`, `Ichinose`, `Maomao`, `Sakiko`) with local Ollama fallback enabled on the local Convex deployment (`CHARACTER_SOUL_LOCAL_FALLBACK=true`, `CHARACTER_SOUL_LOCAL_FALLBACK_MODEL=qwen3:8b`). The two soul files define Maomao's five layers as diagnosis-as-reluctant-care and Sakiko's five layers as stage-composure-as-protection. Runtime prompts now explicitly constrain both to short, concrete, non-mirroring lines; active event/Alan-state inference no longer treats Maomao as a student-council/order strategist. Disposable probes produced two-line Maomao/Sakiko, Umi/Maomao, and Ichinose/Sakiko samples; names/routing/personality were directionally correct, but local fallback live probes can still be slow or sample-pending, so short-sample quality should be rechecked after provider quota/key health is stable. `.env.local.example`, active soul index, portrait README, memory examples, life-signals cues, PlayerDetails flavor text, and the disposable free-world runner are aligned. Deep historical deletion was dry-run only because it would delete 759 conversations, 2727 messages, 252 memories, and 414 timeline events; require explicit Alan approval before running destructive `clearHistory=true`. Verification: targeted Jest suite 55/55 pass, `npx tsc --noEmit --pretty false`, `npm run build`, asset HTTP smoke for `/ai-town`, `/portraits/maomao.png`, `/renders/sakiko-serious.png`, `/sprites/maomao.png`; post-followup active-doc stale-reference scan returned no hits; smoke follow-up ran `npm run underworld:life-signals:self-test`, targeted model/dialogue/metrics Jest 45/45, typecheck, disposable probes, cleanup, and `world:defaultWorldStatus` with status `running`. | Alan / Umi / Codex | live_replacement_complete_keep_history_souls_done_provider_quality_recheck |
 
 ## Current State Snapshot
 
@@ -158,6 +160,426 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-11 15:24 CDT: Continued active role-to-role mirror/motif goal. Added
+  fresh-evidence-backed conversation hygiene in `convex/agent/conversation.ts`
+  and regression coverage in `convex/agent/conversationMotifGuard.test.ts` for
+  stale repair fallback phrases, pilot-path post-repair quality leaks,
+  祥子/天澤 rehearsal-confirmation / perfect-record / skirt-wrinkle relays,
+  一之瀨/真晝 bento-truth / boiled-egg / pudding-seat / half-bento-form relays,
+  真晝/祥子 repair phrase relays, and 貓貓/真晝 bandage/bento relays. Verification:
+  `npm test -- convex/agent/conversationMotifGuard.test.ts` passes 60/60,
+  `npx tsc --noEmit --pretty false` passes, and `git diff --check` passes for
+  touched files. Runtime evidence improved but does not prove completion:
+  a 15:06 fresh 祥子/天澤 probe dropped from FAIL to WARN, but later fresh
+  一之瀨/真晝 probes still produced hard FAIL rows through new restaurant
+  food-object variants (`水煮蛋`, `布丁`, `一半/真的嗎/表格`). Current judgment:
+  do not mark role-to-role dialogue complete; next fix should be a higher-level
+  pair+scene policy for restaurant food-object loops rather than adding endless
+  individual food names. Updated `docs/giis-v0.1-roadmap.md` with the afternoon
+  evidence and v0.2 implication.
+- 2026-06-11 11:55 CDT: Refreshed Alan-facing and all-character conversation
+  evidence after Alan asked about the latest "everyone" conversation, especially
+  海. Current time anchor: 2026-06-11 11:54 CDT. `school:debugInputQueue`
+  reports the world running and latest inputs completed, so the server is not
+  currently hung. A 09:00+ `recentConversationEvalData` window found five Alan
+  conversations and zero orphan chat events; the latest complete Alan/海
+  archived transcript is still `conversation-c:98479` from 09:49-09:54 CDT.
+  Verdict remains Alan-facing PASS with caveats: 海 greeted directly, recalled
+  the curry commitment, handled Alan's date correction, re-anchored it to
+  Friday evening, and gave a clean farewell; caveats are curry-direction drift
+  toward "mutual curry," one simplified-character leak, and Friday recall still
+  pending. Latest role-to-role evidence is mixed and not completion-ready:
+  `conversation-c:99746` 海/貓貓 is directionally good because 海 protects 貓貓
+  from being treated as a diagnostic tool, but `evals/conversations/reports/latest.md`
+  still reports 0 PASS / 2 WARN / 2 FAIL for post-fix role-to-role samples,
+  including 一之瀨/祥子 stale phrase leak (`我看見你`) and 祥子/天澤
+  mirror/motif repetition.
+- 2026-06-11 11:08 CDT: Continued the active role-to-role mirror/motif goal.
+  Implemented additional v0.1-bounded dialogue hygiene in
+  `convex/agent/conversation.ts` plus regression coverage in
+  `convex/agent/conversationMotifGuard.test.ts`: scene-family echo detection
+  for stage/clothing/light/score-sheet/trace-object loops; short quoted echo
+  repair (`溫的？`, `管不到？`); 真晝 schedule-solving and repeated soft-care
+  repairs; 祥子 generic-thanks/uncertainty repairs; 海/貓貓 tea-diagnosis and
+  checklist-loop repairs; 天澤/一之瀨 abstract dismantling / food-motif relapse
+  repairs; the post-addition first-hard `欠你人情` / `拿了我的溫柔`
+  relapse; Tianze/Ichinose `口袋/責任/拆穿/好意/債` relays; 海/貓貓
+  schedule-logistics, hot/cold drink, medical-device power, and repair-fallback
+  loops; plus 真晝/祥子 cold-bento/cold-plate loops. Verification: `npm test --
+  convex/agent/conversationMotifGuard.test.ts` now passes 47/47,
+  `npx tsc --noEmit --pretty false` passes, and `git diff --check` passes for
+  touched files. Fresh evidence is improved but not complete: `Sakiko:Mahiru`
+  probes moved from light/score echo into more character-shaped turns,
+  `Tianze:Ichinose` soul-triad can PASS and later recent eval downgraded that
+  pair to WARN-only, but fresh `Umi:Maomao` probes still exposed hard FAIL rows
+  before the latest repair-fallback fix. Keep the goal active until a fresh
+  post-addition role-to-role window shows no hard mirror/motif failures across
+  multiple core pairs. Updated
+  `docs/giis-v0.1-roadmap.md` v0.2 draft with dialogue golden-set failure
+  families and rolling acceptance-window guidance.
+- 2026-06-11 10:49 CDT: Refreshed latest conversation evidence after Alan asked
+  for the "everyone" conversation analysis with special attention to Alan/海.
+  Current raw `school:recentConversationEvalData` confirms the latest complete
+  archived Alan/海 transcript is still `conversation-c:98479` from 09:49-09:54
+  CDT, with 16 messages and `outcomeQuality=concrete_action`; no newer complete
+  Alan/海 archived chat appeared in the refreshed limit-140 read. Verdict remains
+  Alan-facing PASS with caveats: she bound greeting/correction/date/closing and
+  converted the curry plan to Friday evening, but drifted from "海 makes curry
+  for Alan" toward "mutual curry," briefly framed Alan like a student, and leaked
+  one simplified character. Fresh role-to-role evidence through 10:49 CDT still
+  shows character QA is not complete: 海/貓貓 is better and concrete, but
+  all-character side conversations still show mirror/motif loops, missing soft
+  closes, and object/prop echo around sleeves, soup/fog, bentō, score sheets, and
+  stage/clothing imagery.
+- 2026-06-11 10:31 CDT: Reviewed Alan's latest "everyone" conversation evidence
+  with special attention to Alan/海. Current time anchor: 2026-06-11 10:11 CDT
+  at refresh. The durable Alan/海 playtest at 09:54 CDT is a real archived
+  transcript and `umi/reports/alan-facing-v01-playtest-latest.md` records
+  `Verdict: PASS` for all five Alan-facing rows (greeting binding,
+  latest-sentence binding, correction binding, yesterday/today continuity, and
+  closing/idle boundary). Human-facing verdict: pass, with caveats for curry
+  direction drift, one simplified-character leak, and Friday 2026-06-12 curry
+  recall still pending. Also refreshed `recentConversationEvalData`; runtime
+  queue is healthy (`school:debugInputQueue` showed engine running and latest
+  inputs completed), so fresh read failures were query weight / sample-pending
+  rather than server-down evidence. Continued all-character dialogue QA:
+  implemented v0.1-bounded motif/mirror hygiene in `convex/agent/conversation.ts`
+  and `convex/agent/conversationMotifGuard.test.ts`: transaction/debt motif
+  family, cross-speaker mirror repair, actual pilot-sanitizer-path repair,
+  `免費午餐` / `利息` / `交換` / `交易` guards, Maomao counting-rice repair, and
+  repeated everyday-prop repair before pilot fallback. Reduced Ichinose source
+  over-priming in `data/giisProfiles.ts` from debt/account language toward
+  boundary/choice language. Verification: `npm test --
+  convex/agent/conversationMotifGuard.test.ts` (20/20) and `npx tsc --noEmit
+  --pretty false` pass. Live disposable Tianze/Ichinose probes show progress
+  but not completion: the latest focused sample no longer used debt/interest
+  transaction wording and soul-triad passed, but `eval:conversation:recent`
+  still reports `0 PASS / 3 WARN / 2 FAIL` for the fresh window because
+  character voice/action still collapses into concept handoff (`邊界 / 承認 /
+  拿走什麼`) and side conversations still have mirror/prop loops. Updated
+  `docs/giis-v0.1-roadmap.md` with the 2026-06-11 evidence split and a v0.2
+  draft direction. Current verdict: Alan/海 passes v0.1 human-facing quality;
+  all-character dialogue QA remains active and v0.1 is not complete by current
+  machine evidence.
+- 2026-06-11 07:50 CDT: Continued all-core-character dialogue/soul QA after Alan
+  asked to raise every character to the same quality tier. Live disposable
+  probes showed two separate issues: (1) Maomao/Sakiko identity/routing is now
+  correct when a two-line sample forms, but startup reliability is uneven
+  (`Maomao:Sakiko` later returned `sample_pending` while cleaning 2 active
+  conversations / 4 messages); (2) old-core pairs can still collapse into
+  cross-speaker motif loops (`Tianze:Ichinose` debt/account language,
+  `Mahiru` mirroring food/sleep checks, and one Umi/Sakiko milk side sample).
+  Implemented compact autonomous speaker-lock and turn-move contrast prompts,
+  a one-spoken-beat free-world hygiene pass, narrow repairs for Sakiko schedule
+  explanations, Maomao measurement/physiology-report drift, Mahiru reverse
+  checking, and Ichinose repeated debt/account motifs. Also updated the
+  disposable probe transcript to print authors, aligned Maomao/Sakiko cue
+  metrics with live prompt vocabulary (`領結`, `舞臺`, `燈`), blocked
+  `系統日誌`/runtime/eval/prompt leaks in free-world dialogue, and changed
+  recent conversation eval to ignore one-message active conversations. A
+  targeted cleanup dry-run identified probe side-pollution
+  `conversation-c:97690` (Umi/Sakiko milk conversation: 1 archived
+  conversation, 4 messages, 2 memories, 2 relationship edges, 2 embeddings).
+  The first apply attempt timed out because the by-id cleanup scanned all
+  character memories; `cleanupArchivedConversationsById` now scans only the
+  target conversation participants, and the second apply removed the side
+  pollution (final dry-run reports 0 docs). Verification:
+  `npx tsc --noEmit --pretty false`; targeted Jest suite 45/45 pass;
+  `node --check scripts/run-free-world-routing-disposable-sample.mjs`; final
+  `world:defaultWorldStatus` is `running`. Current verdict: text quality and
+  speaker consistency improved, but all-character quality is not yet fully
+  green: a final `Tianze:Ichinose` live probe still failed 0.85 because
+  Ichinose shifted from debt/account wording into the same transaction motif
+  via `標價` / `換`; the repair trigger was expanded to cover that vocabulary,
+  but it still needs the next fresh live pass. Focused startup reliability also
+  remains uneven.
+- 2026-06-11 07:47 CDT: Completed the next Scene Mode UI polish pass Alan
+  requested: expression renders, conversation focus, natural status text, and
+  microanimation. Generated and chroma-key processed six core emotion standees:
+  `umi-worried.png`, `umi-serious.png`, `tianze-neutral.png`,
+  `tianze-smiling.png`, `mahiru-smiling.png`, and `mahiru-serious.png`.
+  `data/characterVisuals.ts` now wires Umi/Tianze/Mahiru `renderPaths` for
+  emotion-driven large renders, and `Game.tsx` passes
+  `campusSocialState.emotions.currentEmotion` into Scene Mode
+  `CharacterPortrait`. Scene standees now have focus hierarchy for selected /
+  talking characters, background characters dim slightly, natural per-character
+  activity labels replace debug-like status text, and CSS adds light idle /
+  selected motion. Adjusted desktop/mobile Scene Mode spacing so labels do not
+  collide with the bottom action bar. Updated `public/renders/README.md`.
+  Verification: alpha audit confirms all nine core Umi/Tianze/Mahiru emotion
+  renders are 1024x1536 with transparent corners; HTTP smoke returns 200 for
+  all nine assets; `npx tsc --noEmit --pretty false`; `git diff --check`; `npm
+  run build` (passes with existing Vite chunk-size warning); Chrome desktop and
+  mobile smoke confirm Scene Mode renders `/renders/*`, has no portrait/CSS
+  fallback, and has 0 horizontal overflow. Visual QA:
+  `tmp/visual-qa/core-emotion-renders-contact.png`,
+  `tmp/visual-qa/ui-polish-scene-desktop-v2.png`, and
+  `tmp/visual-qa/ui-polish-scene-mobile-v2.png`.
+- 2026-06-11 07:15 CDT: Re-ran live disposable Maomao/Sakiko probes after Alan
+  asked to run them. Qwen cloud preflight now passes on each run. Results:
+  `Maomao:Sakiko` produced a two-line sample with Maomao noticing Sakiko's dusty
+  sleeve / hallway stop and Sakiko deflecting through rehearsal, but
+  `eval:conversation:recent` still scored it FAIL 0.86 for naturalness /
+  mirror-repetition. `Ichinose:Sakiko` produced a two-line cake / rehearsal-prop
+  sample, but scored FAIL 0.78 for weak Sakiko character-voice cues. `Umi:Maomao`
+  timed out as `sample_pending` with no two-message sample and cleaned up 1
+  active conversation / 0 messages. All disposable probes cleaned their target
+  active conversations; final `world:defaultWorldStatus` is `running`. Current
+  verdict: provider/routing is usable and no old CaoCao/Liu Bei identity leak
+  appeared, but Maomao/Sakiko live dialogue quality is not green yet; the next
+  tuning target is shorter, less mirrored second turns and stronger Sakiko crack
+  cues.
+- 2026-06-11 07:07 CDT: Balanced the perceived character size of the core
+  transparent standees after Alan clarified that the "size" issue meant the
+  visible person scale, not the PNG canvas size. Kept the shared 1024x1536
+  transparent canvas and knee-up framing; left Umi/Tianze/Ichinose/Mahiru as
+  the reference group, scaled Maomao up from the shorter crop, and scaled Sakiko
+  down from the visually oversized hair/coat mass. Verification:
+  bundled-Python alpha audit confirms all six core renders remain 1024x1536
+  with transparent corners; HTTP smoke returns 200 for all six `/renders/*`
+  assets; `git diff --check`. Visual QA:
+  `tmp/visual-qa/render-person-scale-balanced-contact.png`.
+- 2026-06-11 07:00 CDT: Tightened Maomao/Sakiko soul execution after Alan asked
+  what their souls look like and to continue the quality pass. The durable soul
+  docs already define Maomao as diagnosis-as-reluctant-care and Sakiko as
+  stage-composure-as-protection across five layers; this pass aligned runtime
+  behavior with that shape. Updated `convex/agent/conversation.ts` so Maomao
+  and Sakiko replies prefer one short concrete sentence, avoid measurements /
+  case-report language, and avoid generic invitation / meeting-organizer voice.
+  Updated the shared event-thread prompt so Maomao diagnoses suspicious "fine"
+  signals and Sakiko preserves dignity with one crack, instead of the old
+  order/exclusion and invitation roles. Updated `convex/school.ts` so Alan-state
+  inference treats Maomao interactions as analytical symptom attention, not
+  strategic student-council/order attention; public kick memory now records
+  Alan's loss of control as a symptom Maomao tracks. Updated
+  `conversation_metrics` voice cues and tests for Sakiko's controlled-composure
+  vocabulary. Also fixed `run-free-world-routing-disposable-sample.mjs` so
+  disposable probes restore the world to running after cleanup. Verification:
+  stale-reference scan for old Maomao/Sakiko role residues returned no hits;
+  `npm test -- --runInBand evals/conversations/metrics/conversation_metrics.test.ts
+  convex/modelPolicy.test.ts convex/agent/dialogueHygiene.test.ts` passed 45/45;
+  `node --check scripts/run-free-world-routing-disposable-sample.mjs`;
+  `npx tsc --noEmit --pretty false`; final `world:defaultWorldStatus` is
+  `running`. Live local-fallback probe after the prompt tightening was
+  `sample_pending` and cleaned up 2 active conversations / 1 message / 1 agent
+  op, so re-run live quality after cloud/provider health is stable.
+- 2026-06-11 06:56 CDT: Rotated the Qwen cloud key after Alan supplied a new
+  provider token. The old primary key failed `scripts/test-qwen-key.mjs` with
+  HTTP 403 `token quota is not enough`. A one-off smoke using the new key passed
+  HTTP 200 against `https://api.newcoin.top/v1/chat/completions` with
+  `qwen3-max`. Updated local personal secrets at
+  `~/.config/giis-underworld/secrets.env` (`QWEN_API_KEY`, file mode remains
+  600) and updated the local Convex deployment env
+  `UMI_MAHIRU_PILOT_API_KEY` so the character-soul runtime path uses the new
+  primary key. Verified again without sourcing local secrets; the script pulled
+  from Convex env and passed HTTP 200. No key material was written into repo
+  files.
+- 2026-06-11 06:50 CDT: Normalized Scene Mode character render framing after
+  Alan clarified that the standees should be cropped around the knee/lower-thigh
+  area, like Umi / Ichinose, rather than mixing full-body figures with closer VN
+  renders. Reprocessed Tianze, Maomao, and Sakiko onto a shared 1024x1536
+  transparent canvas and adjusted Maomao/Sakiko away from full-body-to-shoes
+  framing into the same knee-up composition family. Verification:
+  bundled-Python alpha audit confirms all six core renders are 1024x1536 with
+  transparent corners; HTTP smoke returns 200 for all six `/renders/*` assets;
+  `git diff --check`. Current world scene had no visible standees during the
+  final browser smoke, so the six-asset contact sheet is the visual QA source
+  for this framing pass. Visual QA: `tmp/visual-qa/render-knee-up-contact-v2.png`.
+- 2026-06-11 06:40 CDT: Completed the Scene Mode character standee cleanup
+  Alan asked for after the portrait fallback issue. Generated corrected
+  chroma-key sources for Tianze, Maomao, and Sakiko; processed them into
+  transparent PNG standees at `public/renders/tianze-serious.png`,
+  `public/renders/maomao-serious.png`, and
+  `public/renders/sakiko-serious.png`. Rewired Tianze `renderPath` in
+  `data/characterVisuals.ts`; Maomao/Sakiko now replace their prior opaque
+  render files. `public/renders/README.md` and `docs/giis-vn-art-spec.md` now
+  record that the corrected female Tianze render landed and the active core
+  cast has transparent default-emotion standees. Verification: bundled-Python
+  alpha audit confirms all six core renders have transparent corners and alpha
+  channels; HTTP smoke returns 200 for all six `/renders/*` assets; `npx tsc
+  --noEmit --pretty false`; `git diff --check`; `npm run build` (passes with
+  existing Vite chunk-size warning); Chrome/Playwright desktop and mobile smoke
+  confirm the current Tianze + Maomao scene uses `/renders/*`, has 0 portrait
+  fallback, 0 CSS fallback, and 0 horizontal overflow. Visual QA screenshots:
+  `tmp/visual-qa/final-render-alpha-contact.png`,
+  `tmp/visual-qa/final-renders-desktop.png`, and
+  `tmp/visual-qa/final-renders-mobile.png`.
+- 2026-06-11 06:34 CDT: Prepared an OSF/SocArXiv-ready PDF after Alan reported
+  the submission was rejected for ORCID/profile linkage and missing PDF. Updated
+  `docs/paper/arxiv/main.tex` so the public manuscript uses `Underworld`
+  instead of `GIIS Underworld`, removes public pilot character names from the
+  manuscript body in favor of role/personality descriptions, and replaces the
+  author placeholder with `Alan Hwader Chu / Independent Researcher` for the
+  rendered PDF. Updated `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md`,
+  `docs/paper/SUBMISSION_STRATEGY.md`, `docs/paper/CITATION_PROVENANCE.md`,
+  `docs/paper/OSF_RELEASE_RECORD.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  and `docs/paper/arxiv/README.md` to match the public naming decision.
+  Added `scripts/paper/render_osf_pdf.mjs`, which renders an HTML copy and
+  prints it to PDF with local Google Chrome headless, avoiding system TeX
+  installation. Generated
+  `docs/paper/results/osf/emotional-residue-osf-preprint.pdf` (SHA-256
+  `27e03968d30bb09d6449ca2121afa9ff721d9516a6ebda21e17a5110aea1da8f`) and
+  previewed the first page via Quick Look; title, author, affiliation, abstract,
+  and introduction render correctly. Rebuilt the source archive; current source
+  archive SHA-256 is
+  `d9a7b2a928403b12976b9422381b5353a340394728c840b54375c59097c5e911`.
+  Verification: `node --check scripts/paper/render_osf_pdf.mjs`; `node
+  scripts/paper/render_osf_pdf.mjs`; Quick Look PNG preview; `npm run
+  paper:source-audit` (`PASS_WITH_WARNINGS`, author metadata now public but
+  submitter decision JSON still unconfirmed); `npm run paper:claim-audit`
+  (`PASS_CONSERVATIVE_PREPRINT`); `npm run paper:citation-audit` (`PASS`);
+  `npm run paper:consistency-audit` (`PASS`); `npm run paper:archive-audit`
+  (`PASS`); `npm run paper:submission-audit` (`EXTERNAL_BLOCKERS`, no FAIL);
+  `python3 scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`, 0 FAIL); `npm run
+  paper:readiness` (`LOCAL_SOURCE_READY_WITH_WARNINGS`, 0 FAIL / 32 empirical
+  blockers / 10 external blockers / 5 PDF blockers); `git diff --check`. No
+  external upload, OSF edit, arXiv action, Convex mutation, or new dataset
+  collection was run.
+- 2026-06-11 06:26 CDT: Hotfixed Scene Mode after Alan reported character
+  photos disappeared. The previous `renderOnly` Scene Mode use hid characters
+  without vetted transparent renders behind CSS silhouettes. Scene standees now
+  allow the existing `/public/portraits` fallback again, with CSS that frames
+  portrait fallback images as smaller photo cards instead of treating them as
+  full transparent standees. Verification: `npx tsc --noEmit --pretty false`;
+  `git diff --check`; `npm run build` (passes with existing Vite chunk-size
+  warning); Chrome DevTools Protocol smoke confirms current scene standees have
+  1 portrait image + 1 render image, 0 CSS fallbacks, and 0 horizontal overflow.
+- 2026-06-11 00:10 CDT: Added per-character activity readability to Scene Mode
+  after Alan asked that the world distinguish what each character is doing.
+  Scene standees now compose existing runtime signals (`player.activity`,
+  movement/conversation state, `campusSocialState.emotions.currentEmotion`,
+  `availabilityZh`, and `quietLineZh`) into visible name/emotion/activity/quiet
+  line labels, with stable activity categories such as resting, talking,
+  moving, studying, eating, social, briefing, reflecting, and observing. Also
+  added `CharacterPortrait renderOnly` for Scene Mode so characters without a
+  vetted transparent `/public/renders` asset use the clean CSS fallback instead
+  of white-background legacy portrait art; this keeps the removed Tianze render
+  from reappearing through portrait fallback. Verification: `npx tsc --noEmit
+  --pretty false`; `git diff --check`; `npm run build` (passes with existing
+  Vite chunk-size warning); Chrome DevTools Protocol smoke confirms desktop and
+  mobile Scene Mode show 4 standees, 4 activity rows, 4 quiet lines, only the
+  valid Umi render image in the current deep-night宿舍 state, and zero page
+  horizontal overflow.
+- 2026-06-10 23:40 CDT: Landed the scene-first UI direction Alan asked for.
+  Generated three additional original VN-style 16:9 backgrounds
+  (`classroom.png`, `courtyard.png`, `aiClubRoom.png`) and now all five
+  `SchoolLocationId` scenes have background art. `Game.tsx` defaults the world
+  panel to Scene Mode with full-bleed background, large character standees,
+  scene-object hotspots, and a one-time initial auto-select to the busiest
+  occupied scene when Alan is away and the default scene is empty. The original
+  Pixi map remains available behind the `地圖` toggle; a Pixi error boundary
+  prevents browser/Pixi renderer failures from blanking the app and shows a
+  map fallback in unsupported headless environments. Object/event decision:
+  scene objects are UI-only event seeds for now, not a durable backend object
+  system. Updated `docs/giis-vn-art-spec.md` and `public/backgrounds/README.md`.
+  Verification: `npx tsc --noEmit --pretty false`; `git diff --check`;
+  `npm run build` (passes with existing Vite chunk-size warning); HTTP 200 for
+  five backgrounds / three valid renders and 404 for removed
+  `tianze-serious.png`; Chrome DevTools Protocol smoke on localhost verifies
+  desktop/mobile Scene Mode background + hotspots + standees + zero page
+  horizontal overflow, and verifies map toggle shows a Pixi fallback instead of
+  blanking in headless Chrome.
+- 2026-06-10 23:02 CDT: Corrected the Phase 1 VN asset spike after Alan caught
+  that the first generated Tianze render drifted male, which conflicts with the
+  Tianze Ichika-inspired female character direction in `data/giisProfiles.ts`
+  and `docs/soul/pilots/tianze.md`. Removed the wrong public
+  `public/renders/tianze-serious.png` asset and removed Tianze `renderPath`
+  wiring, so Tianze falls back to the existing portrait until a correct female
+  Tianze render is generated. Tightened Tianze `artDirection` wording to say
+  female / Tianze Ichika-inspired. Verification: `rg tianze-serious` no longer
+  finds active code/docs references; HTTP check returns 404 for the removed
+  render and 200 for the remaining render/background assets; `npx tsc --noEmit
+  --pretty false`.
+- 2026-06-10 22:57 CDT: Completed Phase 1 anime/VN asset spike for the UI
+  polish lane. Generated four original default-emotion large renders
+  (`public/renders/umi-smiling.png`, `mahiru-worried.png`,
+  `tianze-serious.png`, `ichinose-serious.png`) via built-in image generation
+  on chroma-key backgrounds, then removed the key with the bundled Pillow
+  runtime. Generated two 16:9 room backdrops
+  (`public/backgrounds/studentCouncilRoom.png`, `dormitory.png`). Integrated
+  the renders through optional `renderPath` / `renderPaths` fields in
+  `data/characterVisuals.ts`; `CharacterPortrait size="lg"` now prefers
+  `/public/renders` and falls back to existing portraits. Conversation mode now
+  receives a scene backdrop CSS variable for the two generated rooms while the
+  Pixi exploration map remains unchanged. Updated `docs/giis-vn-art-spec.md`
+  and added asset README notes. Limits: this is a visual spike, not a locked
+  production character sheet; only the pilot default emotions exist, and
+  in-app Browser screenshot capture timed out after the new assets, so visual
+  proof used local asset contact sheets plus Chrome headless static screenshots
+  for reachable pages. Verification: transparent alpha/corner audit for all
+  renders; HTTP 200 for all new public asset paths; `git diff --check`;
+  `npx tsc --noEmit --pretty false`; `npm run build`.
+- 2026-06-10 22:35 CDT: Ran a user-perspective UI polish pass for the anime/VN
+  direction without changing Convex, map architecture, character behavior, or
+  backend state. Added character portrait strips to `ConversationWall` cards so
+  the conversation view reads more like a memory wall than a debug dashboard.
+  Added a scoped CSS polish layer for the live-room shell, HUD buttons, bottom
+  action bar, conversation wall cards, and mobile layout; fixed the mobile
+  horizontal scrollbar/overlap seen in Browser screenshots. Remaining higher
+  gain visual work is still art-asset led: larger consistent VN renders and
+  scene backgrounds per `docs/giis-vn-art-spec.md`. Verification:
+  `git diff --check`; `npx tsc --noEmit --pretty false`; `npm run build`;
+  Browser screenshots for desktop/mobile world and conversation wall.
+- 2026-06-10 23:25 CDT: Inspected and updated the Codex-level
+  `underworld-rolling-continuity-telegram` automation. The local Codex
+  automation file is active at
+  `/Users/alanhdchu/.codex/automations/underworld-rolling-continuity-telegram/automation.toml`
+  with `FREQ=MINUTELY;INTERVAL=120`; its prompt now explicitly treats
+  `npm run underworld:rolling-continuity` as the source of truth and reports
+  the refreshed rolling continuity, Alan-facing candidates, memory hygiene,
+  life-signals, and v0.1 completion audit gates. Telegram notification remains
+  deduped and only fires for fresh `PASS / continuity_observed` evidence.
+  System-level inspection found two Underworld LaunchAgents:
+  `com.giis.underworld.dev-stack` is running and keeps the local dev stack
+  alive; `com.giis.underworld.morning-healthcheck` is loaded but not currently
+  running, and is configured as `StartInterval=7200` rather than a once-daily
+  06:00 check. No user crontab entries were found.
+- 2026-06-10 23:29 CDT: Optimized the Underworld automation split. Kept
+  `com.giis.underworld.dev-stack` as the system-level long-running keepalive
+  for Vite/Convex. Changed
+  `/Users/alanhdchu/Library/LaunchAgents/com.giis.underworld.morning-healthcheck.plist`
+  from `StartInterval=7200` to `StartCalendarInterval` at 06:00 daily, then
+  reloaded it with `launchctl bootout/bootstrap`. `launchctl print` now shows
+  calendar trigger Hour 6 / Minute 0, while the Codex-level
+  `underworld-rolling-continuity-telegram` remains active every 120 minutes for
+  quality/continuity reporting. This removes the accidental duplicate two-hour
+  healthcheck loop.
+- 2026-06-10 22:31 CDT: Tightened the cc failure policy after Alan clarified
+  that cc timeout should be fixed, not treated as "cc unavailable." Added a
+  read-only timeout recovery path to `umi/orchestrator.py`: when a Claude Code
+  worker pass times out, the orchestrator automatically reruns a smaller
+  recovery prompt that inspects only the workload, current diff/status, worklog,
+  and at most five relevant files, then returns salvage findings or an exact
+  narrower retry/auth diagnostic. Updated Open Follow-Up #4 to say timeout is
+  an orchestration issue and auth/provider errors require diagnosis. This does
+  not change Underworld runtime behavior.
+- 2026-06-10 22:13 CDT: Aligned with cc on today's Underworld product changes
+  and updated the two-hour rolling review path. Current evidence after read-only
+  refresh: `npm run underworld:rolling-continuity` is still `PASS /
+  continuity_observed` for 18:00-20:00 -> 20:00-22:00, but the tick now also
+  refreshes Alan-facing candidate scan, memory hygiene, life-signals, and the
+  v0.1 completion audit. This prevents a rolling PASS from hiding the current
+  blockers: `memory-hygiene` reports 1 known fragment + 1 unverified Alan claim,
+  `life-signals` is `WARN / life_signal_repeated` with 97 day-window
+  conversations and repeated surface/motif issues, and completion audit remains
+  `FAIL` with 2 fail / 1 pending / 5 pass. cc's read-only review
+  `umi/reports/20260611T031406Z-workload.md` recommended exactly this
+  extension and warned not to automate cleanup, prompt rewrites, Alan playtest
+  acceptance, or paper-lane actions. Implemented the extension in
+  `scripts/underworld-rolling-continuity.mjs`, updated
+  `umi/COMMAND_REFERENCE.md`, and marked `umi/workload.md` back to no active
+  task. The recurring automation prompt, if external to this repo, should call
+  the same command; the current session did not expose an automation-update
+  tool, so no Codex panel automation was modified.
+  Verification: `python umi/orchestrator.py run umi/workload.md --dry-run`;
+  `python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`;
+  `npm run underworld:life-signals`; `npm run underworld:memory-hygiene`;
+  `npm run underworld:v01-completion-audit`; `npm run
+  underworld:rolling-continuity:self-test`; `node --check
+  scripts/underworld-rolling-continuity.mjs`; `npx tsc --noEmit --pretty
+  false`; `npm run underworld:rolling-continuity`.
 - 2026-06-10 UTC: Implemented VN big-frame conversation view (Route A, layout
   step), Alan-directed direct implementation. CSS-only, additive: appended a
   `@media (min-width: 901px)` block to `src/index.css` that, while

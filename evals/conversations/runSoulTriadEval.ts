@@ -188,7 +188,7 @@ function scoreConversation(conversation: Conversation): Result {
   const umiAlanAnchor = hasUmi
     ? ratio([
         /海:.*(Alan|校長|簡報|校務|世界|學生)/.test(transcript),
-        !/海:.*(Alan|簡報|校務|明天|劉備).*(Alan|簡報|校務|明天|劉備)/.test(transcript),
+        !/海:.*(Alan|簡報|校務|明天|祥子).*(Alan|簡報|校務|明天|祥子)/.test(transcript),
       ])
     : 0.5;
   const emotionalExpressionUniqueness = scoreEmotionalExpressionUniqueness(messages);
@@ -467,7 +467,7 @@ function scoreAttentionShift(messages: Conversation['transcriptMessages']) {
 
 function scoreRelationshipResidue(transcript: string) {
   const residueCues = countMatches(transcript, /昨天|上次|剛才|剛剛|那句|你之前|妳之前|還記得|下次|明天.*再|今天.*還/g);
-  const relationshipCues = countMatches(transcript, /你|妳|Alan|海|真晝|天澤|一之瀨|天澤|一之瀨|曹操|劉備/g);
+  const relationshipCues = countMatches(transcript, /你|妳|Alan|海|真晝|天澤|一之瀨|天澤|一之瀨|貓貓|祥子/g);
   return residueCues ? clamp(0.55 + Math.min(0.35, relationshipCues * 0.04)) : 0.55;
 }
 

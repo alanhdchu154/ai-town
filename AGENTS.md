@@ -9,12 +9,15 @@ This repo follows the global Central Umi coordination contract in `/Users/alanhd
 - Central Umi remains Alan's primary interface and cross-project coordinator.
 - `underworld-manager` is the project manager for this repo, not a separate Umi persona.
 - Claude Code / cc is a senior technical worker for bounded implementation, debugging, smoke-test, playtest-review, and edge-case tasks.
-- Read `/Users/alanhdchu/umi-central/goals.md` before local planning. The central `underworld` row is the v0.1 / weekly / daily routing layer; this repo's `WORKLOG.md` is local evidence, and `umi/workload.md` is one scoped worker handoff.
+- Read `/Users/alanhdchu/umi-central/goals.md` before local planning. The central `underworld` row is the v0.1 / weekly / daily routing layer; this repo's `umi/workload.md` is the active Codex/cc handoff, `WORKLOG.md` is today / last few days of activity and current evidence, and `docs/giis-v0.1-roadmap.md` is concise durable direction.
+- `WORKLOG.md` is not append-only. Completed, stale, duplicate, or fully captured items can be removed, summarized, or archived once they no longer drive the next action.
+- `umi/workload.md` is only for one active worker handoff. `docs/giis-v0.1-roadmap.md` is for brief completed milestones, current lanes, future work, priorities, and non-goals.
 - If the central daily goal conflicts with `umi/workload.md`, pause and escalate to `underworld-manager` / Central Umi instead of reconciling silently.
 - For substantial coding problems, prefer `cc-first` or `Split-work` after reading `WORKLOG.md` and current handoffs. Coding-heavy or cc-strong work should go to cc first to balance token usage and use the right agent for the job. Umi still owns scope, acceptance, and the final Alan-facing summary.
+- For deep engineering work, use a code-capable Claude Code surface such as Alan's VS Code Claude Code workflow or an equivalent code-mode CLI session with the correct repo cwd, current diff/status, scoped files, verification commands, and stop conditions. Default to the latest Opus alias (`model: opus` or `--model opus`); use Sonnet only for explicitly cheap/scouting passes. Do not treat cc-cowork/advisor chat as the primary executor for implementation, debugging, tests, diff review, or deep repo inspection.
 - For assigned implementation, debugging, tests, refactor cleanup, repo-local docs, or other cc-strong execution tasks, cc has edit access from the first pass inside the allowed scope. Codex/Umi reviews the diff and accepts/rejects/revises before treating it as done.
 - Do not require a numeric token/budget cap by default for cc. Use bounded scope, allowed files, expected output, and stop conditions; ask for a hard cap only if extra paid usage is enabled, external paid services are involved, Alan requests one, or the task is too broad to checkpoint safely.
-- Prevent cc timeout by assigning one-pass tasks with exact allowed files and commands. Do not ask cc to run watch mode, long dev servers, full generation jobs, broad eval/browser suites, or full test suites unless explicitly scoped. If cc times out or the root cause is outside scope, stop and report a narrower retry instead of silently deciding or editing broadly.
+- Prevent cc timeout by assigning one-pass tasks with exact allowed files and commands. Do not ask cc to run watch mode, long dev servers, full generation jobs, broad eval/browser suites, or full test suites unless explicitly scoped. If cc times out, returns no output, stalls, or needs broader scope, record the attempted repo/cwd, model target, prompt shape, allowed tools/files, elapsed time, partial output, and whether files may have changed. Stop the worker, inspect `git status` / relevant diffs if edits may have happened, narrow to one smaller code-mode pass or use the orchestrator's timeout recovery pass, and retry once when safe. If retry fails, report the specific auth/provider/scope/tool blocker instead of silently deciding cc is unusable, editing broadly, or treating timeout as approval.
 - Translate Alan's shorthand into repo terms before assigning cc. For example, if Alan says "we opened character settings; check whether code and goals align," first identify the current Underworld goal, `WORKLOG.md` state, changed files, likely character/settings directories, and whether cc should do all-current-diff alignment review, targeted file review, diagnosis, implementation, or verification.
 - For bug-hunt or alignment questions, cc should get a findings-first review pass over current git diff/status, `WORKLOG.md`, current goals, and relevant adjacent files. Do not over-narrow review to only the files Codex already suspects; let cc find regressions, missing tests, stale assumptions, and scope drift before implementation.
 - Preserve cc's independent review value. When Alan asks for broad "is this aligned / what changed / what problems do you see" feedback, Umi should first scout the repo, then hand cc the current change set, candidate directories, and open questions. Ask cc for top findings, recommended direction, and whether implementation should happen now, wait, or be narrowed.
@@ -62,6 +65,39 @@ Personal secrets (Qwen / GitHub PAT / future keys) live in `~/.config/giis-under
 Server-side LLM keys consumed by Convex (e.g. `OPENAI_API_KEY` for the cloud Qwen path in `convex/util/llm.ts`) should live in the Convex deployment env via `npx convex env set`, not on local disk.
 
 If you find a key file at the repo root, treat it as drift and migrate it back out.
+
+## Local Storage
+
+Read `/Users/alanhdchu/umi-central/docs/local_storage_layout.md` before moving,
+deleting, or symlinking local runtime data.
+
+- Ollama models are active on T9 via `/Users/alanhdchu/.ollama/models` ->
+  `/Volumes/T9-Active/Models/Ollama/models`. If T9 is not mounted, local Ollama
+  model commands may fail; verify with `ollama list`. (Verified 2026-06-10:
+  symlink live, 7 models present on T9.)
+- GIIS teaching videos (giis-website) are active on T9 at
+  `/Volumes/T9-Active/Projects/giis-website/teaching-videos`, with
+  `~/giis-website/teaching-videos` symlinked to it (moved 2026-06-10, internal
+  source deleted). T9 must be mounted to access them. NOTE: this is currently
+  the ONLY copy of the 30 teaching videos (1.3 GB) — back it up before relying
+  on it (see Time Machine / WD note below).
+- Underworld Convex local backend state is active on T9 via
+  `/Users/alanhdchu/.convex/convex-backend-state/local-alan_chu-ai_town` ->
+  `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town`. It was
+  verified with `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180
+  ./node_modules/.bin/convex run --typecheck disable --codegen disable
+  school:debugState`.
+- Do not delete or replace the T9 Convex state unless there is a fresh verified
+  backup and Alan has approved the destructive action. Runtime stability wins
+  over additional disk savings.
+- If Convex ever needs to move again: (1) stop the backend
+  (`pkill -f convex-local-backend`); (2) copy/verify the active state; (3) switch
+  the symlink; (4) run the debugState verification before deleting any source;
+  (5) start the backend with T9 mounted and confirm the world loads; (6) only
+  then delete the internal copy. NEVER copy or switch while the backend is
+  writing the live sqlite.
+- If a local command depends on T9 data, first check that `/Volumes/T9-Active`
+  is mounted and that symlink targets exist.
 
 ## What This Repo Is
 
@@ -140,7 +176,7 @@ The full director-loop contract is documented in `docs/soul/AUTONOMOUS_DIRECTOR_
 
 Before starting any task:
 
-1. Read `WORKLOG.md`, especially `§ Open Handoffs`.
+1. Read `WORKLOG.md`, especially `§ Open Follow-Ups`.
 2. Read the relevant docs or code path before giving conclusions.
 3. If the task touches runtime state, prefer read-only inspection first.
 4. If assigning focused work to Claude Code / cc, update `umi/workload.md` first and run through `umi/orchestrator.py`.
@@ -149,11 +185,12 @@ Before starting any task:
 
 After finishing any task:
 
-1. Append a short entry to `WORKLOG.md` under `§ Work Log` with newest entries first.
-2. Update `§ Open Handoffs` if the task creates, resolves, or changes ownership of an item.
+1. Record or update a short `WORKLOG.md` entry only when the work changes today's/recent state, evidence, risk, or next action.
+2. Update `§ Open Follow-Ups` if the task creates, resolves, or changes ownership of an item.
 3. Include the verification command or reason verification was skipped.
+4. Remove, summarize, or archive completed/stale/duplicate `WORKLOG.md` items when they no longer affect current work.
 
-If it is not in `WORKLOG.md`, the next agent should assume it may not have happened.
+If current state, unresolved risk, or a next action is not in `WORKLOG.md`, the next agent should assume it may need refresh. Old completed history can live in reports, archives, or git history instead of the active worklog.
 
 ## Role Split
 
