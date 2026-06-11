@@ -7,11 +7,13 @@ export function CharacterPortrait({
   size = 'md',
   showName = true,
   emotion,
+  renderOnly = false,
 }: {
   name?: string;
   size?: 'sm' | 'md' | 'lg';
   showName?: boolean;
   emotion?: PortraitEmotion;
+  renderOnly?: boolean;
 }) {
   const visual = characterVisualFor(name);
   const pixelSize = size === 'lg' ? 4 : size === 'md' ? 3 : 2;
@@ -22,10 +24,12 @@ export function CharacterPortrait({
   const portraitCandidates = useMemo(
     () =>
       [
-        visual?.portraitPaths?.[selectedEmotion],
-        visual?.portraitPath,
+        size === 'lg' ? visual?.renderPaths?.[selectedEmotion] : undefined,
+        size === 'lg' ? visual?.renderPath : undefined,
+        renderOnly ? undefined : visual?.portraitPaths?.[selectedEmotion],
+        renderOnly ? undefined : visual?.portraitPath,
       ].filter((path, index, paths): path is string => !!path && paths.indexOf(path) === index),
-    [selectedEmotion, visual],
+    [renderOnly, selectedEmotion, size, visual],
   );
   const [portraitCandidateIndex, setPortraitCandidateIndex] = useState(0);
   const portraitPath = portraitCandidates[portraitCandidateIndex];

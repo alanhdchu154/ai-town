@@ -191,7 +191,8 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
   const hour = clock?.hour ?? new Date().getHours();
   if (hour >= 23 || hour < 6) {
     if (name === 'Umi') return '在宿舍或辦公角落整理明早簡報';
-    if (name === 'CaoCao') return '可能短暫未眠，整理明天要怎麼讓大家坐下來談';
+    if (name === 'Maomao') return '可能短暫未眠，記下幾個不像沒事的停頓';
+    if (name === 'Sakiko') return '在宿舍把曲譜收好，練習讓呼吸重新穩住';
     return '休息中，不應該被普通校務打擾';
   }
   if (hour >= 21) {
@@ -200,20 +201,20 @@ function expectedScheduleFor(name: string, clock?: { hour: number }) {
     return '準備回宿舍，對話應該變安靜';
   }
   if (hour >= 17) {
-    if (name === 'CaoCao') return '在庭院觀察誰不願意開口';
-    if (name === 'Liu Bei') return '在庭院維持學生之間的連結';
+    if (name === 'Maomao') return '在庭院觀察誰不願意開口';
+    if (name === 'Sakiko') return '在庭院維持禮貌，避免裂縫被看見';
     if (name === 'Mahiru' || name === 'Mahiru Shiina') return '在宿舍或庭院照顧學生狀態';
     if (name === 'Umi') return '在校長室整理給 Alan 的短簡報';
     return '自由時間，可能移動到庭院、餐廳或宿舍';
   }
   if (hour >= 13.5) {
     if (name === 'Ichinose') return '在餐廳或庭院讓人承認自己欠了哪份善意';
-    if (name === 'CaoCao') return '在庭院確認混亂是不是有人被丟下';
+    if (name === 'Maomao') return '在庭院確認哪句「沒事」其實是症狀';
     if (name === 'Umi') return '在校長室把 Alan 的想法整理成可執行事項';
     return '補作業、整理課後情緒，或進行小組討論';
   }
   if (hour >= 12) {
-    if (name === 'Liu Bei') return '在中央庭院拉近學生關係';
+    if (name === 'Sakiko') return '在中央庭院把退場衝動藏進禮貌';
     if (name === 'Mahiru' || name === 'Mahiru Shiina') return '觀察誰在午間顯得不安';
     return '午間社交或休息';
   }
@@ -2136,8 +2137,8 @@ function characterConcern(name: string, socialState: any, schoolState: any[]) {
     if (displayName === '海' && emotionState.statusZh === '深夜未眠') {
       return '深夜未眠，正在整理校長簡報。';
     }
-    if (displayName === '曹操' && emotionState.statusZh === '深夜未眠') {
-      return '可能仍在思考明天誰需要一個能坐下來說話的位置。';
+    if (displayName === '貓貓' && emotionState.statusZh === '深夜未眠') {
+      return '可能仍在記下明天要確認的幾個症狀。';
     }
     return emotionState.statusZh;
   }
@@ -2162,7 +2163,7 @@ function sanitizeCharacterFocus(name: string, text: string) {
   const displayName = displayAgentName(name);
   const cleaned = displayTextWithNames(text).replace(/\s+/g, ' ').trim();
   if (!cleaned) return defaultConcern(name);
-  const otherNames = ['海', '天澤', '一之瀨', '天澤', '一之瀨', '真晝', '曹操', '劉備'].filter(
+  const otherNames = ['海', '天澤', '一之瀨', '天澤', '一之瀨', '真晝', '貓貓', '祥子'].filter(
     (item) => item !== displayName,
   );
   const looksLikeOtherCharacterStatus =
@@ -2186,9 +2187,9 @@ function defaultConcern(name: string) {
   const displayName = displayAgentName(name);
   if (displayName === '海') return '校長是不是又沒好好休息。';
   if (displayName === '一之瀨') return '今天誰欠了善意，卻還沒親口承認？';
-  if (displayName === '曹操') return '安靜不代表沒有計畫。';
+  if (displayName === '貓貓') return '安靜不代表沒有症狀。';
   if (displayName === '真晝') return '有些學生今天比較安靜。';
-  if (displayName === '劉備') return '我想聽聽沒開口的人。';
+  if (displayName === '祥子') return '禮貌一旦太完美，就像在退場。';
   if (displayName === '天澤') return '這條規則被推半步後會先斷在哪裡？';
   return '正在觀察今天的校園節奏。';
 }

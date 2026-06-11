@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { CharacterPortrait } from './CharacterPortrait';
 
 type ConversationWallProps = {
   onOpenWorld: () => void;
@@ -197,15 +198,21 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
 }
 
 function ConversationCard({ conversation, flags }: { conversation: ConversationEntry; flags: string[] }) {
+  const characterNames = conversation.involvedCharacters.map(displayWallName);
   return (
     <article className="giis-conversation-card">
       <header>
         <div>
-          <h3>{conversation.involvedCharacters.join(' / ')}</h3>
+          <h3>{characterNames.join(' / ')}</h3>
           <p>{conversation.timestampLabelZh ?? timeLabel(conversation.createdAt)}</p>
         </div>
         <span>{conversation.messageCount} 則</span>
       </header>
+      <div className="giis-wall-character-strip" aria-label="conversation characters">
+        {characterNames.slice(0, 3).map((name) => (
+          <CharacterPortrait key={name} name={name} size="sm" showName={false} />
+        ))}
+      </div>
       {flags.length ? (
         <div className="giis-wall-flags">
           {flags.map((flag) => (
@@ -270,6 +277,9 @@ function StatusCard({ status }: { status: StatusEntry }) {
         </div>
         <span>{status.title}</span>
       </header>
+      <div className="giis-wall-character-strip" aria-label="status character">
+        <CharacterPortrait name={status.characterName} size="sm" showName={false} />
+      </div>
       <div className="giis-wall-status-body">
         <p>{displayWallText(status.text)}</p>
         {status.residueLineZh ? (
@@ -377,8 +387,8 @@ function displayWallName(name: string) {
   if (name === 'Umi') return '海';
   if (name === 'Mahiru' || name === 'Mahiru Shiina') return '真晝';
   if (name === 'Tianze') return '天澤';
-  if (name === 'CaoCao') return '曹操';
-  if (name === 'Liu Bei') return '劉備';
+  if (name === 'Maomao') return '貓貓';
+  if (name === 'Sakiko') return '祥子';
   if (name === 'Ichinose') return '一之瀨';
   return name;
 }
@@ -388,8 +398,8 @@ function displayWallText(text: string) {
     .replaceAll('Mahiru Shiina', '真晝')
     .replaceAll('Mahiru', '真晝')
     .replaceAll('Tianze', '天澤')
-    .replaceAll('Liu Bei', '劉備')
-    .replaceAll('CaoCao', '曹操')
+    .replaceAll('Sakiko', '祥子')
+    .replaceAll('Maomao', '貓貓')
     .replaceAll('Ichinose', '一之瀨')
     .replaceAll('Umi', '海');
 }

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import PixiGame from './PixiGame.tsx';
 
@@ -20,6 +21,7 @@ import {
 } from '../../data/schoolLocations.ts';
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames.ts';
 import { CharacterPortrait } from './CharacterPortrait.tsx';
+import type { PortraitEmotion } from '../../data/characterVisuals.ts';
 import InteractButton from './buttons/InteractButton.tsx';
 import { ClassroomBounds, ClassroomCenter, ClassroomWalkBounds } from '../../data/classroomBounds.ts';
 
@@ -34,6 +36,7 @@ export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
 type RightPanelTab = 'action' | 'dialogue' | 'characters' | 'schedule' | 'debug';
 type CampusFeedFilter = '全部' | '未讀' | '今日焦點' | '傳聞' | '關係事件' | '對話' | '場景事件';
+type WorldViewMode = 'scene' | 'map';
 type CampusNotificationItem = {
   id: string;
   text: string;
@@ -70,9 +73,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }>();
   const [panelCollapsed, setPanelCollapsed] = useState(true);
   const [selectedSceneId, setSelectedSceneId] = useState<SchoolLocationId>('classroom');
+  const [worldViewMode, setWorldViewMode] = useState<WorldViewMode>(() =>
+    globalThis.localStorage?.getItem('giis:world-view-mode') === 'map' ? 'map' : 'scene',
+  );
   const [sceneMessage, setSceneMessage] = useState('');
   const [umiPanelCollapsed, setUmiPanelCollapsed] = useState(
-    () => globalThis.localStorage?.getItem('giis:umi-panel-collapsed') === '1',
+    () => globalThis.localStorage?.getItem('giis:umi-panel-collapsed') !== '0',
   );
   const [campusFeedCollapsed, setCampusFeedCollapsed] = useState(true);
   const [campusFeedFullView, setCampusFeedFullView] = useState(false);
@@ -98,6 +104,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }>();
   const [minuteTick, setMinuteTick] = useState(() => Math.floor(Date.now() / 60_000));
   const lastAlanFocusKey = useRef('');
+  const initialSceneAutoSelectRef = useRef(false);
   const previousMovingStateRef = useRef<Map<string, boolean>>(new Map());
   const [gameWrapperRef, { width, height }] = useElementSize();
   const userTimeZone = useMemo(
@@ -150,6 +157,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   useEffect(() => {
     globalThis.localStorage?.setItem('giis:umi-panel-collapsed', umiPanelCollapsed ? '1' : '0');
   }, [umiPanelCollapsed]);
+
+  useEffect(() => {
+    globalThis.localStorage?.setItem('giis:world-view-mode', worldViewMode);
+  }, [worldViewMode]);
 
   useEffect(() => {
     globalThis.localStorage?.setItem(
@@ -218,6 +229,26 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     }, 80);
     return () => window.clearTimeout(timeout);
   }, [game, alanPlayerForFocus?.position]);
+
+  useEffect(() => {
+    if (!game || alanPlayerForFocus?.position || initialSceneAutoSelectRef.current) return;
+    const sceneCounts = SchoolLocations.map((location) => ({
+      location,
+      count: [...game.world.players.values()].filter(
+        (player) => nearestSchoolLocation(player.position)?.id === location.id,
+      ).length,
+    }));
+    const selectedCount = sceneCounts.find((item) => item.location.id === selectedSceneId)?.count ?? 0;
+    if (selectedCount > 0) {
+      initialSceneAutoSelectRef.current = true;
+      return;
+    }
+    const busiestScene = sceneCounts.sort((a, b) => b.count - a.count)[0];
+    if (busiestScene?.count) {
+      initialSceneAutoSelectRef.current = true;
+      setSelectedSceneId(busiestScene.location.id);
+    }
+  }, [alanPlayerForFocus?.position, game, movementStateKey, selectedSceneId]);
 
   useEffect(() => {
     const onActionCinematic = (event: Event) => {
@@ -404,7 +435,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const alanDestination = alanPlayer?.pathfinding?.destination
     ? nearestSchoolLocation(alanPlayer.pathfinding.destination)
     : undefined;
-  const alanMovementHint = alanPlayer?.pathfinding
+  const mapMovementHint = alanPlayer?.pathfinding
     ? `Alan 正在前往${alanDestination?.labelZh ?? '目的地'}`
     : isConversationMode
       ? '對話中：先離開對話才能移動'
@@ -434,6 +465,63 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const visibleSceneNames = scenePlayers
     .map((player) => displayAgentName(game.playerDescriptions.get(player.id)?.name))
     .filter(Boolean);
+  const alanMovementHint =
+    worldViewMode === 'map'
+      ? mapMovementHint
+      : isConversationMode
+        ? '對話中：場景已鎖定。'
+        : visibleSceneNames.length
+          ? `場景中：${visibleSceneNames.join('、')}`
+          : `${currentScene.labelZh}暫時安靜。`;
+  const sceneStageCharacters = scenePlayers
+    .map((player) => {
+      const name = game.playerDescriptions.get(player.id)?.name ?? player.id;
+      const presence = campusSocialState?.emotions?.find((item: any) => item.name === name);
+      const destination = player.pathfinding?.destination
+        ? nearestSchoolLocation(player.pathfinding.destination)
+        : undefined;
+      const isTalking = !!game.world.playerConversation(player);
+      const emotion = portraitEmotionFrom(presence?.currentEmotion);
+      const statusZh = isTalking
+        ? '正在對話中'
+        : player.pathfinding
+          ? `前往${destination?.labelZh ?? '目的地'}`
+          : player.activity?.description ?? presence?.availabilityZh ?? '留在這個場景裡觀察今天的氣氛';
+      const activityKind = activityKindForCharacterStatus({
+        statusZh,
+        moving: !!player.pathfinding,
+        talking: isTalking,
+        sceneId: currentScene.id,
+      });
+      return {
+        id: player.id,
+        name,
+        displayName: displayAgentName(name),
+        statusZh,
+        activityLabel: activityLabelFromStatus({
+          name,
+          statusZh,
+          sceneLabelZh: currentScene.labelZh,
+          activityKind,
+          emotion,
+        }),
+        activityKind,
+        activityIcon: player.activity?.emoji ?? activityIconForKind(activityKind),
+        emotion,
+        emotionLabel: emotionLabelZh(emotion),
+        quietLineZh: presence?.quietLineZh,
+        isTalking,
+        isSelected: selectedPlayer?.id === player.id,
+        isAlan: name === 'Alan',
+      };
+    })
+    .filter((character) => !character.isAlan)
+    .sort((a, b) => {
+      const aRank = a.isSelected ? 0 : a.isAlan ? 2 : 1;
+      const bRank = b.isSelected ? 0 : b.isAlan ? 2 : 1;
+      if (aRank !== bRank) return aRank - bRank;
+      return a.displayName.localeCompare(b.displayName, 'zh-Hant');
+    });
   const occupiedGroups = sceneGroups.filter((group) => group.occupants.length > 0);
   const occupiedRoomLabels = occupiedGroups.map(
     (group) => `${group.location.labelZh} (${group.occupants.length})`,
@@ -742,7 +830,8 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                   : 'scene-classroom'
         } ${shellPeriodClass} ${isConversationMode ? 'giis-conversation-active' : ''} ${
           panelCollapsed && !isConversationMode ? 'giis-panel-is-collapsed' : ''
-        }`}
+        } ${worldViewMode === 'scene' ? 'giis-scene-first' : 'giis-map-mode'}`}
+        style={sceneVisualStyle(currentScene.id)}
       >
         <div className="giis-topbar">
           <div className="giis-topbar-title">
@@ -793,6 +882,28 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               ))}
             </select>
           </label>
+          <div className="giis-world-mode-toggle" role="tablist" aria-label="切換世界呈現">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={worldViewMode === 'scene'}
+              className={worldViewMode === 'scene' ? 'active' : ''}
+              onClick={() => setWorldViewMode('scene')}
+              title="用場景圖和角色立繪呈現目前地點"
+            >
+              場景
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={worldViewMode === 'map'}
+              className={worldViewMode === 'map' ? 'active' : ''}
+              onClick={() => setWorldViewMode('map')}
+              title="顯示原本可走動的地圖"
+            >
+              地圖
+            </button>
+          </div>
           <InteractButton />
           <button
             className="giis-presence-button giis-find-alan-button"
@@ -942,38 +1053,65 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         </div>
 
         <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
-          {width && height ? (
+          {worldViewMode === 'scene' ? (
+            <SceneStage
+              scene={currentScene}
+              characters={sceneStageCharacters}
+              occupiedGroups={occupiedGroups.map(({ location, occupants }) => ({
+                id: location.id,
+                labelZh: location.labelZh,
+                count: occupants.length,
+              }))}
+              periodLabel={periodLabel}
+              onSelectCharacter={(id) => {
+                const player = game.world.players.get(id);
+                const name = game.playerDescriptions.get(id)?.name ?? id;
+                setSelectedElement({ kind: 'player', id });
+                if (player) {
+                  const scene = nearestSchoolLocation(player.position);
+                  if (scene) setSelectedSceneId(scene.id);
+                }
+                setSceneMessage(`已選擇 ${displayAgentName(name)}。`);
+              }}
+              onViewScene={viewScene}
+              onHookClick={(message) => setSceneMessage(message)}
+            />
+          ) : (
             <div className="giis-stage-wrapper" style={{ width: stageWidth, height: stageHeight }}>
-              <Stage
-                width={stageWidth}
-                height={stageHeight}
-                options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
-              >
-                {/* Re-propagate context because contexts are not shared between renderers.
+              <PixiStageErrorBoundary>
+                <Stage
+                  width={stageWidth}
+                  height={stageHeight}
+                  options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
+                >
+                  {/* Re-propagate context because contexts are not shared between renderers.
 https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
-                <ConvexProvider client={convex}>
-                  <PixiGame
-                    game={game}
-                    worldId={worldId}
-                    engineId={engineId}
-                    width={stageWidth}
-                    height={stageHeight}
-                    sceneId={currentScene.id}
-                    visiblePlayerIds={scenePlayers.map((player) => player.id)}
-                    historicalTime={historicalTime}
-                    focusRequest={focusRequest}
-                    selectedPlayerId={selectedPlayer?.id}
-                    setSelectedElement={setSelectedElement}
-                  />
-                </ConvexProvider>
-              </Stage>
+                  <ConvexProvider client={convex}>
+                    <PixiGame
+                      game={game}
+                      worldId={worldId}
+                      engineId={engineId}
+                      width={stageWidth}
+                      height={stageHeight}
+                      sceneId={currentScene.id}
+                      visiblePlayerIds={scenePlayers.map((player) => player.id)}
+                      historicalTime={historicalTime}
+                      focusRequest={focusRequest}
+                      selectedPlayerId={selectedPlayer?.id}
+                      setSelectedElement={setSelectedElement}
+                    />
+                  </ConvexProvider>
+                </Stage>
+              </PixiStageErrorBoundary>
             </div>
-          ) : null}
+          )}
           <div className="giis-move-hint">
             {alanMovementHint}
           </div>
           {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
-          {scenePlayers.length === 0 ? (
+          {/* Map mode only: in the new scene-stage mode the stage renders its
+              own 大家在 chips, so showing the cue too duplicates them. */}
+          {scenePlayers.length === 0 && worldViewMode === 'map' ? (
             <div className="giis-empty-room-cue" aria-live="polite">
               <b>{emptyRoomTitle}</b>
               {occupiedGroups.length ? (
@@ -1224,6 +1362,37 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
   );
 }
 
+class PixiStageErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; message?: string }
+> {
+  state = { hasError: false, message: undefined };
+
+  static getDerivedStateFromError(error: unknown) {
+    return {
+      hasError: true,
+      message: error instanceof Error ? error.message : 'Pixi renderer unavailable',
+    };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.warn('[GIIS Pixi map unavailable]', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="giis-map-fallback" role="status">
+          <b>地圖暫時無法顯示。</b>
+          <span>場景模式仍可使用；這通常是瀏覽器沒有提供 Pixi/WebGL renderer。</span>
+          {this.state.message ? <small>{this.state.message}</small> : null}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 type QuickActionType =
   | 'observe'
   | 'chat'
@@ -1283,6 +1452,244 @@ function FloatingActionResult({
       </p>
     </aside>
   );
+}
+
+type SceneStageCharacter = {
+  id: GameId<'players'>;
+  name: string;
+  displayName: string;
+  statusZh: string;
+  activityLabel: string;
+  activityKind: SceneActivityKind;
+  activityIcon: string;
+  emotion: PortraitEmotion;
+  emotionLabel: string;
+  quietLineZh?: string;
+  isTalking: boolean;
+  isSelected: boolean;
+  isAlan: boolean;
+};
+
+type SceneActivityKind =
+  | 'moving'
+  | 'talking'
+  | 'resting'
+  | 'studying'
+  | 'eating'
+  | 'social'
+  | 'briefing'
+  | 'reflecting'
+  | 'observing';
+
+function SceneStage({
+  scene,
+  characters,
+  occupiedGroups,
+  periodLabel,
+  onSelectCharacter,
+  onViewScene,
+  onHookClick,
+}: {
+  scene: SchoolLocation;
+  characters: SceneStageCharacter[];
+  occupiedGroups: Array<{ id: SchoolLocationId; labelZh: string; count: number }>;
+  periodLabel: string;
+  onSelectCharacter: (id: GameId<'players'>) => void;
+  onViewScene: (id: SchoolLocationId) => void;
+  onHookClick: (message: string) => void;
+}) {
+  const hooks = sceneHooksForScene(scene);
+  const nonEmptyOtherScenes = occupiedGroups.filter((group) => group.id !== scene.id && group.count > 0);
+  const hasCharacterFocus = characters.some((character) => character.isSelected || character.isTalking);
+  return (
+    <section className="giis-scene-stage" aria-label={`${scene.labelZh}場景`}>
+      <div className="giis-scene-stage-backdrop" />
+      <div className="giis-scene-stage-shade" />
+      <div className="giis-scene-object-layer" aria-label="場景物件">
+        {hooks.map((hook) => (
+          <button
+            key={hook.id}
+            type="button"
+            className="giis-scene-hotspot"
+            style={{
+              ['--hotspot-x' as string]: `${hook.x}%`,
+              ['--hotspot-y' as string]: `${hook.y}%`,
+            }}
+            onClick={() => onHookClick(`${hook.labelZh}：${hook.detailZh}`)}
+            title={hook.detailZh}
+          >
+            <span>{hook.labelZh}</span>
+          </button>
+        ))}
+      </div>
+
+      <aside className="giis-scene-atmosphere-card">
+        <span className="giis-kicker">{periodLabel}</span>
+        <h3>{scene.labelZh}</h3>
+        <p>{scene.scheduleZh}</p>
+        {scene.moodEvents.length ? (
+          <div className="giis-scene-seeds">
+            {scene.moodEvents.slice(0, 2).map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => onHookClick(`${event.titleZh}：${event.emotionHintZh}`)}
+              >
+                {event.titleZh}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </aside>
+
+      <div
+        className={`giis-scene-character-row giis-scene-character-count-${Math.min(characters.length, 4)} ${
+          hasCharacterFocus ? 'has-focus' : ''
+        }`}
+      >
+        {characters.length ? (
+          characters.map((character) => (
+            <button
+              key={character.id}
+              type="button"
+              className={`giis-scene-standee ${character.isSelected ? 'is-selected' : ''} ${
+                character.isTalking ? 'is-talking' : ''
+              } ${hasCharacterFocus && !character.isSelected && !character.isTalking ? 'is-background' : ''} ${
+                character.isAlan ? 'is-alan' : ''
+              }`}
+              onClick={() => onSelectCharacter(character.id)}
+              title={character.quietLineZh ? `${character.statusZh}\n${character.quietLineZh}` : character.statusZh}
+            >
+              <CharacterPortrait name={character.name} size="lg" showName={false} emotion={character.emotion} />
+              <span
+                className={`giis-scene-standee-label giis-activity-${character.activityKind} giis-emotion-${character.emotion}`}
+              >
+                <span className="giis-scene-standee-name-row">
+                  <b>{character.displayName}</b>
+                  <small>{character.emotionLabel}</small>
+                </span>
+                <span className="giis-scene-activity-row">
+                  <span aria-hidden="true">{character.activityIcon}</span>
+                  <small>{character.activityLabel}</small>
+                </span>
+                {character.quietLineZh ? (
+                  <span className="giis-scene-quiet-line">{displayTextPreview(character.quietLineZh, 28)}</span>
+                ) : null}
+              </span>
+            </button>
+          ))
+        ) : (
+          <div className="giis-scene-empty-stage">
+            <b>這裡暫時沒有人。</b>
+            {nonEmptyOtherScenes.length ? (
+              <span>
+                大家在：
+                {nonEmptyOtherScenes.map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => onViewScene(group.id)}
+                    title={`切換視角到${group.labelZh}（不移動 Alan）`}
+                  >
+                    {group.labelZh} ({group.count})
+                  </button>
+                ))}
+              </span>
+            ) : (
+              <span>校園正在安靜流動。</span>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function activityKindForCharacterStatus({
+  statusZh,
+  moving,
+  talking,
+  sceneId,
+}: {
+  statusZh: string;
+  moving: boolean;
+  talking: boolean;
+  sceneId: SchoolLocationId;
+}): SceneActivityKind {
+  if (talking) return 'talking';
+  if (moving) return 'moving';
+  if (/睡|休息|準備休息|未眠/.test(statusZh)) return 'resting';
+  if (/吃飯|午餐|餐|便當/.test(statusZh) || sceneId === 'aiClubRoom') return 'eating';
+  if (/傳聞|聊天|交換|告白|旁聽/.test(statusZh) || sceneId === 'courtyard') return 'social';
+  if (/課堂|筆記|小考|作業|黑板/.test(statusZh) || sceneId === 'classroom') return 'studying';
+  if (/簡報|校長|學生會|Alan/.test(statusZh) || sceneId === 'studentCouncilRoom') return 'briefing';
+  if (/心情|祕密|秘密|整理/.test(statusZh) || sceneId === 'dormitory') return 'reflecting';
+  return 'observing';
+}
+
+function activityIconForKind(kind: SceneActivityKind) {
+  if (kind === 'moving') return '→';
+  if (kind === 'talking') return '話';
+  if (kind === 'resting') return '休';
+  if (kind === 'studying') return '課';
+  if (kind === 'eating') return '食';
+  if (kind === 'social') return '聞';
+  if (kind === 'briefing') return '報';
+  if (kind === 'reflecting') return '想';
+  return '眼';
+}
+
+function activityLabelFromStatus({
+  name,
+  statusZh,
+  sceneLabelZh,
+  activityKind,
+  emotion,
+}: {
+  name: string;
+  statusZh: string;
+  sceneLabelZh: string;
+  activityKind: SceneActivityKind;
+  emotion: PortraitEmotion;
+}) {
+  const displayName = displayAgentName(name);
+  if (activityKind === 'talking') return '正在看著你';
+  if (activityKind === 'moving') return '正往下一個地方走';
+  if (name === 'Umi' || displayName === '海') {
+    if (emotion === 'worried') return '有點擔心，但還陪著你';
+    if (emotion === 'serious') return '正在幫你收斂重點';
+    if (emotion === 'smiling') return '在旁邊輕輕吐槽';
+  }
+  if (name === 'Tianze' || displayName === '天澤') {
+    if (emotion === 'smiling') return '像是發現了漏洞';
+    if (emotion === 'serious') return '正在測你的反應';
+    return '安靜觀察局勢';
+  }
+  if (name === 'Mahiru' || displayName === '真晝') {
+    if (emotion === 'worried') return '正在留意你累不累';
+    if (emotion === 'smiling') return '用很輕的方式陪著';
+    if (emotion === 'serious') return '在認真確認狀況';
+  }
+  if (name === 'Maomao' || displayName === '貓貓') return '覺得哪裡不太對';
+  if (name === 'Sakiko' || displayName === '祥子') return '把情緒收得很整齊';
+  const normalized = displayTextWithNames(statusZh)
+    .replace(new RegExp(`^在${sceneLabelZh}`), '')
+    .replace(/^正在/, '')
+    .trim();
+  if (!normalized) return statusZh;
+  return normalized.length > 18 ? `${normalized.slice(0, 18)}…` : normalized;
+}
+
+function portraitEmotionFrom(emotion?: string): PortraitEmotion {
+  if (emotion === 'smiling' || emotion === 'worried' || emotion === 'serious') return emotion;
+  return 'neutral';
+}
+
+function emotionLabelZh(emotion?: string) {
+  if (emotion === 'smiling') return '微笑';
+  if (emotion === 'worried') return '擔心';
+  if (emotion === 'serious') return '認真';
+  return '平穩';
 }
 
 function quickActionsForScene(sceneId: SchoolLocationId): Array<{ label: string; actionType: QuickActionType }> {
@@ -1390,6 +1797,53 @@ function sceneBackgroundColor(sceneId: SchoolLocationId) {
     default:
       return 0x111827;
   }
+}
+
+function sceneVisualStyle(sceneId: SchoolLocationId) {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const backgroundByScene: Partial<Record<SchoolLocationId, string>> = {
+    classroom: `${base}/backgrounds/classroom.png`,
+    courtyard: `${base}/backgrounds/courtyard.png`,
+    aiClubRoom: `${base}/backgrounds/aiClubRoom.png`,
+    dormitory: `${base}/backgrounds/dormitory.png`,
+    studentCouncilRoom: `${base}/backgrounds/studentCouncilRoom.png`,
+  };
+  const background = backgroundByScene[sceneId];
+  return background ? ({ ['--vn-scene-bg' as string]: `url("${background}")` } as CSSProperties) : undefined;
+}
+
+function sceneHooksForScene(scene: SchoolLocation) {
+  const baseHooks: Record<
+    SchoolLocationId,
+    Array<{ id: string; labelZh: string; detailZh: string; x: number; y: number }>
+  > = {
+    classroom: [
+      { id: 'blackboard', labelZh: '黑板', detailZh: '今天的規則還留在上面，適合引出小考、作業或誰沒有說出口的壓力。', x: 50, y: 38 },
+      { id: 'schoolbag', labelZh: '書包', detailZh: '有人的書包半開著，像是匆忙離開，也像是把話留在教室裡。', x: 20, y: 72 },
+      { id: 'exam-paper', labelZh: '考卷', detailZh: '一張沒有收好的考卷可以變成安慰、挑釁，或海提醒 Alan 先別公開處理。', x: 66, y: 68 },
+    ],
+    courtyard: [
+      { id: 'bench', labelZh: '長椅', detailZh: '適合安靜旁坐、告白沒說完、或有人假裝只是路過。', x: 28, y: 68 },
+      { id: 'notice-board', labelZh: '公告欄', detailZh: '傳聞和校園公告可以從這裡變成下一段對話的理由。', x: 78, y: 56 },
+      { id: 'walkway', labelZh: '步道', detailZh: '角色擦肩而過時，缺席、停頓和回頭會比移動本身更有意義。', x: 53, y: 76 },
+    ],
+    aiClubRoom: [
+      { id: 'saved-seat', labelZh: '空座位', detailZh: '留好的座位沒人坐，適合生成缺席感或午餐時的小尷尬。', x: 38, y: 70 },
+      { id: 'tray', labelZh: '餐盤', detailZh: '便當、熱茶或忘記午餐錢都可以從這裡變成很小但有記憶的事件。', x: 18, y: 78 },
+      { id: 'counter', labelZh: '取餐口', detailZh: '午餐時間不適合推太多規則，海可能會把簡報縮短。', x: 62, y: 42 },
+    ],
+    studentCouncilRoom: [
+      { id: 'desk', labelZh: '文件桌', detailZh: '未完成的表單可以引出校長室的正式壓力，或海替 Alan 做摘要。', x: 48, y: 66 },
+      { id: 'tea', labelZh: '熱茶', detailZh: '比起命令，先放一杯茶常常更像海會做的事。', x: 32, y: 72 },
+      { id: 'door', labelZh: '門口', detailZh: '有人終於願意走進來求助，也可能只是站在門外。', x: 80, y: 50 },
+    ],
+    dormitory: [
+      { id: 'lamp', labelZh: '夜燈', detailZh: '深夜燈還亮著時，疲憊通常比任務更早發生。', x: 72, y: 42 },
+      { id: 'note', labelZh: '紙條', detailZh: '一張短訊息可以變成隔天的關心，而不需要立刻逼問。', x: 38, y: 66 },
+      { id: 'door', labelZh: '房門', detailZh: '門後的沉默也算一種事件，只是要小心處理。', x: 18, y: 48 },
+    ],
+  };
+  return baseHooks[scene.id];
 }
 
 function topbarLifeStatus(scene: SchoolLocation, schedule?: string) {

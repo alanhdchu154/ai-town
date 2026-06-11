@@ -4134,6 +4134,901 @@ body {
   }
 }
 
+/* Anime polish pass: keep the existing RPG loop, but make the shell feel
+   closer to a VN school scene than a dense debug console. */
+.game-background {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 18, 0.1), rgba(3, 7, 18, 0.52)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 0,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 7px
+    ),
+    url(../assets/underworld-campus-night.svg);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: auto, 7px 7px, cover;
+  background-attachment: fixed;
+}
+
+.giis-live-room-shell {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 28px 96px rgba(0, 0, 0, 0.58),
+    0 0 0 1px rgba(125, 211, 252, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.giis-live-room-shell::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 12%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 14%, transparent 86%, rgba(255, 255, 255, 0.04));
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 9;
+}
+
+.giis-world-panel {
+  background: #050a16;
+}
+
+.giis-live-room-shell .giis-world-panel::before {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 18, 0.36), transparent 20%, transparent 70%, rgba(3, 7, 18, 0.64)),
+    linear-gradient(90deg, rgba(3, 7, 18, 0.34), transparent 12%, transparent 88%, rgba(3, 7, 18, 0.28));
+}
+
+.giis-live-room-shell .giis-world-panel::after {
+  opacity: 0.44;
+}
+
+.giis-live-room-shell .giis-topbar,
+.giis-live-room-shell .giis-bottom-bar,
+.giis-live-room-shell .giis-left-pill,
+.giis-live-room-shell .giis-utility-panel,
+.giis-live-room-shell .giis-left-umi-panel,
+.giis-live-room-shell .giis-campus-notifications,
+.giis-live-room-shell .giis-left-schedule-panel {
+  background:
+    linear-gradient(180deg, rgba(12, 18, 34, 0.62), rgba(4, 8, 18, 0.58)),
+    linear-gradient(90deg, color-mix(in srgb, var(--scene-accent, #22d3ee) 10%, transparent), transparent 52%);
+  border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 38%, rgba(255, 255, 255, 0.16));
+}
+
+.giis-live-room-shell .giis-topbar {
+  border-radius: 16px;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.giis-live-room-shell .giis-topbar > div > b {
+  color: #fff7ed;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.64),
+    0 0 18px color-mix(in srgb, var(--scene-accent, #22d3ee) 28%, transparent);
+}
+
+.giis-live-room-shell .giis-topbar-line,
+.giis-live-room-shell .giis-topbar-meta {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.giis-view-switch {
+  background: rgba(2, 6, 23, 0.42);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+}
+
+.giis-world-mode-toggle {
+  align-items: center;
+  background: rgba(2, 6, 23, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.18rem;
+  padding: 0.2rem;
+}
+
+.giis-view-switch button,
+.giis-world-mode-toggle button,
+.giis-presence-button,
+.giis-action-pill,
+.giis-panel-toggle,
+.giis-wall-world-button,
+.giis-wall-controls button,
+.giis-wall-controls select {
+  border-radius: 12px;
+}
+
+.giis-world-mode-toggle button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #bfdbfe;
+  cursor: pointer;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  min-height: 1.85rem;
+  padding: 0.28rem 0.72rem;
+}
+
+.giis-world-mode-toggle button:hover {
+  color: #f8fafc;
+}
+
+.giis-world-mode-toggle button.active {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--scene-accent, #22d3ee) 38%, rgba(255, 255, 255, 0.08)), rgba(15, 23, 42, 0.78));
+  border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 58%, rgba(255, 255, 255, 0.12));
+  color: #fff7ed;
+}
+
+.giis-live-room-shell .giis-select {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(8, 13, 27, 0.94));
+  border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 34%, rgba(255, 255, 255, 0.12));
+}
+
+.giis-live-room-shell .giis-bottom-bar {
+  box-shadow:
+    0 -18px 48px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.giis-live-room-shell .giis-bottom-status,
+.giis-live-room-shell .giis-bottom-actions {
+  scrollbar-width: none;
+}
+
+.giis-live-room-shell .giis-bottom-status::-webkit-scrollbar,
+.giis-live-room-shell .giis-bottom-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.giis-live-room-shell .giis-bottom-status span,
+.giis-live-room-shell .giis-action-pill,
+.giis-live-room-shell .giis-left-pill {
+  backdrop-filter: blur(14px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.giis-live-room-shell .giis-action-pill-primary,
+.giis-wall-controls button.active,
+.giis-view-switch button.active {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--scene-accent, #22d3ee) 42%, rgba(255, 255, 255, 0.1)), rgba(79, 70, 229, 0.26)),
+    rgba(15, 23, 42, 0.72);
+  color: #fff7ed;
+}
+
+.giis-live-room-shell .giis-action-pill:hover:not(:disabled),
+.giis-live-room-shell .giis-left-pill:hover,
+.giis-presence-button:hover,
+.giis-panel-toggle:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--scene-accent, #22d3ee) 38%, transparent),
+    0 0 24px color-mix(in srgb, var(--scene-accent, #22d3ee) 24%, transparent),
+    2px 2px 0 rgba(2, 6, 23, 0.54);
+}
+
+.giis-scene-toast,
+.giis-move-hint {
+  background: rgba(4, 8, 18, 0.68);
+  border-color: color-mix(in srgb, var(--scene-accent, #22d3ee) 52%, rgba(255, 255, 255, 0.14));
+}
+
+.giis-conversation-wall {
+  background:
+    linear-gradient(180deg, rgba(9, 15, 31, 0.96), rgba(4, 8, 18, 0.98)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 0,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 8px
+    );
+  border-color: rgba(125, 211, 252, 0.2);
+  border-radius: 16px;
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.54),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.giis-conversation-wall-header h2 {
+  font-size: 1.55rem;
+  text-shadow: 0 0 20px rgba(125, 211, 252, 0.18);
+}
+
+.giis-wall-kicker {
+  color: #bae6fd;
+}
+
+.giis-wall-metric,
+.giis-wall-focus-row > div,
+.giis-conversation-card,
+.giis-wall-empty {
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(7, 12, 24, 0.74)),
+    linear-gradient(90deg, rgba(125, 211, 252, 0.06), transparent 58%);
+  border-color: rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+}
+
+.giis-wall-metric {
+  min-height: 4.4rem;
+}
+
+.giis-conversation-card {
+  box-shadow:
+    0 16px 42px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.giis-conversation-card h3 {
+  color: #fff7ed;
+}
+
+.giis-wall-character-strip {
+  align-items: center;
+  display: flex;
+  gap: 0.36rem;
+  min-height: 2.15rem;
+}
+
+.giis-wall-character-strip .character-portrait {
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.24));
+}
+
+.giis-wall-character-strip .character-portrait-grid {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.18rem;
+}
+
+.giis-wall-trace {
+  background:
+    linear-gradient(180deg, rgba(8, 47, 73, 0.34), rgba(12, 18, 34, 0.42));
+  border-color: rgba(125, 211, 252, 0.2);
+}
+
+.giis-conversation-card li {
+  border-left-color: rgba(125, 211, 252, 0.34);
+}
+
+.giis-side-conversation-panel-active {
+  border-radius: 18px;
+}
+
+.giis-side-conversation-panel-active .giis-rpg-portrait-stage .character-portrait-card {
+  border-color: color-mix(in srgb, var(--portrait-accent, #8a6f4d) 56%, rgba(255, 255, 255, 0.18));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 42px rgba(0, 0, 0, 0.26);
+}
+
+.giis-live-room-shell.giis-conversation-active .giis-world-panel::before {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 18, 0.62), rgba(3, 7, 18, 0.18) 34%, rgba(3, 7, 18, 0.72)),
+    linear-gradient(90deg, rgba(3, 7, 18, 0.76), transparent 32%, transparent 68%, rgba(3, 7, 18, 0.74)),
+    var(--vn-scene-bg, linear-gradient(180deg, rgba(3, 7, 18, 0.88), rgba(8, 13, 27, 0.98)));
+  background-position: center;
+  background-size: cover;
+  opacity: 0.92;
+}
+
+.giis-scene-stage {
+  color: #f8fafc;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+  z-index: 1;
+}
+
+.giis-scene-stage-backdrop,
+.giis-scene-stage-shade {
+  inset: 0;
+  position: absolute;
+}
+
+.giis-scene-stage-backdrop {
+  background:
+    linear-gradient(180deg, rgba(3, 7, 18, 0.18), rgba(3, 7, 18, 0.16)),
+    var(--vn-scene-bg, linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.94)));
+  background-position: center;
+  background-size: cover;
+  filter: saturate(1.08) contrast(1.03);
+  transform: scale(1.012);
+}
+
+.giis-scene-stage-shade {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.16), transparent 28%, rgba(2, 6, 23, 0.52)),
+    linear-gradient(90deg, rgba(2, 6, 23, 0.64), transparent 20%, transparent 78%, rgba(2, 6, 23, 0.62));
+  pointer-events: none;
+  z-index: 1;
+}
+
+.giis-scene-object-layer {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.giis-scene-hotspot {
+  align-items: center;
+  background: rgba(4, 8, 18, 0.48);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 58%, rgba(255, 255, 255, 0.16));
+  border-radius: 999px;
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 800;
+  left: var(--hotspot-x);
+  min-height: 1.8rem;
+  padding: 0.24rem 0.58rem;
+  pointer-events: auto;
+  position: absolute;
+  top: var(--hotspot-y);
+  transform: translate(-50%, -50%);
+}
+
+.giis-scene-hotspot::before {
+  background: color-mix(in srgb, var(--scene-accent, #22d3ee) 88%, #fff 8%);
+  border-radius: 999px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--scene-accent, #22d3ee) 44%, transparent);
+  content: '';
+  height: 0.45rem;
+  margin-right: 0.36rem;
+  width: 0.45rem;
+}
+
+.giis-scene-hotspot:hover {
+  background: rgba(15, 23, 42, 0.76);
+  transform: translate(-50%, -50%) scale(1.04);
+}
+
+.giis-scene-atmosphere-card {
+  background:
+    linear-gradient(180deg, rgba(12, 18, 34, 0.72), rgba(4, 8, 18, 0.62)),
+    linear-gradient(90deg, color-mix(in srgb, var(--scene-accent, #22d3ee) 12%, transparent), transparent 56%);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 42%, rgba(255, 255, 255, 0.16));
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  display: grid;
+  gap: 0.32rem;
+  left: 1.1rem;
+  max-width: min(23rem, calc(100% - 2.2rem));
+  padding: 0.86rem;
+  position: absolute;
+  top: 1rem;
+  z-index: 4;
+}
+
+.giis-scene-atmosphere-card h3 {
+  color: #fff7ed;
+  font-size: 1.1rem;
+  font-weight: 900;
+  margin: 0;
+}
+
+.giis-scene-atmosphere-card p {
+  color: #dbeafe;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.giis-scene-seeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  margin-top: 0.2rem;
+}
+
+.giis-scene-seeds button,
+.giis-scene-empty-stage button {
+  background: rgba(15, 23, 42, 0.58);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 42%, rgba(255, 255, 255, 0.14));
+  border-radius: 999px;
+  color: #e0f2fe;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 0.25rem 0.56rem;
+}
+
+.giis-scene-character-row {
+  align-items: end;
+  bottom: 4.15rem;
+  display: flex;
+  gap: clamp(0.45rem, 2vw, 1.4rem);
+  justify-content: center;
+  left: 50%;
+  max-width: min(72rem, calc(100% - 3rem));
+  position: absolute;
+  transform: translateX(-50%);
+  width: max-content;
+  z-index: 4;
+}
+
+.giis-scene-standee {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #f8fafc;
+  cursor: pointer;
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+  max-width: min(18vw, 13rem);
+  min-width: 7.5rem;
+  padding: 0;
+  position: relative;
+  transition:
+    filter 0.22s ease,
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.giis-scene-standee:not(.is-background) {
+  animation: giisSceneIdle 4.8s ease-in-out infinite;
+}
+
+.giis-scene-standee .character-portrait-card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-height: clamp(13rem, 38vh, 28rem);
+  overflow: visible;
+  padding: 0;
+}
+
+.giis-scene-standee .character-portrait-vn::after,
+.giis-scene-standee .character-portrait-card-copy {
+  display: none;
+}
+
+.giis-scene-standee .character-portrait-img,
+.giis-scene-standee .character-portrait-fallback {
+  align-self: end;
+  border: 0;
+  filter:
+    drop-shadow(0 20px 22px rgba(0, 0, 0, 0.42))
+    drop-shadow(4px 4px 0 rgba(2, 6, 23, 0.34));
+  height: clamp(13rem, 38vh, 28rem);
+  max-width: min(17vw, 13rem);
+  object-fit: contain;
+  object-position: center bottom;
+  transition:
+    filter 0.24s ease,
+    opacity 0.24s ease,
+    transform 0.24s ease;
+  width: auto;
+}
+
+.giis-scene-standee .character-portrait-img[src*="/portraits/"] {
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(226, 232, 240, 0.84));
+  border: 1px solid color-mix(in srgb, var(--portrait-accent, var(--scene-accent, #22d3ee)) 42%, rgba(255, 255, 255, 0.22));
+  border-radius: 18px;
+  height: clamp(10rem, 30vh, 20rem);
+  object-fit: contain;
+  padding: 0.25rem;
+  width: min(12rem, 15vw);
+}
+
+.giis-scene-standee .character-portrait-fallback {
+  border-radius: 22px;
+  height: clamp(9rem, 28vh, 18rem);
+  opacity: 0.9;
+  width: min(11rem, 14vw);
+}
+
+.giis-scene-standee.is-selected .character-portrait-img,
+.giis-scene-standee.is-talking .character-portrait-img,
+.giis-scene-standee.is-selected .character-portrait-fallback {
+  filter:
+    drop-shadow(0 0 22px color-mix(in srgb, var(--scene-accent, #22d3ee) 42%, transparent))
+    drop-shadow(0 24px 28px rgba(0, 0, 0, 0.44));
+}
+
+.giis-scene-character-row.has-focus .giis-scene-standee.is-background {
+  opacity: 0.56;
+  transform: translateY(0.4rem) scale(0.92);
+}
+
+.giis-scene-standee.is-selected,
+.giis-scene-standee.is-talking {
+  z-index: 2;
+}
+
+.giis-scene-standee.is-selected .character-portrait-img,
+.giis-scene-standee.is-talking .character-portrait-img {
+  transform: translateY(-0.45rem) scale(1.035);
+}
+
+.giis-scene-standee.is-background .character-portrait-img,
+.giis-scene-standee.is-background .character-portrait-fallback {
+  filter:
+    saturate(0.74)
+    brightness(0.76)
+    drop-shadow(0 14px 18px rgba(0, 0, 0, 0.34));
+}
+
+.giis-scene-standee.is-alan {
+  opacity: 0.82;
+  transform: scale(0.86);
+}
+
+.giis-scene-standee-label {
+  background: rgba(4, 8, 18, 0.68);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 38%, rgba(255, 255, 255, 0.14));
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+  display: grid;
+  gap: 0.18rem;
+  max-width: 100%;
+  min-height: 4.45rem;
+  padding: 0.42rem 0.55rem;
+  text-align: center;
+  width: 100%;
+}
+
+.giis-scene-standee.is-selected .giis-scene-standee-label,
+.giis-scene-standee.is-talking .giis-scene-standee-label {
+  background: rgba(5, 12, 28, 0.82);
+  border-color: color-mix(in srgb, var(--activity-accent, var(--scene-accent, #22d3ee)) 62%, rgba(255, 255, 255, 0.18));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 18px 42px rgba(0, 0, 0, 0.36);
+}
+
+.giis-scene-standee.is-background .giis-scene-standee-label {
+  opacity: 0.72;
+}
+
+.giis-scene-standee-name-row,
+.giis-scene-activity-row {
+  align-items: center;
+  display: flex;
+  gap: 0.35rem;
+  justify-content: center;
+  min-width: 0;
+}
+
+.giis-scene-standee-name-row b,
+.giis-scene-standee-name-row small,
+.giis-scene-activity-row small,
+.giis-scene-quiet-line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.giis-scene-standee-name-row b {
+  color: #fff7ed;
+  font-size: 0.86rem;
+}
+
+.giis-scene-standee-name-row small {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  color: #bfdbfe;
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 0.05rem 0.34rem;
+}
+
+.giis-emotion-smiling .giis-scene-standee-name-row small {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+}
+
+.giis-emotion-worried .giis-scene-standee-name-row small {
+  background: rgba(96, 165, 250, 0.16);
+  color: #bfdbfe;
+}
+
+.giis-emotion-serious .giis-scene-standee-name-row small {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+}
+
+.giis-scene-activity-row {
+  background: rgba(15, 23, 42, 0.52);
+  border: 1px solid color-mix(in srgb, var(--activity-accent, var(--scene-accent, #22d3ee)) 42%, rgba(255, 255, 255, 0.12));
+  border-radius: 999px;
+  color: #e0f2fe;
+  justify-self: center;
+  max-width: 100%;
+  min-height: 1.45rem;
+  padding: 0.12rem 0.42rem;
+}
+
+.giis-scene-activity-row > span {
+  align-items: center;
+  background: color-mix(in srgb, var(--activity-accent, var(--scene-accent, #22d3ee)) 36%, rgba(15, 23, 42, 0.72));
+  border-radius: 999px;
+  color: #fff7ed;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  font-weight: 950;
+  height: 1.08rem;
+  justify-content: center;
+  line-height: 1;
+  min-width: 1.08rem;
+  padding: 0 0.18rem;
+}
+
+.giis-scene-activity-row small {
+  color: #dbeafe;
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.giis-scene-quiet-line {
+  color: rgba(191, 219, 254, 0.84);
+  display: block;
+  font-size: 0.64rem;
+  line-height: 1.2;
+  max-width: 100%;
+}
+
+.giis-activity-moving { --activity-accent: #38bdf8; }
+.giis-activity-talking { --activity-accent: #f472b6; }
+.giis-activity-resting { --activity-accent: #a78bfa; }
+.giis-activity-studying { --activity-accent: #facc15; }
+.giis-activity-eating { --activity-accent: #fb923c; }
+.giis-activity-social { --activity-accent: #4ade80; }
+.giis-activity-briefing { --activity-accent: #60a5fa; }
+.giis-activity-reflecting { --activity-accent: #c084fc; }
+.giis-activity-observing { --activity-accent: #94a3b8; }
+
+@keyframes giisSceneIdle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.22rem);
+  }
+}
+
+.giis-scene-empty-stage {
+  background: rgba(4, 8, 18, 0.62);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 38%, rgba(255, 255, 255, 0.14));
+  border-radius: 12px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+  display: grid;
+  gap: 0.5rem;
+  max-width: min(38rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  text-align: center;
+}
+
+.giis-scene-empty-stage span {
+  align-items: center;
+  color: #dbeafe;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: center;
+}
+
+.giis-map-mode .giis-stage-wrapper {
+  z-index: 1;
+}
+
+.giis-map-fallback {
+  align-content: center;
+  background:
+    linear-gradient(180deg, rgba(12, 18, 34, 0.86), rgba(4, 8, 18, 0.9)),
+    linear-gradient(90deg, color-mix(in srgb, var(--scene-accent, #22d3ee) 12%, transparent), transparent 58%);
+  border: 1px solid color-mix(in srgb, var(--scene-accent, #22d3ee) 44%, rgba(255, 255, 255, 0.16));
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34);
+  color: #dbeafe;
+  display: grid;
+  gap: 0.4rem;
+  inset: 1rem;
+  justify-items: center;
+  padding: 1rem;
+  position: absolute;
+  text-align: center;
+}
+
+.giis-map-fallback b {
+  color: #fff7ed;
+  font-size: 1rem;
+}
+
+.giis-map-fallback span,
+.giis-map-fallback small {
+  max-width: 34rem;
+}
+
+.giis-map-fallback small {
+  color: #93c5fd;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 900px) {
+  .game-background > div {
+    padding: 0 !important;
+  }
+
+  .giis-live-room-shell {
+    border-left-width: 0;
+    border-right-width: 0;
+    overflow-x: hidden;
+  }
+
+  .giis-live-room-shell .giis-topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: visible;
+    padding: 0.55rem;
+  }
+
+  .giis-live-room-shell .giis-topbar-title {
+    flex: none;
+    min-width: 0;
+  }
+
+  .giis-live-room-shell .giis-topbar-title b,
+  .giis-live-room-shell .giis-topbar-line {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .giis-live-room-shell .giis-view-switch {
+    justify-self: end;
+  }
+
+  .giis-live-room-shell .giis-world-mode-toggle {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
+  .giis-live-room-shell .giis-world-mode-toggle button {
+    flex: 1 1 0;
+  }
+
+  .giis-live-room-shell .giis-scene-select {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .giis-live-room-shell .giis-presence-button,
+  .giis-live-room-shell .giis-find-alan-button {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .giis-live-room-shell .giis-topbar-meta {
+    display: none;
+  }
+
+  .giis-scene-atmosphere-card {
+    left: 0.75rem;
+    max-width: calc(100% - 1.5rem);
+    top: 0.75rem;
+  }
+
+  .giis-scene-character-row {
+    bottom: 8.7rem;
+    gap: 0.5rem;
+    max-width: calc(100% - 1rem);
+    overflow-x: auto;
+    padding: 0 0.5rem 0.25rem;
+    width: calc(100% - 1rem);
+  }
+
+  .giis-scene-standee {
+    flex: 0 0 8.4rem;
+    max-width: 8.4rem;
+    min-width: 8.4rem;
+  }
+
+  .giis-scene-standee .character-portrait-card {
+    min-height: clamp(10rem, 31vh, 16rem);
+  }
+
+  .giis-scene-standee .character-portrait-img,
+  .giis-scene-standee .character-portrait-fallback {
+    height: clamp(10rem, 31vh, 16rem);
+    max-width: 8rem;
+  }
+
+  .giis-scene-standee .character-portrait-img[src*="/portraits/"] {
+    height: clamp(8.5rem, 25vh, 13rem);
+    width: 7.4rem;
+  }
+
+  .giis-scene-standee .character-portrait-fallback {
+    height: clamp(8.5rem, 25vh, 13rem);
+    width: 7.4rem;
+  }
+
+  .giis-scene-hotspot {
+    font-size: 0.68rem;
+    min-height: 1.6rem;
+    padding: 0.2rem 0.44rem;
+  }
+
+  .giis-live-room-shell .giis-left-column {
+    top: 11rem;
+  }
+
+  .giis-live-room-shell .giis-bottom-bar {
+    grid-template-columns: 1fr;
+    max-height: 34vh;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .giis-live-room-shell .giis-bottom-status,
+  .giis-live-room-shell .giis-bottom-actions {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .giis-live-room-shell .giis-action-pill,
+  .giis-live-room-shell .giis-bottom-status span {
+    font-size: 0.78rem;
+    min-height: 2rem;
+    padding: 0.34rem 0.58rem;
+  }
+
+  .giis-live-room-shell .giis-utility-panel-collapsed .giis-panel-toggle {
+    min-height: 7.2rem;
+  }
+
+  .giis-conversation-wall {
+    border-radius: 0;
+    height: 100dvh;
+    margin-top: 0;
+    overflow-x: hidden;
+    padding: 0.75rem;
+  }
+
+  .giis-conversation-wall-header {
+    align-items: flex-start;
+  }
+
+  .giis-wall-world-button {
+    flex: 0 0 auto;
+  }
+
+  .giis-wall-segments {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .giis-wall-segments button {
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
 .shape-top-left-corner {
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
@@ -4145,9 +5040,8 @@ body {
    dialogue textbox on the right. Additive + desktop-only
    (min-width: 901px) so the existing mobile stacked layout is
    untouched. Only applies while actively in a conversation
-   (.giis-conversation-active). Character render art is tracked in
-   docs/giis-vn-art-spec.md; until full renders exist this reuses
-   the existing portrait PNGs in /public/portraits.
+   (.giis-conversation-active). Character render art now prefers
+   /public/renders and falls back to /public/portraits.
    ============================================================ */
 @media (min-width: 901px) {
   .giis-live-room-shell.giis-conversation-active .giis-utility-panel {
@@ -4206,6 +5100,9 @@ body {
 /* Clickable 「大家在：…」 jump chips inside the empty-room cue.
    View-only camera jump — never moves Alan. */
 .giis-empty-room-jump {
+  /* Parent cue is pointer-events: none (it overlays the stage); the chips
+     must re-enable hit-testing or they are unclickable. */
+  pointer-events: auto;
   display: inline-block;
   margin: 0 0.15rem;
   padding: 0.05rem 0.5rem;
