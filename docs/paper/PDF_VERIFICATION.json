@@ -1,0 +1,18 @@
+{
+  "pdf_render_verified": false,
+  "platform_preview_verified": false,
+  "verified_by": "",
+  "verified_at": "",
+  "render_tool": "",
+  "render_environment": "",
+  "source_archive_sha256": "",
+  "rendered_pdf_sha256": "",
+  "visual_checks": {
+    "title_author_abstract_checked": false,
+    "tables_checked": false,
+    "citations_checked": false,
+    "no_raw_transcripts_or_sensitive_files": false,
+    "limitations_visible": false
+  },
+  "notes": "Fill only after a rendered PDF and platform preview are actually inspected."
+}

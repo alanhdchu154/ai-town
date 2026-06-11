@@ -200,6 +200,30 @@ Return:
 """
 
 
+def build_claude_timeout_recovery_prompt(task_text: str, timeout_seconds: int) -> str:
+    return f"""You are Claude Code working as Umi's focused worker for Alan's AI Town / GIIS Underworld repo.
+
+The previous Claude Code attempt timed out after {timeout_seconds} seconds. Treat that as an orchestration problem to recover from, not as a reason to abandon cc.
+
+Recovery mode:
+- Read-only: do not modify files.
+- Do not run dev servers, watch commands, broad tests, long evals, or full repo scans.
+- Inspect only the workload, `git status --short`, `git diff --name-only`, `WORKLOG.md`, and at most five directly relevant files.
+- If the original task is too broad, produce a narrower cc handoff that can finish in one pass.
+- If auth/provider/tooling is the real blocker, state the exact evidence and the smallest diagnostic command Umi should run next.
+- If partial useful findings are possible, report them.
+
+Workload:
+{task_text}
+
+Return:
+1. Timeout recovery findings.
+2. Whether this should be retried as a smaller cc task, and the exact narrowed task.
+3. Files inspected and commands run.
+4. Any auth/tooling evidence that needs fixing before retry.
+"""
+
+
 def build_codex_prompt(task_text: str, claude_stdout: str, allow_write: bool, allow_upload: bool) -> str:
     write_policy = (
         "You may propose file edits only if the workload explicitly asks for integration."
@@ -239,6 +263,49 @@ Return:
 3. Integration checklist.
 4. Recommended next action for Alan/Umi/Codex.
 """
+
+
+def is_timeout_result(result: WorkerResult | None) -> bool:
+    if not result or not result.skipped_reason:
+        return False
+    return "timed out after" in result.skipped_reason
+
+
+def merge_retry_result(first: WorkerResult, retry: WorkerResult, retry_timeout: int) -> WorkerResult:
+    retry_status = retry.skipped_reason or f"exit code {retry.returncode}"
+    stdout = "\n\n".join(
+        part
+        for part in (
+            "# First attempt stdout",
+            first.stdout or "(empty)",
+            f"# Timeout recovery attempt stdout ({retry_status}, timeout {retry_timeout}s)",
+            retry.stdout or "(empty)",
+        )
+        if part
+    )
+    stderr = "\n\n".join(
+        part
+        for part in (
+            "# First attempt stderr",
+            first.stderr or "(empty)",
+            "# Timeout recovery attempt stderr",
+            retry.stderr or "(empty)",
+        )
+        if part
+    )
+    skipped_reason = None
+    if retry.skipped_reason:
+        skipped_reason = (
+            f"{first.skipped_reason} Timeout recovery also did not complete: {retry.skipped_reason}"
+        )
+    return WorkerResult(
+        name=first.name,
+        command=first.command,
+        returncode=retry.returncode,
+        stdout=stdout,
+        stderr=stderr,
+        skipped_reason=skipped_reason,
+    )
 
 
 def fenced(value: str, language: str = "text") -> str:
@@ -353,6 +420,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--write", action="store_true", help="Allow worker prompts to request file modifications.")
     parser.add_argument("--upload", action="store_true", help="Allow worker prompts to request upload/deploy/publish actions.")
     parser.add_argument("--timeout", type=int, default=600, help="Timeout per worker command in seconds.")
+    parser.add_argument(
+        "--no-timeout-retry",
+        action="store_true",
+        help="Disable the read-only Claude Code timeout recovery pass.",
+    )
     parser.add_argument("--skip-codex", action="store_true", help="Run Claude Code only.")
     parser.add_argument("--skip-claude", action="store_true", help="Run Codex only.")
     parser.add_argument("--dry-run", action="store_true", help="Build prompts and report without calling worker CLIs.")
@@ -437,6 +509,23 @@ def main(argv: list[str] | None = None) -> int:
                 display_command=claude_display,
                 env=load_claude_env(),
             )
+            if is_timeout_result(claude_result) and not args.no_timeout_retry:
+                retry_timeout = max(120, min(args.timeout, 300))
+                recovery_prompt = build_claude_timeout_recovery_prompt(task_text, args.timeout)
+                recovery_command = ["claude", "-p", "--no-session-persistence", recovery_prompt]
+                recovery_display = [
+                    "claude",
+                    "-p",
+                    "--no-session-persistence",
+                    "<timeout-recovery prompt>",
+                ]
+                recovery_result = run_command(
+                    recovery_command,
+                    retry_timeout,
+                    display_command=recovery_display,
+                    env=load_claude_env(),
+                )
+                claude_result = merge_retry_result(claude_result, recovery_result, retry_timeout)
 
     claude_stdout = claude_result.stdout if claude_result else ""
     codex_prompt = build_codex_prompt(task_text, claude_stdout, args.write, args.upload)

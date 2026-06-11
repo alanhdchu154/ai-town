@@ -1,0 +1,8 @@
+[2026-06-06T16:15:58.913Z] start targetPerArm=10 maxBlocks=12 samplesPerArm=1
+[2026-06-06T16:15:58.915Z] $ python3 scripts/paper/merge_ablation_runs.py --runs docs/paper/results/ablation-* --out /Users/alanhdchu/ai-town/docs/paper/results/longitudinal/dataset.json
+[2026-06-06T16:15:58.970Z] merged 4 publishable records -> /Users/alanhdchu/ai-town/docs/paper/results/longitudinal/dataset.json (on=2, off=2, dropped=3)
+[2026-06-06T16:15:58.971Z] $ /tmp/ai-town-paper-venv/bin/python scripts/paper/analyze.py --dataset /Users/alanhdchu/ai-town/docs/paper/results/longitudinal/dataset.json --outdir /Users/alanhdchu/ai-town/docs/paper/results/longitudinal
+[2026-06-06T16:16:01.890Z] Analysis complete. Outputs under: /Users/alanhdchu/ai-town/docs/paper/results/longitudinal/results
+[2026-06-06T16:16:01.890Z] initial counts on=2 off=2
+[2026-06-06T16:16:01.890Z] block 1/12 order=on,off
+[2026-06-06T16:16:01.890Z] $ npm run paper:residue-ablation -- --samples-per-arm=1 --order=on,off --sample-timeout-ms=300000 --post-collection-wait-ms=0 --python=/tmp/ai-town-paper-venv/bin/python

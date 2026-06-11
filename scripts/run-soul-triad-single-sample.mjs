@@ -35,6 +35,7 @@ const POLL_INTERVAL_MS = Number(args.get('poll-interval-ms') ?? 7_000);
 const PAIR_COOLDOWN_MS = Number(args.get('pair-cooldown-ms') ?? 60_000);
 const PROVIDER_COOLDOWN_MS = Number(args.get('provider-cooldown-ms') ?? 10 * 60_000);
 const CLOUD_PREFLIGHT = args.get('cloud-preflight') !== 'false';
+const REQUIRE_ARCHIVED = args.get('require-archived') === 'true';
 const RUN_TIMESTAMP = Date.now();
 // Optional --focus-pair="Name:Name" (e.g. "Mahiru:Tianze") restricts this
 // run to a single dyad so callers can rotate coverage and stop Mahiru from being
@@ -72,6 +73,7 @@ console.log(
     `, pairCooldown=${PAIR_COOLDOWN_MS}ms` +
     `, providerCooldown=${PROVIDER_COOLDOWN_MS}ms` +
     `, cloudPreflight=${CLOUD_PREFLIGHT}` +
+    `, requireArchived=${REQUIRE_ARCHIVED}` +
     `${FOCUS_PAIR ? `, focus=${FOCUS_PAIR}` : ''})`,
 );
 
@@ -302,6 +304,7 @@ function runSelfTest() {
   assertEqual(pairKey(['Umi', 'Tianze']), '天澤:海', 'English focus pair normalizes to Chinese pair key');
   assertEqual(
     isExpectedFreshSample({
+      id: 'conversation-c:selftest',
       involvedCharacters: ['海', '天澤'],
       transcriptMessages: [{}, {}, {}],
     }),
@@ -310,12 +313,25 @@ function runSelfTest() {
   );
   assertEqual(
     isExpectedFreshSample({
+      id: 'conversation-c:selftest',
       involvedCharacters: ['海', '天澤'],
       transcriptMessages: [{}, {}],
     }),
     false,
     'two-message triad sample is not enough for v0.1 evidence',
   );
+  const previousRequireArchived = REQUIRE_ARCHIVED;
+  if (previousRequireArchived) {
+    assertEqual(
+      isExpectedFreshSample({
+        id: 'active-conversation-c:selftest',
+        involvedCharacters: ['海', '天澤'],
+        transcriptMessages: [{}, {}, {}],
+      }),
+      false,
+      'require-archived rejects active conversations',
+    );
+  }
   assertEqual(convexEnvRestoreAction(undefined), 'remove', 'missing Convex env is removed');
   assertEqual(convexEnvRestoreAction(''), 'set', 'empty Convex env value is restored');
   assertEqual(convexEnvRestoreAction('Umi:Mahiru'), 'set', 'existing Convex env value is restored');
@@ -363,6 +379,7 @@ function conversationMessageCount(conversation) {
 
 function isExpectedFreshSample(conversation) {
   if (!conversation || !isTriadPair(conversation?.involvedCharacters)) return false;
+  if (REQUIRE_ARCHIVED && String(conversation?.id ?? '').startsWith('active-conversation-')) return false;
   if (conversationMessageCount(conversation) < 3) return false;
   if (!FOCUS_PAIR_KEY) return true;
   return pairKey(conversation?.involvedCharacters) === FOCUS_PAIR_KEY;

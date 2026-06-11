@@ -21,8 +21,11 @@ INPUT DATA CONTRACT
       "pair": str,            # e.g. "Mahiru-Umi" (alphabetically sorted names)
       "speaker": str,
       "target": str,
-      "condition": "residue_on" | "residue_off" | "na",   # ablation arm
+      "condition": "residue_on" | "residue_off" |
+                   "residue_placebo" | "na",              # ablation arm
       "window": str | null,   # e.g. "10:00-12:00" (continuity exp) else null
+      "source_run": str | null,
+      "collection_day": str | null,
       "overall_score": float, # 0..1
       "status": "PASS" | "WARN" | "FAIL",
       "metrics": {            # each value in 0..1; markers include
@@ -54,12 +57,12 @@ OUTPUTS (under <outdir>/results/, default scripts/paper/results/)
 
   results/soul_uniqueness.csv          (A) per-marker mean + 95% bootstrap CI
   results/soul_uniqueness.md
-  results/residue_ablation.csv         (B) residue_on vs residue_off experiment
+  results/residue_ablation.csv         (B) residue_on vs residue_off/placebo experiment
   results/residue_ablation.md
   results/annotation_agreement.csv     (C) inter-rater + convergent validity
   results/annotation_agreement.md
   results/figures/marker_means.png     (D) bar chart of marker means + CIs
-  results/figures/residue_ablation.png (D) residue_on vs residue_off dot/bar
+  results/figures/residue_ablation.png (D) residue arm dot/bar
   results/summary.md                   (E) stitched plain-English readout
 
 ================================================================================
@@ -122,6 +125,17 @@ LIKERT_DIMS = [
     "character_consistency",
     "repetition",
 ]
+ANNOTATION_COLUMNS = ["case_name", "rater", *LIKERT_DIMS]
+CLUSTER_COLUMNS = ["pair", "source_run", "window"]
+MISSING_CLUSTER_VALUES = {"", "none", "null", "nan", "missing"}
+
+DISPLAY_LABELS = {
+    "human_aftertaste_score": "rule_based_aftertaste_proxy",
+}
+
+
+def display_label(name: str) -> str:
+    return DISPLAY_LABELS.get(name, name)
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +159,36 @@ def bootstrap_mean_ci(
     lo = float(np.percentile(boot_means, 100 * alpha / 2))
     hi = float(np.percentile(boot_means, 100 * (1 - alpha / 2)))
     return (float(x.mean()), lo, hi)
+
+
+def mean_ci_with_note(
+    x: np.ndarray, seed: int = SEED, min_bootstrap_n: int = 3
+) -> tuple[float, float, float, str]:
+    """Mean with a bootstrap CI only when enough observations exist."""
+    x = np.asarray(x, dtype=float)
+    x = x[~np.isnan(x)]
+    if x.size == 0:
+        return (np.nan, np.nan, np.nan, "no_observations")
+    if x.size < min_bootstrap_n:
+        return (float(x.mean()), np.nan, np.nan, f"no_bootstrap_n_lt_{min_bootstrap_n}")
+    mean, lo, hi = bootstrap_mean_ci(x, seed=seed)
+    return (mean, lo, hi, "bootstrap")
+
+
+def saturated_two_arm_status(a: np.ndarray, b: np.ndarray) -> str:
+    """Flag two-arm outcomes that have no usable contrast variance."""
+    a = np.asarray(a, dtype=float)
+    b = np.asarray(b, dtype=float)
+    a = a[~np.isnan(a)]
+    b = b[~np.isnan(b)]
+    if a.size == 0 or b.size == 0:
+        return "not_computable"
+    combined = np.concatenate([a, b])
+    if np.unique(combined).size <= 1:
+        return "saturated_no_usable_variance"
+    if np.unique(a).size <= 1 and np.unique(b).size <= 1:
+        return "constant_within_arms"
+    return "usable_variance"
 
 
 def bootstrap_diff_ci(
@@ -344,6 +388,90 @@ def risk_difference(p_a: float, p_b: float) -> float:
     return float(p_a - p_b)
 
 
+def valid_cluster_value(value: object) -> bool:
+    """Return whether a value can safely participate in a cluster key."""
+    if value is None:
+        return False
+    if isinstance(value, float) and np.isnan(value):
+        return False
+    return str(value).strip().lower() not in MISSING_CLUSTER_VALUES
+
+
+def cluster_unit_values(
+    df: pd.DataFrame,
+    value_col: str,
+    cluster_cols: Optional[list[str]] = None,
+) -> tuple[dict[str, np.ndarray], dict[str, int], str]:
+    """Aggregate row-level outcomes to cluster-level means by condition.
+
+    The preregistered empirical path must account for dyad/day/window
+    dependence. For the current local dataset contract we use the available
+    `pair + source_run + window` metadata as the cluster key. Rows with missing
+    outcome values or incomplete cluster metadata are excluded from this
+    cluster-unit calculation.
+    """
+    if cluster_cols is None:
+        cluster_cols = CLUSTER_COLUMNS
+    missing_cols = [col for col in cluster_cols if col not in df.columns]
+    if missing_cols or value_col not in df.columns or "condition" not in df.columns:
+        reason = "missing column(s): {}".format(
+            ", ".join(missing_cols + ([] if value_col in df.columns else [value_col]))
+        )
+        return {}, {}, reason
+
+    work = df[["condition", value_col, *cluster_cols]].copy()
+    work[value_col] = pd.to_numeric(work[value_col], errors="coerce")
+    work = work.dropna(subset=[value_col])
+    for col in cluster_cols:
+        work = work[work[col].map(valid_cluster_value)]
+    if work.empty:
+        return {}, {}, "no rows with complete cluster metadata"
+
+    work["_cluster_key"] = work[cluster_cols].astype(str).agg("|".join, axis=1)
+    clustered = (
+        work.groupby(["condition", "_cluster_key"], as_index=False)[value_col]
+        .mean()
+        .rename(columns={value_col: "cluster_mean"})
+    )
+    values: dict[str, np.ndarray] = {}
+    counts: dict[str, int] = {}
+    for condition, sub in clustered.groupby("condition"):
+        arr = sub["cluster_mean"].to_numpy(dtype=float)
+        values[str(condition)] = arr
+        counts[str(condition)] = int(arr.size)
+    return values, counts, "ok"
+
+
+def cluster_contrast(
+    cluster_values_by_condition: dict[str, np.ndarray],
+    condition_a: str,
+    condition_b: str,
+    seed: int = SEED,
+) -> dict:
+    """Return cluster-unit difference statistics for two conditions."""
+    a = cluster_values_by_condition.get(condition_a, np.array([], dtype=float))
+    b = cluster_values_by_condition.get(condition_b, np.array([], dtype=float))
+    if a.size == 0 or b.size == 0:
+        return {
+            "n_a": int(a.size),
+            "n_b": int(b.size),
+            "mean_diff": np.nan,
+            "ci_lo": np.nan,
+            "ci_hi": np.nan,
+            "perm_p": np.nan,
+        }
+    diff, lo, hi = bootstrap_diff_ci(a, b, seed=seed)
+    _, p = permutation_test_diff_means(a, b, seed=seed)
+    return {
+        "n_a": int(a.size),
+        "n_b": int(b.size),
+        "mean_diff": diff,
+        "ci_lo": lo,
+        "ci_hi": hi,
+        "perm_p": p,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
@@ -361,6 +489,8 @@ def load_dataset(path: str) -> pd.DataFrame:
             "target": r.get("target"),
             "condition": r.get("condition"),
             "window": r.get("window"),
+            "source_run": r.get("source_run"),
+            "collection_day": r.get("collection_day") or r.get("day"),
             "overall_score": r.get("overall_score"),
             "status": r.get("status"),
             "rolling_callback": r.get("rolling_callback"),
@@ -375,6 +505,28 @@ def load_dataset(path: str) -> pd.DataFrame:
 def load_annotations(path: str) -> pd.DataFrame:
     """Load annotations.csv."""
     df = pd.read_csv(path)
+    missing = [column for column in ANNOTATION_COLUMNS if column not in df.columns]
+    if missing:
+        if "blind_id" in df.columns and "case_name" not in df.columns:
+            raise ValueError(
+                f"{path} looks like a blinded annotation worksheet, not "
+                "analysis-ready annotations.csv; run "
+                "scripts/paper/merge_rater_annotations.py on completed rater "
+                "sheets first."
+            )
+        raise ValueError(
+            f"{path} is missing required annotation columns: {', '.join(missing)}"
+        )
+    for column in LIKERT_DIMS:
+        values = pd.to_numeric(df[column], errors="coerce")
+        invalid = values.isna() | (values < 1) | (values > 5) | (values % 1 != 0)
+        if invalid.any():
+            bad_rows = ", ".join(str(i) for i in df.index[invalid].tolist()[:5])
+            raise ValueError(
+                f"{path} has invalid {column} Likert values at row index(es) "
+                f"{bad_rows}; expected integers 1..5."
+            )
+        df[column] = values.astype(int)
     return df
 
 
@@ -430,13 +582,14 @@ def analysis_soul_uniqueness(
                 "mean": mean,
                 "ci_lo": lo,
                 "ci_hi": hi,
+                "ci_note": "bootstrap" if int(np.sum(~np.isnan(vals))) >= 2 else "no_bootstrap_n_lt_2",
             }
         )
     # Per pair.
     for pair_name, sub in df.groupby("pair"):
         for m in markers:
             vals = sub[f"metric_{m}"].to_numpy(dtype=float)
-            mean, lo, hi = bootstrap_mean_ci(vals, seed=seed)
+            mean, lo, hi, ci_note = mean_ci_with_note(vals, seed=seed, min_bootstrap_n=3)
             rows.append(
                 {
                     "scope": "per_pair",
@@ -446,6 +599,7 @@ def analysis_soul_uniqueness(
                     "mean": mean,
                     "ci_lo": lo,
                     "ci_hi": hi,
+                    "ci_note": ci_note,
                 }
             )
     table = pd.DataFrame(rows)
@@ -458,6 +612,7 @@ def analysis_soul_uniqueness(
         "Mean and 95% bootstrap CI ({} resamples, seed={}) per marker.".format(
             N_BOOT, seed
         ),
+        "Per-pair rows with n<3 report the mean but suppress the bootstrap CI.",
         "",
         "## Overall",
         "",
@@ -481,83 +636,284 @@ def analysis_residue_ablation(
 ) -> dict:
     on = df[df["condition"] == "residue_on"]
     off = df[df["condition"] == "residue_off"]
+    placebo = df[df["condition"] == "residue_placebo"]
 
     # Primary: rolling_callback rate (proportion).
     cb_on = on["rolling_callback"].dropna().to_numpy(dtype=float)
     cb_off = off["rolling_callback"].dropna().to_numpy(dtype=float)
+    cb_placebo = placebo["rolling_callback"].dropna().to_numpy(dtype=float)
     rate_on = float(cb_on.mean()) if cb_on.size else np.nan
     rate_off = float(cb_off.mean()) if cb_off.size else np.nan
+    rate_placebo = float(cb_placebo.mean()) if cb_placebo.size else np.nan
     rd = risk_difference(rate_on, rate_off)
     _, rd_lo, rd_hi = bootstrap_diff_ci(cb_on, cb_off, seed=seed)
     _, rd_p = permutation_test_diff_means(cb_on, cb_off, seed=seed)
+    if cb_placebo.size:
+        rd_placebo = risk_difference(rate_on, rate_placebo)
+        _, rd_placebo_lo, rd_placebo_hi = bootstrap_diff_ci(
+            cb_on, cb_placebo, seed=seed
+        )
+        _, rd_placebo_p = permutation_test_diff_means(
+            cb_on, cb_placebo, seed=seed
+        )
+    else:
+        rd_placebo = np.nan
+        rd_placebo_lo = np.nan
+        rd_placebo_hi = np.nan
+        rd_placebo_p = np.nan
 
-    # Secondary: human_aftertaste_score mean.
+    # Secondary: rule-based aftertaste proxy (historical key:
+    # human_aftertaste_score).
     at_on = on["metric_human_aftertaste_score"].dropna().to_numpy(dtype=float) \
         if "metric_human_aftertaste_score" in on.columns else np.array([])
     at_off = off["metric_human_aftertaste_score"].dropna().to_numpy(dtype=float) \
         if "metric_human_aftertaste_score" in off.columns else np.array([])
+    at_placebo = placebo["metric_human_aftertaste_score"].dropna().to_numpy(dtype=float) \
+        if "metric_human_aftertaste_score" in placebo.columns else np.array([])
     at_mean_on = float(at_on.mean()) if at_on.size else np.nan
     at_mean_off = float(at_off.mean()) if at_off.size else np.nan
+    at_mean_placebo = float(at_placebo.mean()) if at_placebo.size else np.nan
     at_diff, at_lo, at_hi = bootstrap_diff_ci(at_on, at_off, seed=seed)
     _, at_p = permutation_test_diff_means(at_on, at_off, seed=seed)
     at_delta = cliffs_delta(at_on, at_off)
+    if at_placebo.size:
+        at_diff_placebo, at_placebo_lo, at_placebo_hi = bootstrap_diff_ci(
+            at_on, at_placebo, seed=seed
+        )
+        _, at_placebo_p = permutation_test_diff_means(
+            at_on, at_placebo, seed=seed
+        )
+        at_placebo_delta = cliffs_delta(at_on, at_placebo)
+    else:
+        at_diff_placebo = np.nan
+        at_placebo_lo = np.nan
+        at_placebo_hi = np.nan
+        at_placebo_p = np.nan
+        at_placebo_delta = np.nan
+
+    cb_cluster_values, cb_cluster_counts, cb_cluster_status = cluster_unit_values(
+        df, "rolling_callback"
+    )
+    cb_cluster_off = cluster_contrast(
+        cb_cluster_values, "residue_on", "residue_off", seed=seed
+    )
+    cb_cluster_placebo = cluster_contrast(
+        cb_cluster_values, "residue_on", "residue_placebo", seed=seed
+    )
+    at_cluster_values, at_cluster_counts, at_cluster_status = cluster_unit_values(
+        df, "metric_human_aftertaste_score"
+    )
+    at_cluster_off = cluster_contrast(
+        at_cluster_values, "residue_on", "residue_off", seed=seed
+    )
+    at_cluster_placebo = cluster_contrast(
+        at_cluster_values, "residue_on", "residue_placebo", seed=seed
+    )
 
     res = {
         "n_on": int(len(on)),
         "n_off": int(len(off)),
+        "n_placebo": int(len(placebo)),
+        "callback_n_on": int(cb_on.size),
+        "callback_n_off": int(cb_off.size),
+        "callback_n_placebo": int(cb_placebo.size),
         "callback_rate_on": rate_on,
         "callback_rate_off": rate_off,
+        "callback_rate_placebo": rate_placebo,
         "callback_risk_diff": rd,
         "callback_rd_ci_lo": rd_lo,
         "callback_rd_ci_hi": rd_hi,
         "callback_perm_p": rd_p,
+        "callback_risk_diff_on_vs_placebo": rd_placebo,
+        "callback_rd_on_vs_placebo_ci_lo": rd_placebo_lo,
+        "callback_rd_on_vs_placebo_ci_hi": rd_placebo_hi,
+        "callback_on_vs_placebo_perm_p": rd_placebo_p,
+        "callback_cluster_status": cb_cluster_status,
+        "callback_cluster_n_on": cb_cluster_counts.get("residue_on", 0),
+        "callback_cluster_n_off": cb_cluster_counts.get("residue_off", 0),
+        "callback_cluster_n_placebo": cb_cluster_counts.get("residue_placebo", 0),
+        "callback_cluster_mean_diff": cb_cluster_off["mean_diff"],
+        "callback_cluster_mean_diff_ci_lo": cb_cluster_off["ci_lo"],
+        "callback_cluster_mean_diff_ci_hi": cb_cluster_off["ci_hi"],
+        "callback_cluster_perm_p": cb_cluster_off["perm_p"],
+        "callback_cluster_mean_diff_on_vs_placebo": cb_cluster_placebo["mean_diff"],
+        "callback_cluster_mean_diff_on_vs_placebo_ci_lo": cb_cluster_placebo["ci_lo"],
+        "callback_cluster_mean_diff_on_vs_placebo_ci_hi": cb_cluster_placebo["ci_hi"],
+        "callback_cluster_on_vs_placebo_perm_p": cb_cluster_placebo["perm_p"],
         "aftertaste_mean_on": at_mean_on,
         "aftertaste_mean_off": at_mean_off,
+        "aftertaste_mean_placebo": at_mean_placebo,
+        "aftertaste_n_on": int(at_on.size),
+        "aftertaste_n_off": int(at_off.size),
+        "aftertaste_n_placebo": int(at_placebo.size),
         "aftertaste_diff": at_diff,
         "aftertaste_diff_ci_lo": at_lo,
         "aftertaste_diff_ci_hi": at_hi,
         "aftertaste_perm_p": at_p,
         "aftertaste_cliffs_delta": at_delta,
+        "aftertaste_diff_on_vs_placebo": at_diff_placebo,
+        "aftertaste_diff_on_vs_placebo_ci_lo": at_placebo_lo,
+        "aftertaste_diff_on_vs_placebo_ci_hi": at_placebo_hi,
+        "aftertaste_on_vs_placebo_perm_p": at_placebo_p,
+        "aftertaste_on_vs_placebo_cliffs_delta": at_placebo_delta,
+        "aftertaste_cluster_status": at_cluster_status,
+        "aftertaste_cluster_n_on": at_cluster_counts.get("residue_on", 0),
+        "aftertaste_cluster_n_off": at_cluster_counts.get("residue_off", 0),
+        "aftertaste_cluster_n_placebo": at_cluster_counts.get("residue_placebo", 0),
+        "aftertaste_cluster_mean_diff": at_cluster_off["mean_diff"],
+        "aftertaste_cluster_mean_diff_ci_lo": at_cluster_off["ci_lo"],
+        "aftertaste_cluster_mean_diff_ci_hi": at_cluster_off["ci_hi"],
+        "aftertaste_cluster_perm_p": at_cluster_off["perm_p"],
+        "aftertaste_cluster_mean_diff_on_vs_placebo": at_cluster_placebo["mean_diff"],
+        "aftertaste_cluster_mean_diff_on_vs_placebo_ci_lo": at_cluster_placebo["ci_lo"],
+        "aftertaste_cluster_mean_diff_on_vs_placebo_ci_hi": at_cluster_placebo["ci_hi"],
+        "aftertaste_cluster_on_vs_placebo_perm_p": at_cluster_placebo["perm_p"],
+        "aftertaste_variance_status": saturated_two_arm_status(at_on, at_off),
     }
 
-    table = pd.DataFrame(
-        [
+    table_rows = [
+        {
+            "outcome": "rolling_callback_rate (primary)",
+            "contrast": "residue_on_vs_residue_off",
+            "residue_on": rate_on,
+            "residue_off": rate_off,
+            "residue_placebo": rate_placebo,
+            "effect": rd,
+            "effect_type": "risk_difference",
+            "mean_diff": rd,
+            "mean_diff_ci_lo": rd_lo,
+            "mean_diff_ci_hi": rd_hi,
+            "perm_p": rd_p,
+            "cluster_n_on": cb_cluster_counts.get("residue_on", 0),
+            "cluster_n_off": cb_cluster_counts.get("residue_off", 0),
+            "cluster_n_placebo": cb_cluster_counts.get("residue_placebo", 0),
+            "cluster_mean_diff": cb_cluster_off["mean_diff"],
+            "cluster_mean_diff_ci_lo": cb_cluster_off["ci_lo"],
+            "cluster_mean_diff_ci_hi": cb_cluster_off["ci_hi"],
+            "cluster_perm_p": cb_cluster_off["perm_p"],
+        },
+        {
+            "outcome": "rule_based_aftertaste_proxy (secondary)",
+            "contrast": "residue_on_vs_residue_off",
+            "residue_on": at_mean_on,
+            "residue_off": at_mean_off,
+            "residue_placebo": at_mean_placebo,
+            "effect": at_delta,
+            "effect_type": "cliffs_delta",
+            "mean_diff": at_diff,
+            "mean_diff_ci_lo": at_lo,
+            "mean_diff_ci_hi": at_hi,
+            "perm_p": at_p,
+            "cluster_n_on": at_cluster_counts.get("residue_on", 0),
+            "cluster_n_off": at_cluster_counts.get("residue_off", 0),
+            "cluster_n_placebo": at_cluster_counts.get("residue_placebo", 0),
+            "cluster_mean_diff": at_cluster_off["mean_diff"],
+            "cluster_mean_diff_ci_lo": at_cluster_off["ci_lo"],
+            "cluster_mean_diff_ci_hi": at_cluster_off["ci_hi"],
+            "cluster_perm_p": at_cluster_off["perm_p"],
+            "variance_status": res["aftertaste_variance_status"],
+        },
+    ]
+    if cb_placebo.size > 0:
+        table_rows.append(
             {
                 "outcome": "rolling_callback_rate (primary)",
+                "contrast": "residue_on_vs_residue_placebo",
                 "residue_on": rate_on,
                 "residue_off": rate_off,
-                "effect": rd,
+                "residue_placebo": rate_placebo,
+                "effect": rd_placebo,
                 "effect_type": "risk_difference",
-                "ci_lo": rd_lo,
-                "ci_hi": rd_hi,
-                "perm_p": rd_p,
-            },
+                "mean_diff": rd_placebo,
+                "mean_diff_ci_lo": rd_placebo_lo,
+                "mean_diff_ci_hi": rd_placebo_hi,
+                "perm_p": rd_placebo_p,
+                "cluster_n_on": cb_cluster_counts.get("residue_on", 0),
+                "cluster_n_off": cb_cluster_counts.get("residue_off", 0),
+                "cluster_n_placebo": cb_cluster_counts.get("residue_placebo", 0),
+                "cluster_mean_diff": cb_cluster_placebo["mean_diff"],
+                "cluster_mean_diff_ci_lo": cb_cluster_placebo["ci_lo"],
+                "cluster_mean_diff_ci_hi": cb_cluster_placebo["ci_hi"],
+                "cluster_perm_p": cb_cluster_placebo["perm_p"],
+            }
+        )
+    if at_placebo.size > 0:
+        table_rows.append(
             {
-                "outcome": "human_aftertaste_score (secondary)",
+                "outcome": "rule_based_aftertaste_proxy (secondary)",
+                "contrast": "residue_on_vs_residue_placebo",
                 "residue_on": at_mean_on,
                 "residue_off": at_mean_off,
-                "effect": at_delta,
+                "residue_placebo": at_mean_placebo,
+                "effect": at_placebo_delta,
                 "effect_type": "cliffs_delta",
-                "ci_lo": at_lo,
-                "ci_hi": at_hi,
-                "perm_p": at_p,
-            },
-        ]
-    )
+                "mean_diff": at_diff_placebo,
+                "mean_diff_ci_lo": at_placebo_lo,
+                "mean_diff_ci_hi": at_placebo_hi,
+                "perm_p": at_placebo_p,
+                "cluster_n_on": at_cluster_counts.get("residue_on", 0),
+                "cluster_n_off": at_cluster_counts.get("residue_off", 0),
+                "cluster_n_placebo": at_cluster_counts.get("residue_placebo", 0),
+                "cluster_mean_diff": at_cluster_placebo["mean_diff"],
+                "cluster_mean_diff_ci_lo": at_cluster_placebo["ci_lo"],
+                "cluster_mean_diff_ci_hi": at_cluster_placebo["ci_hi"],
+                "cluster_perm_p": at_cluster_placebo["perm_p"],
+            }
+        )
+    table = pd.DataFrame(table_rows)
     results_dir = os.path.join(outdir, "results")
     os.makedirs(results_dir, exist_ok=True)
     table.to_csv(os.path.join(results_dir, "residue_ablation.csv"), index=False)
 
+    callback_counts = {
+        "residue_on": cb_on.size,
+        "residue_off": cb_off.size,
+    }
+    if len(placebo) > 0:
+        callback_counts["residue_placebo"] = cb_placebo.size
+    small_callback_arms = {
+        arm: count for arm, count in callback_counts.items() if count < 30
+    }
+    if small_callback_arms:
+        counts = ", ".join(
+            "{}={}".format(arm, count) for arm, count in small_callback_arms.items()
+        )
+        print(
+            "PILOT_SAMPLE_WARNING: residue ablation has fewer than 30 "
+            "callback-window rows in arm(s): {}; inferential rows are "
+            "sanity statistics, not completed empirical evidence.".format(counts),
+            file=sys.stderr,
+        )
+
     md = [
-        "# B. Residue ablation (residue_on vs residue_off)",
+        "# B. Residue ablation",
         "",
-        "n(residue_on)={}, n(residue_off)={}.".format(len(on), len(off)),
+        "n(residue_on)={}, n(residue_off)={}, n(residue_placebo)={}.".format(
+            len(on), len(off), len(placebo)
+        ),
         "Permutation test: {} permutations, seed={}, two-sided.".format(N_PERM, seed),
         "Bootstrap difference CI: {} resamples.".format(N_BOOT),
         "",
+        "The `residue_on_vs_residue_placebo` contrast is the primary mechanism",
+        "contrast only after the placebo arm has been preregistered and accepted",
+        "before collection. Before that acceptance, treat any placebo rows as",
+        "exploratory plumbing/sanity evidence. `residue_on_vs_residue_off` remains",
+        "a sensitivity contrast because OFF removes the whole prompt block.",
+        "",
+        "If both accepted contrasts are reported, the fixed primary contrast is",
+        "on-vs-placebo and on-vs-off is sensitivity; no multiplicity adjustment is",
+        "applied by this script.",
+        "",
         "For the continuous secondary outcome the effect is Cliff's delta;",
         "for the binary primary outcome the effect is the risk difference.",
-        "The difference CIs use the two-sample bootstrap on the mean.",
+        "`mean_diff_ci_lo` / `mean_diff_ci_hi` are two-sample bootstrap CIs for",
+        "the mean difference, not CIs for Cliff's delta.",
+        "",
+        "`cluster_*` columns aggregate rows to `pair|source_run|window` cluster",
+        "means before computing the same mean-difference bootstrap and",
+        "permutation statistics. Confirmatory reporting requires accepted",
+        "preregistration plus complete cluster metadata; row-level p-values remain",
+        "sanity statistics.",
         "",
         df_to_md(table),
         "",
@@ -658,7 +1014,7 @@ def analysis_annotation_agreement(
         "",
         "## Convergent validity (Spearman)",
         "",
-        "Machine marker `{}` vs mean human `{}` per case.".format(marker_dim, human_dim),
+        "Machine marker `{}` vs mean human `{}` per case.".format(display_label(marker_dim), human_dim),
         "",
         df_to_md(convergent),
         "",
@@ -693,7 +1049,7 @@ def make_figures(
     # Figure A: bar chart of overall marker means with CIs.
     overall = soul_table[soul_table["scope"] == "overall"]
     if len(overall):
-        markers = overall["marker"].tolist()
+        markers = [display_label(marker) for marker in overall["marker"].tolist()]
         means = overall["mean"].to_numpy(dtype=float)
         lo = overall["ci_lo"].to_numpy(dtype=float)
         hi = overall["ci_hi"].to_numpy(dtype=float)
@@ -709,19 +1065,30 @@ def make_figures(
         fig.savefig(os.path.join(fig_dir, "marker_means.png"), dpi=120)
         plt.close(fig)
 
-    # Figure B: residue_on vs residue_off for both outcomes.
+    # Figure B: residue arms for both outcomes.
     fig, ax = plt.subplots(figsize=(6, 4))
-    labels = ["rolling_callback_rate", "human_aftertaste_mean"]
-    on_vals = [ablation["callback_rate_on"], ablation["aftertaste_mean_on"]]
-    off_vals = [ablation["callback_rate_off"], ablation["aftertaste_mean_off"]]
+    labels = ["rolling_callback_rate", "aftertaste_proxy_mean"]
+    arm_series = [
+        ("residue_on", [ablation["callback_rate_on"], ablation["aftertaste_mean_on"]], "#55A868"),
+        ("residue_off", [ablation["callback_rate_off"], ablation["aftertaste_mean_off"]], "#C44E52"),
+    ]
+    if ablation.get("n_placebo", 0) > 0:
+        arm_series.append(
+            (
+                "residue_placebo",
+                [ablation["callback_rate_placebo"], ablation["aftertaste_mean_placebo"]],
+                "#4C72B0",
+            )
+        )
     x = np.arange(len(labels))
-    w = 0.35
-    ax.bar(x - w / 2, on_vals, w, label="residue_on", color="#55A868")
-    ax.bar(x + w / 2, off_vals, w, label="residue_off", color="#C44E52")
+    w = 0.8 / len(arm_series)
+    offsets = np.linspace(-0.4 + w / 2, 0.4 - w / 2, len(arm_series))
+    for offset, (label, values, color) in zip(offsets, arm_series):
+        ax.bar(x + offset, values, w, label=label, color=color)
     ax.set_xticks(x)
     ax.set_xticklabels(labels, fontsize=9)
     ax.set_ylabel("value")
-    ax.set_title("Residue ablation: residue_on vs residue_off")
+    ax.set_title("Residue ablation arms")
     ax.legend()
     fig.tight_layout()
     fig.savefig(os.path.join(fig_dir, "residue_ablation.png"), dpi=120)
@@ -753,7 +1120,7 @@ def write_summary(
     for _, r in overall.iterrows():
         lines.append(
             "- **{}**: mean {:.3f} (95% CI {:.3f}-{:.3f}, n={}).".format(
-                r["marker"], r["mean"], r["ci_lo"], r["ci_hi"], int(r["n"])
+                display_label(r["marker"]), r["mean"], r["ci_lo"], r["ci_hi"], int(r["n"])
             )
         )
     lines.append("")
@@ -761,6 +1128,27 @@ def write_summary(
     # B readout.
     lines.append("## B. Residue ablation")
     lines.append("")
+    lines.append(
+        "- sample counts: residue_on={}, residue_off={}, residue_placebo={}.".format(
+            ablation["n_on"], ablation["n_off"], ablation.get("n_placebo", 0)
+        )
+    )
+    lines.append(
+        "- callback-window denominators: residue_on={}, residue_off={}, residue_placebo={}.".format(
+            ablation.get("callback_n_on", 0),
+            ablation.get("callback_n_off", 0),
+            ablation.get("callback_n_placebo", 0),
+        )
+    )
+    lines.append(
+        "- callback cluster units (`pair|source_run|window`): residue_on={}, residue_off={}, "
+        "residue_placebo={} (status: {}).".format(
+            ablation.get("callback_cluster_n_on", 0),
+            ablation.get("callback_cluster_n_off", 0),
+            ablation.get("callback_cluster_n_placebo", 0),
+            ablation.get("callback_cluster_status", "unknown"),
+        )
+    )
     lines.append(
         "- residue_on rolling-callback rate {:.3f} vs residue_off {:.3f} "
         "(risk diff {:+.3f}, 95% CI {:.3f}-{:.3f}, permutation p={:.4f}).".format(
@@ -772,23 +1160,104 @@ def write_summary(
             ablation["callback_perm_p"],
         )
     )
+    if (
+        ablation.get("callback_cluster_n_on", 0) > 0
+        and ablation.get("callback_cluster_n_off", 0) > 0
+    ):
+        lines.append(
+            "- cluster-unit callback on-vs-off mean diff {:+.3f} "
+            "(95% CI {:.3f}-{:.3f}, permutation p={:.4f}).".format(
+                ablation["callback_cluster_mean_diff"],
+                ablation["callback_cluster_mean_diff_ci_lo"],
+                ablation["callback_cluster_mean_diff_ci_hi"],
+                ablation["callback_cluster_perm_p"],
+            )
+        )
+    if ablation.get("callback_n_placebo", 0) > 0:
+        lines.append(
+            "- placebo-arm contrast (confirmatory only if preregistered and accepted "
+            "before collection): residue_on rolling-callback rate {:.3f} vs "
+            "residue_placebo {:.3f} (risk diff {:+.3f}, 95% CI {:.3f}-{:.3f}, "
+            "permutation p={:.4f}).".format(
+                ablation["callback_rate_on"],
+                ablation["callback_rate_placebo"],
+                ablation["callback_risk_diff_on_vs_placebo"],
+                ablation["callback_rd_on_vs_placebo_ci_lo"],
+                ablation["callback_rd_on_vs_placebo_ci_hi"],
+                ablation["callback_on_vs_placebo_perm_p"],
+            )
+        )
+        if (
+            ablation.get("callback_cluster_n_on", 0) > 0
+            and ablation.get("callback_cluster_n_placebo", 0) > 0
+        ):
+            lines.append(
+                "- cluster-unit callback on-vs-placebo mean diff {:+.3f} "
+                "(95% CI {:.3f}-{:.3f}, permutation p={:.4f}).".format(
+                    ablation["callback_cluster_mean_diff_on_vs_placebo"],
+                    ablation["callback_cluster_mean_diff_on_vs_placebo_ci_lo"],
+                    ablation["callback_cluster_mean_diff_on_vs_placebo_ci_hi"],
+                    ablation["callback_cluster_on_vs_placebo_perm_p"],
+                )
+            )
+    elif ablation.get("n_placebo", 0) > 0:
+        lines.append(
+            "- placebo rows exist, but none have non-null rolling_callback values; "
+            "the callback placebo contrast is not computable."
+        )
     lines.append(
-        "- human_aftertaste_score mean {:.3f} (on) vs {:.3f} (off); "
-        "Cliff's delta {:+.3f}, diff 95% CI {:.3f}-{:.3f}, permutation p={:.4f}.".format(
+        "- rule-based aftertaste proxy mean {:.3f} (on) vs {:.3f} (off); "
+        "Cliff's delta {:+.3f}, mean-diff 95% CI {:.3f}-{:.3f}, "
+        "permutation p={:.4f}; variance status: {}.".format(
             ablation["aftertaste_mean_on"],
             ablation["aftertaste_mean_off"],
             ablation["aftertaste_cliffs_delta"],
             ablation["aftertaste_diff_ci_lo"],
             ablation["aftertaste_diff_ci_hi"],
             ablation["aftertaste_perm_p"],
+            ablation.get("aftertaste_variance_status", "unknown"),
         )
     )
+    if ablation.get("aftertaste_variance_status") == "saturated_no_usable_variance":
+        lines.append(
+            "- The rule-based aftertaste proxy is saturated across on/off arms; "
+            "the secondary aftertaste contrast is not informative evidence."
+        )
+    if ablation.get("aftertaste_n_placebo", 0) > 0:
+        lines.append(
+            "- rule-based aftertaste proxy on-vs-placebo Cliff's delta {:+.3f}, "
+            "mean-diff 95% CI {:.3f}-{:.3f}, permutation p={:.4f}.".format(
+                ablation["aftertaste_on_vs_placebo_cliffs_delta"],
+                ablation["aftertaste_diff_on_vs_placebo_ci_lo"],
+                ablation["aftertaste_diff_on_vs_placebo_ci_hi"],
+                ablation["aftertaste_on_vs_placebo_perm_p"],
+            )
+        )
+    elif ablation.get("n_placebo", 0) > 0:
+        lines.append(
+            "- placebo rows exist, but none have the aftertaste proxy; the "
+            "aftertaste placebo contrast is not computable."
+        )
     direction = (
         "residue_on > residue_off"
         if ablation["callback_rate_on"] > ablation["callback_rate_off"]
         else "residue_on <= residue_off"
     )
     lines.append("- Observed direction: {}.".format(direction))
+    if ablation.get("callback_n_placebo", 0) > 0:
+        mechanism_direction = (
+            "residue_on > residue_placebo"
+            if ablation["callback_rate_on"] > ablation["callback_rate_placebo"]
+            else "residue_on <= residue_placebo"
+        )
+        lines.append(
+            "- Observed placebo callback direction: {}.".format(mechanism_direction)
+        )
+    lines.append(
+        "- Row-level p-values remain sanity statistics; confirmatory reporting "
+        "requires accepted preregistration plus complete cluster metadata and "
+        "cluster-unit analysis."
+    )
     lines.append("")
 
     # C readout.
@@ -803,12 +1272,12 @@ def write_summary(
     if np.isnan(rho):
         lines.append(
             "- Convergent validity (Spearman, `{}` vs human `{}`): not computable "
-            "(insufficient overlap/variance).".format(marker_dim, human_dim)
+            "(insufficient overlap/variance).".format(display_label(marker_dim), human_dim)
         )
     else:
         lines.append(
             "- Convergent validity: Spearman rho {:.3f} (p={:.4f}) between machine "
-            "`{}` and mean human `{}`.".format(rho, p, marker_dim, human_dim)
+            "`{}` and mean human `{}`.".format(rho, p, display_label(marker_dim), human_dim)
         )
     lines.append("")
 
@@ -877,8 +1346,9 @@ def generate_synthetic_fixtures(
     out_dir: str, seed: int = SEED
 ) -> tuple[str, str]:
     """Generate dataset.json + annotations.csv with a PLANTED residue effect
-    (residue_on has higher rolling_callback rate and aftertaste) and a PLANTED
-    rater agreement on emotional_binding. Returns (dataset_path, ann_path)."""
+    (residue_on has higher rolling_callback rate and aftertaste than both the
+    placebo and off arms) and a PLANTED rater agreement on emotional_binding.
+    Returns (dataset_path, ann_path)."""
     rng = np.random.default_rng(seed)
     os.makedirs(out_dir, exist_ok=True)
 
@@ -889,15 +1359,23 @@ def generate_synthetic_fixtures(
     # For each pair, several cases per condition.
     for pair in pairs:
         names = pair.split("-")
-        for condition in ["residue_on", "residue_off"]:
-            for _ in range(12):
+        for condition in ["residue_on", "residue_placebo", "residue_off"]:
+            for trial_idx in range(12):
                 case_id += 1
                 case_name = f"case_{case_id:03d}"
-                # Planted effect: residue_on => callback prob 0.7, off => 0.15.
-                cb_p = 0.70 if condition == "residue_on" else 0.15
+                # Planted effect: on > placebo > off.
+                cb_p = {
+                    "residue_on": 0.70,
+                    "residue_placebo": 0.35,
+                    "residue_off": 0.15,
+                }[condition]
                 rolling_callback = int(rng.random() < cb_p)
-                # Aftertaste higher under residue_on.
-                base_at = 0.72 if condition == "residue_on" else 0.45
+                # Aftertaste higher under residue_on, intermediate under placebo.
+                base_at = {
+                    "residue_on": 0.72,
+                    "residue_placebo": 0.55,
+                    "residue_off": 0.45,
+                }[condition]
                 metrics = {}
                 for m in markers:
                     if m == "human_aftertaste_score":
@@ -917,7 +1395,9 @@ def generate_synthetic_fixtures(
                         "speaker": names[0],
                         "target": names[1],
                         "condition": condition,
-                        "window": "10:00-12:00",
+                        "window": f"window_{trial_idx // 4}",
+                        "source_run": f"run_{condition}_{trial_idx // 4}",
+                        "collection_day": f"day_{trial_idx // 4}",
                         "overall_score": overall,
                         "status": status,
                         "metrics": metrics,
@@ -975,6 +1455,29 @@ def selftest() -> int:
         ds_path, ann_path = generate_synthetic_fixtures(fixture_dir)
         res = run_pipeline(ds_path, ann_path, outdir)
 
+        worksheet_path = os.path.join(fixture_dir, "annotation_sheet.csv")
+        pd.DataFrame(
+            [
+                {
+                    "blind_id": "ER-0001",
+                    "case_ref": "ER-0001",
+                    "naturalness": "",
+                    "emotional_binding": "",
+                    "character_consistency": "",
+                    "repetition": "",
+                    "notes": "",
+                }
+            ]
+        ).to_csv(worksheet_path, index=False)
+        try:
+            load_annotations(worksheet_path)
+            failures.append("blinded worksheet was accepted as annotations.csv")
+        except ValueError as exc:
+            if "merge_rater_annotations.py" not in str(exc):
+                failures.append(
+                    "blinded worksheet error did not mention merge_rater_annotations.py"
+                )
+
         # 1. All expected output files exist.
         expected = [
             "results/soul_uniqueness.csv",
@@ -1007,6 +1510,14 @@ def selftest() -> int:
                     abl["callback_rate_on"], abl["callback_rate_off"]
                 )
             )
+        if abl["n_placebo"] <= 0:
+            failures.append("placebo fixture rows missing")
+        if not (abl["callback_rate_on"] > abl["callback_rate_placebo"]):
+            failures.append(
+                "placebo direction wrong: on={:.3f} placebo={:.3f}".format(
+                    abl["callback_rate_on"], abl["callback_rate_placebo"]
+                )
+            )
         # Permutation test should detect the planted effect.
         if not (abl["callback_perm_p"] < 0.05):
             failures.append(
@@ -1019,6 +1530,53 @@ def selftest() -> int:
                     abl["aftertaste_cliffs_delta"]
                 )
             )
+        if not (abl["aftertaste_on_vs_placebo_cliffs_delta"] > 0):
+            failures.append(
+                "aftertaste on-vs-placebo cliffs delta not positive: {:.3f}".format(
+                    abl["aftertaste_on_vs_placebo_cliffs_delta"]
+                )
+            )
+        if not (
+            abl["callback_cluster_n_on"] > 0 and abl["callback_cluster_n_off"] > 0
+        ):
+            failures.append(
+                "cluster callback units missing: on={} off={}".format(
+                    abl["callback_cluster_n_on"], abl["callback_cluster_n_off"]
+                )
+            )
+        if not (abl["callback_cluster_mean_diff"] > 0):
+            failures.append(
+                "cluster callback on-vs-off diff not positive: {:.3f}".format(
+                    abl["callback_cluster_mean_diff"]
+                )
+            )
+
+        # 2b. Saturated secondary outcomes must be explicitly labeled.
+        saturated_fixture_dir = os.path.join(tmp, "saturated_fixtures")
+        saturated_outdir = os.path.join(tmp, "saturated_out")
+        os.makedirs(saturated_fixture_dir, exist_ok=True)
+        with open(ds_path, "r", encoding="utf-8") as fh:
+            saturated_records = json.load(fh)
+        for rec in saturated_records:
+            if rec["condition"] in {"residue_on", "residue_off"}:
+                rec["metrics"]["human_aftertaste_score"] = 1.0
+        saturated_ds_path = os.path.join(saturated_fixture_dir, "dataset.json")
+        with open(saturated_ds_path, "w", encoding="utf-8") as fh:
+            json.dump(saturated_records, fh, indent=2)
+        saturated_res = run_pipeline(saturated_ds_path, ann_path, saturated_outdir)
+        saturated_status = saturated_res["ablation"]["aftertaste_variance_status"]
+        if saturated_status != "saturated_no_usable_variance":
+            failures.append(
+                "saturated aftertaste status missing: {}".format(saturated_status)
+            )
+        saturated_summary_path = os.path.join(
+            saturated_outdir, "results", "summary.md"
+        )
+        saturated_summary = open(
+            saturated_summary_path, "r", encoding="utf-8"
+        ).read()
+        if "saturated_no_usable_variance" not in saturated_summary:
+            failures.append("saturated summary did not label aftertaste saturation")
 
         # 3. Kappa > 0.4 on the planted-agreement dim (emotional_binding).
         agr = res["agreement"]["agreement"]
@@ -1042,16 +1600,30 @@ def selftest() -> int:
         # Print key recovered statistics for transparency.
         print("--- selftest recovered statistics ---")
         print(
-            "callback rate on={:.3f} off={:.3f} risk_diff={:+.3f} perm_p={:.4f}".format(
+            "callback rate on={:.3f} placebo={:.3f} off={:.3f} "
+            "on-off risk_diff={:+.3f} perm_p={:.4f}".format(
                 abl["callback_rate_on"],
+                abl["callback_rate_placebo"],
                 abl["callback_rate_off"],
                 abl["callback_risk_diff"],
                 abl["callback_perm_p"],
             )
         )
         print(
-            "aftertaste mean on={:.3f} off={:.3f} cliffs_delta={:+.3f} perm_p={:.4f}".format(
+            "cluster callback units on={} placebo={} off={} "
+            "on-off mean_diff={:+.3f} perm_p={:.4f}".format(
+                abl["callback_cluster_n_on"],
+                abl["callback_cluster_n_placebo"],
+                abl["callback_cluster_n_off"],
+                abl["callback_cluster_mean_diff"],
+                abl["callback_cluster_perm_p"],
+            )
+        )
+        print(
+            "aftertaste mean on={:.3f} placebo={:.3f} off={:.3f} "
+            "on-off cliffs_delta={:+.3f} perm_p={:.4f}".format(
                 abl["aftertaste_mean_on"],
+                abl["aftertaste_mean_placebo"],
                 abl["aftertaste_mean_off"],
                 abl["aftertaste_cliffs_delta"],
                 abl["aftertaste_perm_p"],

@@ -44,6 +44,7 @@ const CC_MODE = args.get('cc') ?? 'auto';
 const TARGET_SAMPLES = numberArg('target-samples', 1, 0, 3);
 const SAMPLE_TIMEOUT_MS = numberArg('sample-timeout-ms', DRY_RUN ? 1_000 : 180_000, 1_000, 300_000);
 const SAMPLE_POLL_MS = numberArg('sample-poll-ms', 7_000, 1_000, 30_000);
+const REQUIRE_ARCHIVED_SAMPLES = args.get('require-archived') === 'true';
 // Rotate the collected dyad across samples so Mahiru is not starved by the
 // Umi<->Tianze mutual-first-choice attractor. Disable with --no-focus-rotation.
 const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Tianze', 'Umi:Tianze'];
@@ -166,6 +167,7 @@ async function maybeCollectSamples(timing, health) {
       `--poll-interval-ms=${SAMPLE_POLL_MS}`,
       '--pair-cooldown-ms=0',
       '--provider-cooldown-ms=0',
+      ...(REQUIRE_ARCHIVED_SAMPLES ? ['--require-archived=true'] : []),
       ...(focusPair ? [`--focus-pair=${focusPair}`] : []),
     ];
     const run = await runCommand('npm', command, { timeout: SAMPLE_TIMEOUT_MS + 120_000 });

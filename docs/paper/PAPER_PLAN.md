@@ -44,25 +44,36 @@
 - **資料**：對 Umi / Mahiru / Tianze 的對話跑 `evaluateConversationCase`，輸出每段的 marker 分數。
 - **條件**：無 ablation；描述性 + pairwise echo。
 - **指標**：6 個 marker（emotional_expression / comfort_style / burden_response uniqueness、
-  human_aftertaste、echo penalty、stage_direction_leak penalty），每個 0–1。
+  rule-based aftertaste proxy、echo penalty、stage_direction_leak penalty），每個 0–1。
 - **樣本量目標**：每 pair ≥ 30 段（共 3 pairs）。
 - **分析**：每 marker 的 mean ± 95% bootstrap CI，overall 與 per-pair；echo penalty 跨講者比較。
 
 ### Exp 2 — Residue ablation（**最重要、給因果性的那個**）
-- **設計**：同一世界、within-world，`residue_on` vs `residue_off`（翻 `UNDERWORLD_RESIDUE_READ`）。
+- **設計**：同一世界、within-world，`residue_on` vs `residue_off`（主對照翻 `UNDERWORLD_RESIDUE_READ`），
+  但主實驗採 **arm-pure 長時間 window/day**，不要在同一個 rolling continuity window 裡交錯 ON/OFF。
+- **已決定的主對照**：`UNDERWORLD_RESIDUE_READ=false` only。這隔離的是 read-path 機制：
+  residue 可以存在於 memory，但不注入下一段 prompt。`WRITE+READ=false` 可以作為 sensitivity
+  check，但不要當主結果，因為它同時改變 candidate residue 的可觀測性與 write-path 副作用。
+- **必要流程**：必須先在 `residue_on` / `residue_off` 各自條件下收集 fresh conversations，
+  再跑 `eval:soul-triad -- --since-created-at=<arm_start_ms>`。只對既有 transcripts 重跑 eval
+  不是 ablation，因為 env flag 不會 retroactively 改變已生成的對話。
 - **主要結果**：rolling-callback 率（後窗有多少比例真的把前窗 residue 變成行為/語氣變化，而非引用）。
-- **次要結果**：`human_aftertaste_score` 平均。
-- **樣本量目標**：每臂 ≥ 40 段、≥ 20 個 residue candidates（依現有報告量級可達）。
+- **次要結果**：`human_aftertaste_score` 只作 rule-based aftertaste proxy，不作 human outcome 或 primary。
+- **樣本量目標**：先按 MDE 預註冊；`n=10/arm` 是 pipeline pilot，`n=40/arm` 只支撐 large-effect workshop-scale evidence，
+  若要檢 small 10–15 percentage-point callback-rate effect，`n>=150/arm` 只在低 baseline rate 時較合理；
+  baseline 較高或 dyad/window clustering 明顯時可能要接近 `n≈250/arm` 或採 cluster-aware analysis。
 - **分析**：因 n 小 → 兩側 **permutation test**（10k，seeded）+ 差異的 **bootstrap 95% CI** +
   效果量（連續用 **Cliff's delta**、比例用 risk difference）。**不假裝顯著**。
-- **混淆控制**：兩臂同一天同世界交錯取樣，避免時段/世界狀態漂移；motif-guard 兩臂一致。
+- **混淆控制**：預先寫好 ON/OFF 長時間 schedule，固定 prompt/model/角色定義；rolling source/callback windows
+  必須落在同一 arm。motif-guard 在兩臂一致，但 read-off 仍有 prompt-length mismatch 與 partial motif leak，
+  需在 paper 裡揭露。
 
 ### Exp 3 — Metric validity（規則式 marker 站不站得住？）
 - **設計**：抽 ~20–30 段對話，**2 位以上人工 rater** 各打 4 維 Likert（naturalness /
   emotional_binding / character_consistency / repetition，1–5，沿用程式裡 `ConversationJudgeResult` 的維度）。
 - **分析**：
   - rater 間一致性：**quadratic-weighted Cohen's κ**（2 人）或 **Krippendorff's ordinal α**（>2 人）。
-  - convergent validity：機器 marker（human_aftertaste）對人工 emotional_binding 的 **Spearman ρ**。
+  - convergent validity：機器 aftertaste proxy 對人工 emotional_binding 的 **Spearman ρ**。
 - **目的**：把「LLM/規則 judge 沒驗證過」這個最可預測的 reviewer 反對直接擋掉。
 
 ### Exp 4 —（可選，升級到 full paper 才做）玩家研究
@@ -101,9 +112,12 @@ README 把 markers 寫成 "LLM-as-judge"，但**程式裡 `conversation_judge` �
 | 最後填數字、看圖、定稿 | 一起 |
 
 ## 9. 我最想要 Codex 第二意見的地方（請優先回答）
-1. **Exp 2 的因果宣稱夠不夠**？within-world 交錯 ablation 有沒有被忽略的混淆（記憶污染跨臂洩漏？
-   residue_off 臂的 memory 仍含 residue 行，只是不讀——這算乾淨對照嗎，還是要 write 也關？）。
-2. **樣本量**：每臂 40 段對 permutation test 夠不夠檢出合理效果？要不要先做 power/敏感度估計？
+1. **Exp 2 的因果宣稱夠不夠**？主對照採 `READ=false` only，因果宣稱應限縮為
+   "reading residue into the next prompt changes callback/aftertaste signals"；
+   `WRITE+READ=false` 只作 sensitivity check。within-world 交錯 ablation 還有沒有被忽略的混淆
+   （世界狀態漂移、同一 memory corpus 跨臂污染、Qwen/Ollama provider variability）？
+2. **樣本量**：每臂 40 段只適合 large effect 嗎？main phase 應按 pilot baseline rate 和 power sensitivity
+   預註冊 final N，而不是固定寫 n>=150/arm？
 3. **定位**：第一篇就衝 workshop full，還是 arXiv + 短文先卡 framing 再養 Exp 4？
 4. **Metric validity**：規則式 marker 的 convergent validity 只用 Spearman 夠嗎，要不要加 per-marker 對人工維度的對應表？
 5. **Novelty 防守**：跟 Generative Agents 的 memory stream / reflection 的區隔（aftertaste vs retrieval、

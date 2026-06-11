@@ -1,10 +1,8 @@
-# Emotional Residue: A Lightweight Memory Pattern for Felt Continuity in LLM-Driven Character Agents
+# Emotional Residue: A Lightweight Memory Pattern for Trace-Based Continuity in LLM-Driven Character Agents
 
-> **Draft skeleton — angle A (design/systems pattern).** Target first artifact:
-> arXiv preprint, then an AIIDE EXAG / FDG / agent-eval workshop. Sections marked
-> `[FILL]` need Alan's empirical content (transcripts, a small annotation study).
-> Everything else is grounded in the current GIIS Underworld implementation and
-> `docs/soul/`.
+> **Design-note companion.** The local arXiv source now lives at
+> `docs/paper/arxiv/main.tex`. This Markdown file preserves the richer planning
+> prose and repo-grounded notes; treat the LaTeX file as the submission source.
 
 ---
 
@@ -26,10 +24,11 @@ that keeps multiple characters from collapsing into one voice, and evaluate it
 with a *reproducible, deterministic, rule-based* harness measuring soul
 uniqueness and rolling two-hour memory continuity, cross-checked against human
 annotation. The pattern is ablatable via two environment flags with no schema
-migration. We report `[FILL — N]` observations and an ablation `[FILL — result]`,
-and are explicit about what a single-player prototype does **not** establish.
+migration. The current arXiv-source version reports an 8-conversation smoke
+snapshot and a regenerated 2026-06-05 rolling-continuity report, while explicitly
+marking controlled ablation and player-study evidence as future work.
 
-<!-- The paragraph below is the long-form skeleton claim; fold into the abstract above. -->
+<!-- The paragraph below is the long-form design claim retained for future workshop expansion. -->
 Skeleton claim: We present **emotional residue**, a deliberately minimal memory
 pattern for persistent LLM-driven character agents. Instead of representing the
 aftermath of a conversation as a numeric affect state (`sadness +3`) or a full
@@ -43,8 +42,8 @@ emotional simulation with a three-character soul pilot. We describe the
 five-layer soul model the pattern sits in, the write/read mechanics and rollback
 knobs, and an evaluation harness that measures *soul uniqueness* (do characters
 care differently?) and *rolling two-hour continuity* (does an earlier trace
-surface later as behavior, not as a slogan?). We report `[FILL — N]` qualitative
-observations and discuss the pattern as an anti-pattern to numeric affect
+surface later as behavior, not as a slogan?). The conservative arXiv draft
+reports smoke evidence and discusses the pattern as an anti-pattern to numeric affect
 dashboards.
 
 ---
@@ -75,14 +74,12 @@ dashboards.
   2. A **five-layer soul model** (Public / Private / Relational / Residue /
      Drift) that gives the pattern a place to live and a differentiation rule
      that keeps multiple characters from collapsing into one voice.
-  3. An **evaluation harness** pairing LLM-as-judge *soul-uniqueness markers*
-     with a *rolling two-hour continuity* metric operationalizing "yesterday
-     mattered."
+  3. An **evaluation harness** pairing deterministic, rule-based
+     *soul-uniqueness markers* with a *rolling two-hour continuity* metric
+     operationalizing "yesterday mattered."
   4. An honest account of what this does **not** establish (see §7).
 
 ## 2. Related Work
-
-`[FILL — tighten with real citations]`
 
 - **Generative agents.** Park et al., *Generative Agents: Interactive Simulacra
   of Human Behavior* (2023) — memory stream, reflection, retrieval by
@@ -98,6 +95,8 @@ dashboards.
   or summary.
 - **Believable agents in games / interactive narrative** (AIIDE / FDG / EXAG
   community) — the venue and tradition this paper speaks to.
+  The current arXiv source cites Park et al., AI Town, Picard, OCC, PAD, and
+  Bates as the minimum related-work spine.
 
 ## 3. System: GIIS Underworld and the Five-Layer Soul
 
@@ -216,9 +215,10 @@ the rule-based markers against **human annotation** (§5.x). From the harness
   callback window; count residue candidates in the source and **rolling
   callbacks** in the later window where an earlier trace surfaces as behavior/
   phrasing change rather than a quote.
-- Reported PASS example (2026-06-04): 10:00–12:00 source → 12:00–14:00 callback,
-  28 source samples, 7 callback samples, 40 residue candidates, 6 rolling
-  callbacks. `[FILL — refresh with current numbers before submission]`
+- Regenerated PASS example (2026-06-05): 14:00–16:00 source → 16:00–18:00
+  callback, 3 source conversations, 2 callback conversations, 15 source residue
+  candidates, 2 rolling callbacks. This is feasibility evidence, not a controlled
+  ablation.
 - AM→PM continuity retained as a broader day-arc cross-check.
 
 ### 5.3 Pollution hygiene as a first-class metric
@@ -232,7 +232,10 @@ the rule-based markers against **human annotation** (§5.x). From the harness
 
 ### 5.4 Case studies / golden moments
 
-`[FILL — 3–4 real transcripts]`
+For the arXiv source, raw transcript excerpts are intentionally omitted until
+Alan confirms what player-facing text may be published. Candidate case studies
+for a later workshop version:
+
 - One Umi↔Mahiru pair showing a residue surfacing as a *shorter* reply, not a quote.
 - One Tianze moment ("你剛剛躲過去了。放心，我只拆到這裡。").
 - One negative example: residue leaking as a slogan (and the prompt fix that closed it).
@@ -251,9 +254,10 @@ the rule-based markers against **human annotation** (§5.x). From the harness
   (Alan) and author observation. **No controlled user study, no baseline
   condition, no statistical claim.** This is a design/systems contribution, not
   an empirical HCI study.
-- **LLM-as-judge without human-validation.** Soul-uniqueness markers are scored
-  by an LLM with no reported inter-rater reliability against human annotators.
-  `[FILL — add a small human annotation cross-check, even n=2 raters × 20 samples]`
+- **Rule-based markers need validity evidence.** Soul-uniqueness markers are
+  deterministic heuristics, not an LLM judge or a validated psychometric
+  instrument. The planned cross-check is ≥2 raters × ~20 samples with agreement
+  and convergent-validity reporting.
 - **Scale.** Three pilot characters, one campus, one language register
   (zh-TW). Generalization to larger casts / other languages is untested.
 - **Provider coupling.** Results depend on cloud Qwen for the triad; behavior on
@@ -281,9 +285,13 @@ can re-run. *Less memory, more felt.*
 - Park, J. S. et al. *Generative Agents: Interactive Simulacra of Human Behavior.*
   UIST 2023. (arXiv:2304.03442)
 - a16z-infra. *AI Town.* (project repo)
-- `[FILL]` affective computing / appraisal (OCC, PAD)
-- `[FILL]` LLM agent memory (reflection / summarization memory)
-- `[FILL]` believable agents / interactive narrative (AIIDE, FDG, EXAG)
+- Picard, R. W. *Affective Computing.* MIT Press, 1997.
+- Ortony, A., Clore, G. L., and Collins, A. *The Cognitive Structure of
+  Emotions.* Cambridge University Press, 1988.
+- Mehrabian, A. and Russell, J. A. *An Approach to Environmental Psychology.*
+  MIT Press, 1974.
+- Bates, J. "The Role of Emotion in Believable Agents." *Communications of the
+  ACM*, 1994.
 
 ---
 

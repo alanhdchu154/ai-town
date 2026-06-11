@@ -1,0 +1,5 @@
+blind_id,case_name,condition,pair,message_count,rolling_callback
+ER-0001,conversation-c:93305,residue_off,海-真晝,8,0
+ER-0002,conversation-c:93373,residue_on,海-真晝,8,0
+ER-0003,conversation-c:93338,residue_off,海-真晝,4,0
+ER-0004,conversation-c:93286,residue_on,海-真晝,8,1

@@ -1,112 +1,77 @@
 # Umi Workload
 
-Last updated: 2026-06-05 America/Chicago
+Last updated: 2026-06-11 America/Chicago
 
 This file holds one active worker handoff at a time. Keep it narrow.
 
-## Active Task
+## Completed Task
 
-Active owner: Alan (human playtest), not cc.
+`uw-2026-06-11-maomao-sakiko-replacement`
 
-Next action is Alan's own playtest now that Alan-facing chats are durably
-recorded and re-archived with real memory (see 2026-06-05 WORKLOG entry):
+Alan approved replacing the two legacy male slots:
 
-1. Enter campus, talk to 海 / 天澤, including deliberately absurd lines.
-2. Probe recall: ask about the curry-rice promise (`我的咖哩飯呢 / 你記得答應我
-   什麼嗎`) and whether yesterday is felt inside today.
-3. Then leave the conversation (or leave campus) and confirm the new transcript
-   archived — it should appear as a real archived conversation in
-   `npx convex run school:recentConversationEvalData`, not as an
-   `active_conversation_not_archived` / `human_chat_not_archived` orphan.
-4. Record the result in `umi/reports/alan-facing-v01-playtest-latest.md` and
-   validate with `npm run underworld:alan-playtest-check`.
+- `CaoCao` / `曹操` -> Maomao / `貓貓`
+- `Liu Bei` / `劉備` -> Sakiko / `祥子`
 
-Goal of this pass is observational: confirm memory recall works and watch
-whether soul develops — do NOT add new gates in response to rough output before
-Alan has judged it.
+Intent:
 
-No active cc task. The latest runtime/soul/memory fixes in the tree were made
-directly (game.ts / school.ts / memory.ts / conversation.ts +
-underworldOrphanBackfill.ts), not via a cc handoff.
+- Follow the same replacement pattern previously used when Asuna/Mai became Tianze/Ichinose.
+- Keep current architecture. Do not redesign the map, memory schema, or event engine.
+- All live characters should use cloud Qwen for character-soul conversations; local LLM is backup only.
+- New characters need complete five-layer soul definitions: public self, private self, relational self, emotional residue, behavioral drift, plus long-term arc/prompt notes if the pilot docs use that shape.
+- Update live visual references/portraits/sprites/render wiring so the UI no longer presents CaoCao/Liu Bei as current characters.
 
-## Before Creating The Next Task
+Scope for cc:
 
-- Read `/Users/alanhdchu/umi-central/goals.md`.
-- Read this repo's `WORKLOG.md`.
-- Refresh the relevant source of truth before using old samples as current.
-- Prefer `cc-first` or `Split-work` for bounded coding, tests, eval debugging,
-  or UI implementation.
-- Preserve cc's independent review value: for broad "is this aligned / what
-  changed / what problems do you see" requests, create a scouting review or
-  all-current-diff alignment review rather than a tiny suspected-file prompt.
-- Include Umi first look, current change set, candidate files/directories, open
-  questions for cc, review breadth, allowed changes, verification, and stop
-  conditions.
-- Keep Umi responsible for scope, taste, risk, and Alan-facing summary.
+1. Inspect current git status and relevant files only:
+   - `data/giisProfiles.ts`
+   - `data/characterVisuals.ts`
+   - `data/displayNames.ts`
+   - `data/dailyLifeBulletin.ts`
+   - `data/spontaneousEvents.ts`
+   - `convex/modelPolicy.ts`
+   - `convex/modelPolicy.test.ts`
+   - `convex/school.ts`
+   - `convex/aiTown/agent.ts`
+   - `convex/aiTown/addresseeRepair.ts`
+   - `convex/agent/dialogueHygiene.ts`
+   - `convex/agent/conversation.ts`
+   - `docs/soul/README.md`
+   - `docs/soul/SOUL_PROGRESSION_PLAN.md`
+   - `docs/soul/pilots/caocao.md`
+   - `docs/soul/pilots/liubei.md`
+   - focused eval/script files that hard-code current live character names, excluding generated/historical reports and paper result archives.
+2. Report the live-code replacement map and any missed runtime risk.
+3. Implement only narrow textual/data/test updates if confident. Do not touch historical report artifacts under `evals/conversations/reports/**` or `docs/paper/results/**`.
+4. Do not run long dev servers or broad eval loops.
 
-## Next Task Template
+Allowed edits:
 
-Use this shape when replacing `## Active Task`:
-
-```md
-### <task id>
-
-- status:
-- assigned worker:
-- time anchor:
-- time-aware continuity acknowledged?: yes/no
-- pass type: scouting review / all-current-diff alignment review / bug-hunt
-  review / diagnosis-only / implementation / verification / cleanup
-
-Goal:
-
-Umi first look:
-
-- current central goal:
-- current `WORKLOG.md` state:
-- current git status/diff:
-- what is still uncertain:
-
-Inputs to read first:
-
-- `/Users/alanhdchu/umi-central/goals.md` row for `underworld`
-- `AGENTS.md`
-- `WORKLOG.md`
-- relevant report, roadmap, eval, or source files
-
-Candidate files/directories:
-
-- areas cc may inspect for adjacent risk
-
-Open questions for cc:
-
-- questions cc should answer with independent judgment
-
-Allowed changes:
-
-- read/report only, or exact editable scope
-
-Review breadth:
-
-- how far cc may look beyond named files
-- adjacent risks cc should flag
-
-Verification to run:
+- Rename or replace the two live character profiles and aliases.
+- Add/rename soul pilot docs for Maomao and Sakiko.
+- Update provider policy/tests so current live characters route cloud-first with local fallback gated by existing fallback env.
+- Update authored daily-life/spontaneous event text for the new roles.
+- Update visual config and docs references for the new current characters.
+- Update narrow eval/script fixtures where they refer to live current character identities.
 
 Stop conditions:
 
-- central goals and this handoff disagree
-- scope expands beyond the goal
-- provider/runtime/credential issue prevents useful work
-- cc times out, exits non-zero, or produces no tool progress
+- Stop and report if a DB migration/destructive reset appears necessary.
+- Stop and report if old generated data would need mass rewrite.
+- Stop after one bounded pass, with changed files and verification suggestions.
 
-Expected worker report:
+Outcome:
 
-- top findings by severity
-- recommended direction
-- whether implementation should happen now, wait, or be narrowed
-- files inspected or changed
-- commands run
-- verification result
-- blockers and residual risk
+- Live code/data/docs/eval/assets now use Maomao / `貓貓` and Sakiko / `祥子`.
+- Legacy aliases (`CaoCao`, `Cao Cao`, `曹操`, `Liu Bei`, `LiuBei`, `劉備`) remain only for compatibility and display/runtime normalization.
+- Local Convex runtime profile migration ran with `scope=profiles` and `clearHistory=false`; active debug state confirms Maomao/Sakiko are the persisted roster names and target short-term state is cleared.
+- Deep history purge was dry-run only because it would delete conversations/messages/memories/timeline rows. Run it only with Alan approval.
+
+Verification completed:
+
+```bash
+npx tsc --noEmit --pretty false
+npm test -- --runInBand convex/modelPolicy.test.ts convex/aiTown/addresseeRepair.test.ts convex/agent/dialogueHygiene.test.ts evals/conversations/metrics/conversation_metrics.test.ts
+npm run build
+CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 ./node_modules/.bin/convex run --typecheck disable --codegen disable school:debugState
 ```
