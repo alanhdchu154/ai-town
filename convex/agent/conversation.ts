@@ -19,6 +19,7 @@ import {
 import {
   characterSoulPolicyViolation,
   characterSoulLocalFallbackEnabled,
+  characterSoulProviderCooldownOnlyGuard,
   characterSoulProviderGuard,
   defaultCharacterSoulModel,
   freeWorldConversationProviderRole,
@@ -636,7 +637,7 @@ async function safeConversationCompletion(
   const promptChars = conversationPromptChars(request);
   try {
     const { content } = pilotCloudAllowed && shouldUsePilotCloudCompletion(request)
-      ? await pilotCloudCompletion(request)
+      ? await pilotCloudCompletion(request, humanFacing)
       : await chatCompletion(request);
     logGiisTiming({
       action: 'conversationLLM',
@@ -660,7 +661,7 @@ async function safeConversationCompletion(
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const retry =
           pilotCloudAllowed && shouldUsePilotCloudCompletion(request)
-            ? await pilotCloudCompletion(request)
+            ? await pilotCloudCompletion(request, humanFacing)
             : await chatCompletion(request);
         if (typeof retry.content === 'string') {
           logGiisTiming({
@@ -853,19 +854,21 @@ function openaiCompatibleModelName(model: string | undefined) {
 
 async function pilotCloudCompletion(
   request: Parameters<typeof chatCompletion>[0],
+  humanFacing = false,
 ): Promise<{ content: string; retries: number; ms: number }> {
   const provider = process.env.UMI_MAHIRU_PILOT_PROVIDER?.toLowerCase();
   const model = request.model ?? '';
   if (provider === 'gemini' || model === 'gemini' || model.startsWith('gemini/')) {
-    return geminiPilotCompletion(request);
+    return geminiPilotCompletion(request, humanFacing);
   }
-  return openaiCompatiblePilotCompletion(request);
+  return openaiCompatiblePilotCompletion(request, humanFacing);
 }
 
 // OpenAI-compatible chat completion for the Umi/Mahiru pilot (e.g. Qwen via the
 // newcoin.top proxy). Key/base/model all come from env; nothing is hardcoded.
 async function openaiCompatiblePilotCompletion(
   request: Parameters<typeof chatCompletion>[0],
+  humanFacing = false,
 ): Promise<{ content: string; retries: number; ms: number }> {
   const apiKeys = pilotApiKeyCandidates();
   if (!apiKeys.length) {
@@ -883,7 +886,10 @@ async function openaiCompatiblePilotCompletion(
   };
   let lastError: unknown;
   for (const [index, candidate] of apiKeys.entries()) {
-    const guard = characterSoulProviderGuard();
+    // Human-facing replies bypass the daily quota (but not the failure
+    // cooldown): the shared 24/day pool is consumed by autonomous cloud
+    // characters, and a quota-starved Alan chat must not degrade or die.
+    const guard = humanFacing ? characterSoulProviderCooldownOnlyGuard() : characterSoulProviderGuard();
     if (!guard.allowed) {
       throw new Error(guard.reason ?? 'characterSoul provider guard blocked the call');
     }
@@ -951,12 +957,13 @@ function shouldRetryPilotWithBackup(status: number, body: string) {
 
 async function geminiPilotCompletion(
   request: Parameters<typeof chatCompletion>[0],
+  humanFacing = false,
 ): Promise<{ content: string; retries: number; ms: number }> {
   const apiKey = geminiApiKey();
   if (!apiKey) {
     throw new Error('UMI_MAHIRU_PILOT_PROVIDER=gemini requires UMI_MAHIRU_PILOT_API_KEY or GEMINI_API_KEY');
   }
-  const guard = characterSoulProviderGuard();
+  const guard = humanFacing ? characterSoulProviderCooldownOnlyGuard() : characterSoulProviderGuard();
   if (!guard.allowed) {
     throw new Error(guard.reason ?? 'characterSoul provider guard blocked the call');
   }

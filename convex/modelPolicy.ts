@@ -156,6 +156,21 @@ export function characterSoulProviderGuard(env: ModelPolicyEnv = process.env, no
   return { allowed: true, reason: null };
 }
 
+// Human-facing (Alan) conversations bypass the daily quota — the shared pool
+// is consumed by autonomous cloud characters and Alan's chats are the product
+// core — but still respect the failure cooldown so a flapping provider is not
+// hammered. (2026-06-11, Alan-approved.)
+export function characterSoulProviderCooldownOnlyGuard(now = Date.now()) {
+  resetDailyStateIfNeeded(now);
+  if (characterSoulProviderState.cooldownUntil > now) {
+    return {
+      allowed: false,
+      reason: `characterSoul provider is cooling down until ${new Date(characterSoulProviderState.cooldownUntil).toISOString()}`,
+    };
+  }
+  return { allowed: true, reason: null };
+}
+
 export function recordCharacterSoulProviderAttempt(now = Date.now()) {
   resetDailyStateIfNeeded(now);
   characterSoulProviderState.attempts += 1;
