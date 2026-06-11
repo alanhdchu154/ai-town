@@ -1187,15 +1187,21 @@ export default function PlayerDetails({
         </a>
       )}
       {inConversationWithMe && (
-        <button
-          className="mt-6 button text-white shadow-solid text-xl cursor-pointer pointer-events-auto w-full disabled:opacity-60"
-          disabled={!!runningActionKeys['conversation:leave']}
-          onClick={onLeaveConversation}
-        >
-          <div className="h-full bg-clay-700 text-center">
-            <span>{runningActionKeys['conversation:leave'] ? '處理中...' : '離開對話'}</span>
-          </div>
-        </button>
+        // Compact, right-aligned: leaving is an escape hatch, not the main
+        // action of a conversation — the old full-width text-xl bar was the
+        // single most prominent element on the screen.
+        <div className="mt-2 flex justify-end">
+          <button
+            className="button text-white shadow-solid text-sm cursor-pointer pointer-events-auto disabled:opacity-60"
+            disabled={!!runningActionKeys['conversation:leave']}
+            onClick={onLeaveConversation}
+            title="結束這段對話（Esc）"
+          >
+            <div className="h-full bg-clay-700 text-center px-3">
+              <span>{runningActionKeys['conversation:leave'] ? '處理中...' : '離開對話'}</span>
+            </div>
+          </button>
+        </div>
       )}
       {haveInvite && (
         <>

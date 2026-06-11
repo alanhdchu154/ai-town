@@ -4137,3 +4137,87 @@ body {
 .shape-top-left-corner {
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
+
+/* ============================================================
+   VN big-frame conversation view (Route A — layout step)
+   Promotes the active conversation panel into a near-fullscreen
+   visual-novel frame: large character render on the left, roomy
+   dialogue textbox on the right. Additive + desktop-only
+   (min-width: 901px) so the existing mobile stacked layout is
+   untouched. Only applies while actively in a conversation
+   (.giis-conversation-active). Character render art is tracked in
+   docs/giis-vn-art-spec.md; until full renders exist this reuses
+   the existing portrait PNGs in /public/portraits.
+   ============================================================ */
+@media (min-width: 901px) {
+  .giis-live-room-shell.giis-conversation-active .giis-utility-panel {
+    width: min(100rem, calc(100% - 1.5rem));
+    max-width: min(100rem, calc(100% - 1.5rem));
+    max-height: min(95dvh, 62rem);
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    top: auto;
+  }
+
+  .giis-conversation-active .giis-side-conversation-panel-active {
+    max-height: min(92dvh, 60rem);
+    min-height: min(80dvh, 52rem);
+    grid-template-columns: minmax(16rem, 0.44fr) minmax(0, 0.56fr);
+    border-radius: 20px;
+  }
+
+  /* Large character render anchored to the bottom of the stage. */
+  .giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-rpg-portrait-stage
+    .character-portrait-card {
+    min-height: min(64vh, 42rem);
+  }
+
+  .giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-rpg-portrait-stage
+    .character-portrait-img,
+  .giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-rpg-portrait-stage
+    .character-portrait-fallback {
+    height: min(74vh, 48rem);
+    width: auto;
+    max-width: min(34rem, 100%);
+  }
+
+  /* Roomier dialogue side + larger type so it reads like a VN textbox. */
+  .giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-side-conversation-body {
+    padding: 1.4rem 1.6rem;
+  }
+
+  .giis-conversation-active .giis-side-conversation-panel-active .bubble {
+    max-width: min(44rem, 100%);
+  }
+
+  .giis-conversation-active .giis-side-conversation-panel-active .bubble p {
+    font-size: 1.06rem;
+    line-height: 1.85;
+  }
+}
+
+/* Clickable 「大家在：…」 jump chips inside the empty-room cue.
+   View-only camera jump — never moves Alan. */
+.giis-empty-room-jump {
+  display: inline-block;
+  margin: 0 0.15rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.giis-empty-room-jump:hover {
+  background: rgba(255, 255, 255, 0.18);
+}

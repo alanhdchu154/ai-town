@@ -434,9 +434,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const visibleSceneNames = scenePlayers
     .map((player) => displayAgentName(game.playerDescriptions.get(player.id)?.name))
     .filter(Boolean);
-  const occupiedRoomLabels = sceneGroups
-    .filter((group) => group.occupants.length > 0)
-    .map((group) => `${group.location.labelZh} (${group.occupants.length})`);
+  const occupiedGroups = sceneGroups.filter((group) => group.occupants.length > 0);
+  const occupiedRoomLabels = occupiedGroups.map(
+    (group) => `${group.location.labelZh} (${group.occupants.length})`,
+  );
   const emptyRoomTitle =
     periodLabel === '深夜'
       ? `${currentScene.labelZh}安靜下來了。`
@@ -584,6 +585,15 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         console.error('[GIIS floor click move failed]', error);
         setSceneMessage('暫時無法移動 Alan。');
       });
+  };
+  // View-only scene switch: moves the camera, never moves Alan. Used by the
+  // 「大家在：…」 jump chips so "去看看誰在那" doesn't haul Alan across campus.
+  const viewScene = (nextId: SchoolLocationId) => {
+    const nextScene = SchoolLocations.find((location) => location.id === nextId);
+    if (!nextScene) return;
+    setSelectedSceneId(nextId);
+    window.setTimeout(() => focusOn(nextScene.position, 1.2), 60);
+    setSceneMessage(`切換視角到：${nextScene.labelZh}（Alan 沒有移動）。`);
   };
   const switchScene = (nextId: SchoolLocationId) => {
     const clickStart = performance.now();
@@ -767,7 +777,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               </button>
             </div>
           ) : null}
-          <label className="giis-scene-select" title={isConversationMode ? '正在對話中，先離開對話才能切換場景。' : '切換到其他場景'}>
+          <label className="giis-scene-select" title={isConversationMode ? '正在對話中，先離開對話才能切換場景。' : '前往其他場景（會把 Alan 一起移過去）'}>
             <span className="giis-scene-select-glyph" aria-hidden="true">→</span>
             <select
               className="giis-select"
@@ -966,7 +976,23 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
           {scenePlayers.length === 0 ? (
             <div className="giis-empty-room-cue" aria-live="polite">
               <b>{emptyRoomTitle}</b>
-              <span>{emptyRoomDetail}</span>
+              {occupiedGroups.length ? (
+                <span>
+                  大家在：
+                  {occupiedGroups.map(({ location, occupants }) => (
+                    <button
+                      key={location.id}
+                      className="giis-empty-room-jump"
+                      onClick={() => viewScene(location.id)}
+                      title={`切換視角到${location.labelZh}（不會移動 Alan）`}
+                    >
+                      {location.labelZh} ({occupants.length})
+                    </button>
+                  ))}
+                </span>
+              ) : (
+                <span>{emptyRoomDetail}</span>
+              )}
             </div>
           ) : null}
 
@@ -1012,7 +1038,16 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
                   <button
                     className="giis-action-pill giis-action-pill-primary"
                     title={ACTION_TOOLTIPS.chat}
-                    onClick={() => runQuickAction('chat')}
+                    onClick={() => {
+                      // Immediate feedback: starting a conversation involves
+                      // walking over + engine accept, which can take ~10s with
+                      // no visible change — without this toast the click feels
+                      // dead and users click again.
+                      setSceneMessage(
+                        `Alan 正在走向 ${displayAgentName(selectedName)}，準備開始對話…`,
+                      );
+                      runQuickAction('chat');
+                    }}
                   >
                     說話
                   </button>
