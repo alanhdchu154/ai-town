@@ -35,7 +35,12 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
 
 ## Status
 
-**v0.1 candidate · 2026-05-29.** Soul triad (Umi / Mahiru / Tianze; Convex runtime key `Tianze`) is live with cloud-gated Qwen; **Phase 1 emotional residue loop shipped 2026-05-26**; **cloud Qwen door opened + fallback pollution cleaned 2026-05-29**. Currently collecting fresh post-cleanup samples before declaring v0.1 ship.
+**v0.1 closing · 2026-06-11.** Six of the eight completion-audit gates are green, including the two hardest: **the human gate passed** (a real Alan↔海 playtest recorded `PASS 5/5` — greeting, latest-sentence binding, correction binding, yesterday/today continuity, closing) and **rolling two-hour memory continuity passed** (23 callbacks across adjacent windows). The remaining two gates trace to one fresh-window life-signals run after the 2026-06-11 repeated-line fixes.
+
+The headline v0.1 moments actually happened:
+
+- 海 **unprompted** brought up a missed curry promise (*「先別以為這聲『寶寶』能讓我忘記我們都錯過彼此約定好的咖哩飯這件事」*) — commitment memory + expiry surfacing on their own.
+- Asked when the promise was made, 海 honestly admitted uncertainty instead of fabricating a moment, then **re-anchored the stale relative 「明天」 into a concrete 「星期五晚餐」** — which is now stored as a dated commitment for the cross-day test.
 
 **What works today:**
 
@@ -44,11 +49,14 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
 - Soul triad speak in differentiated voices — prompt + eval markers penalize echo and stage-direction leakage
 - Qualified triad conversations append one bounded `殘留：…` line to memory; the next same-pair prompt reads up to 2 residue lines as emotional pressure (never quoted verbatim). 3-message real cloud transcripts now qualify.
 - Conversation eval (`eval:soul-triad`, `eval:conversation:recent`) measures soul uniqueness + memory continuity and rejects numeric emotion-meter language
-- Local [Ollama](https://ollama.com/) (`qwen2.5:1.5b`) handles most NPC turns; cloud Qwen `qwen3-max` gates the triad pilot. **First four cloud triad samples archived fallback-free 2026-05-29** (`c:55297`, `c:55379`, `c:55392`, `c:55424` — the last one PASS 1.00 after hygiene fix).
-- AM→PM continuity verified: 12 afternoon callbacks to morning residue (`npm run underworld:am-pm-continuity` PASS / continuity_observed).
+- **Commitment memory**: promises are extracted with absolute date + weekday (「答應明天（6/11 週四）…（說於6/10 週三）」), including offer-based promises nobody explicitly accepted; the promiser is the offerer, not whoever said 「好」. Expired promises surface with an own-the-miss instruction instead of pretending 還來得及.
+- **Anti-confabulation**: claiming 「我記得」 requires quoting actual evidence; an in-conversation correction retroactively down-weights the matching false memory (`RECALL_CORRECTED_MARKER`) so fabrications stop resurfacing as canon. Read-only audit: `npm run underworld:memory-hygiene`.
+- **Human-facing reliability**: Alan's conversations never fall back to the weak local model (retry once, then abort cleanly) and bypass the shared daily cloud quota — no more echo-parroting when the provider flaps.
+- Rolling two-hour continuity is the primary recent-memory gate (`npm run underworld:rolling-continuity`); it also auto-exports Alan transcripts for review.
+- Six-character cast with interlocking soul profiles; cloud Qwen for all pilots, local [Ollama](https://ollama.com/) for fallback-only duty.
 - Day / night rhythm changes who is around and how they speak
 - Action results narrate `yourAction → characterReactions → worldChanges → futureImplications` after each player move
-- 2D RPG classroom view (Pixi) + VN-style active dialogue mode; floating live-room shell with topbar / left pills / bottom action dock layered over a single map surface
+- **VN scene-stage view**: rendered scene backdrops, full-body character renders with name/emotion plates, busy characters shown faded, scene prop chips — with the original Pixi map one toggle away. Conversation panel matches the dark VN language.
 - `ConversationWall` (對話牆) archive surface for scanning fresh samples and spotting slogan leakage
 - Fallback pollution cleanup verified at 0 across all surfaces (memories / archived conversations / world events / notifications / profiles)
 
@@ -56,11 +64,10 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
 
 **Intentionally deferred to v0.2+:**
 
-- Full-cast residue rollout (everyone, not just the triad)
 - Behavior drift engine, Soul Layer 6 (long-term arc)
+- Prop-state system, in-world promise calendar, gift mechanics (planned — see What's next)
 - Memory schema migration (speech vs. stage direction split)
 - Numerical emotion dashboards / relationship graphs
-- New characters or factions
 - Mobile / tablet layouts
 
 ## The cast
@@ -85,14 +92,14 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
   </tr>
   <tr>
     <td align="center" width="33%">
-      <img src="public/portraits/caocao.png" width="180" alt="Cao Cao"/><br/>
-      <b>Cao Cao 曹操</b><br/>
-      <i>Uses order to protect people who hesitate at the door.</i>
+      <img src="public/portraits/maomao.png" width="180" alt="Maomao"/><br/>
+      <b>Maomao 貓貓</b><br/>
+      <i>Cold-eyed diagnostician; reads feelings and excuses as symptoms.</i>
     </td>
     <td align="center" width="33%">
-      <img src="public/portraits/liubei.png" width="180" alt="Liu Bei"/><br/>
-      <b>Liu Bei 劉備</b><br/>
-      <i>Includes the people other characters overlook.</i>
+      <img src="public/portraits/sakiko.png" width="180" alt="Sakiko"/><br/>
+      <b>Sakiko 祥子</b><br/>
+      <i>Stage-trained composure that hides the crack inside the politeness.</i>
     </td>
     <td align="center" width="33%">
       <img src="public/portraits/ichinose.png" width="180" alt="Ichinose"/><br/>
@@ -351,23 +358,23 @@ The observe step never modifies code. The repair gate only classifies small allo
 
 ## What's next
 
-**Now → v0.1 ship — collect daytime samples, not more code.** The cloud door is open, fallback pollution is cleaned, and the 3-message residue gap is closed. The remaining ship gate is empirical: do fresh post-cleanup triad conversations naturally *feel* prior residue without quoting it?
+**Now → v0.1 close.** Two gates remain, both fed by one clean fresh-window
+run after the 2026-06-11 repeated-line fixes (the canned repair pools that
+were repeating 「那你先說，哪一句是真心的？」 17x/day are gone; style is
+steered at the prompt level by motif-guard families instead):
 
-- Run `npm run underworld:v01-daytime-check` during daytime to gather samples + audit
-- Watch `Memory continuity` in `eval:soul-triad` and re-read fresh samples per pair via the 對話牆
-- **Fresh-sample rule (active):** if fresh post-cleanup samples for a pair are fewer than 3, do not tune prompt or memory behavior — keep collecting. Goal audit prints PENDING until each pair has ≥3.
-- Only patch if fresh samples repeat the same failure class (residue collapses into a slogan, or never surfaces). One targeted prompt edit at a time; re-sample before the next edit.
+- `npm run underworld:observe` then `npm run underworld:v01-completion-audit` — all eight gates green ships v0.1.
+- The emotional capstone (not a formal gate): the **Friday 6/12 curry dinner** — does 海 surface the dated promise on the right day, unprompted?
 
-**v0.1 ship gate.** v0.1 ships when:
+**v0.2 — "Did yesterday change today?"** Plan approved 2026-06-11 (full detail in the roadmap):
 
-- Triad pairs show genuine residue callbacks (not echoed phrasing) across **3+ fresh same-pair samples per pair**. Current: Umi↔Mahiru 2 / Umi↔Tianze 1 / Mahiru↔Tianze 1 (runtime pair key `Tianze`).
-- `Memory continuity` warns rather than fails on the recent corpus. Current: WARN 0.91 (previous-speaker binding).
-- One longer live playtest confirms Alan feels yesterday inside today's conversation.
-- AM→PM continuity remains PASS. **Achieved 2026-05-29** (12 PM callbacks to AM residue).
+- **Props as visible memory**: per-scene per-day prop state rewritten by character behavior; commitments pinned to physical props; Alan-interactable props (leave a line on the blackboard, characters react tomorrow).
+- **約定頁**: an in-world promise calendar hosted by 海 inside a consolidated 校園手帳 — never a dev dashboard.
+- **Fulfillment detection**: honored promises warm relationships; missed ones leave disappointment residue.
+- **Gifts**: a gift becomes a persistent prop in the receiver's scene; effects flow through memory and mentions, never numeric affinity points.
+- **Memory deepening**: behavioral drift (from tone to feet), per-character daily diaries, relationship drift in words not gauges, gossip with provenance (「聽海說的」).
 
-**v0.2+ (deferred — do not pull forward):** full-cast residue rollout, Soul Layer 6 (long-term arc), per-character memory profiles, schema split for speech vs. stage direction, second cloud-gated NPC pair, mobile/tablet layouts.
-
-Detailed weekly plan and acceptance criteria: [docs/giis-v0.1-roadmap.md](docs/giis-v0.1-roadmap.md).
+Detailed plan and acceptance criteria: [docs/giis-v0.1-roadmap.md](docs/giis-v0.1-roadmap.md).
 
 ## Prototype disclaimer
 
