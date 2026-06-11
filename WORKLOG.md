@@ -1,6 +1,6 @@
-# WORKLOG - Umi / Codex / CC Current Handoffs
+# WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-04
+Last updated: 2026-06-10
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -8,25 +8,59 @@ historical evidence is needed.
 
 ## Usage
 
-1. Read `Open Handoffs` before changing code.
+1. Read `Open Follow-Ups` before changing code.
 2. Put one focused worker task in `umi/workload.md` before assigning cc.
 3. Append only active, decision-relevant entries. Remove completed/stale entries
    once the result is captured elsewhere.
 4. Treat prior-day reports as historical evidence and refresh before answering
    "today/now/recently".
 
-## Open Handoffs
+## Open Follow-Ups
 
 | # | Item | Owner | Status |
 |---|---|---|---|
+| 0 | Local storage migration status: Ollama models are active on T9 and verified by `ollama list`. Underworld Convex local backend state is active on T9 via `/Users/alanhdchu/.convex/convex-backend-state/local-alan_chu-ai_town` -> `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town`; `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 ./node_modules/.bin/convex run --typecheck disable --codegen disable school:debugState` returned world/debug data. See `/Users/alanhdchu/umi-central/docs/local_storage_layout.md`. | Umi / Codex | active_on_t9_verified |
 | 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; fill the existing ignored local `PARTIAL` draft at `umi/reports/alan-facing-v01-playtest-latest.md`, then validate it with `npm run underworld:alan-playtest-check`. The read-only candidate scan at `umi/reports/alan-playtest-candidates-latest.md` found `NO_COMPLETE_CANDIDATE`, so do not backfill this gate from old chats. | Alan / Umi | pending fresh playtest |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC auth/keychain remains unreliable; use bounded in-app sub-agent/cc paths only when available and verify output before accepting. | Umi / Codex | watch |
-| 5 | Post-role-change v0.1 rerun is now machine-gate ready but not fully complete. On 2026-06-04 12:37 CDT, `npm run underworld:rolling-continuity` replaced AM->PM as the primary recent-memory gate and passed: 10:00-12:00 source window -> 12:00-14:00 callback window, 28 source samples, 7 callback samples, 40 residue candidates, and 6 rolling callbacks. `npm run underworld:rubric-reconcile` is `HUMAN_REVIEW_READY` with no v0.1 blockers; `npm run underworld:v01-completion-audit` is `PENDING` with 0 fail / 1 pending / 7 pass. The only remaining completion gate is Alan-facing Umi playtest quality: fill/replace `umi/reports/alan-facing-v01-playtest-latest.md`, validate with `npm run underworld:alan-playtest-check`, then rerun completion audit. Do not call v0.1 complete unless that gate passes or Alan explicitly defers it. | Alan / Umi | active_pending_alan_playtest |
+| 5 | Post-role-change v0.1 rerun remains active, not complete. On 2026-06-10 10:35 CDT, `npm run underworld:v01-completion-audit` is `FAIL` with 2 fail / 2 pending / 4 pass after a fresh morning observe pass. The useful evidence is mixed: runtime/provider/fallback are healthy, two fresh archived triad samples passed soul-triad eval, but the third focused sample timed out and left an active incomplete 海/天澤 conversation; recent eval marked 0 PASS / 0 WARN / 3 FAIL, while `v01-approach` labels the blocker `eval_rubric_disagreement` / proposal-only. Later evidence improved one gate: the 18:58 CDT `rolling-continuity-latest.md` is now `PASS / continuity_observed` with 34 callbacks from the 10:00-12:00 source window to the 12:00-14:00 callback window, so rolling continuity is no longer the leading blocker. The 20:26 CDT Alan-facing candidate scan still found `NO_COMPLETE_CANDIDATE`, and the durable Alan-facing playtest artifact remains `PARTIAL` with 0/5 PASS rows. The next safe actions are to reconcile eval framing before changing dialogue code, and fill/replace `umi/reports/alan-facing-v01-playtest-latest.md` only from a real Alan <-> Umi playtest or explicit Alan/product-owner defer. | Alan / Umi | active_fail_eval_framing_and_alan_playtest |
+| 6 | Paper (emotional residue) is local-source ready only as a conservative design/systems preprint, and Alan reported submitting the A-path preprint on OSF on 2026-06-10 because arXiv upload is blocked by endorsement. `docs/paper/OSF_RELEASE_RECORD.md` is the current OSF posting ledger; public OSF URL / DOI / submitted file / license metadata remain `TO_RECORD` locally. `docs/paper/arxiv/main.tex` now includes provider/model-path disclosure, measured-limits text for untested verbatim leakage, an explicit ethics/scope note, denominator-safe wording for the 15-candidate/2-callback rolling window, reflexivity disclosure for author-designed rule markers, narrowed read-block-suppression wording instead of "primary causal ablation", social-agent evaluation context via SOTOPIA / Lifelong SOTOPIA, and a disclosure that `UNDERWORLD_RESIDUE_READ=placebo` is draft runtime plumbing that is not preregistered, collected, or analyzed in this paper. `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` remains the future arXiv mirror packet; arXiv is paused until endorsement/account readiness and platform preview are resolved. `docs/paper/CITATION_PROVENANCE.md` plus `npm run paper:citation-audit` cover all 17 bibliography keys and primary/official URLs for recent LLM-agent / AI Town / social-agent references. `docs/paper/PREREGISTRATION_PROTOCOL.md` is a machine-audited draft for the future empirical study, not an accepted collection authorization; it now records continuing-world carryover/read-eligibility, dyad fallback, no interim effect peeking, and a concrete final-N selection procedure from pilot baseline/MDE/design-effect. `paper:residue-arm-window` still requires both `SCHEDULE_ACCEPTANCE.json` and `PREREGISTRATION_ACCEPTANCE.json` before it can change `UNDERWORLD_RESIDUE_READ` or hold a collection window; it now writes `run-provenance.json` / `artifact-hashes.json` and attaches `run_provenance` to future dataset rows so long-window collection preserves secret-safe git state, accepted schedule/preregistration hashes, source-archive hash, command args, runtime, env policy, and artifact/log hashes. Legacy forced runners `paper:residue-ablation` and `paper:residue-ablation:blocks` now refuse to run unless `--allow-legacy-forced-pilot` is explicitly provided, so accidental short forced collection is blocked by default. `paper:run-provenance-audit` can check each completed arm-window run directory before merge, and `paper:merge-ablation-runs` now writes a merge manifest and refuses to merge failed-provenance arm-window runs. Human annotation plumbing is ready but unrun: `annotation_sheet.csv` is still a blank blinded worksheet with only 4 rows; `annotation_packet_manifest.json` and `transcript_packet_manifest.json` now prove the pre-rater sheet/key/transcript hashes, selected blind IDs, exact blind-id-to-source-report mapping, missing-transcript status, source-report hashes, and blinding flags; `paper:annotation-audit` now verifies those source report paths/hashes and future completed rater sheet paths/hashes. `scripts/paper/merge_rater_annotations.py` must later merge completed independent rater sheets into analysis-ready `annotations.csv` with `annotations_manifest.json`, and now refuses completed rater sheets that include leaked/unblinded columns or non-blinded `case_ref` values. `paper:annotation-audit` reports `PACKET_READY_INCOMPLETE_STUDY`: 0 FAIL, with empirical blockers for stale mutable source-report hash, 4 rows, no merged annotations, and one dyad. `docs/paper/ALAN_HANDOFF.md` is the one-page boundary summary; `docs/paper/REVIEWER_PREMORTEM.md` records cc-reviewed objections including between-arm carryover. `paper:archive-audit` rebuilds the local arXiv/source archive with atomic output replacement, verifies the manifest/SHA/member allowlist, and checks for accidental data/results/annotation/transcript or obvious secret leakage. Current `npm run paper:readiness` verdict is `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, archive SHA-256 `099a8fbcdb2c588e3678b850d6f1ba40fc36f563bae3657a434827d857f222ab`. Empirical/mechanism claims remain blocked: n=4, one dyad, no completed independent rater merge, stale annotation source-report packet, saturated aftertaste proxy, missing generation metadata/provenance on old rows, trace-overlap audit only has 11 callback cases, final N is not fixed, no accepted long-window schedule or preregistration, and the local placebo plumbing is not preregistered, collected, or analyzed. | Alan / Codex | osf_submitted_arxiv_endorsement_blocked_empirical_blocked |
 
 ## Current State Snapshot
 
+- 2026-06-10 evening (Claude/Cowork session): the `eval_rubric_disagreement`
+  blocker was adjudicated — both harnesses are right (soul-triad: differentiation
+  improved; recent eval: a real cross-speaker motif loop persists). Record:
+  `evals/conversations/reports/soul-rubric-reconciliation.md` (2026-06-10
+  section). The motif family (涼掉的飲食 / 先停先別推) was added to the
+  conversation motif guard per the ≥3-sample rule. Memory layer received the
+  larger fixes, driven by live Alan playtests (海 8:06pm, 一之瀨 8:16pm):
+  commitment extraction now resolves relative dates to absolute date+weekday at
+  write time, detects offer-based promises without an explicit "好" (the
+  一之瀨 c:94554 loss), attributes the promiser as the offerer (direction
+  inversion fix), expires stale promises at read time (dated label or legacy
+  「答應明天」+48h), and scans a deeper window (150 rows) so old promises stop
+  scrolling out of reach (海's 6/4 curry promise was present at importance 7
+  but unreachable behind take(24)). Anti-confabulation now also works
+  retroactively: a recall correction down-weights matching older memories
+  (RECALL_CORRECTED_MARKER + importance 0, hidden from read paths); the 6/4
+  「世界變得太聰明」 fabrication and one unverified 真晝 claim were cleaned
+  manually via `school:downweightFalseMemory`. New read-only audit:
+  `npm run underworld:memory-hygiene` (found pollution to be small: 2 suspect
+  rows out of 919; zero legacy-format rows, which suggests follow-up #2
+  backfill may be unnecessary — Alan to confirm). Transcript visibility:
+  `underworld:alan-playtest-candidates` gained `--target=all`, and
+  `underworld:rolling-continuity` now auto-refreshes that export, so Alan
+  chats no longer require a manual export before review. UI: new VN-style
+  conversation view (`src/components/VnConversationView.tsx`, toggle in
+  ConversationPanel, default ON) using existing neutral portraits; emotion
+  portrait variants are not yet generated. Remaining v0.1 gates after this
+  session: fresh-window life signals + the real Alan-facing playtest artifact
+  (五條 checklist). Verification: `npx tsc --noEmit`, `npm test --
+  convex/agent/memory.test.ts convex/agent/commitmentPrompt.test.ts
+  convex/agent/conversationMotifGuard.test.ts` (39 tests), script self-tests
+  (candidates, rolling-continuity, memory-hygiene), `git diff --check`.
 - Cloud Qwen path has been used for recent guarded samples, but afternoon scoped
   sample collection timed out on 2026-05-31; natural archived conversations were
   still sufficient to judge AM->PM continuity. After the prop/motif candidate
@@ -90,20 +124,1659 @@ historical evidence is needed.
   `recentConversationEvalData` plus today's append-only
   `alan-chat-archival-history.jsonl` verifier evidence because active test
   conversations can be replaced by later targeted chats.
-- At 2026-06-04 21:43 CDT, the latest completion audit remains authoritative:
-  v0.1 is still `PENDING` with 0 fail / 1 pending / 7 pass. The only remaining
-  pending gate is Alan-facing Umi playtest quality; `npm run
-  underworld:alan-playtest-check` still reports `NOT_PASS_READY` / `PARTIAL`
-  with 0/5 PASS rows.
+- At 2026-06-06 09:01 CDT, the latest completion audit is authoritative:
+  v0.1 is still `PENDING` with 0 fail / 2 pending / 6 pass. Pending gates are
+  rolling two-hour continuity (`WARN` / `sample_pending`) and Alan-facing Umi
+  playtest quality (`NOT_PASS_READY` / `PARTIAL`, 0/5 PASS rows). This is not a
+  hard failure; it means today's evidence is not sufficient to declare v0.1
+  complete.
 - At 2026-06-04 21:47 CDT, the Alan-chat archival / daily-life bulletin goal is
   complete by current evidence: a fresh 海 archival verifier run is `PASS`,
   Umi briefing reads four concise same-day bulletin items without duplicated
   body text, and `npm run underworld:life-density` requires and reports two
   distinct uptake angles (`quiet_care` and `rule_probe`) before returning
   `PASS / life_density_and_multi_angle_uptake_observed`.
+- At 2026-06-10 10:35 CDT, today's product v0.1 refresh has moved from
+  `PENDING` to `FAIL` in the completion audit, but this should not trigger an
+  automatic prompt rewrite. `npm run underworld:observe -- --target-samples=3
+  --cc=skip --require-archived=true` collected two fresh archived morning
+  samples (`conversation-c:94448` 海/真晝 and `conversation-c:94473` 真晝/天澤)
+  and timed out on the third focused 海/天澤 sample, leaving one active
+  incomplete conversation. `v01-approach` reports runtime/provider/fallback
+  health OK, soul eval 2/0/0, recent eval 0/0/3, and identifies
+  `eval_rubric_disagreement` as proposal-only. Rolling continuity remains
+  `WARN / sample_pending` because there is no adjacent two-hour callback window
+  yet, and life-density is `WARN / conversation_uptake_pending` for today.
+- At 2026-06-10 20:28 CDT, Central Umi aligned the local evidence after later
+  observe/report activity. `rolling-continuity-latest.md` generated at 18:58 CDT
+  is now `PASS / continuity_observed` with 34 callbacks from 10:00-12:00 ->
+  12:00-14:00, so the rolling-continuity blocker from the 10:35 completion
+  audit is stale. However, `alan-playtest-candidates-latest.md` generated at
+  20:26 CDT is still `NO_COMPLETE_CANDIDATE`; product v0.1 remains active until
+  character-soul/event-thread eval framing is reconciled and the Alan-facing
+  playtest is passed or explicitly deferred.
 
 ## Work Log
 
+- 2026-06-10 UTC: Implemented VN big-frame conversation view (Route A, layout
+  step), Alan-directed direct implementation. CSS-only, additive: appended a
+  `@media (min-width: 901px)` block to `src/index.css` that, while
+  `.giis-conversation-active`, enlarges `.giis-utility-panel` to near-fullscreen
+  and scales the `.giis-rpg-portrait-stage` portrait up to a large VN-style
+  render (height min(74vh,48rem)) with a roomier dialogue textbox. Reuses the
+  existing `/public/portraits` PNGs (no new art yet — full renders tracked in
+  `docs/giis-vn-art-spec.md`). Desktop-only; mobile stacked layout untouched
+  (mobile rules live in the existing `@media (max-width: 900px)` block). No JSX,
+  no Convex, no schema change. Verification: `npx tsc --noEmit` clean; postcss
+  parse of `src/index.css` OK + braces balanced (577/577). `vite build` NOT run
+  here — this Linux sandbox has a macOS esbuild binary (platform mismatch),
+  unrelated to the change; **Alan to confirm with local `npm run dev` and enter a
+  conversation to eyeball the frame.**
+
+- 2026-06-10 UTC: Added v0.2+ planning docs (Cowork session, Alan-directed):
+  Version Mapping table in `docs/soul/SOUL_PROGRESSION_PLAN.md` (each progression
+  stage → version + gate + metric), `docs/giis-ui-directions.md` (UI direction
+  note), `docs/giis-vn-art-spec.md` (Route A full-VN-render art brief + §8
+  ready-to-paste prompts), and
+  `umi/proposals/20260610T163348Z-vn-render-conversation-overlay.md` (flagged VN
+  overlay proposal, default-off, fallback to current panel). Registered new docs
+  in `docs/INDEX.md`. Corrected stale roster: current pilots are 海/真晝/天澤/一之瀨;
+  Asuna and Mai no longer exist. Docs only — no code, schema, prompt, or asset
+  changes; VN overlay is proposal-only and NOT pulled into the v0.1 sample
+  sprint. Verification: none required (doc-only).
+
+- 2026-06-10 CDT: Updated the emotional-residue paper publication state after
+  Alan reported that arXiv upload is blocked by endorsement and that the
+  conservative A-path preprint was submitted on OSF instead. Added
+  `docs/paper/OSF_RELEASE_RECORD.md` with OSF status and `TO_RECORD` fields for
+  public URL, DOI, exact submitted file, and license/visibility metadata.
+  Updated `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/SUBMISSION_STRATEGY.md`,
+  `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, and `umi/workload.md` so the current
+  state is OSF-submitted / arXiv endorsement-blocked / empirical B-path still
+  blocked. Also adjusted `paper_annotation_audit.py` so stale source-report
+  hashes from mutable `latest` reports are treated as empirical blockers rather
+  than A-path source failures; this keeps the annotation packet blocked for
+  evidence use without making the conservative preprint source unreadable.
+  Verification: `python3 -m py_compile
+  scripts/paper/paper_annotation_audit.py`; `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`, 0 FAIL); `npm run
+  paper:source-audit` (`PASS`); `npm run paper:claim-audit`
+  (`PASS_CONSERVATIVE_PREPRINT`); `npm run paper:citation-audit` (`PASS`);
+  `npm run paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0
+  FAIL / 24 empirical blockers / 10 external blockers / 5 PDF blockers); `git
+  diff --check`. No external action, upload, submission, PDF render, Convex
+  mutation, or dataset collection was run by Codex in this update.
+- 2026-06-10 10:35 CDT: Restarted the Underworld product v0.1 path from current
+  state instead of relying on 2026-06-04 evidence. Current Chicago time was
+  10:24 CDT. `npm run underworld:runtime-preflight` passed, but the old
+  `underworld:afternoon-world-ready` script no longer exists in current
+  `package.json`; the current safe daytime path is `underworld:observe`.
+  `school:enterCampus` seeded today's world clock/day 23 and restored Umi
+  briefing's four daily-life bulletin items. Initial `life-density` changed
+  from `FAIL / daily_life_bulletin_density_missing` to `WARN /
+  conversation_uptake_pending` after entering campus. A dry-run observe showed
+  no fresh triad samples, then the real observe pass collected two archived
+  morning samples and timed out on the third focused 海/天澤 sample. Fresh
+  report status: `v01-approach` says runtime/provider/fallback OK, soul eval
+  2 PASS / 0 WARN / 0 FAIL, recent eval 0 PASS / 0 WARN / 3 FAIL, top issue
+  `eval_rubric_disagreement`, repair class `proposal_only`, and next safest
+  action "reconcile eval framing before changing dialogue code." Completion
+  audit is now `FAIL` with 2 fail / 2 pending / 4 pass; rolling continuity is
+  still `WARN / sample_pending` because today's conversations all sit in the
+  10:00-12:00 window, and Alan-facing playtest remains the 2026-06-04
+  `PARTIAL` draft. No code edits were made. Verification/commands:
+  `npm run underworld:runtime-preflight`, `npx convex run school:enterCampus`,
+  `npx convex run school:umiBriefing`, `npm run underworld:life-density`, `npm
+  run underworld:rolling-continuity`, `npm run underworld:observe -- --dry-run
+  --target-samples=1 --cc=skip`, `npm run underworld:observe --
+  --target-samples=3 --cc=skip --require-archived=true`, `npm run
+  underworld:v01-completion-audit`.
+- 2026-06-10 08:08 CDT: Accepted Alan's A-path direction and made the remaining
+  reviewer-defensibility citation update without changing the empirical claim
+  boundary. `docs/paper/arxiv/main.tex` now includes a narrow social-agent
+  evaluation paragraph citing SOTOPIA and Lifelong SOTOPIA to situate the paper
+  against interactive social-intelligence and multi-episode interaction-history
+  benchmarks, while explicitly keeping emotional residue as a narrower deployed
+  character-world memory primitive. Added both references to the hand-written
+  bibliography and to `docs/paper/CITATION_PROVENANCE.md`; updated
+  `scripts/paper/paper_citation_audit.py` so those recent social-agent keys
+  require primary-source provenance. Regenerated the Alan decision packet and
+  source archive; current arXiv source SHA-256 is
+  `099a8fbcdb2c588e3678b850d6f1ba40fc36f563bae3657a434827d857f222ab`.
+  Verification: `npm run paper:citation-audit` (`PASS`, 17 bibliography keys);
+  `npm run paper:source-audit` (`PASS`); `npm run paper:claim-audit`
+  (`PASS_CONSERVATIVE_PREPRINT`); `python3
+  scripts/paper/paper_citation_audit.py --selftest`; `npm run
+  paper:consistency-audit` (`PASS`); `npm run paper:submission-audit`
+  (`EXTERNAL_BLOCKERS`, 0 FAIL); `npm run paper:pdf-verification-audit`
+  (`PDF_BLOCKER`, 0 FAIL); `npm run paper:alan-decision-packet`; `npm run
+  paper:archive-audit` (`PASS`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  10 external blockers / 5 PDF blockers); `git diff --check`. No external
+  upload, PDF render/install, live collection, Convex env mutation, acceptance
+  JSON edit, rater fabrication, or submission action was run.
+- 2026-06-10 07:30 CDT: Addressed the remaining cc conceptual-review weakness:
+  novelty defense against "summary memory plus a do-not-quote instruction." In
+  `docs/paper/arxiv/main.tex`, added a concrete contrast between a one-line
+  relationship summary that invites explicit recall and emotional residue as a
+  smaller trace meant to change timing, restraint, and initiative. Kept the
+  example constructed rather than using raw player transcripts. Regenerated the
+  Alan decision packet and source archive; current arXiv source SHA-256 is
+  `af8ebe6c68140515e39c149e69e79774e31faf0929626803b083046a2befc12d`.
+  Verification: `npm run paper:source-audit` (`PASS`); `npm run
+  paper:claim-audit` (`PASS_CONSERVATIVE_PREPRINT`); `npm run
+  paper:consistency-audit` (`PASS`); `npm run paper:archive-audit` (`PASS`);
+  `npm run paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL
+  / 23 empirical blockers / 10 external blockers / 5 PDF blockers). No live
+  collection, Convex env mutation, PDF render/install, acceptance/submission
+  decision edit, rater fabrication, or remote-service action was run.
+- 2026-06-10 07:09 CDT: Ran a read-only cc skeptical reviewer pass for the
+  A-path preprint (`umi/reports/20260610T120519Z-workload.md`) and accepted the
+  safe A-scope wording fixes. The manuscript title now uses "Trace-Based
+  Continuity" instead of "Felt Continuity"; the abstract no longer foregrounds
+  the 15/2 pilot numbers; five-layer identity is framed as a situating device
+  rather than an overlarge contribution; the manuscript now includes a
+  constructed residue-trace example, explicit author/reflexivity disclosure for
+  markers and observation, deployment-local time-label wording, a hand-curated
+  motif-guard limitation, feasibility/analysis-determinism wording instead of
+  smoke/repeatability overclaiming, and a note that PASS/WARN table values are
+  harness labels rather than significance labels. Updated consistency audit so
+  the abstract is guarded against 2/15-style overclaiming while正文 artifact
+  counts remain checked. Then-current arXiv source SHA-256 was
+  `e82f88c8bf9cc960edf3b764a190a7253880a9b642613d7afd2671c1b74afde8`.
+  Verification: `python3 -m py_compile
+  scripts/paper/paper_consistency_audit.py`; `python3
+  scripts/paper/paper_consistency_audit.py --selftest`; `npm run
+  paper:consistency-audit`; `npm run paper:claim-audit`; `npm run
+  paper:source-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  10 external blockers / 5 PDF blockers). No live collection, Convex env
+  mutation, PDF render/install, acceptance/submission decision edit, rater
+  fabrication, or remote-service action was run.
+- 2026-06-10 00:10 CDT: Completed the local A-path arXiv conservative-preprint
+  release packet, without performing external posting. Added
+  `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` with conservative positioning,
+  local package paths, recommended-but-unconfirmed submitter choices, official
+  arXiv doc checks, stop conditions, and the B-path empirical follow-up.
+  Updated `docs/paper/arxiv/main.tex` date to June 10, 2026. Rebuilt the
+  allowlisted arXiv source archive; then-current source SHA-256 was
+  `e82f88c8bf9cc960edf3b764a190a7253880a9b642613d7afd2671c1b74afde8`.
+  Hardened `build_arxiv_source_package.py` to write the archive and manifest
+  via atomic replacement so concurrent archive/readiness audits do not read a
+  half-written manifest. Updated `docs/INDEX.md`,
+  `docs/paper/ALAN_HANDOFF.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md`,
+  `docs/paper/REVIEWER_PREMORTEM.md`, `scripts/paper/README.md`, and
+  `umi/workload.md` to point at the A-path packet and current SHA. Verification:
+  `python3 -m py_compile scripts/paper/build_arxiv_source_package.py
+  scripts/paper/paper_archive_audit.py scripts/paper/paper_readiness_report.py`;
+  `python3 scripts/paper/build_arxiv_source_package.py --selftest`; `npm run
+  paper:alan-decision-packet`; `npm run paper:source-audit`; `npm run
+  paper:submission-audit` (`EXTERNAL_BLOCKERS`, 0 FAIL); `npm run
+  paper:pdf-verification-audit` (`PDF_BLOCKER`, 0 FAIL); `npm run
+  paper:archive-audit` (`PASS`); `npm run paper:consistency-audit` (`PASS`);
+  `npm run paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL
+  / 23 empirical blockers / 10 external blockers / 5 PDF blockers); `git diff
+  --check`. No live collection, Convex env mutation, TeX install, PDF render,
+  submission JSON edit, rater fabrication, upload, or external action was run.
+- 2026-06-09 23:55 CDT: Fixed stale trace-overlap coordination text and
+  guarded it with `paper:consistency-audit`. `docs/paper/ALAN_HANDOFF.md` and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md` now reflect the current
+  trace-overlap audit denominator: 11 callback cases assessed, max overlap
+  ratio 0.242. `scripts/paper/paper_consistency_audit.py` now checks those
+  Alan-facing docs against `docs/paper/results/trace-overlap-audit.md`, so a
+  future mismatch between the generated trace-overlap artifact and the handoff
+  docs fails the consistency audit instead of silently drifting. Verification:
+  `python3 -m py_compile scripts/paper/paper_consistency_audit.py`; `python3
+  scripts/paper/paper_consistency_audit.py --selftest`; `npm run
+  paper:consistency-audit` (`PASS`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  10 external blockers / 5 PDF blockers); `git diff --check`. No live
+  collection, Convex env mutation, cache deletion, PDF render/install,
+  submission JSON edit, rater fabrication, upload, or external action was run.
+- 2026-06-09 20:42 CDT: Hardened submission/PDF audits against copied template
+  placeholders. `paper_submission_audit.py` now explicitly treats
+  `TO_CONFIRM`, `CHOOSE_ONE`, `TO_RECORD`, `YYYY-MM-DD`, and placeholder
+  `example.com` values in submitter-decision fields as external blockers, so
+  the Alan decision packet worksheet cannot be copied verbatim and mistaken for
+  real metadata. `paper_pdf_verification_audit.py` now fails claimed
+  PDF/platform verification if `verified_at`, `render_tool`,
+  `render_environment`, `source_archive_sha256`, or `rendered_pdf_sha256` still
+  contain template placeholders. Verification: `python3 -m py_compile
+  scripts/paper/paper_submission_audit.py
+  scripts/paper/paper_pdf_verification_audit.py`; `python3
+  scripts/paper/paper_submission_audit.py --selftest`; `python3
+  scripts/paper/paper_pdf_verification_audit.py --selftest`; `npm run
+  paper:submission-audit` (`EXTERNAL_BLOCKERS`, 0 FAIL); `npm run
+  paper:pdf-verification-audit` (`PDF_BLOCKER`, 0 FAIL); `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23
+  empirical blockers / 10 external blockers / 5 PDF blockers); `git diff
+  --check`. Current decision JSON remains blank/false and no submission JSON
+  edit, PDF render/install, live collection, Convex env mutation, rater
+  fabrication, upload, or external action was run.
+- 2026-06-09 20:39 CDT: Made the arXiv source author metadata conservative
+  while public author identity remains unconfirmed. `docs/paper/arxiv/main.tex`
+  now uses only `Author details to confirm before submission` in the author
+  block instead of carrying the previous public name/project metadata. This
+  removes the `main_author_identity_unconfirmed` blocker while keeping
+  `main_author_placeholder` and all Alan-facing metadata/category/license/PDF
+  blockers intact. `paper_source_audit.py` now treats the author placeholder
+  marker case-insensitively, so the conservative placeholder passes source
+  hygiene without warning. Rebuilt the local source archive; then-current arXiv
+  source SHA-256 was
+  `58ad18182d8ecc40db614997efc60f721d65d5fc82c9760ca3788c35a8dd4c43`, and
+  the Alan decision packet's PDF verification template now references that
+  current archive hash. Verification: `npm run paper:submission-audit`
+  (`EXTERNAL_BLOCKERS`, 10 external blockers / 2 PDF blockers / 0 FAIL);
+  `python3 scripts/paper/paper_source_audit.py --selftest`; `npm run
+  paper:source-audit` (`PASS`); `npm run paper:archive-audit` (`PASS`);
+  `npm run paper:alan-decision-packet -- --stdout`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  10 external blockers / 5 PDF blockers); `rg` found no old `Alan H. Chu` /
+  `GIIS Underworld Project` author strings in the checked arXiv/decision
+  artifacts; `git diff --check`. No author decision, submission JSON edit, PDF
+  render/install, live collection, Convex env mutation, rater fabrication,
+  upload, or external action was run.
+- 2026-06-09 20:37 CDT: Hardened the external-posting/PDF decision section of
+  the Alan decision packet. `scripts/paper/alan_decision_packet.py` now embeds
+  a `SUBMISSION_DECISIONS.json` worksheet template with explicit
+  `TO_CONFIRM`/`CHOOSE_ONE` placeholders and a `PDF_VERIFICATION.json` evidence
+  template that includes the current arXiv source archive SHA-256. The packet
+  states that the submission template is not pass-ready until Alan replaces the
+  placeholders and confirms the booleans, and the PDF template is not evidence
+  until a real rendered PDF/platform preview is inspected and the rendered PDF
+  SHA/details are recorded. Verification: `python3 -m py_compile
+  scripts/paper/alan_decision_packet.py`; `python3
+  scripts/paper/alan_decision_packet.py --selftest`; `npm run
+  paper:alan-decision-packet -- --stdout`; `npm run paper:submission-audit`
+  (`EXTERNAL_BLOCKERS`, 0 FAIL); `npm run paper:pdf-verification-audit`
+  (`PDF_BLOCKER`, 0 FAIL); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No live
+  collection, Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 20:35 CDT: Hardened the Alan acceptance decision packet without
+  changing acceptance state. `scripts/paper/acceptance_hashes.py` now emits
+  complete, separate JSON templates for `docs/paper/SCHEDULE_ACCEPTANCE.json`
+  and `docs/paper/PREREGISTRATION_ACCEPTANCE.json`, each with the current
+  document SHA-256 and explicit `accepted_by` / `accepted_at` placeholders,
+  instead of only printing loose hash fields. `scripts/paper/alan_decision_packet.py`
+  now embeds those exact templates in `docs/paper/results/alan-decision-packet.md`
+  under the explicit "only after Alan acceptance" section. Verification:
+  `python3 -m py_compile scripts/paper/acceptance_hashes.py
+  scripts/paper/alan_decision_packet.py`; `python3
+  scripts/paper/acceptance_hashes.py --selftest`; `python3
+  scripts/paper/alan_decision_packet.py --selftest`; `npm run
+  paper:acceptance-hashes`; `npm run paper:alan-decision-packet -- --stdout`;
+  `npm run paper:protocol-audit` (`PASS`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. The actual
+  acceptance JSON files remain `accepted=false`; no collection, Convex env
+  mutation, rater fabrication, PDF render/install, acceptance/submission JSON
+  edit, upload, or external action was run.
+- 2026-06-09 20:31 CDT: Ran an independent read-only expert pass through the
+  sub-agent path (`Russell`) focused on empirical/annotation readiness after the
+  packet manifest hardening. Accepted the safe local findings and patched them:
+  `merge_rater_annotations.py` now refuses completed rater sheets whose columns
+  differ from the blinded worksheet schema or whose `case_ref` is not the
+  `blind_id`, so it cannot assert a blinding manifest over leaked
+  `condition`/`case_name`/`rolling_callback` columns. `export_blinded_transcripts.py`
+  now fails on conflicting duplicate case transcripts and writes
+  `output.case_sources` mapping each `blind_id` to its exact `case_name` and
+  source `soul-triad.md`; the current transcript manifest was regenerated with
+  all four source report mappings. `paper_annotation_audit.py` now verifies
+  transcript source report paths and SHA-256 hashes, verifies future completed
+  rater sheet paths and hashes in `annotations_manifest.json`, and checks
+  `case_sources` against key/transcript IDs. `HUMAN_ANNOTATION_PROTOCOL.md`
+  now says rater-visible sheets use `blind_id`/`case_ref`, not `case_name`.
+  Verification: `python3 -m py_compile
+  scripts/paper/export_blinded_transcripts.py
+  scripts/paper/merge_rater_annotations.py
+  scripts/paper/paper_annotation_audit.py`; `python3
+  scripts/paper/export_blinded_transcripts.py --selftest`; `python3
+  scripts/paper/merge_rater_annotations.py --selftest`; `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`, 0 FAIL / 3
+  empirical blockers / 1 PASS); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No live
+  collection, Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 20:25 CDT: Hardened the pre-rater human-annotation packet
+  provenance. `export_annotation_sheet.py` now writes
+  `annotation_packet_manifest.json` with dataset/sheet/key SHA-256 hashes,
+  sampling metadata, selected blind IDs, and the rater-visible blinding
+  contract. `export_blinded_transcripts.py` now writes
+  `blinded_transcripts/transcript_packet_manifest.json` with the key hash,
+  source-report hashes, output transcript hashes, missing-transcript status, and
+  transcript blinding flags. `paper_annotation_audit.py` now verifies these
+  packet manifests against the actual CSV/transcript files, including row
+  counts, blind-id order, output count, empty missing list, source reports, and
+  hashes. Regenerated the current blank 4-row packet manifests without adding
+  ratings or new collection. Updated `docs/paper/HUMAN_ANNOTATION_PROTOCOL.md`,
+  `scripts/paper/README.md`, and `docs/paper/ALAN_HANDOFF.md` so future rater
+  logistics keep the packet manifests with the worksheet/transcripts. Verification:
+  `python3 -m py_compile scripts/paper/export_annotation_sheet.py
+  scripts/paper/export_blinded_transcripts.py
+  scripts/paper/paper_annotation_audit.py`; `python3
+  scripts/paper/export_annotation_sheet.py --selftest`; `python3
+  scripts/paper/export_blinded_transcripts.py --selftest`; `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`, 0 FAIL / 3
+  empirical blockers / 1 PASS); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No live
+  collection, Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 20:17 CDT: Hardened human-annotation provenance for future blind
+  validation. `scripts/paper/merge_rater_annotations.py` now writes an
+  `annotations_manifest.json` by default (or a caller-specified `--manifest`)
+  containing the annotation key SHA, completed rater sheet paths and SHA-256
+  hashes, output `annotations.csv` SHA, row/case/rater counts, `min_raters`, and
+  an explicit blinding contract. `paper_annotation_audit.py` now requires and
+  verifies this manifest whenever `annotations.csv` exists: output hash, row
+  count, key hash, at least two unique raters, at least two rater sheet entries,
+  and true blinding-contract fields. Current repo state still has no merged
+  `annotations.csv`, so the audit remains `PACKET_READY_INCOMPLETE_STUDY`
+  rather than pretending human validation is complete. Updated
+  `docs/paper/HUMAN_ANNOTATION_PROTOCOL.md`, `docs/paper/ALAN_HANDOFF.md`, and
+  `scripts/paper/README.md` to require keeping the manifest with merged
+  annotations. Verification: `python3 -m py_compile
+  scripts/paper/merge_rater_annotations.py scripts/paper/paper_annotation_audit.py`;
+  `python3 scripts/paper/merge_rater_annotations.py --selftest`; `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`, 0 FAIL / 3
+  empirical blockers / 1 PASS); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No rater data was
+  fabricated or merged, and no collection, Convex env mutation, PDF
+  render/install, acceptance/submission JSON edit, upload, or external action
+  was run.
+- 2026-06-09 20:14 CDT: Guarded the legacy forced-sample collection entrypoints
+  so they cannot be mistaken for the rigorous empirical design. `npm run
+  paper:residue-ablation` and `npm run paper:residue-ablation:blocks` now refuse
+  by default before entering `main()` and require explicit
+  `--allow-legacy-forced-pilot` for mechanism-debugging-only collection. The
+  repeated-block runner passes this flag through to the single forced runner
+  only after its own explicit opt-in. `paper_protocol_audit.py` now checks both
+  legacy guards, and docs now label the flag in forced-pilot examples while
+  continuing to route primary empirical collection to `paper:residue-arm-window`
+  after schedule/preregistration acceptance. Verification: `node --check
+  scripts/paper/run_residue_ablation.mjs`; `node --check
+  scripts/paper/run_longitudinal_ablation_blocks.mjs`; `npm run
+  paper:residue-ablation -- --selftest`; `npm run
+  paper:residue-ablation:blocks -- --selftest`; `npm run
+  paper:residue-ablation` (expected refusal, exit 2, no collection); `npm run
+  paper:residue-ablation:blocks` (expected refusal, exit 2, no collection);
+  `python3 -m py_compile scripts/paper/paper_protocol_audit.py`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:protocol-audit` (`PASS`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No collection,
+  Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 20:10 CDT: Hardened merge-time longitudinal dataset provenance.
+  `scripts/paper/merge_ablation_runs.py` now supports both legacy forced
+  `ablation-*` directories and future `arm-window-*` directories, writes a
+  merge manifest, and refuses to merge arm-window runs or any run containing
+  `run-provenance.json` unless `paper_run_provenance_audit` returns `PASS`.
+  The new `--require-provenance` flag can require the same audit for every run,
+  including legacy dirs. Added `npm run paper:merge-ablation-runs` and updated
+  `paper_protocol_audit.py` so the script entrypoint is checked. Documentation
+  now directs future long-window merges through
+  `npm run paper:merge-ablation-runs -- --runs 'docs/paper/results/arm-window-*'
+  --out docs/paper/results/longitudinal/dataset.json --manifest
+  docs/paper/results/longitudinal/merge-manifest.json`, while explicitly
+  labeling current `ablation-*` merges as legacy pipeline evidence only.
+  Verification: `python3 -m py_compile scripts/paper/merge_ablation_runs.py
+  scripts/paper/paper_protocol_audit.py`; `npm run paper:merge-ablation-runs --
+  --selftest`; `python3 scripts/paper/merge_ablation_runs.py --runs
+  'docs/paper/results/ablation-*' --out /tmp/ai-town-paper-merge-test-dataset.json
+  --manifest /tmp/ai-town-paper-merge-test-manifest.json` (merged 4 qualifying
+  legacy records, on=2/off=2, without touching repo results); `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:protocol-audit` (`PASS`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `git diff --check`. No collection,
+  Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 20:06 CDT: Added a completed-run provenance audit for future
+  long-window collection. New `scripts/paper/paper_run_provenance_audit.py` /
+  `npm run paper:run-provenance-audit -- --run-dir <arm-window-dir>` checks a
+  completed arm-window directory for `metadata.json`, `generation-metadata.json`,
+  `run-provenance.json`, `artifact-hashes.json`, `dataset.json`,
+  `soul-triad.md`, `rolling-continuity.md`, required scoring/parsing logs,
+  accepted schedule/preregistration provenance, source archive provenance,
+  row-level `generation_metadata` / `run_provenance`, source_run/window/condition
+  consistency, and artifact/log SHA-256 hashes. The arm-window runner now writes
+  `artifact-hashes.json` for data/report/log artifacts after scoring; it avoids
+  hashing metadata/provenance/hash files to prevent circular hashes.
+  `paper_protocol_audit.py` now requires the npm script plus runner provenance
+  and artifact-hash wiring. Updated `scripts/paper/README.md`,
+  `docs/paper/EXPERIMENTS.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/ALAN_HANDOFF.md`, and
+  `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md` so future long-window rows should
+  pass this run audit before merge. Verification: `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `python3 -m py_compile
+  scripts/paper/paper_run_provenance_audit.py
+  scripts/paper/paper_protocol_audit.py`; `python3
+  scripts/paper/paper_run_provenance_audit.py --selftest`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:run-provenance-audit -- --selftest`; `npm run paper:protocol-audit`
+  (`PASS`); `npm run paper:empirical-audit`
+  (`PILOT_ONLY_INCOMPLETE_ABLATION`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `npm run paper:residue-arm-window --
+  --selftest --arm=off`; `git diff --check`. No collection, Convex env
+  mutation, rater fabrication, PDF render/install, acceptance/submission JSON
+  edit, upload, or external action was run.
+- 2026-06-09 19:59 CDT: Added a long-window run-provenance layer before any
+  new collection. `scripts/paper/run_arm_pure_residue_window.mjs` now writes
+  `run-provenance.json` alongside `metadata.json` / `generation-metadata.json`
+  and attaches it to future rows via `report_to_dataset.py --provenance-json`.
+  The provenance snapshot records secret-safe command args, git commit/dirty
+  status sample, accepted schedule/preregistration document hashes and match
+  state, source-archive manifest/hash state, runtime, env-key presence policy,
+  and `secret_values_recorded: false`. `paper_empirical_audit.py` now adds a
+  `run_provenance` blocker for rows lacking this evidence and checks schema
+  fields when provenance is present; the current n=4 pilot remains blocked
+  rather than backfilled. `paper_protocol_audit.py` now statically requires the
+  runner to keep provenance wiring, and `attach_rolling_callbacks.py` selftest
+  now asserts callback labeling preserves provenance fields. A bounded read-only
+  reviewer sub-agent agreed the main gap was run manifest / git / accepted-doc /
+  source-archive / command provenance, and noted that per-row copied generation
+  metadata should eventually become a manifest reference plus row override if
+  provider/model can vary mid-run. Updated docs: `docs/paper/EXPERIMENTS.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md`, and `scripts/paper/README.md`.
+  Verification: `node --check scripts/paper/run_arm_pure_residue_window.mjs`;
+  `python3 -m py_compile scripts/paper/attach_rolling_callbacks.py
+  scripts/paper/report_to_dataset.py scripts/paper/paper_empirical_audit.py
+  scripts/paper/paper_protocol_audit.py`; selftests for
+  `attach_rolling_callbacks.py`, `report_to_dataset.py`,
+  `paper_empirical_audit.py`, `paper_protocol_audit.py`, and
+  `paper:residue-arm-window -- --selftest --arm=placebo`; `npm run
+  paper:protocol-audit` (`PASS`); `npm run paper:empirical-audit`
+  (`PILOT_ONLY_INCOMPLETE_ABLATION`, now 9 empirical blockers including
+  `run_provenance`); `npm run paper:residue-arm-window:acceptance` (expected
+  refusal because schedule acceptance remains false); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 23 empirical blockers /
+  12 external blockers / 5 PDF blockers); `npm run paper:archive-audit`
+  (`PASS`); `npm run paper:pdf-verification-audit` (`PDF_BLOCKER`, expected);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render/install, acceptance/submission JSON edit, upload, or external
+  action was run.
+- 2026-06-09 19:50 CDT: Added an explicit rendered-PDF/platform-preview
+  verification gate without rendering, installing tools, or touching external
+  services. New `docs/paper/PDF_VERIFICATION_PROTOCOL.md`,
+  `docs/paper/PDF_VERIFICATION.json`, and
+  `scripts/paper/paper_pdf_verification_audit.py` / `npm run
+  paper:pdf-verification-audit` require real verification details before the PDF
+  gate can pass: verifier, timestamp, render tool/environment, current source
+  archive SHA, rendered PDF SHA, and visual checks for title/author/abstract,
+  tables, citations, no raw transcript/sensitive files, and visible
+  limitations. The JSON intentionally remains false/blank, and the audit reports
+  `PDF_BLOCKER`, because no rendered PDF or platform preview has been inspected.
+  `paper_readiness_report.py` now includes `PDF verification audit:
+  PDF_BLOCKER`, so the readiness report separates local TeX tool availability
+  from actual rendered-PDF/platform verification. Updated `package.json`,
+  `docs/paper/arxiv/README.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/ALAN_HANDOFF.md`, `scripts/paper/README.md`, and
+  `scripts/paper/alan_decision_packet.py` so the new gate appears in the
+  external-posting command path. Verification: `python3 -m py_compile
+  scripts/paper/paper_pdf_verification_audit.py
+  scripts/paper/paper_readiness_report.py`; `python3
+  scripts/paper/paper_pdf_verification_audit.py --selftest`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:pdf-verification-audit` (`PDF_BLOCKER`, expected); `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22
+  empirical blockers / 12 external blockers / 5 PDF blockers); `npm run
+  paper:submission-audit`; `npm run paper:alan-decision-packet -- --stdout`;
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render/install, acceptance/submission JSON approval, upload, or external
+  action was run.
+- 2026-06-09 19:44 CDT: Added a generated arXiv source-archive hygiene gate so
+  source-ready cannot mean "we built a tarball but never inspected what is in
+  it." New `scripts/paper/paper_archive_audit.py` / `npm run
+  paper:archive-audit` rebuilds
+  `docs/paper/results/arxiv-source/emotional-residue-arxiv-source.tar.gz`,
+  verifies the manifest and archive/source SHA values, requires archive members
+  to match the `main.tex` allowlist, checks file-name/path safety, confirms the
+  manifest records excluded datasets/annotations/transcript packets/generated
+  results, and scans TeX-like source members for obvious secret or raw
+  conversation-id leakage. `paper_readiness_report.py` now includes this audit
+  and writes `docs/paper/results/archive-audit.md`; the readiness summary now
+  shows `Archive package audit: PASS`. Updated `package.json`,
+  `docs/paper/arxiv/README.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/ALAN_HANDOFF.md`, and `scripts/paper/README.md` so the new gate
+  is documented. Verification: `python3 -m py_compile
+  scripts/paper/paper_archive_audit.py scripts/paper/paper_readiness_report.py`;
+  `python3 scripts/paper/paper_archive_audit.py --selftest`; `python3
+  scripts/paper/build_arxiv_source_package.py --selftest`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:archive-audit` (`PASS`); `npm run paper:source-audit` (`PASS`); `npm
+  run paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22
+  empirical blockers / 12 external blockers / 3 PDF blockers, archive package
+  audit `PASS`); `npm run paper:arxiv-package` (archive SHA-256
+  `f47bbd59fe5d14b2af0b95e292388909fc614734acf283bf2ca48ff0686fc6f9`);
+  `npm run paper:alan-decision-packet -- --stdout`; `git diff --check`. No
+  collection, Convex env mutation, rater fabrication, PDF render/install,
+  acceptance/submission JSON edit, upload, or external action was run.
+- 2026-06-09 19:37 CDT: Ran a bounded read-only HCI / LLM-agent reviewer pass
+  through cc (`umi/reports/20260610T003328Z-workload.md`) and accepted the safe
+  experiment-design fixes. `docs/paper/arxiv/main.tex` now avoids "primary
+  causal ablation" language, defines `soul-triad` on first abstract mention,
+  denominator-qualifies the 15 candidate / 2 callback rolling-window numbers,
+  names the author-designed-marker reflexivity threat, labels the 8 smoke rows
+  as convenience-sampled recent archived evaluations, softens design-opinion
+  claims, and frames the future manipulation as narrowed read-block suppression
+  unless a length-matched placebo is preregistered and collected. `docs/paper/PREREGISTRATION_PROTOCOL.md`
+  and `docs/paper/SCHEDULE_DECISION.md` now disclose continuing-world carryover
+  / read eligibility, define dyad-coverage fallback, forbid interim arm-level
+  effect peeking before pilot stopping, and spell out the final-N procedure from
+  pilot baseline rate, MDE, cluster size/design effect, alpha=0.05, and 0.80
+  power. `docs/paper/REVIEWER_PREMORTEM.md` now has a between-arm carryover
+  objection block, and `docs/paper/CLAIM_EVIDENCE_MATRIX.md` now records the
+  narrowed mechanism boundary. `scripts/paper/analyze.py` now labels per-pair
+  marker rows with `ci_note=no_bootstrap_n_lt_3` instead of zero-width bootstrap
+  CIs for n=1/2, records `aftertaste_variance_status`, and extends selftest to
+  require saturated aftertaste summaries to label `saturated_no_usable_variance`.
+  `scripts/paper/paper_claim_audit.py` now fails on `primary causal ablation`
+  drift and requires `read-block-suppression` disclosure. Current acceptance
+  hashes changed because schedule/prereg docs changed: schedule
+  `934fdd895b5e61c68a5aa827b54e810534f69be59b2b61a98ee796acc182d5b8`,
+  preregistration
+  `cfe64845013bdd5c34817ce1553ce3cc611c21c2b5f34eece267d5ec5e034104`; both
+  acceptance JSON files remain `accepted: false` with blank hash fields.
+  Verification: `python3 -m py_compile scripts/paper/analyze.py
+  scripts/paper/paper_claim_audit.py`; `python3
+  scripts/paper/paper_claim_audit.py --selftest`; `python3
+  scripts/paper/paper_consistency_audit.py --selftest`; `python3
+  scripts/paper/paper_design_audit.py --selftest`; `npm run paper:claim-audit`;
+  `npm run paper:consistency-audit`; `npm run paper:design-audit`; `npm run
+  paper:protocol-audit`; `npm run paper:empirical-audit`; `npm run
+  paper:source-audit`; `npm run paper:acceptance-hashes`; `npm run
+  paper:alan-decision-packet -- --stdout`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22 empirical blockers /
+  12 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `f47bbd59fe5d14b2af0b95e292388909fc614734acf283bf2ca48ff0686fc6f9`);
+  `git diff --check`. `python3 scripts/paper/analyze.py --selftest` still does
+  not run under system Python because `numpy` is missing, and no venv rebuild
+  was attempted under the current low-disk constraint. No collection, Convex env
+  mutation, rater fabrication, PDF render/install, acceptance-file approval, or
+  outside action was run.
+- 2026-06-09 19:26 CDT: Closed the `paper-final-local-hardening-readonly-review`
+  cc pass (`umi/reports/20260610T002227Z-workload.md`) and applied the safe local
+  fixes. `scripts/paper/paper_submission_audit.py` now parses the `main.tex`
+  author block and reports `main_author_identity_unconfirmed` when public author
+  metadata appears while `SUBMISSION_DECISIONS.json` keeps
+  `public_author_identity_confirmed: false`; its selftest covers both blocked
+  and confirmed-matching author states. `docs/paper/arxiv/main.tex` now marks
+  the 15 source residue candidates / 2 callbacks as window-level feasibility
+  diagnostics, not a controlled comparison, and discloses that
+  `UNDERWORLD_RESIDUE_READ=placebo` is local draft runtime plumbing not
+  preregistered, collected, or analyzed in this paper. `docs/paper/ALAN_HANDOFF.md`
+  now frames n=40/arm as only a large-effect pilot threshold and says final N
+  must be preregistered from pilot baseline/yield. `scripts/paper/alan_decision_packet.py`
+  now dedupes repeated blocker concepts so the Alan-facing packet surfaces the
+  author/PDF/external gates more clearly. Verification: `python3 -m py_compile
+  scripts/paper/paper_submission_audit.py scripts/paper/alan_decision_packet.py`;
+  `python3 scripts/paper/paper_submission_audit.py --selftest`; `python3
+  scripts/paper/alan_decision_packet.py --selftest`; `npm run
+  paper:submission-audit` (`EXTERNAL_BLOCKERS`, including
+  `main_author_identity_unconfirmed`); `npm run paper:claim-audit`; `npm run
+  paper:source-audit`; `npm run paper:consistency-audit`; `npm run
+  paper:alan-decision-packet -- --stdout`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22 empirical blockers /
+  12 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `e5095f51bd99f0eab387591ef714b6974aa38f80b2b66605b6f62bf6d2ae20bf`);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render/install, acceptance-file approval, or outside action was run.
+- 2026-06-09 20:08 CDT: Added a read-only Alan decision packet generator so the
+  paper's next decisions are no longer scattered across readiness, submission,
+  acceptance, and handoff docs. New `scripts/paper/alan_decision_packet.py` /
+  `npm run paper:alan-decision-packet` writes
+  `docs/paper/results/alan-decision-packet.md` and can also print to stdout. It
+  summarizes the current `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY` verdict,
+  top empirical blockers, top external/PDF blockers, current acceptance state,
+  exact acceptance hashes to fill only after Alan explicitly accepts, and the
+  verification commands to run before collection or posting. The script is
+  read-only: it does not edit JSON, start collection, render PDFs, or perform
+  external actions. Updated `scripts/paper/README.md`, `package.json`, and
+  `paper_protocol_audit.py` so the packet stays part of the paper workflow.
+  Verification: `python3 -m py_compile scripts/paper/alan_decision_packet.py
+  scripts/paper/paper_protocol_audit.py`; `python3
+  scripts/paper/alan_decision_packet.py --selftest`; `npm run
+  paper:alan-decision-packet -- --stdout`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:protocol-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22 empirical blockers /
+  11 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render, acceptance-file approval, or outside action was run.
+- 2026-06-09 19:55 CDT: Added a read-only acceptance hash helper so Alan/Codex
+  can fill the schedule/preregistration SHA fields after explicit acceptance
+  without hand-copying from `shasum`. New `scripts/paper/acceptance_hashes.py`
+  prints the current schedule/preregistration SHA-256 values, current acceptance
+  state, and the JSON fields to fill; it does not edit files or authorize
+  collection. Added `npm run paper:acceptance-hashes`, documented it in
+  `docs/paper/SCHEDULE_DECISION.md` and `scripts/paper/README.md`, and extended
+  `paper_protocol_audit.py` to require the script. Current helper output shows
+  schedule SHA
+  `74d745addcc35748c45ff500966df8ee0bfda83d1c23482763658562d2805b3d` and
+  preregistration SHA
+  `9d3ca19e76c6dbe22f9bde6ac9111bfff82ecba3a07eefb622921195000ee81f`, while
+  both acceptance JSON files remain `accepted: false` with blank hash fields.
+  Verification: `python3 -m py_compile scripts/paper/acceptance_hashes.py
+  scripts/paper/paper_protocol_audit.py`; `python3
+  scripts/paper/acceptance_hashes.py --selftest`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:acceptance-hashes`; `npm run paper:protocol-audit`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22
+  empirical blockers / 11 external blockers / 3 PDF blockers); `npm run
+  paper:arxiv-package` (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render, acceptance-file approval, or outside action was run.
+- 2026-06-09 19:43 CDT: Hardened the preregistration/schedule acceptance gate
+  against document drift. `docs/paper/SCHEDULE_ACCEPTANCE.json` now includes a
+  blank `schedule_sha256`, and
+  `docs/paper/PREREGISTRATION_ACCEPTANCE.json` includes a blank
+  `preregistration_sha256`; they remain `accepted: false`. The accepted-gated
+  arm-window runner now requires the accepted JSON hash to match the current
+  schedule/preregistration document before collection can run, so accepting one
+  version and silently editing the protocol later will pause collection until
+  Alan re-accepts the current documents. `paper_protocol_audit.py` now checks
+  the blank-hash state while unaccepted and statically verifies the runner's
+  SHA-256 gate. `docs/paper/SCHEDULE_DECISION.md` and
+  `docs/paper/PREREGISTRATION_PROTOCOL.md` now document the hash requirement.
+  Current document hashes, not filled into acceptance JSON because Alan has not
+  accepted, are `31e8f63e4d219a6a41afcf3d296d82aafc144b4f2fe8a0e49eb126902f4205cd`
+  for `SCHEDULE_DECISION.md` and
+  `9d3ca19e76c6dbe22f9bde6ac9111bfff82ecba3a07eefb622921195000ee81f` for
+  `PREREGISTRATION_PROTOCOL.md`. Verification: `python3 -m py_compile
+  scripts/paper/paper_protocol_audit.py`; `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2 while
+  accepted=false; `npm run paper:residue-arm-window -- --selftest
+  --arm=placebo`; `npm run paper:protocol-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22 empirical blockers /
+  11 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render, acceptance-file approval, or outside action was run.
+- 2026-06-09 19:31 CDT: Fixed the future dataset plumbing that would have made
+  the new cluster-aware empirical gate impossible to clear. `report_to_dataset.py`
+  now accepts `--source-run`, `--window`, and `--collection-day` and writes those
+  fields into every parsed row; its selftest now covers these fields. The
+  accepted-gated arm-window runner (`scripts/paper/run_arm_pure_residue_window.mjs`)
+  now passes those fields when converting `soul-triad.md` to `dataset.json`,
+  using the run directory name, actual window start/end label, and collection
+  day. `paper_protocol_audit.py` now statically requires the runner to pass
+  `--source-run`, `--window`, and `--collection-day`, and
+  `scripts/paper/README.md` documents the manual conversion form so empirical
+  datasets do not silently lose cluster metadata. Verification: `python3 -m
+  py_compile scripts/paper/report_to_dataset.py
+  scripts/paper/paper_protocol_audit.py`; `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `python3
+  scripts/paper/report_to_dataset.py --selftest`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:residue-arm-window -- --selftest --arm=placebo`; `npm run
+  paper:protocol-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22 empirical blockers /
+  11 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. No collection, Convex env mutation, rater fabrication,
+  PDF render, or outside action was run.
+- 2026-06-09 19:18 CDT: Closed the cc-identified cluster-awareness gap in the
+  paper analysis path without running collection or strengthening claims.
+  `scripts/paper/analyze.py` now preserves `source_run` / `collection_day`
+  fields from `dataset.json`, defines the formal cluster key as
+  `pair + source_run + window`, and emits cluster-unit mean-difference
+  bootstrap/permutation columns for callback-rate and aftertaste contrasts when
+  metadata are complete. Row-level p-values remain labeled as sanity statistics;
+  confirmatory reporting now requires accepted preregistration plus complete
+  cluster metadata and cluster-unit analysis. `scripts/paper/paper_empirical_audit.py`
+  now blocks completed empirical claims when callback-denominator rows lack
+  complete cluster metadata or enough cluster units, which adds the expected
+  `cluster_metadata` empirical blocker to the current n=4 pilot dataset.
+  `scripts/paper/paper_design_audit.py` now statically verifies that
+  `analyze.py` contains the cluster analysis path. Updated
+  `docs/paper/PREREGISTRATION_PROTOCOL.md`, `docs/paper/SCHEDULE_DECISION.md`,
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md`, and `scripts/paper/README.md` to align
+  the claim boundary. Verification: `python3 -m py_compile
+  scripts/paper/analyze.py scripts/paper/paper_empirical_audit.py
+  scripts/paper/paper_design_audit.py`; `python3
+  scripts/paper/paper_empirical_audit.py --selftest`; `python3
+  scripts/paper/paper_design_audit.py --selftest`; `python3
+  scripts/paper/report_to_dataset.py --selftest`; `npm run
+  paper:empirical-audit` (`PILOT_ONLY_INCOMPLETE_ABLATION`, now with
+  `cluster_metadata` blocker); `npm run paper:design-audit`
+  (`EMPIRICAL_DESIGN_BLOCKED`); `npm run paper:evidence-matrix-audit`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 22
+  empirical blockers / 11 external blockers / 3 PDF blockers); `npm run
+  paper:arxiv-package` (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. Full `scripts/paper/analyze.py --selftest` still was not
+  rerun because the current system Python lacks numpy/pandas/scipy and disk
+  remains too tight for a safe venv rebuild. No sample collection, Convex env
+  mutation, rater fabrication, PDF render, or outside action was run.
+- 2026-06-09 19:02 CDT: Ran a bounded read-only cc review of the placebo
+  analysis contract (`umi/reports/20260609T235929Z-workload.md`) after local
+  placebo-arm plumbing landed. Accepted the high-risk findings that the
+  generated residue-ablation table could mislead readers by pairing
+  `effect_type=cliffs_delta` with mean-difference CI columns, and that the
+  generated markdown should not auto-label placebo rows as a planned/confirmatory
+  mechanism contrast before preregistration and schedule acceptance. Updated
+  `scripts/paper/analyze.py` so future `residue_placebo` rows are reported only
+  when the relevant observed outcome denominator exists, CIs are named
+  `mean_diff_ci_*`, the summary labels placebo as confirmatory only if accepted
+  before collection, direct `analyze.py` runs emit a `PILOT_SAMPLE_WARNING` for
+  callback denominators below 30, and output text states that row-level p-values
+  remain sanity statistics until the accepted cluster-aware plan is run. Updated
+  `scripts/paper/README.md` to match the new output contract and cluster caveat.
+  Verification: `python3 umi/orchestrator.py run umi/workload.md --dry-run`
+  (after removing safety-filter-triggering wording from the handoff); `python3
+  umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`;
+  `python3 -m py_compile scripts/paper/analyze.py`; `python3
+  scripts/paper/report_to_dataset.py --selftest`; `python3
+  scripts/paper/paper_empirical_audit.py --selftest`; `npm run
+  paper:protocol-audit`; `npm run paper:mechanism-audit`; `npm run
+  paper:design-audit` (`EMPIRICAL_DESIGN_BLOCKED`); `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 0 FAIL / 21 empirical blockers /
+  11 external blockers / 3 PDF blockers); `npm run paper:arxiv-package`
+  (archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `git diff --check`. Full `scripts/paper/analyze.py --selftest` was not rerun
+  because system Python lacks numpy/pandas/scipy and `/tmp` has only about
+  520MB free, so rebuilding the temporary venv would be unsafe. No sample
+  collection, Convex env mutation, rater fabrication, PDF render, or outside
+  action was run.
+- 2026-06-09 18:53 CDT: Central Umi refresh split current Underworld state into
+  product v0.1 and paper lanes. Product v0.1 remains `PENDING`: `npm run
+  underworld:alan-playtest-check` is still `NOT_PASS_READY` / `PARTIAL` with
+  0/5 PASS rows, and `npm run underworld:v01-completion-audit` reports 0 fail /
+  2 pending / 6 pass. Paper readiness is healthy but bounded:
+  `npm run paper:readiness` returns `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`
+  with 0 FAIL, while still listing empirical, external, and PDF blockers. Cleared
+  stale `umi/workload.md` active handoff; the prior placebo-arm design review is
+  complete and no live collection or external release was run.
+- 2026-06-06 CDT: Added Phase-A local placebo-arm plumbing for the future
+  rigorous residue experiment without opening collection or strengthening paper
+  claims. A bounded cc read-only review
+  (`umi/reports/20260606T193608Z-workload.md`) recommended a tri-state
+  `UNDERWORLD_RESIDUE_READ` shape and warned that motif-guard residue input
+  would leak content under placebo. Accepted the local-code part only:
+  `convex/agent/conversation.ts` now treats `UNDERWORLD_RESIDUE_READ=placebo`
+  as a fixed neutral prompt slot that ignores `recentResidues`, while
+  `UNDERWORLD_RESIDUE_READ=false` still removes the residue block and unset
+  still reads real residue. The motif guard now also ignores residue text under
+  placebo, so residue-derived cold-tea/window/checklist motifs do not leak into
+  placebo prompt lines. Added targeted tests in
+  `convex/agent/conversationMotifGuard.test.ts`, documented the env state in
+  `convex/aiTown/agent.ts`, taught
+  `scripts/paper/run_arm_pure_residue_window.mjs` to parse `--arm=placebo` as
+  `residue_placebo`, and updated dataset/audit plumbing to allow future
+  `residue_placebo` rows while keeping current evidence blocked. The old short
+  `paper:residue-ablation` runner remains a two-arm pilot path; the accepted
+  rigorous path is still the acceptance-gated arm-window runner. Updated
+  `docs/paper/SCHEDULE_DECISION.md` and
+  `docs/paper/PREREGISTRATION_PROTOCOL.md`; preregistration now records
+  `placebo_arm_status: local_plumbing_not_preregistered`, not an accepted or
+  analyzed arm. `paper:design-audit` now reports
+  `placebo_not_preregistered_or_analyzed`, preserving the narrowed read-block
+  suppression boundary. Verification: `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `npm run
+  paper:residue-arm-window -- --selftest`; `npm run
+  paper:residue-arm-window -- --selftest --arm=placebo`; `npm run
+  paper:residue-arm-window -- --check-acceptance-only --arm=placebo` expected
+  failure with exit 2 while schedule acceptance remains false; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:protocol-audit`; `python3 scripts/paper/paper_mechanism_audit.py
+  --selftest`; `npm run paper:mechanism-audit`; `python3
+  scripts/paper/paper_design_audit.py --selftest`; `npm run
+  paper:design-audit` (`EMPIRICAL_DESIGN_BLOCKED`); `python3
+  scripts/paper/paper_empirical_audit.py --selftest`; `npm run
+  paper:empirical-audit`; `python3 scripts/paper/report_to_dataset.py
+  --selftest`; `python3 scripts/paper/merge_ablation_runs.py --runs
+  docs/paper/results/longitudinal --out /tmp/merged-residue-test.json`;
+  `NODE_OPTIONS=--experimental-vm-modules npx jest
+  convex/agent/conversationMotifGuard.test.ts --runInBand`; `npx tsc
+  --noEmit --pretty false`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, archive
+  SHA-256 `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `npm run paper:arxiv-package`; `git diff --check`. No sample collection,
+  Convex env mutation, rater fabrication, PDF render, or outside release action
+  was run. Also removed the temporary `/tmp/ai-town-paper-venv` created for
+  analysis verification after the machine reported only 115MB free; `/tmp`
+  remained very tight afterward (~376MB free), so avoid large installs.
+- 2026-06-06 CDT: Tightened the annotation-completion gate so packet readiness
+  cannot be confused with completed human validation. `paper_annotation_audit.py`
+  now treats `annotation_sheet.csv` as a blank blinded worksheet and requires a
+  merged `docs/paper/results/longitudinal/annotations.csv` with at least two
+  rater rows per keyed case before the local annotation study can pass. The
+  current blocker is now correctly reported as "No merged annotations.csv found;
+  completed independent rater sheets must be merged through
+  merge_rater_annotations.py." Updated `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md`,
+  `docs/paper/HUMAN_ANNOTATION_PROTOCOL.md`,
+  `docs/paper/PREREGISTRATION_PROTOCOL.md`,
+  `docs/paper/SCHEDULE_DECISION.md`, `docs/paper/EXPERIMENTS.md`,
+  `docs/paper/emotional-residue.md`, and `scripts/paper/README.md` to use
+  "qualifying archived records" / merged-annotation wording instead of
+  overloading "publishable" or worksheet completion. Updated
+  `scripts/paper/paper_consistency_audit.py` and
+  `scripts/paper/paper_readiness_report.py` fixtures to match the tightened
+  manuscript language. Verification: `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY`); `python3
+  scripts/paper/paper_consistency_audit.py --selftest`; `npm run
+  paper:consistency-audit`; `python3
+  scripts/paper/paper_evidence_matrix_audit.py --selftest`; `npm run
+  paper:evidence-matrix-audit`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:claim-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `npm run paper:arxiv-package`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2 while
+  schedule acceptance remains false. No sample collection, rater fabrication,
+  Convex env mutation, PDF render, or outside release action was run.
+- 2026-06-06 CDT: Ran a narrow read-only cc empirical-boundary review
+  (`umi/reports/20260606T192313Z-workload.md`) after updating
+  `umi/workload.md` to avoid the orchestrator's external-action safety filter.
+  cc found no must-fix local issues for the conservative source package, but
+  recommended low-risk wording polish so inclusion criteria, local source
+  readiness, and completed empirical evidence cannot be confused. Accepted the
+  recommendations: `docs/paper/arxiv/main.tex` now says planned causal test,
+  qualifying conversations, inclusion-criteria-passing records, stronger
+  empirical version, and explicitly describes the longitudinal pilot as
+  `n=2/arm` and single-dyad; `docs/paper/arxiv/README.md` now states the local
+  readiness verdict and says it is not a completed empirical-effect package.
+  Also hardened `scripts/paper/analyze.py` so passing a blank blinded worksheet
+  as `annotations.csv` raises a clear error pointing to
+  `scripts/paper/merge_rater_annotations.py`; the selftest now covers that
+  guard. Verification: `python3 umi/orchestrator.py run umi/workload.md
+  --dry-run`; `python3 umi/orchestrator.py run umi/workload.md --skip-codex
+  --timeout 600`; `/tmp/ai-town-paper-venv/bin/python
+  scripts/paper/analyze.py --selftest`; `npm run paper:annotation-merge --
+  --selftest`; `npm run paper:annotation-audit`
+  (`PACKET_READY_INCOMPLETE_STUDY`); `npm run paper:source-audit`; `npm run
+  paper:claim-audit`; `npm run paper:readiness`
+  (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, archive SHA-256
+  `1f855034a3da996261da88d3cff4071cc209cd9081e932a1e82a60c4e07bba18`);
+  `npm run paper:arxiv-package`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2 while
+  schedule acceptance remains false. No sample collection, rater fabrication,
+  Convex env mutation, PDF render, or outside release action was run.
+- 2026-06-06 CDT: Added the missing human-annotation merge step so the paper
+  pipeline separates blank blinded rater worksheets from completed
+  analysis-ready ratings. `scripts/paper/merge_rater_annotations.py` now joins
+  completed `blind_id`-keyed rater sheets through
+  `docs/paper/results/longitudinal/annotation_key.csv`, validates each Likert
+  value as an integer 1..5, requires at least two unique raters by default, and
+  writes `case_name,rater,naturalness,emotional_binding,character_consistency,repetition`
+  rows for `scripts/paper/analyze.py`. Added `npm run paper:annotation-merge`,
+  updated `docs/paper/HUMAN_ANNOTATION_PROTOCOL.md`,
+  `scripts/paper/README.md`, `scripts/paper/paper_annotation_audit.py`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md` so packet readiness is not confused
+  with a completed annotation study. Verification: `python3
+  scripts/paper/merge_rater_annotations.py --selftest`; `npm run
+  paper:annotation-merge -- --selftest`; `python3
+  scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:annotation-audit` (`PACKET_READY_INCOMPLETE_STUDY` with no FAILs);
+  `python3 scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; `npm run paper:arxiv-package`; `git diff --check`. No
+  sample collection, rater fabrication, Convex env mutation, PDF render, or
+  outside release action was run.
+- 2026-06-06 CDT: Tightened the live arm-window collection gate so the future
+  long-window residue ablation cannot start from schedule acceptance alone.
+  Added `docs/paper/PREREGISTRATION_ACCEPTANCE.json` and updated
+  `scripts/paper/run_arm_pure_residue_window.mjs` so `main()` and
+  `--check-acceptance-only` both require accepted schedule JSON and accepted
+  preregistration JSON before the runner can mutate `UNDERWORLD_RESIDUE_READ`
+  or hold a collection window. Updated `scripts/paper/paper_protocol_audit.py`
+  to statically verify schedule docs, preregistration docs, both acceptance
+  files, runner gate strings, and package scripts; updated
+  `scripts/paper/paper_claim_audit.py` and `scripts/paper/paper_design_audit.py`
+  so readiness reports `preregistration_acceptance` as an empirical blocker.
+  Aligned `docs/paper/SCHEDULE_DECISION.md`,
+  `docs/paper/PREREGISTRATION_PROTOCOL.md`, `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, `docs/paper/arxiv/README.md`, and
+  `scripts/paper/README.md`. Verification: `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `npm run
+  paper:residue-arm-window -- --selftest`; `python3
+  scripts/paper/paper_protocol_audit.py --selftest`; `npm run
+  paper:protocol-audit`; `python3 scripts/paper/paper_claim_audit.py
+  --selftest`; `python3 scripts/paper/paper_design_audit.py --selftest`;
+  `python3 scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 21 empirical
+  blockers); `npm run paper:arxiv-package`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2; temporary
+  schedule-accepted/prereg-rejected JSON failed with exit 2; temporary accepted
+  versions of both JSON files passed `--check-acceptance-only` without
+  collection. No sample collection, Convex env mutation, PDF render, or outside
+  release action was run.
+- 2026-06-06 CDT: Added a machine-audited preregistration protocol for the
+  future rigorous residue ablation and fixed a design-audit false negative.
+  `docs/paper/PREREGISTRATION_PROTOCOL.md` now records explicit status fields
+  (`draft_not_accepted`, collection paused, final N not fixed, placebo arm not
+  implemented/analyzed, narrowed read-block suppression claim), arms, primary
+  callback-rate outcome, secondary outcomes, inclusion/exclusion criteria,
+  counterbalanced arm-pure schedule, stopping rules, sample-size/cluster policy,
+  analysis plan, and deviation policy. Updated `scripts/paper/paper_design_audit.py`
+  so it no longer treats the phrase "length-matched placebo arm has been
+  implemented" inside a limitation sentence as evidence that placebo is
+  implemented; the audit now reads explicit preregistration status and reports
+  `placebo_not_implemented` as an empirical/mechanism blocker. Wired the
+  preregistration boundary into `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, `docs/paper/arxiv/README.md`,
+  `scripts/paper/README.md`, and the readiness selftest fixture. Verification:
+  `python3 scripts/paper/paper_design_audit.py --selftest`; `npm run
+  paper:design-audit` (`EMPIRICAL_DESIGN_BLOCKED` with blockers for schedule
+  acceptance, preregistration acceptance, placebo not implemented/analyzed,
+  final N not fixed, and annotation minimum); `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`, 19 empirical
+  blockers); `npm run paper:arxiv-package`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2 while
+  schedule acceptance remains false. No sample collection, Convex env mutation,
+  PDF render, or outside release action was run.
+- 2026-06-06 CDT: Added citation provenance as a first-class paper gate.
+  Created `docs/paper/CITATION_PROVENANCE.md` with provenance rows for all 15
+  bibliography keys, using primary/official/publisher/DOI URLs for recent
+  LLM-agent, AI Town, role-playing, memory, affective-computing, and
+  believable-agent references, while keeping Goffman as a stable classic
+  bibliographic anchor pending final copyedit. Added
+  `scripts/paper/paper_citation_audit.py` and `npm run paper:citation-audit`;
+  the audit requires every `main.tex` bibitem to have a provenance row and
+  requires recent LLM-agent / AI Town keys to point at primary or official URLs.
+  Wired the audit into `scripts/paper/paper_readiness_report.py`,
+  `package.json`, `scripts/paper/README.md`, `docs/paper/arxiv/README.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, and `docs/paper/ALAN_HANDOFF.md`.
+  Verification: `python3 scripts/paper/paper_citation_audit.py --selftest`;
+  `npm run paper:citation-audit` (`PASS`, 15 bibliography keys);
+  `python3 scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness` (`LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY` with citation
+  provenance audit `PASS`); `npm run paper:source-audit`; `npm run
+  paper:arxiv-package`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2 while
+  schedule acceptance remains false. No sample collection, Convex env mutation,
+  PDF render, or outside release action was run.
+- 2026-06-06 CDT: Ran a bounded read-only cc citation/novelty/ethics final
+  review (`umi/reports/20260606T185800Z-workload.md`). cc found citations and
+  novelty boundaries acceptable for a conservative design/systems preprint, but
+  flagged an implicit-only ethics/transcript scope note as a release-readiness
+  soft edge. Accepted that finding and added a `Scope and ethics` limitation to
+  `docs/paper/arxiv/main.tex`: author-observed single-player prototype, no
+  external participants recruited or recorded, no IRB or human-subjects approval
+  claimed, raw player-conversation transcripts excluded from the source archive,
+  and controlled player study future work. Updated
+  `scripts/paper/paper_claim_audit.py` to require these disclosures with
+  whitespace-normalized phrase checks, and aligned
+  `docs/paper/ALAN_HANDOFF.md`, `docs/paper/REVIEWER_PREMORTEM.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. Verification:
+  `python3 scripts/paper/paper_claim_audit.py --selftest`; `npm run
+  paper:claim-audit`; `npm run paper:source-audit`; `npm run paper:readiness`;
+  `npm run paper:arxiv-package`. Current source archive SHA-256 is
+  `bc7f9ceeaa104fcd63a6c0addf6554a9b38d404dc5a13f96630bcfe50c919cb9`.
+  No sample collection, Convex env mutation, PDF render, or outside release
+  action was run.
+- 2026-06-06 CDT: Finished the final rigor pass for the emotional-residue paper
+  package by adding cluster/design-effect sensitivity to the sample-size
+  planning boundary. `scripts/paper/power_sensitivity.py` now emits
+  `docs/paper/results/power/cluster_power_grid.csv` and the generated power
+  summary includes a `Cluster Sensitivity` section using the standard
+  design-effect approximation. Updated `docs/paper/SCHEDULE_DECISION.md`,
+  `docs/paper/ALAN_HANDOFF.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md`, `docs/paper/REVIEWER_PREMORTEM.md`,
+  and `scripts/paper/README.md` so reviewers cannot mistake nominal row count
+  for independent evidence. Current readiness remains
+  `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`; empirical/mechanism claims remain
+  blocked by unaccepted schedule, final N not fixed, only n=4 pilot rows, one
+  dyad, no completed raters, missing old-row generation metadata, pilot-only
+  trace-overlap coverage, and no placebo arm unless the narrowed read-block
+  claim is kept. Verification: `python3 scripts/paper/power_sensitivity.py
+  --selftest`; `python3 scripts/paper/power_sensitivity.py --outdir
+  docs/paper/results/power`; `python3 scripts/paper/paper_design_audit.py
+  --selftest`; `python3 scripts/paper/paper_evidence_matrix_audit.py
+  --selftest`; `python3 scripts/paper/paper_readiness_report.py --selftest`;
+  `npm run paper:design-audit`; `npm run paper:evidence-matrix-audit`;
+  `npm run paper:readiness`; `npm run paper:arxiv-package`; `git diff
+  --check`; `npm run paper:residue-arm-window:acceptance` expected failure with
+  exit 2 while schedule acceptance remains false. No sample collection, Convex
+  env mutation, PDF render, or outside release action was run.
+- 2026-06-06 CDT: Ran a final read-only cc reviewer-premortem pass via
+  `umi/orchestrator.py` after updating `umi/workload.md` to avoid external-action
+  wording that triggers the safety gate. cc accepted the local-source-ready
+  boundary for a conservative design/systems preprint and flagged model/provider
+  disclosure, over-readable bootstrap CIs, unmeasured residue-verbatim leakage,
+  novelty defense versus summary memory, single-player author-observer scope,
+  and the need for a one-page Alan handoff. Accepted the actionable findings:
+  `docs/paper/arxiv/main.tex` now discloses local/cloud model policy paths
+  (`qwen2.5:1.5b` smoke-only, local Ollama default `qwen3:8b`,
+  OpenAI-compatible Qwen default `qwen3-max`), states datasets do not yet store
+  per-conversation provider/model metadata, moves the author-observer boundary
+  into the abstract, softens the marker CI table as diagnostic only, adds a
+  trace-to-dialogue overlap limitation, and sharpens novelty versus summary
+  memory. Added `docs/paper/ALAN_HANDOFF.md` and
+  `docs/paper/REVIEWER_PREMORTEM.md`; updated
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`,
+  `docs/paper/arxiv/README.md`, `scripts/paper/paper_claim_audit.py`,
+  `scripts/paper/paper_evidence_matrix_audit.py`, and
+  `scripts/paper/paper_readiness_report.py`. Verification:
+  `python3 scripts/paper/paper_claim_audit.py --selftest`;
+  `python3 scripts/paper/paper_evidence_matrix_audit.py --selftest`;
+  `python3 scripts/paper/paper_readiness_report.py --selftest`;
+  `npm run paper:source-audit`; `npm run paper:claim-audit`;
+  `npm run paper:consistency-audit`; `npm run paper:protocol-audit`;
+  `npm run paper:mechanism-audit`; `npm run paper:annotation-audit`;
+  `npm run paper:empirical-audit`; `npm run paper:evidence-matrix-audit`;
+  `npm run paper:submission-audit`; `npm run paper:pdf-preflight`;
+  `npm run paper:arxiv-package`; `npm run paper:readiness`;
+  `git diff --check`; `npm run paper:residue-arm-window:acceptance` expected
+  failure with exit 2 while schedule acceptance remains false. No Convex env
+  mutation, sample collection, PDF render, or outside release action was run.
+- 2026-06-06 CDT: Tightened future experiment reproducibility metadata without
+  backfilling old data. `scripts/paper/report_to_dataset.py` now accepts
+  `--metadata-json` and attaches run-level `generation_metadata` to parsed
+  rows. `scripts/paper/run_residue_ablation.mjs` and
+  `scripts/paper/run_arm_pure_residue_window.mjs` now write
+  `generation-metadata.json` snapshots for future ablation rows, including
+  local/cloud provider/model defaults without API keys. `scripts/paper/paper_empirical_audit.py`
+  now treats rows missing `generation_metadata` as an empirical blocker; the
+  current n=4 pilot remains blocked with `4/4 rows lack run-level
+  provider/model metadata`. Updated `scripts/paper/README.md`,
+  `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md`,
+  `docs/paper/ALAN_HANDOFF.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. Verification:
+  `python3 scripts/paper/report_to_dataset.py --selftest`; `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `node --check
+  scripts/paper/run_residue_ablation.mjs`; `npm run paper:residue-arm-window
+  -- --selftest`; `python3 scripts/paper/paper_empirical_audit.py --selftest`;
+  `npm run paper:empirical-audit`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; `git diff --check`; `npm run
+  paper:residue-arm-window:acceptance` expected failure with exit 2. No sample
+  collection or Convex env mutation was run.
+- 2026-06-06 CDT: Added a trace-to-dialogue overlap audit for the paper's
+  "pressure, not quotation" claim. `scripts/paper/paper_trace_overlap_audit.py`
+  scans rolling-continuity reports, links callback lines to source memory traces,
+  and computes a simple longest-common-substring overlap ratio. Current verdict:
+  `PILOT_ONLY_TRACE_OVERLAP_AUDIT`: 11 callback cases assessed, max overlap
+  ratio 0.242, no high verbatim-overlap warning, but sample size is below the
+  30-callback validation threshold and 1/11 callback cases lacks parsed source
+  trace linkage. Wired `npm run paper:trace-overlap-audit` into
+  `scripts/paper/paper_readiness_report.py`, `package.json`,
+  `scripts/paper/README.md`, `docs/paper/arxiv/README.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, `docs/paper/ALAN_HANDOFF.md`,
+  `docs/paper/REVIEWER_PREMORTEM.md`, and
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md` as C10. Verification:
+  `python3 scripts/paper/paper_trace_overlap_audit.py --selftest`;
+  `npm run paper:trace-overlap-audit`; `python3
+  scripts/paper/paper_evidence_matrix_audit.py --selftest`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`;
+  `npm run paper:evidence-matrix-audit`; `npm run paper:readiness`;
+  `npm run paper:arxiv-package`; `git diff --check`. No sample collection,
+  Convex env mutation, PDF render, or outside release action was run.
+- 2026-06-06 CDT: Added an empirical causal/mechanism design gate for the
+  residue paper. `docs/paper/SCHEDULE_DECISION.md` and
+  `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md` now explicitly state that the
+  two-arm read-off design tests suppression of the residue-read prompt block and
+  does not isolate residue content from prompt length/shape unless a
+  length-matched placebo arm is implemented; otherwise the paper must keep the
+  narrowed read-block suppression claim. `scripts/paper/paper_design_audit.py`
+  and `npm run paper:design-audit` now check arm-pure design wording,
+  callback-window denominator policy, no optional stopping, MDE/final-N caveats,
+  cluster-aware caution, placebo-or-narrowed-claim boundary, generation
+  metadata, trace-overlap, annotation minimum, and schedule acceptance. Current
+  verdict: `EMPIRICAL_DESIGN_BLOCKED` with blockers for unaccepted schedule,
+  final N not fixed until pilot baseline/yield estimates, and only 4 annotation
+  rows. Wired the gate into `scripts/paper/paper_readiness_report.py`,
+  `package.json`, `scripts/paper/README.md`, `docs/paper/arxiv/README.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, `docs/paper/ALAN_HANDOFF.md`, and
+  `docs/paper/CLAIM_EVIDENCE_MATRIX.md` as C11. Verification:
+  `python3 scripts/paper/paper_design_audit.py --selftest`;
+  `npm run paper:design-audit`; `python3
+  scripts/paper/paper_evidence_matrix_audit.py --selftest`;
+  `npm run paper:evidence-matrix-audit`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; `npm run paper:arxiv-package`; `git diff --check`. No
+  sample collection, Convex env mutation, PDF render, or outside release action
+  was run.
+- 2026-06-06 CDT: Added a claim-to-evidence matrix for reviewer-facing claim
+  discipline. `docs/paper/CLAIM_EVIDENCE_MATRIX.md` now maps nine major
+  manuscript claims to current evidence artifacts and explicit boundaries:
+  supported systems pattern, code-aligned mechanism, smoke evidence,
+  feasibility evidence, pipeline sanity, future-work blocked claims, incomplete
+  annotation study, local source readiness, and external blockers.
+  `scripts/paper/paper_evidence_matrix_audit.py` and
+  `npm run paper:evidence-matrix-audit` verify that each required claim ID,
+  status, artifact reference, gate summary, and boundary phrase is present and
+  aligned with current artifacts. Wired the audit into
+  `scripts/paper/paper_readiness_report.py`, `package.json`,
+  `scripts/paper/README.md`, `docs/paper/arxiv/README.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. Current verdict is `PASS`; readiness
+  now reports `Evidence matrix audit: PASS` and 6 PASS gates while retaining the
+  empirical, external, and PDF blockers. No sample collection, Convex env
+  mutation, claim strengthening, PDF render, or external submission was run.
+  Verification: `python3 scripts/paper/paper_evidence_matrix_audit.py
+  --selftest`; `npm run paper:evidence-matrix-audit`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; full paper gate matrix (`source`, `claim`, `consistency`,
+  `protocol`, `mechanism`, `annotation`, `empirical`, `evidence-matrix`,
+  `submission`, `pdf-preflight`, `arxiv-package`).
+- 2026-06-06 CDT: Added a longitudinal empirical-ablation dataset audit so the
+  paper package can distinguish pipeline/sanity evidence from completed effect
+  evidence without relying on prose alone. `scripts/paper/paper_empirical_audit.py`
+  and `npm run paper:empirical-audit` check the current merged longitudinal
+  dataset for archived-row hygiene, condition labels, n/arm, dyad coverage,
+  source-run coverage, window metadata, callback-denominator size, callback
+  labels, and aftertaste-proxy variance. Current verdict is
+  `PILOT_ONLY_INCOMPLETE_ABLATION`: n=4 total (2/arm), one dyad, two source
+  runs, no useful long-window metadata, 4 callback-denominator rows, callback
+  snapshot 1/4, and saturated rule-based aftertaste proxy at 1.0. Wired this
+  audit into `scripts/paper/paper_readiness_report.py`, `package.json`,
+  `scripts/paper/README.md`, `docs/paper/arxiv/README.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. `npm run paper:readiness` now reports
+  `Empirical ablation audit: PILOT_ONLY_INCOMPLETE_ABLATION` while preserving
+  the conservative source-ready verdict and explicit blockers. No sample
+  collection, Convex env mutation, or claim strengthening was run. Verification:
+  `python3 scripts/paper/paper_empirical_audit.py --selftest`; `npm run
+  paper:empirical-audit`; `python3 scripts/paper/paper_readiness_report.py
+  --selftest`; `npm run paper:readiness`; `npm run paper:source-audit`;
+  `npm run paper:claim-audit`; `npm run paper:consistency-audit`; `npm run
+  paper:protocol-audit`; `npm run paper:mechanism-audit`; `npm run
+  paper:annotation-audit`; `npm run paper:submission-audit`; `npm run
+  paper:pdf-preflight`; `npm run paper:arxiv-package`; package JSON parse
+  check; `git diff --check`.
+- 2026-06-06 CDT: Added a local submitter-decision gate for external readiness.
+  `docs/paper/SUBMISSION_DECISIONS.json` now records Alan-facing choices that
+  must be explicitly confirmed before any external posting: author name,
+  affiliation, contact email, public author identity, primary/cross-list
+  categories, account readiness, license, upstream AI Town attribution comfort,
+  raw transcript policy, timing decision, rendered PDF verification, and
+  platform preview verification. `scripts/paper/paper_submission_audit.py` and
+  `npm run paper:submission-audit` validate that file and the source package
+  without contacting external services. Current verdict is `EXTERNAL_BLOCKERS`:
+  the decision file is schema-valid, but author/category/account/license/timing
+  decisions are blank, rendered PDF and platform preview are unverified, and
+  `main.tex` still intentionally contains the author metadata placeholder.
+  Wired the submission audit into `scripts/paper/paper_readiness_report.py`,
+  `package.json`, `scripts/paper/README.md`,
+  `docs/paper/arxiv/README.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. `npm run paper:readiness` now reports
+  `Submission decision audit: EXTERNAL_BLOCKERS` while preserving the
+  conservative source-ready verdict and explicit empirical/PDF blockers. No
+  sample collection, Convex env mutation, metadata finalization, PDF render, or
+  external submission was run. Verification: `python3
+  scripts/paper/paper_submission_audit.py --selftest`; `npm run
+  paper:submission-audit`; `python3 scripts/paper/paper_readiness_report.py
+  --selftest`; package JSON parse check; `npm run paper:readiness`; `npm run
+  paper:source-audit`; `npm run paper:claim-audit`; `npm run
+  paper:consistency-audit`; `npm run paper:protocol-audit`; `npm run
+  paper:mechanism-audit`; `npm run paper:annotation-audit`; `npm run
+  paper:pdf-preflight`; `npm run paper:arxiv-package`.
+- 2026-06-06 CDT: Added a local PDF/render preflight gate for the
+  emotional-residue source package. `scripts/paper/paper_pdf_preflight.py` and
+  `npm run paper:pdf-preflight` now copy `docs/paper/arxiv/main.tex` into a
+  temporary directory and try the first available local renderer among
+  `tectonic`, `latexmk`, `pdflatex`, `xelatex`, `lualatex`, and `pandoc`; it
+  passes only if a non-empty `main.pdf` is produced. On this machine the current
+  verdict is `PDF_BLOCKER` because none of those tools are installed, so source
+  readiness remains conservative but rendered-PDF readiness is explicitly
+  unverified. Wired the preflight into `package.json`,
+  `scripts/paper/paper_readiness_report.py`, `scripts/paper/README.md`,
+  `docs/paper/arxiv/README.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`; `npm run paper:readiness` now writes
+  `docs/paper/results/pdf-preflight.md` and summarizes `PDF preflight:
+  PDF_BLOCKER` alongside the other gates. No sample collection, Convex env
+  mutation, TeX installation, PDF upload, or external submission was run.
+  Verification: `python3 scripts/paper/paper_pdf_preflight.py --selftest`;
+  `npm run paper:pdf-preflight`; `python3
+  scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; `npm run paper:source-audit`; `npm run paper:claim-audit`;
+  `npm run paper:consistency-audit`; `npm run paper:protocol-audit`; `npm run
+  paper:mechanism-audit`; `npm run paper:annotation-audit`; `npm run
+  paper:arxiv-package`.
+- 2026-06-06 CDT: Added a static residue mechanism/code-path audit for the
+  emotional-residue systems paper. `scripts/paper/paper_mechanism_audit.py` and
+  `npm run paper:mechanism-audit` now verify that the manuscript's residue
+  architecture maps to current code paths: `convex/agent/memory.ts`
+  write gating via `UNDERWORLD_RESIDUE_WRITE`, `deterministicResidueSentence`,
+  minimum exchange and shape/hygiene gates, residue storage under the memory
+  description prefix, `convex/agent/conversation.ts` read gating via
+  `UNDERWORLD_RESIDUE_READ`, `residuePromptLines`, the at-most-two residue
+  prompt bound, America/Chicago time labels, no-quotation instructions, motif
+  guard/repeated motif families, env documentation in `convex/aiTown/agent.ts`,
+  and the schema `emotional_residue` outcome label. Wired this audit into
+  `scripts/paper/paper_readiness_report.py`, `package.json`, `scripts/paper/README.md`,
+  `docs/paper/arxiv/README.md`, and `docs/paper/PUBLISH_READY_CHECKLIST.md`.
+  Current readiness now reports claim/source/consistency/protocol/mechanism
+  audits passing, annotation packet ready but study incomplete, and the same
+  empirical/external/PDF blockers. No sample collection, Convex env mutation,
+  PDF compilation, or external submission was run. Verification:
+  `python3 scripts/paper/paper_mechanism_audit.py --selftest`; `npm run
+  paper:mechanism-audit`; `python3 scripts/paper/paper_readiness_report.py
+  --selftest`; package JSON parse check; `npm run paper:source-audit`;
+  `npm run paper:claim-audit`; `npm run paper:consistency-audit`; `npm run
+  paper:protocol-audit`; `npm run paper:annotation-audit`; `npm run
+  paper:arxiv-package`; `npm run paper:readiness`.
+- 2026-06-06 CDT: Ran a final read-only cc expert review on the
+  emotional-residue paper after the local readiness gates were in place
+  (`umi/reports/20260606T180028Z-workload.md`). cc accepted the current package
+  as a conservative local design/systems preprint source and rejected it as a
+  completed empirical ablation/player-experience paper, matching
+  `npm run paper:readiness`. Codex applied cc's accepted minor revisions to
+  `docs/paper/arxiv/main.tex`: added concrete write/read architecture details
+  with `convex/agent/memory.ts`, `convex/agent/conversation.ts`,
+  `UNDERWORLD_RESIDUE_WRITE`, and `UNDERWORLD_RESIDUE_READ`; added a Goffman
+  layered-self citation and paragraph; defined soul-triad once; added smoke
+  pair distribution; clarified Table 2 window-denominator headers; added
+  bootstrap wording to Table 1 caption; disclosed inter-block ON->OFF residue
+  carryover in the ablation caveats and limitations; and added an AI Town /
+  Generative Agents acknowledgement. Kept the source ASCII-only by romanizing
+  pair labels. Rebuilt the allowlisted local source archive; current SHA-256 is
+  `7812365450fec61ade2563468338fa7b0ac5ae55fad72aa3988ac1ea943d617f`.
+  Verification: `python3 umi/orchestrator.py run umi/workload.md --dry-run`;
+  `python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`;
+  `npm run paper:source-audit`; `npm run paper:claim-audit`; `npm run
+  paper:consistency-audit`; `npm run paper:protocol-audit`; `npm run
+  paper:annotation-audit`; `npm run paper:arxiv-package`; `npm run
+  paper:readiness`; `python3 scripts/paper/paper_readiness_report.py
+  --selftest`; `python3 scripts/paper/paper_annotation_audit.py --selftest`.
+  No sample collection, Convex env mutation, PDF compilation, or external
+  submission was run.
+- 2026-06-06 CDT: Added a human-annotation packet audit for the
+  emotional-residue paper. `scripts/paper/paper_annotation_audit.py` and
+  `npm run paper:annotation-audit` now check the blinded rater packet schema,
+  blind-id/key alignment, condition/callback/metric/conversation-id leakage,
+  annotation sample size, rater completion, and dyad coverage. Current verdict
+  is `PACKET_READY_INCOMPLETE_STUDY`: no FAIL findings; schema/blinding passes,
+  but the empirical human-validation study is still incomplete with 4 rows, no
+  completed rater rows, and one observed dyad. Wired this into
+  `scripts/paper/paper_readiness_report.py`, so `npm run paper:readiness` now
+  reports claim/source/consistency/protocol audits passing, annotation packet
+  ready but incomplete, and 6 empirical blockers / 1 external blocker / 1 PDF
+  blocker. No sample collection, env mutation, PDF compilation, or external
+  submission was run. Verification: `npm run paper:annotation-audit`;
+  `python3 scripts/paper/paper_annotation_audit.py --selftest`; `npm run
+  paper:readiness`; `python3 scripts/paper/paper_readiness_report.py
+  --selftest`; `npm run paper:claim-audit`; `npm run paper:source-audit`;
+  `npm run paper:consistency-audit`; `npm run paper:protocol-audit`; `npm run
+  paper:arxiv-package`; package JSON parse check; `git diff --check`.
+- 2026-06-06 CDT: Added a protocol/collection-gate consistency audit for the
+  emotional-residue long-window experiment design. `scripts/paper/paper_protocol_audit.py`
+  and `npm run paper:protocol-audit` now statically verify that
+  `docs/paper/SCHEDULE_DECISION.md`, `docs/paper/SCHEDULE_ACCEPTANCE.json`,
+  `scripts/paper/run_arm_pure_residue_window.mjs`, and `package.json` agree on
+  the arm-pure design, READ on/off mapping, default `--collect=none`, mechanism
+  `--collect=force`, rolling-callback denominator policy, no optional stopping,
+  sample-size caveats, human-annotation minimums, acceptance fields, env restore,
+  and npm entrypoints. Current result is `PASS` and writes
+  `docs/paper/results/protocol-audit.md`. Wired the protocol audit into
+  `scripts/paper/paper_readiness_report.py`, so `npm run paper:readiness` now
+  reports claim/source/consistency/protocol audits all passing while still
+  listing empirical/external/PDF blockers. The explicit acceptance preflight
+  `npm run paper:residue-arm-window:acceptance` expected-failed with exit code
+  2 because `SCHEDULE_ACCEPTANCE.json` remains `accepted: false`; this confirms
+  collection remains paused. No sample collection or env change was run.
+  Verification: `python3 scripts/paper/paper_protocol_audit.py --selftest`;
+  `python3 scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:protocol-audit`; `npm run paper:readiness`; expected-failing `npm run
+  paper:residue-arm-window:acceptance`; `npm run paper:claim-audit`; `npm run
+  paper:source-audit`; `npm run paper:consistency-audit`; `npm run
+  paper:arxiv-package`; package JSON parse check; `git diff --check`.
+- 2026-06-06 CDT: Added a manuscript/artifact numeric consistency gate for the
+  emotional-residue paper. `scripts/paper/paper_consistency_audit.py` and
+  `npm run paper:consistency-audit` now check selected hard-coded manuscript
+  numbers against generated artifacts: the 8-conversation smoke marker table,
+  June 5 rolling-continuity counts, the repeatability table for 2026-06-04 /
+  2026-06-05 / 2026-06-06, and longitudinal sanity claims (`n=2/arm`, one dyad,
+  aftertaste saturation). Current result is `PASS` and writes
+  `docs/paper/results/consistency-audit.md`. Wired this into
+  `scripts/paper/paper_readiness_report.py`, so `npm run paper:readiness` now
+  reports claim audit `PASS_CONSERVATIVE_PREPRINT`, source audit `PASS`,
+  consistency audit `PASS`, and the same empirical/external/PDF blockers. Updated
+  `package.json`, `scripts/paper/README.md`, `docs/paper/arxiv/README.md`, and
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`. No sample collection or env changes
+  were run. Verification: `python3 scripts/paper/paper_consistency_audit.py
+  --selftest`; `python3 scripts/paper/paper_readiness_report.py --selftest`;
+  `npm run paper:consistency-audit`; `npm run paper:readiness`; `npm run
+  paper:claim-audit`; `npm run paper:source-audit`; `npm run
+  paper:arxiv-package`; package JSON parse check; `git diff --check`.
+- 2026-06-06 CDT: Added the combined local paper readiness report for the
+  emotional-residue paper. `scripts/paper/paper_readiness_report.py` and
+  `npm run paper:readiness` now run the claim audit, source audit, deterministic
+  allowlisted arXiv source package build, archive/manifest SHA checks, and local
+  PDF-tool availability check, then write `docs/paper/results/readiness.md`.
+  Current verdict is `LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY`: local source
+  and claim boundary are ready for a conservative design/systems preprint, while
+  the report still explicitly lists 3 empirical blockers (schedule acceptance,
+  n=2/arm longitudinal pilot data, 4 annotation rows), 1 external blocker
+  (author metadata), and 1 PDF blocker (no local TeX/pandoc tool found; PDF /
+  arXiv preview unverified). Updated `package.json`, `scripts/paper/README.md`,
+  `docs/paper/arxiv/README.md`, and `docs/paper/PUBLISH_READY_CHECKLIST.md` so
+  `paper:readiness` is the recommended one-command status check before
+  discussing publication timing. No collection or upload was run. Verification:
+  `python3 scripts/paper/paper_readiness_report.py --selftest`; `npm run
+  paper:readiness`; `npm run paper:claim-audit`; `npm run paper:source-audit`;
+  `npm run paper:arxiv-package`; package JSON parse check; `git diff --check`.
+  A fresh `npx convex env get UNDERWORLD_RESIDUE_READ` check was attempted but
+  the local Convex backend did not start within 30 seconds; the query process
+  was stopped and no new env-state evidence was obtained in this pass.
+- 2026-06-06 CDT: Added a local arXiv source package builder for the
+  emotional-residue paper without uploading or starting collection.
+  `scripts/paper/build_arxiv_source_package.py` and
+  `npm run paper:arxiv-package` create an allowlisted deterministic archive at
+  `docs/paper/results/arxiv-source/emotional-residue-arxiv-source.tar.gz` plus
+  `manifest.json`. The archive currently contains only `main.tex`; datasets,
+  ablation logs, annotation sheets/keys, blinded transcript packets, figures,
+  and generated results are excluded by design. Current archive SHA-256:
+  `a323e9df68766fe890c737b1d2d7dee42f53d40856ee9b7ce583554ef01456d9`.
+  Updated `scripts/paper/README.md`, `docs/paper/arxiv/README.md`,
+  `docs/paper/PUBLISH_READY_CHECKLIST.md`, and `package.json` so this packaging
+  gate is documented. This still does not submit externally and does not replace
+  PDF/arXiv preview inspection. Verification: `python3
+  scripts/paper/build_arxiv_source_package.py --selftest`; `npm run
+  paper:arxiv-package`; `tar -tzf` confirmed only `main.tex`; archive-member
+  leakage scan for dataset/annotation/transcript/results/figures returned no
+  matches; `npm run paper:claim-audit` (`PASS_CONSERVATIVE_PREPRINT`);
+  `npm run paper:source-audit` (`PASS`); package JSON parse check; `git diff
+  --check`; `npx convex env get UNDERWORLD_RESIDUE_READ` (not found/unset).
+- 2026-06-06 CDT: Added local arXiv source hygiene auditing for the
+  emotional-residue paper without touching collection or Convex env.
+  `scripts/paper/paper_source_audit.py` and `npm run paper:source-audit` now
+  check the source package for basic LaTeX structure, environment balance,
+  placeholder tokens, label/ref consistency, duplicate labels, citation/bibitem
+  consistency, simple tabular column mismatches, README boundary language, and
+  source-package notes. The current result is `PASS` with 0 FAIL / 0 WARN and
+  writes `docs/paper/results/source-audit.md`. Updated `scripts/paper/README.md`,
+  `docs/paper/arxiv/README.md`, `docs/paper/PUBLISH_READY_CHECKLIST.md`, and
+  `package.json` so this is now a fixed local paper gate. This does not replace
+  PDF compilation or arXiv preview inspection, which still require a TeX-capable
+  environment or arXiv's preview. Verification: `python3
+  scripts/paper/paper_source_audit.py --selftest`; `npm run paper:source-audit`;
+  `npm run paper:claim-audit` (`PASS_CONSERVATIVE_PREPRINT`); `python3
+  scripts/paper/paper_claim_audit.py --selftest`; package JSON parse check;
+  `git diff --check`; `npx convex env get UNDERWORLD_RESIDUE_READ` (not
+  found/unset).
+- 2026-06-06 CDT: Closed the remaining related-work gap from the fifth cc
+  expert review without changing evidence claims or running collection. Verified
+  primary sources for Character-LLM and Bickmore-style relational agents, then
+  updated `docs/paper/arxiv/main.tex` to position emotional residue as a
+  runtime memory primitive rather than training-time persona construction or a
+  validated relational-agent intervention. Added bibliography entries for
+  Character-LLM and Bickmore et al.'s relational-agent older-adults study; all
+  bibliography entries are now cited. Current claim audit remains
+  `PASS_CONSERVATIVE_PREPRINT` with only the expected empirical/external
+  blockers. Verification: `npm run paper:claim-audit`; `python3
+  scripts/paper/paper_claim_audit.py --selftest`; citation-key sanity script
+  (`bibitems 14`, `uncited []`); `git diff --check`.
+- 2026-06-06 CDT: Added a cc-reviewed claim-boundary audit for the
+  emotional-residue paper package. `scripts/paper/paper_claim_audit.py` and
+  `npm run paper:claim-audit` now check the manuscript/evidence package for
+  unsupported causal or player-study claims, required limitation language,
+  author metadata blockers, schedule acceptance, longitudinal n/arm,
+  annotation packet size, annotation-key alignment, and blinded transcript label
+  leakage including the aggregate `transcripts.md`. Current audit verdict is
+  `PASS_CONSERVATIVE_PREPRINT`: no FAIL findings, with expected blockers for
+  author metadata, unaccepted arm-pure schedule, n=2/arm longitudinal pilot
+  data, and only 4 annotation rows. A fifth cc read-only expert review
+  (`umi/reports/20260606T172507Z-workload.md`) accepted the current claim
+  boundary as a conservative design/systems preprint with minor revisions.
+  Codex applied the accepted revisions: added the Bates believable-agents
+  citation, clarified that bootstrap CIs and SHA-1 repeatability are pipeline
+  checks rather than population/generation stability, documented window
+  sensitivity in rolling-continuity verdicts, and added Limitations paragraphs
+  for read-off prompt-shape confounds and saturated rule-based aftertaste proxy.
+  No collection was run and `UNDERWORLD_RESIDUE_READ` remained unset.
+  Verification: `python3 scripts/paper/paper_claim_audit.py --selftest`;
+  `npm run paper:claim-audit`; `python3 umi/orchestrator.py run
+  umi/workload.md --dry-run`; `python3 umi/orchestrator.py run
+  umi/workload.md --skip-codex --timeout 600`; `git diff --check`; package JSON
+  parse check; `npx convex env get UNDERWORLD_RESIDUE_READ` (not found/unset).
+- 2026-06-06 CDT: Completed the emotional-residue paper package to a conservative
+  arXiv-source-ready state. Added `docs/paper/arxiv/main.tex` as the actual
+  publishable source draft with no `[FILL]` placeholders, no raw Chinese/player
+  transcript excerpts, and explicit limitations: no completed causal ablation,
+  no controlled player study, and rule-based markers needing human validation.
+  Added `docs/paper/arxiv/README.md` and `docs/paper/PUBLISH_READY_CHECKLIST.md`
+  with arXiv metadata, final submitter confirmations, and verification status.
+  Generated `docs/paper/data/current-smoke/dataset.json` from the current
+  `soul-triad-latest.md`, attached 2 rolling-callback labels from the regenerated
+  2026-06-05 rolling-continuity report, and analyzed the 8-conversation smoke
+  dataset into `docs/paper/results/current-smoke/results/`. Updated the Markdown
+  planning docs so the repo no longer presents stale `[FILL]` blocks as the
+  submission source.
+  Verification: `python3 scripts/paper/report_to_dataset.py --selftest`;
+  `python3 scripts/paper/attach_rolling_callbacks.py --selftest`;
+  `/tmp/ai-town-paper-venv/bin/python scripts/paper/analyze.py --selftest`;
+  `npm run underworld:rolling-continuity -- --date=2026-06-05`;
+  `npx tsc --noEmit --pretty false`; `git diff --check`. PDF compilation was
+  not verified locally because `pdflatex`, `latexmk`, and `pandoc` are not
+  installed.
+- 2026-06-06 09:01 CDT: Daily Central Umi refresh reran the v0.1 gates after the
+  paper work. `npm run underworld:alan-playtest-check` remains
+  `NOT_PASS_READY` / `PARTIAL` with 0/5 PASS rows. `npm run
+  underworld:v01-completion-audit` now reports `PENDING` with 0 fail / 2
+  pending / 6 pass because rolling two-hour continuity is sample-pending today
+  and the Alan-facing playtest is still not passed. Treat the emotional-residue
+  paper as a separate research/publication lane; it does not clear the v0.1
+  product gate.
+- 2026-06-06 CDT: Added repeatability evidence and expanded related work for the
+  emotional-residue paper. Re-ran `analyze.py` twice on the same smoke dataset
+  and confirmed identical SHA-1 hashes for the generated CSV outputs. Sequential
+  rolling-continuity snapshots are now stored for 2026-06-04, 2026-06-05, and
+  2026-06-06 under `docs/paper/results/repeatability/`: 2026-06-05 repeats as
+  PASS / `continuity_observed`, while 2026-06-04 and 2026-06-06 are WARN /
+  `sample_pending`, which keeps the claim bounded to deterministic measurement
+  and feasibility rather than stable causal effect. Updated
+  `docs/paper/arxiv/main.tex` with a Repeatability Checks subsection and added
+  citations for MemoryBank, LongMem, MemGPT, Reflexion, Voyager, and an
+  LLM-agent memory survey.
+  Verification: repeated analysis hash check; `npm run
+  underworld:rolling-continuity -- --date=2026-06-04`; `npm run
+  underworld:rolling-continuity -- --date=2026-06-05`; `npm run
+  underworld:rolling-continuity -- --date=2026-06-06`; `git diff --check`.
+- 2026-06-06 CDT: Began rigorous fresh `UNDERWORLD_RESIDUE_READ` ablation work
+  instead of publishing from smoke evidence. Added
+  `scripts/paper/run_residue_ablation.mjs` and `npm run paper:residue-ablation`
+  to snapshot/restore the Convex env, run fresh ON/OFF arms with
+  `--since-created-at`, parse datasets, and analyze outputs. Initial forced
+  3-per-arm pilots exposed a validity bug: raw eval reports can contain
+  `active-conversation-*` and short rows that are not publishable archived
+  records. Tightened `report_to_dataset.py`, `run-soul-triad-single-sample.mjs`,
+  and `underworld-observe-once.mjs` so paper ablations can require archived
+  `conversation-*` rows with `message_count >= 3`. Two counterbalanced
+  archived-only sanity blocks succeeded with two publishable records per arm
+  (`conversation-c:93286`, `conversation-c:93373` residue_on;
+  `conversation-c:93305`, `conversation-c:93338` residue_off), then restored
+  `UNDERWORLD_RESIDUE_READ` to unset. Added
+  `scripts/paper/merge_ablation_runs.py`, `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md`,
+  and `docs/paper/results/longitudinal/` so future blocks can accumulate to
+  the real target (`n>=40` publishable records per arm). Current ablation data
+  are pipeline/sanity evidence only, not an effect claim: n=2/arm, one dyad,
+  saturated aftertaste scores in both arms, permutation p=1.0000.
+  Verification: `node --check scripts/run-soul-triad-single-sample.mjs`;
+  `node --check scripts/underworld-observe-once.mjs`; `node --check
+  scripts/paper/run_residue_ablation.mjs`; `python3
+  scripts/paper/report_to_dataset.py --selftest`; `python3
+  scripts/paper/merge_ablation_runs.py --runs docs/paper/results/ablation-2026-06-06T13-20-58-196Z
+  --out /tmp/merged-ablation-test.json`; `npm run paper:residue-ablation --
+  --samples-per-arm=1 --order=off,on --sample-timeout-ms=300000
+  --post-collection-wait-ms=0 --python=/tmp/ai-town-paper-venv/bin/python`;
+  `/tmp/ai-town-paper-venv/bin/python
+  scripts/paper/analyze.py --dataset docs/paper/results/longitudinal/dataset.json
+  --outdir /tmp/longitudinal-check`; `npx tsc --noEmit --pretty false`;
+  `git diff --check`.
+- 2026-06-06 CDT: Paused further longitudinal ablation collection after a cc
+  read-only expert review (`umi/reports/20260606T162427Z-workload.md`). cc
+  agreed the pipeline hygiene is careful but found three blockers before more
+  cloud-provider collection is worth spending: `human_aftertaste_score` is
+  saturated and should not be a primary continuous outcome; the longitudinal
+  dataset has `rolling_callback: null`, so the intended primary outcome is not
+  wired into the arm-level pipeline; and forced dyad collection cannot support
+  the full felt-continuity / initiative claim by itself. A started long-run was
+  stopped before completing block 1; `UNDERWORLD_RESIDUE_READ` was verified
+  unset afterward. Updated `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md` and
+  `docs/paper/arxiv/main.tex` so the experiment is marked paused pending
+  arm-aware callback labels, human annotation, and a pre-registered MDE/N/stopping
+  rule.
+  Verification: `python3 umi/orchestrator.py run umi/workload.md --dry-run`;
+  `python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`;
+  `npx convex env get UNDERWORLD_RESIDUE_READ` (unset); `git diff --check`.
+- 2026-06-06 CDT: Wired the ablation runner toward cc's primary-outcome fix.
+  `scripts/underworld-rolling-continuity.mjs` now accepts `--since-created-at`,
+  `--until-created-at`, and `--out`, and `scripts/paper/run_residue_ablation.mjs`
+  attaches rolling callback labels from each arm-scoped report into the arm
+  dataset. This fixes the `rolling_callback: null` plumbing problem, but does
+  not by itself make short forced blocks suitable as the causal primary outcome:
+  two-hour rolling callbacks still need arm-pure long windows/days with enough
+  source and callback samples. Updated `docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md`
+  and `docs/paper/EXPERIMENTS.md` accordingly.
+  Verification: `node --check scripts/underworld-rolling-continuity.mjs`;
+  `node --check scripts/paper/run_residue_ablation.mjs`; `npm run
+  underworld:rolling-continuity:self-test`; `python3
+  scripts/paper/attach_rolling_callbacks.py --selftest`; arm-scoped
+  `npm run underworld:rolling-continuity -- --date=2026-06-06
+  --since-created-at=1780752060423 --until-created-at=1780752385716
+  --out=/tmp/arm-rolling-check.md` wrote the expected bounded WARN report;
+  `git diff --check`.
+- 2026-06-06 CDT: Completed the cc-recommended no-cloud follow-up before any
+  further collection. Backfilled existing arm datasets with
+  `attach_rolling_callbacks.py`, fixed `merge_ablation_runs.py` so it prefers
+  per-arm datasets over stale run-level datasets, and re-merged/analyzed
+  longitudinal data. The merged plumbing-check dataset is now n=2/arm with
+  non-null callback labels (`conversation-c:93286` has `rolling_callback=1`;
+  the other three rows are 0), but this remains non-causal because the matching
+  report was generated before arm-scoped rolling windows and the design is one
+  dyad only. Added `docs/paper/SCHEDULE_DECISION.md`, choosing arm-pure
+  full-day / long-window collection as the primary design and forced dyad blocks
+  as mechanism debugging only. Updated `docs/paper/arxiv/main.tex` with
+  read-off control caveats: prompt-length mismatch and motif-guard partial leak.
+  Verification: `python3 scripts/paper/merge_ablation_runs.py --runs
+  'docs/paper/results/ablation-*' --out docs/paper/results/longitudinal/dataset.json`;
+  `/tmp/ai-town-paper-venv/bin/python scripts/paper/analyze.py --dataset
+  docs/paper/results/longitudinal/dataset.json --outdir
+  docs/paper/results/longitudinal`; `git diff --check`.
+- 2026-06-06 CDT: Completed a third cc read-only methodology review after adding
+  the arm-pure runner and annotation protocol (`umi/reports/20260606T165403Z-workload.md`).
+  cc accepted the latest fixes but correctly kept collection paused until Alan
+  explicitly accepts `docs/paper/SCHEDULE_DECISION.md`. Codex then fixed the
+  remaining denominator risk: `scripts/underworld-rolling-continuity.mjs` now
+  lists source-window and callback-window conversation ids, and
+  `scripts/paper/attach_rolling_callbacks.py --mark-callback-window-zero` marks
+  only callback-window non-hits as 0 while leaving source-window rows null.
+  Added `scripts/paper/run_arm_pure_residue_window.mjs` /
+  `npm run paper:residue-arm-window`, a dyad rotation policy, a denominator
+  policy, `docs/paper/HUMAN_ANNOTATION_PROTOCOL.md`, and
+  `docs/paper/annotations_template.csv`. A read-only archived yield check for
+  2026-06-05 15:00-19:00 CT found enough natural density (2 source
+  conversations, 5 callback conversations, 12 candidates, 3 weak callbacks) but
+  only `WARN / weak_continuity`, so 4-hour windows look feasible for yield, not
+  guaranteed effect. Do not resume new sample collection until Alan accepts the
+  schedule decision.
+  Verification: `python3 umi/orchestrator.py run umi/workload.md --dry-run`;
+  `python3 umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`;
+  `node --check scripts/underworld-rolling-continuity.mjs`; `node --check
+  scripts/paper/run_arm_pure_residue_window.mjs`; `node --check
+  scripts/paper/run_residue_ablation.mjs`; `python3
+  scripts/paper/attach_rolling_callbacks.py --selftest`; `npm run
+  paper:residue-arm-window -- --selftest`; `npm run
+  underworld:rolling-continuity:self-test`; `/tmp/ai-town-paper-venv/bin/python
+  scripts/paper/analyze.py --selftest`; `python3
+  scripts/paper/report_to_dataset.py --selftest`; read-only archived yield
+  check saved to
+  `docs/paper/results/repeatability/rolling-continuity-2026-06-05-15-19-yield-check.md`;
+  `npx convex env get UNDERWORLD_RESIDUE_READ` (unset); `git diff --check`.
+- 2026-06-06 CDT: Added no-collection statistical planning and annotation
+  readiness artifacts for the emotional-residue paper. `scripts/paper/power_sensitivity.py`
+  now generates `docs/paper/results/power/summary.md`, `mde_grid.csv`, and
+  `power_grid.csv` using an approximate Cohen's-h two-proportion planning
+  calculation for `rolling_callback_rate`. A fourth cc read-only review
+  (`umi/reports/20260606T170630Z-workload.md`) accepted the method as a planning
+  table, and Codex added cc's caveats: the table assumes independent rows,
+  dyad/day/window clustering reduces effective N, `n=40/arm` is large-effect
+  pilot evidence only, and `n>=150/arm` is baseline-dependent (higher baselines
+  can push 10 percentage-point effects toward `n≈250/arm`). Added
+  `scripts/paper/export_annotation_sheet.py` plus generated
+  `docs/paper/results/longitudinal/annotation_sheet.csv` and
+  `annotation_key.csv`; the exporter preserves condition/pair blinding but
+  currently exports only 4 rows because the merged longitudinal dataset has only
+  4 publishable records. Added `scripts/paper/export_blinded_transcripts.py` and
+  generated `docs/paper/results/longitudinal/blinded_transcripts/`, a rater
+  packet keyed by blind ids that omits condition labels, callback labels, marker
+  scores, and original conversation ids. No sample collection was run and
+  collection remains paused pending Alan acceptance of
+  `docs/paper/SCHEDULE_DECISION.md`.
+  Verification: `python3 scripts/paper/power_sensitivity.py --selftest`;
+  `python3 scripts/paper/export_annotation_sheet.py --selftest`; `python3
+  scripts/paper/power_sensitivity.py --outdir docs/paper/results/power`;
+  `python3 scripts/paper/export_annotation_sheet.py --dataset
+  docs/paper/results/longitudinal/dataset.json --out-sheet
+  docs/paper/results/longitudinal/annotation_sheet.csv --out-key
+  docs/paper/results/longitudinal/annotation_key.csv --target 30`;
+  `python3 scripts/paper/export_blinded_transcripts.py --selftest`; `python3
+  scripts/paper/export_blinded_transcripts.py --key
+  docs/paper/results/longitudinal/annotation_key.csv --outdir
+  docs/paper/results/longitudinal/blinded_transcripts`; leakage scan over
+  `docs/paper/results/longitudinal/blinded_transcripts`;
+  `/tmp/ai-town-paper-venv/bin/python scripts/paper/analyze.py --selftest`;
+  `python3 scripts/paper/report_to_dataset.py --selftest`; `python3
+  scripts/paper/attach_rolling_callbacks.py --selftest`;
+  `npx convex env get UNDERWORLD_RESIDUE_READ` (unset); `git diff --check`.
+- 2026-06-06 CDT: Added a machine-checkable schedule acceptance gate before any
+  arm-pure collection can run. `docs/paper/SCHEDULE_ACCEPTANCE.json` is currently
+  `accepted: false`, and `scripts/paper/run_arm_pure_residue_window.mjs` now
+  refuses to run unless the acceptance file records `accepted: true`,
+  `accepted_by`, and `accepted_at`. Added `npm run
+  paper:residue-arm-window:acceptance` for a no-side-effect preflight. This
+  prevents accidental `UNDERWORLD_RESIDUE_READ` changes or long-window waiting
+  before Alan explicitly accepts `docs/paper/SCHEDULE_DECISION.md`.
+  Verification: `node --check scripts/paper/run_arm_pure_residue_window.mjs`;
+  `npm run paper:residue-arm-window -- --selftest`; `npm run
+  paper:residue-arm-window:acceptance` expected-failed cleanly with collection
+  paused; a temporary accepted JSON passed `--check-acceptance-only` without
+  collection; `npx convex env get UNDERWORLD_RESIDUE_READ` remained unset.
+- 2026-06-06 CDT: Reviewed PR #1 emotional-residue paper scaffold and imported
+  the paper docs/scripts into the local tree without applying the PR's older
+  `WORKLOG.md` heading changes. Fixed a blocking parser mismatch in
+  `scripts/paper/report_to_dataset.py`: real `eval:soul-triad` report rows do
+  not start with `|`, so the PR version parsed 0 conversations even though its
+  synthetic selftest passed. Added a selftest covering both real-style and
+  pipe-wrapped rows. Added `scripts/paper/attach_rolling_callbacks.py` to join
+  rolling-continuity callback ids back onto `dataset.json`. Cleaned public paper
+  wording so markers are consistently described as deterministic rule-based
+  metrics, not LLM-as-judge, and recorded `UNDERWORLD_RESIDUE_READ=false` as the
+  primary Exp 2 control with `WRITE+READ=false` only as optional sensitivity.
+  Corrected the Exp 2 protocol: ablation must collect fresh conversations under
+  each Convex env condition before scoring; rerunning eval on already-existing
+  transcripts is not causal evidence.
+  Verification: `python3 scripts/paper/report_to_dataset.py --selftest` PASS;
+  `python3 scripts/paper/attach_rolling_callbacks.py --selftest` PASS;
+  `/tmp/ai-town-paper-venv/bin/python scripts/paper/analyze.py --selftest` PASS;
+  real `evals/conversations/reports/soul-triad-latest.md` now parses 8 records
+  after `npm run eval:soul-triad`; `attach_rolling_callbacks.py` labeled 2/8
+  callbacks from `umi/reports/rolling-continuity-latest.md`; analyzer smoke ran
+  on that one-arm dataset but produced expected `nan` ablation fields because
+  no fresh off-arm data exists yet. Also ran `npm run
+  underworld:rolling-continuity` (PASS / continuity_observed), `npx tsc
+  --noEmit --pretty false`, and `git diff --check`.
 - 2026-06-05 CDT: Slimmed gate ceremony. Confirmed the noisy heartbeat /
   afternoon-gate Codex cron is already gone (its automation dir no longer
   exists); remaining scheduled jobs are benign (dev-stack, 6am morning

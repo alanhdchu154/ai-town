@@ -1,9 +1,77 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-04 (evening — conversation archival durability fix)
+Last updated: 2026-06-10 (late evening — memory/commitment overhaul + UI pass; Claude/Cowork session, for Codex alignment)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-10 Late Evening Session (Claude) — for Codex alignment
+
+Driven by three live Alan playtests (海 12:48 / 21:04, 一之瀨 20:16). Voice
+differentiation is no longer the v0.1 bottleneck; the memory layer was. All
+changes verified by `tsc`, unit tests (memory / commitmentPrompt / motif guard),
+and script self-tests; live behavior confirmed in a real chat where 海
+unprompted acknowledged the missed curry promise.
+
+**Eval framing (was `eval_rubric_disagreement`, now adjudicated):** both
+harnesses are right — soul-triad sees improved differentiation, recent eval sees
+a real cross-speaker motif loop. Verdict + open proposals in
+`evals/conversations/reports/soul-rubric-reconciliation.md` (2026-06-10
+section). Failure-category mislabel fixed in `runRecentConversationEval.ts`
+(mirror-repetition now labeled as such, not "not responding"). Motif guard
+gained three families: 涼掉的飲食, 先停/先別推, 伺服器/螢幕隱喻.
+
+**Commitment system (`convex/agent/memory.ts` + `conversation.ts`):**
+- Write: relative times resolve to absolute date+weekday（「答應明天（6/11 週四）…（說於6/10 週三）」）.
+- Direction: promiser = the offerer, not whoever said 「好」.
+- Offer-based extraction: an unrejected first-person offer counts even with no
+  explicit acceptance (the lost 一之瀨 curry promise, c:94554).
+- Read: dedicated 150-row commitment scan (was buried in the residues'
+  take(24) all-partner window — 海's 6/4 curry promise was present at
+  importance 7 but unreachable). Expired promises surface with
+  「已過了說好的時間」 instruction; legacy undated 「答應明天」 expires 48h
+  after creation.
+- Still open: fulfilled-marking (expiry exists, fulfillment detection does not);
+  importance-weighted recall for residues (commitments solved, residues still
+  recency-only).
+
+**Anti-confabulation:**
+- Retroactive down-weight: an in-conversation correction now stamps matching
+  older memories with `RECALL_CORRECTED_MARKER`, zeroes importance, and hides
+  them from read paths. Manual cleanup mutation:
+  `school:downweightFalseMemory` (supports dryRun).
+- The 6/4 「世界變得太聰明」 fabrication (was evolving across days) and one
+  unverified 真晝 claim were cleaned.
+- Prompt rule: claiming 「我記得」 requires quoting actual evidence; fabricating
+  present objects (「趁它還熱著」 with no curry) is named and banned.
+- New read-only audit: `npm run underworld:memory-hygiene` (pollution found to
+  be small: 2 suspect rows / 919 scanned; zero legacy-format rows — follow-up
+  #2 backfill likely unnecessary, Alan to confirm).
+- Principle: 主觀記憶可以錯，關於 Alan 的客觀事實（說過什麼、約了什麼、星期幾）不能錯。
+
+**Transcript visibility:** `underworld:alan-playtest-candidates` gained
+`--target=all`; `underworld:rolling-continuity` auto-refreshes that export, so
+reviewing Alan chats no longer needs a manual command.
+
+**UI (user-perspective walkthrough of the running app, then fixes in `src/`):**
+- VN side-panel mode was built then removed同夜 per Alan's verdict (the
+  full-screen conversation view already serves the VN role).
+- Fixed: 「大家在：場景(N)」 chips are now clickable camera jumps that never
+  move Alan; scene `<select>` tooltip now states it moves Alan; 說話 click
+  gives immediate 「正在走向…」 feedback (was ~10s of dead silence); 離開對話
+  shrunk from the screen's most prominent full-width bar to a compact
+  right-aligned button.
+- Observed but deferred: characters clump and name tags overlap (engine-level
+  positioning); too many near-duplicate interaction verbs (聊天/聊聊X/說話/
+  陪伴/關心近況 all visible at once); conversation-view scene label can lag
+  actual positions while characters walk; emotion portrait variants for the
+  conversation view are not yet generated (prompts ready in
+  `docs/giis-vn-art-spec.md`).
+
+**Remaining v0.1 gates (unchanged):** fresh-window life signals + the real
+Alan-facing playtest artifact (五條 checklist). Tomorrow's playtest doubles as
+the cross-day commitment test: 一之瀨/海 should surface the curry promise with
+the right weekday.
 
 ## Paper Track Status (2026-06-10)
 
@@ -110,6 +178,13 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 
 Keep this minimal. Only two gates block v0.1; everything else is an optional
 diagnostic to run when a question comes up, not a ritual to run on a schedule.
+
+Current 2026-06-10 note: rolling two-hour continuity has fresh PASS evidence
+from the 18:58 CDT report, but product v0.1 is still not complete. The latest
+completion audit is still failed by character-soul/event-thread evidence plus
+Alan-facing playtest, and the 20:26 CDT candidate scan found
+`NO_COMPLETE_CANDIDATE`. Do not restart broad readiness rituals; use a narrow
+eval-framing review and one intentional Alan-facing playtest or explicit defer.
 
 Required for v0.1:
 
