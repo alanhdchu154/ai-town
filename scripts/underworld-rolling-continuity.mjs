@@ -8,7 +8,7 @@
 
 import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, join, relative } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -21,6 +21,13 @@ const args = parseArgs(process.argv.slice(2));
 const SELF_TEST = args.get('self-test') === 'true';
 const TIME_ZONE = args.get('time-zone') ?? 'America/Chicago';
 const TARGET_DATE = args.get('date') ?? dateKeyFor(Date.now(), TIME_ZONE);
+const SINCE_CREATED_AT = optionalNumberArg('since-created-at');
+const UNTIL_CREATED_AT = optionalNumberArg('until-created-at');
+const OUT_PATH = args.get('out')
+  ? isAbsolute(args.get('out'))
+    ? args.get('out')
+    : join(REPO_ROOT, args.get('out'))
+  : REPORT_PATH;
 const LIMIT = numberArg('limit', 200, 20, 500);
 const MESSAGES_PER_CONVERSATION = numberArg('messages-per-conversation', 12, 1, 12);
 const WINDOW_HOURS = numberArg('window-hours', 2, 1, 4);
@@ -97,7 +104,9 @@ const conversations = (Array.isArray(evalData?.conversations) ? evalData.convers
     (conversation) =>
       conversation.localDate === TARGET_DATE &&
       conversation.localHour >= SCHOOL_DAY_START_HOUR &&
-      conversation.localHour < SCHOOL_DAY_END_HOUR,
+      conversation.localHour < SCHOOL_DAY_END_HOUR &&
+      (SINCE_CREATED_AT === undefined || conversation.createdAt >= SINCE_CREATED_AT) &&
+      (UNTIL_CREATED_AT === undefined || conversation.createdAt < UNTIL_CREATED_AT),
   );
 
 const windows = buildWindows(conversations, WINDOW_HOURS);
@@ -110,12 +119,39 @@ const report = buildReport({
   evaluation,
 });
 await mkdir(dirname(REPORT_PATH), { recursive: true });
-await writeFile(REPORT_PATH, report, 'utf8');
+await mkdir(dirname(OUT_PATH), { recursive: true });
+await writeFile(OUT_PATH, report, 'utf8');
 
 console.log(
   `[rolling-continuity] status=${evaluation.status.label} decision=${evaluation.status.decision} source=${evaluation.sourceLabel} callback=${evaluation.callbackLabel}`,
 );
-console.log(`[rolling-continuity] report=${relative(REPO_ROOT, REPORT_PATH)}`);
+console.log(`[rolling-continuity] report=${relative(REPO_ROOT, OUT_PATH)}`);
+
+// Best-effort side export: refresh the Alan-facing transcript scan whenever
+// this (already-scheduled) report refreshes, so reviewing an Alan chat never
+// requires a manual command first. Failures here must not affect the
+// continuity verdict.
+try {
+  const { execFile: execFileCb } = await import('node:child_process');
+  const { promisify: promisifyFn } = await import('node:util');
+  await promisifyFn(execFileCb)(
+    process.execPath,
+    [join(REPO_ROOT, 'scripts', 'underworld-alan-playtest-candidates.mjs'), '--target=all'],
+    { cwd: REPO_ROOT, timeout: 180_000, maxBuffer: 1024 * 1024 * 16 },
+  );
+  console.log('[rolling-continuity] alan transcript scan refreshed (target=all)');
+} catch (error) {
+  // Exit code 1 from the scanner means "report written, no complete playtest
+  // candidate yet" — the export itself succeeded.
+  if (error && typeof error === 'object' && 'code' in error && error.code === 1) {
+    console.log('[rolling-continuity] alan transcript scan refreshed (no complete candidate)');
+  } else {
+    console.log(
+      `[rolling-continuity] alan transcript scan skipped: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`,
+    );
+  }
+}
+
 if (evaluation.status.label !== 'PASS') process.exitCode = 1;
 
 function evaluateBestAdjacentPair(windows, windowHours) {
@@ -293,6 +329,8 @@ function buildReport({ generatedAt, checkedAt, conversations, windows, evaluatio
     `Target date: ${TARGET_DATE}`,
     `Timezone: ${TIME_ZONE}`,
     `Window size hours: ${WINDOW_HOURS}`,
+    `Since createdAt: ${SINCE_CREATED_AT === undefined ? 'none' : SINCE_CREATED_AT}`,
+    `Until createdAt: ${UNTIL_CREATED_AT === undefined ? 'none' : UNTIL_CREATED_AT}`,
     '',
     '## Summary',
     '',
@@ -318,6 +356,14 @@ function buildReport({ generatedAt, checkedAt, conversations, windows, evaluatio
     '## Source Residue Candidates',
     '',
     ...formatCandidates(evaluation.residueCandidates),
+    '',
+    '## Source Window Conversations',
+    '',
+    ...formatWindowConversations(evaluation.source),
+    '',
+    '## Callback Window Conversations',
+    '',
+    ...formatWindowConversations(evaluation.callback),
     '',
     '## Rolling Callbacks Found',
     '',
@@ -345,6 +391,15 @@ function formatCallbacks(callbacks) {
   if (callbacks.length === 0) return ['No rolling callbacks found.'];
   return callbacks.slice(0, 8).map((item) => {
     return `- ${item.callbackConversation} (${item.strength}) ← ${item.sourceConversation}: ${item.reason}; cues=${item.cues.join('、') || 'none'}; "${truncate(item.callbackText, 140)}"`;
+  });
+}
+
+function formatWindowConversations(conversations) {
+  if (conversations.length === 0) return ['No conversations in this window.'];
+  return conversations.map((conversation) => {
+    const participants = (conversation.involvedCharacters ?? []).join(' / ') || 'unknown';
+    const minute = String(conversation.localMinute ?? 0).padStart(2, '0');
+    return `- ${conversation.id} · ${String(conversation.localHour).padStart(2, '0')}:${minute} · ${participants}`;
   });
 }
 
@@ -468,6 +523,13 @@ function numberArg(name, fallback, min, max) {
   const value = raw === undefined ? fallback : Number(raw);
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
+}
+
+function optionalNumberArg(name) {
+  const raw = args.get(name);
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : undefined;
 }
 
 function truncate(text, max) {

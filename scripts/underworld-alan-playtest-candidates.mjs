@@ -25,6 +25,9 @@ const REQUIRED_SIGNALS = [
 ];
 
 const args = parseArgs(process.argv.slice(2));
+// --target=海 (default, the Umi playtest gate) | --target=all (any Alan-facing
+// conversation, e.g. to export an Alan/一之瀨 transcript for review).
+const target = args.get('target') ?? '海';
 if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
@@ -32,7 +35,7 @@ if (args.get('self-test') === 'true') {
 
 const limit = numberArg('limit', 120, 1, 200);
 const conversations = await fetchConversations(limit);
-const candidates = conversations.filter(isAlanUmiConversation).map(scoreCandidate);
+const candidates = conversations.filter(isAlanTargetConversation).map(scoreCandidate);
 const strongest = [...candidates].sort((a, b) => b.matchedCount - a.matchedCount || b.createdAt - a.createdAt);
 await writeReport({ checkedAt: Date.now(), limit, candidates: strongest });
 console.log(`[underworld-alan-playtest-candidates] candidates=${strongest.length}`);
@@ -64,11 +67,13 @@ async function fetchConversations(limitValue) {
   return Array.isArray(data?.conversations) ? data.conversations : [];
 }
 
-function isAlanUmiConversation(conversation) {
+function isAlanTargetConversation(conversation) {
   const names = new Set(conversation.involvedCharacters ?? []);
   const hasAlan = names.has('Alan');
-  const hasUmi = names.has('海') || names.has('Umi');
-  return hasAlan && hasUmi;
+  if (!hasAlan) return false;
+  if (target === 'all') return true;
+  if (target === '海') return names.has('海') || names.has('Umi');
+  return names.has(target);
 }
 
 function scoreCandidate(conversation) {
@@ -196,7 +201,8 @@ function runSelfTest() {
     transcriptMessages: [{ author: 'Alan', text: '不是依賴，是喜歡' }],
   });
   if (old.matchedCount !== 1) throw new Error(`expected one matched signal, got ${old.matchedCount}`);
-  if (!isAlanUmiConversation({ involvedCharacters: ['Alan', '海'] })) throw new Error('expected Alan+Umi match');
-  if (isAlanUmiConversation({ involvedCharacters: ['Alan', '真晝'] })) throw new Error('Mahiru should not match Umi gate');
+  if (!isAlanTargetConversation({ involvedCharacters: ['Alan', '海'] })) throw new Error('expected Alan+Umi match');
+  if (isAlanTargetConversation({ involvedCharacters: ['Alan', '真晝'] }))
+    throw new Error('Mahiru should not match the default Umi gate');
   console.log('[underworld-alan-playtest-candidates:self-test] PASS');
 }
