@@ -121,16 +121,16 @@ Current source of truth:
 - `docs/soul/pilots/umi.md`
 - `docs/soul/pilots/mahiru.md`
 - `docs/soul/pilots/tianze.md`
-- `docs/soul/pilots/caocao.md`
+- `docs/soul/pilots/maomao.md`
 - `docs/soul/pilots/ichinose.md`
-- `docs/soul/pilots/liubei.md`
+- `docs/soul/pilots/sakiko.md`
 
 Umi / Mahiru / Tianze remain the v0.1 evaluation pilot. Tianze / Ichinose are
 also the active replacement-flavor pair: they need complete five-layer DNA and
 runtime expression so the new角色 feels intentional instead of a renamed slot.
-CaoCao / Ichinose / Liu Bei are otherwise secondary local-LLM soul profiles:
-enough DNA to keep their conversations distinct, not a mandate to build
-all-character drift systems yet.
+Maomao / Ichinose / Sakiko are otherwise secondary cloud-Qwen soul profiles:
+enough DNA to keep their conversations distinct, with local LLM only as backup,
+not a mandate to build all-character drift systems yet.
 
 ### Soul Expression
 

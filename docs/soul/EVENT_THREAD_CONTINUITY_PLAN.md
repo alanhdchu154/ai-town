@@ -38,8 +38,8 @@ The thread comes from the current school scene and calendar rhythm:
   - Mahiru notices quiet pain and whether someone is safe enough to speak.
   - Tianze pressure-tests the rule and decides where to stop.
   - Ichinose turns false clarity and hidden kindness costs into named debt.
-  - CaoCao notices order, fairness, and exclusion.
-  - Liu Bei invites the lonely or excluded person back into ordinary life.
+  - Maomao diagnoses symptoms, false "I'm fine" signals, and suspiciously neat motives.
+  - Sakiko preserves dignity through ritual, then lets one controlled crack show.
 
 ## What Counts As Good
 

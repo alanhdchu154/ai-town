@@ -9,8 +9,8 @@ Expected paths:
 - /portraits/tianze.png
 - /portraits/ichinose.png
 - /portraits/mahiru.png
-- /portraits/caocao.png
-- /portraits/liubei.png
+- /portraits/maomao.png
+- /portraits/sakiko.png
 
 Optional expression variants:
 - /portraits/<slug>-smiling.png
@@ -32,8 +32,8 @@ Asset checklist:
 - If /public/portraits/tianze.png exists, Tianze uses it through the `Tianze` runtime key; otherwise Tianze uses the VN placeholder.
 - If /public/portraits/ichinose.png exists, Ichinose uses it through the `Ichinose` runtime key; otherwise Ichinose uses the VN placeholder.
 - If /public/portraits/mahiru.png exists, Mahiru uses it; otherwise Mahiru uses the VN placeholder.
-- If /public/portraits/caocao.png exists, CaoCao uses it; otherwise CaoCao uses the VN placeholder.
-- If /public/portraits/liubei.png exists, Liu Bei uses it; otherwise Liu Bei uses the VN placeholder.
+- If /public/portraits/maomao.png exists, Maomao uses it; otherwise Maomao uses the VN placeholder.
+- If /public/portraits/sakiko.png exists, Sakiko uses it; otherwise Sakiko uses the VN placeholder.
 
 Reference workflow:
 - Store Alan-provided reference images in /public/portrait-references/.
@@ -47,5 +47,5 @@ Prompt guidance for original, non-copyrighted portraits:
 - Tianze: original anime-style full-body mischievous elite transfer student, coral red palette, black/white school blazer, sharp playful eyes, pressure-test energy, safe non-sexual character reference pose.
 - Ichinose: original anime-style full-body pink-haired former class leader with angelic demon aura, short side-swept bangs that leave the full face and both eyes clearly visible, rose/navy palette, warm possessive smile, weaponized kindness, yandere-like psychological pressure without fantasy horns, safe non-sexual character reference pose.
 - Mahiru: original anime-style full-body gentle student affairs assistant, soft cream/pink palette, kind expression, warm comforting aura, caring school counselor vibe, safe non-sexual character reference pose.
-- CaoCao: original anime-style ambitious strategist, red/black palette, confident political smile, sharp eyes, student council power aura.
-- LiuBei: original anime-style warm alliance leader, green/gold palette, trustworthy smile, gentle charismatic expression.
+- Maomao: original anime-style small diagnostic oddball, dark green/purple apothecary-school palette, cute deadpan eyes, clinical notebook or sleeve detail.
+- Sakiko: original anime-style stage-trained heiress, navy/white/blue rose palette, elegant posture, controlled smile with one visible crack.

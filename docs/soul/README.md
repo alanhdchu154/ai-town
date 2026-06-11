@@ -24,16 +24,17 @@ characters to remember, care, change, and leave emotional traces over time.
 - [Mahiru / 真晝](./pilots/mahiru.md)
 - [Tianze / 天澤](./pilots/tianze.md)
 
-## Secondary Local-LLM Soul Profiles
+## Secondary Cloud-Qwen Soul Profiles
 
-These characters now have soul definitions so local LLM conversations do not
-fall back to thin persona blurbs. They are still secondary for v0.1 evaluation:
-use them for character identity, contrast, and background continuity, but do not
-expand the main v0.1 acceptance target beyond the emotional continuity loop.
+These characters now have soul definitions so cloud Qwen conversations do not
+fall back to thin persona blurbs. Local LLM remains smoke / backup only. They are
+still secondary for v0.1 evaluation: use them for character identity, contrast,
+and background continuity, but do not expand the main v0.1 acceptance target
+beyond the emotional continuity loop.
 
-- [CaoCao / 曹操](./pilots/caocao.md)
+- [Maomao / 貓貓](./pilots/maomao.md)
 - [Ichinose / 一之瀨](./pilots/ichinose.md)
-- [Liu Bei / 劉備](./pilots/liubei.md)
+- [Sakiko / 祥子](./pilots/sakiko.md)
 
 ## Current Principle
 

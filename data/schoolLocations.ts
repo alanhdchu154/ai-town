@@ -43,7 +43,7 @@ export const SchoolLocations: SchoolLocation[] = [
     radius: 1.9,
     moodEvents: [
       { id: 'bad-exam', titleZh: '小考考差', emotionHintZh: '天澤會測哪條安慰太假，真晝會先看誰不敢說話。' },
-      { id: 'caught-cheating', titleZh: '作弊被發現', emotionHintZh: '教室會變安靜，曹操會在意公平，海會提醒 Alan 先不要公開羞辱。' },
+      { id: 'caught-cheating', titleZh: '作弊被發現', emotionHintZh: '教室會變安靜，貓貓會在意公平，海會提醒 Alan 先不要公開羞辱。' },
       { id: 'late-homework', titleZh: '作業連兩天沒交', emotionHintZh: '天澤會測試這條作業規則到底保護誰，照顧型角色會注意背後是不是睡眠或家庭壓力。' },
     ],
   },
@@ -65,7 +65,7 @@ export const SchoolLocations: SchoolLocation[] = [
     moodEvents: [
       { id: 'overheard-secret', titleZh: '秘密被聽到', emotionHintZh: '傳聞會變成第二層記憶，一之瀨會戳破太工整的說法。' },
       { id: 'confession', titleZh: '沒敢說完的告白', emotionHintZh: '角色會更在意沉默和停頓，而不是只看結果。' },
-      { id: 'eating-alone', titleZh: '有人一個人吃飯', emotionHintZh: '劉備會主動邀請，真晝會判斷對方是否想被打擾。' },
+      { id: 'eating-alone', titleZh: '有人一個人吃飯', emotionHintZh: '祥子會用禮貌藏住自己的停頓，真晝會判斷對方是否想被打擾。' },
     ],
   },
   {

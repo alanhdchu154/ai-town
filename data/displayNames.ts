@@ -5,10 +5,12 @@ const displayNameMap: Record<string, string> = {
   Ichinose: '一之瀨',
   Mahiru: '真晝',
   'Mahiru Shiina': '真晝',
-  CaoCao: '曹操',
-  'Cao Cao': '曹操',
-  'Liu Bei': '劉備',
-  LiuBei: '劉備',
+  Maomao: '貓貓',
+  Sakiko: '祥子',
+  CaoCao: '貓貓',
+  'Cao Cao': '貓貓',
+  'Liu Bei': '祥子',
+  LiuBei: '祥子',
   海: '海',
   朝凪海: '海',
   天澤: '天澤',
@@ -20,6 +22,10 @@ const displayNameMap: Record<string, string> = {
   黑化一之瀨: '一之瀨',
   真晝: '真晝',
   椎名真晝: '真晝',
+  曹操: '貓貓',
+  劉備: '祥子',
+  貓貓: '貓貓',
+  祥子: '祥子',
 };
 
 export function getDisplayName(name?: string) {

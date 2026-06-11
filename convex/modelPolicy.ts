@@ -40,6 +40,10 @@ const FREE_WORLD_CLOUD_CHARACTER_NAMES = new Set([
   'mahirushiina',
   'tianze',
   'ichinose',
+  'maomao',
+  'caocao',
+  'sakiko',
+  'liubei',
 ]);
 
 const DEFAULT_DAILY_QUOTA = 24;

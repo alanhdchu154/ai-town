@@ -27,21 +27,24 @@ describe('model policy', () => {
     expect(characterSoulPolicyViolation('ollama', 'qwen2.5:1.5b')).toMatch(/cloud provider/);
   });
 
-  test('routes free-world main three as cloud speakers and others as local speakers', () => {
+  test('routes all live free-world characters as cloud speakers', () => {
     expect(isFreeWorldCloudCharacterName('Umi')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Mahiru')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Mahiru Shiina')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Tianze')).toBe(true);
     expect(isFreeWorldCloudCharacterName('Ichinose')).toBe(true);
-    expect(isFreeWorldCloudCharacterName('CaoCao')).toBe(false);
-    expect(isFreeWorldCloudCharacterName('Liu Bei')).toBe(false);
+    expect(isFreeWorldCloudCharacterName('Maomao')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('Sakiko')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('CaoCao')).toBe(true);
+    expect(isFreeWorldCloudCharacterName('Liu Bei')).toBe(true);
 
-    expect(freeWorldConversationProviderRole('Umi', 'CaoCao')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Umi', 'Maomao')).toBe('cloud');
     expect(freeWorldConversationProviderRole('Mahiru', 'Tianze')).toBe('cloud');
     expect(freeWorldConversationProviderRole('Mahiru Shiina', 'Tianze')).toBe('cloud');
-    expect(freeWorldConversationProviderRole('Tianze', 'Liu Bei')).toBe('cloud');
-    expect(freeWorldConversationProviderRole('Ichinose', 'Liu Bei')).toBe('cloud');
-    expect(freeWorldConversationProviderRole('CaoCao', 'Umi')).toBe('local');
+    expect(freeWorldConversationProviderRole('Tianze', 'Sakiko')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Ichinose', 'Sakiko')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Maomao', 'Umi')).toBe('cloud');
+    expect(freeWorldConversationProviderRole('Sakiko', 'Umi')).toBe('cloud');
     expect(freeWorldConversationProviderRole('Umi', 'Alan', true)).toBe('human');
   });
 
@@ -160,13 +163,13 @@ describe('model policy', () => {
 
   test('blocks generated fallback text from all persistence but allows ordinary other-pair text', () => {
     expect(
-      shouldPersistCharacterSoulTranscript(['Umi', 'CaoCao'], [
+      shouldPersistCharacterSoulTranscript(['Umi', 'Maomao'], [
         '這段先停在這裡。我會提醒 Alan 先看見學生的不安，再談下一個功能。',
       ]),
     ).toBe(false);
     expect(
-      shouldPersistCharacterSoulTranscript(['Umi', 'CaoCao'], [
-        '曹操，這件事我會先看清楚再告訴 Alan。',
+      shouldPersistCharacterSoulTranscript(['Umi', 'Maomao'], [
+        '貓貓，這件事我會先看清楚再告訴 Alan。',
       ]),
     ).toBe(true);
     expect(
@@ -175,7 +178,7 @@ describe('model policy', () => {
       ]),
     ).toBe(false);
     expect(
-      shouldPersistCharacterSoulTranscript(['Tianze', 'CaoCao'], [
+      shouldPersistCharacterSoulTranscript(['Tianze', 'Maomao'], [
         '……先不要再新增東西了。你直接說哪件事可以關掉。',
       ]),
     ).toBe(false);
@@ -253,7 +256,7 @@ describe('model policy', () => {
     ];
     for (const variant of variants) {
       expect(isSystemAbortMarker(variant)).toBe(true);
-      expect(shouldPersistCharacterSoulTranscript(['CaoCao', 'Ichinose'], [variant])).toBe(false);
+      expect(shouldPersistCharacterSoulTranscript(['Maomao', 'Ichinose'], [variant])).toBe(false);
     }
     // Mid-text leakage (if a model quotes the marker back) also caught.
     expect(isSystemAbortMarker('I said [ABORT_CONVERSATION] in the middle')).toBe(true);

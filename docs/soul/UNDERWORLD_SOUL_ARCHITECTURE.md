@@ -203,7 +203,7 @@ scripts, but quality references for prompt and eval work.
 Examples:
 
 - 天澤：「不是所有事都該默默丟給我。」
-- 曹操 using order to protect people who hesitate at the door.
+- 貓貓 diagnosing a too-polished "I'm fine" through hands, meals, and pauses.
 - 真晝 noticing Umi is tired before Umi admits it.
 - Umi shortening a briefing because she realizes Alan is overloaded.
 
@@ -229,9 +229,9 @@ large all-character systems yet.
 
 Secondary soul profiles:
 
-- CaoCao / 曹操: order as protection
+- Maomao / 貓貓: diagnosis as reluctant care
 - Ichinose / 一之瀨: angelic warmth that turns kindness into named debt
-- Liu Bei / 劉備: invitation as protection
+- Sakiko / 祥子: stage composure as protection
 
 v0.1 success:
 

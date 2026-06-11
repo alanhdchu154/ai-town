@@ -1,15 +1,15 @@
 import { conversationDecisionPhrase } from './school';
 
 describe('school conversation outcomes', () => {
-  test('varies repeated CaoCao outcomes while keeping concrete action language', () => {
+  test('varies repeated Maomao outcomes while keeping concrete action language', () => {
     const first = conversationDecisionPhrase(
-      'CaoCao',
+      'Maomao',
       'Mahiru',
       '觀察誰站在門口卻沒有進來，先替那個人留出位置',
       '真晝說飯盒裡還有青菜，湯杯也涼了。',
     );
     const second = conversationDecisionPhrase(
-      'CaoCao',
+      'Maomao',
       'Ichinose',
       '觀察誰站在門口卻沒有進來，先替那個人留出位置',
       '一之瀨提到走廊門口有人停住，沒有進教室。',
@@ -23,7 +23,7 @@ describe('school conversation outcomes', () => {
   test('uses meal cues for Mahiru instead of a fixed dorm-check line', () => {
     const mealOutcome = conversationDecisionPhrase(
       'Mahiru',
-      'CaoCao',
+      'Maomao',
       '確認誰因傳聞、作業壓力或太快說沒事而不敢說真心話',
       '飯盒裡多了一點沒吃完的青菜，手裡的湯杯涼了。',
     );

@@ -16,9 +16,13 @@ const CONVERSATION_NAME_ALIASES = [
   '明晝',
   '阿真晝',
   '椎名真晝',
+  'Maomao',
+  '貓貓',
   'CaoCao',
   'Cao Cao',
   '曹操',
+  'Sakiko',
+  '祥子',
   'Liu Bei',
   'LiuBei',
   '劉備',
@@ -139,12 +143,18 @@ function displayConversationName(name: string) {
     case '明晝':
     case '阿真晝':
       return '真晝';
+    case 'Maomao':
+    case '貓貓':
     case 'CaoCao':
     case 'Cao Cao':
-      return '曹操';
+    case '曹操':
+      return '貓貓';
+    case 'Sakiko':
+    case '祥子':
     case 'Liu Bei':
     case 'LiuBei':
-      return '劉備';
+    case '劉備':
+      return '祥子';
     default:
       return name;
   }
@@ -157,8 +167,8 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '天澤') aliases.add('Tianze').add('天澤').add('明天奈').add('天擇').add('天擇一夏').add('天澤一夏');
   if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨').add('一之瀨帆波').add('黑化一之瀨');
   if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
-  if (displayName === '曹操') aliases.add('CaoCao').add('Cao Cao');
-  if (displayName === '劉備') aliases.add('Liu Bei').add('LiuBei');
+  if (displayName === '貓貓') aliases.add('Maomao').add('CaoCao').add('Cao Cao').add('曹操');
+  if (displayName === '祥子') aliases.add('Sakiko').add('Liu Bei').add('LiuBei').add('劉備');
   return aliases;
 }
 

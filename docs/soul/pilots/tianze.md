@@ -169,7 +169,7 @@ Avoid:
 - checklist language
 - replacing care with cruelty
 - explaining every motive
-- copying CaoCao's political strategy voice
+- copying Maomao's diagnostic symptom voice
 - turning every line into "testing"
 - underwear / exposure jokes
 - explicit sexual content
