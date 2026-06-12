@@ -142,7 +142,9 @@ describe('conversation motif guard', () => {
 
     expect(repaired).not.toContain('桌子磨損');
     expect(repaired).not.toContain('課本藏起來');
-    expect(['嗯，我先不追問了。', '那我們先安靜一下。', '不用急著說，坐一下就好。']).toContain(repaired);
+    // Autonomous pairs abort instead of pulling a canned pool line (pools
+    // saturate the corpus at 100+ convs/day).
+    expect(repaired).toContain('[ABORT_CONVERSATION]');
   });
 
   test('repairs repeated everyday props on the pilot sanitizer path', () => {
@@ -157,9 +159,7 @@ describe('conversation motif guard', () => {
     );
 
     expect(sanitized).not.toMatch(/茶|杯/);
-    expect(['嗯，我先不追問了。', '那我坐近一點，但不催你。', '如果不想說，我就在旁邊。']).toContain(
-      sanitized,
-    );
+    expect(sanitized).toContain('[ABORT_CONVERSATION]');
   });
 
   test('repairs short quoted echo questions into character-specific moves', () => {
@@ -172,9 +172,7 @@ describe('conversation motif guard', () => {
     );
 
     expect(repaired).not.toContain('溫的');
-    expect(['你躲得太明顯了，我今天先不拆。', '這題先放著，看誰先心虛。', '再往前就不好玩了，先停。']).toContain(
-      repaired,
-    );
+    expect(repaired).toContain('[ABORT_CONVERSATION]');
   });
 
   test('aborts Umi/Maomao once repair phrases start relaying', () => {
@@ -386,6 +384,68 @@ describe('conversation motif guard', () => {
     expect(hasFreeWorldQualityLeakForTest(mahiruEcho)).toBe(true);
     expect(ichinoseHalf).toContain('[ABORT_CONVERSATION]');
     expect(mahiruForm).toContain('[ABORT_CONVERSATION]');
+  });
+
+  test('adds restaurant scene policy after food-object relay starts', () => {
+    const restaurantLines = motifGuardPromptLinesForTest(
+      [
+        '一之瀨 to 真晝: 今天的便當裡多了一份點心，是特意留給你的喔。',
+        '真晝 to 一之瀨: 我看到餐盤還沒收，其實可能吃不下這麼多。',
+      ],
+      [],
+      'Ichinose',
+      'Mahiru',
+      '餐廳',
+    ).join('\n');
+    const classroomLines = motifGuardPromptLinesForTest(
+      [
+        '一之瀨 to 真晝: 今天的便當裡多了一份點心，是特意留給你的喔。',
+        '真晝 to 一之瀨: 我看到餐盤還沒收，其實可能吃不下這麼多。',
+      ],
+      [],
+      'Ichinose',
+      'Mahiru',
+      '教室',
+    ).join('\n');
+
+    expect(restaurantLines).toContain('餐廳接力硬規則');
+    expect(restaurantLines).toContain('不要再提食物、餐具、吃不下');
+    expect(classroomLines).not.toContain('餐廳接力硬規則');
+  });
+
+  test('aborts generic restaurant food-object relay without naming the new food', () => {
+    const relay = repairFreeWorldSoulLineForTest(
+      '那份點心還在餐盤上，她如果吃不下，我可以先留到明天。',
+      'Ichinose',
+      [
+        '一之瀨 to 真晝: 今天的便當裡多了一顆水煮蛋，是特意留給你的喔。',
+        '真晝 to 一之瀨: 我看到你手邊那顆多出來的水煮蛋了，其實我最近胃口很淡。',
+      ],
+    );
+    const nonFoodMove = repairFreeWorldSoulLineForTest(
+      '那我今天先不問了，妳把那口氣放回來就好。',
+      'Mahiru',
+      [
+        '一之瀨 to 真晝: 今天的便當裡多了一顆水煮蛋，是特意留給你的喔。',
+        '真晝 to 一之瀨: 我看到你手邊那顆多出來的水煮蛋了，其實我最近胃口很淡。',
+      ],
+    );
+
+    expect(relay).toContain('[ABORT_CONVERSATION]');
+    expect(nonFoodMove).not.toContain('[ABORT_CONVERSATION]');
+  });
+
+  test('does not abort ordinary non-relay breakfast chatter on broad food words', () => {
+    const ordinary = repairFreeWorldSoulLineForTest(
+      '我也喜歡早餐，吐司冷掉之前吃掉比較好。',
+      'Mahiru',
+      [
+        '真晝 to 海: 今天早餐只有吐司和湯，我先拿一點就好。',
+        '海 to 真晝: 嗯，吃完再慢慢說。',
+      ],
+    );
+
+    expect(ordinary).not.toContain('[ABORT_CONVERSATION]');
   });
 
   test('aborts fresh Sakiko/Tianze skirt-wrinkle relay from runtime sample', () => {

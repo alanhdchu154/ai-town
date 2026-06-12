@@ -1131,7 +1131,7 @@ function compactAutonomousStartPrompt({
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
-    ...propDiversityPromptLines(undefined, recentResidues, playerName, otherPlayerName),
+    ...propDiversityPromptLines(undefined, recentResidues, playerName, otherPlayerName, sceneContext),
     'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
   ].filter(Boolean);
@@ -1200,7 +1200,7 @@ function compactAutonomousContinuePromptBase({
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
-    ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName),
+    ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     closingBeatPromptLine(playerName, otherPlayerName),
@@ -1457,7 +1457,7 @@ function richUmiMahiruPrompt({
     relationship ? `Relational self with ${other}：${relationship}` : '',
     `Memory residue：${unresolvedMemory}`,
     ...residuePrompt,
-    ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName),
+    ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
     `Behavior signal：情緒要改變你的可用程度、沉默、行動或語氣；不要只解釋心理。`,
     `你的內在方向：${clipPromptText(agent?.plan ?? ownProfile?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 160)}`,
     ownMemories.length ? `你的 formative memories：${ownMemories.join(' / ')}` : '',
@@ -1642,6 +1642,7 @@ function propDiversityPromptLines(
   recentResidues?: PromptResidue[],
   playerName?: string,
   otherPlayerName?: string,
+  sceneContext?: SceneContext,
 ) {
   const residueInputs = residueReadMode() === 'placebo' ? [] : recentResidues;
   const guard = conversationMotifGuard(previousMessages, residueInputs, playerName, otherPlayerName);
@@ -1661,6 +1662,7 @@ function propDiversityPromptLines(
   if (guard.roleActionLine) {
     lines.push(guard.roleActionLine);
   }
+  lines.push(...restaurantFoodRelayPromptLines(previousMessages, sceneContext));
   return lines;
 }
 
@@ -1669,13 +1671,33 @@ export function motifGuardPromptLinesForTest(
   residueTexts: string[],
   playerName: string,
   otherPlayerName: string,
+  sceneLabelZh?: string,
 ) {
   return propDiversityPromptLines(
     previousTexts.map((content) => ({ role: 'user' as const, content })),
     residueTexts.map((text, index) => ({ text, createdAt: index })),
     playerName,
     otherPlayerName,
+    sceneLabelZh ? { id: 'test-scene', labelZh: sceneLabelZh } : undefined,
   );
+}
+
+function restaurantFoodRelayPromptLines(previousMessages?: LLMMessage[], sceneContext?: SceneContext) {
+  if (!isRestaurantScene(sceneContext)) return [];
+  const recent = (previousMessages ?? [])
+    .slice(-4)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  if (restaurantFoodCueCounts(recent).primary < 2) return [];
+  return [
+    '餐廳接力硬規則：上一兩句已經靠食物、餐具、剩飯、空位或吃不下推進。',
+    '下一句不要再提食物、餐具、吃不下、留到明天、空位、窗邊、表格或安排；改成一個非食物動作、短拒絕、承認疲憊、換責任，或 soft close。',
+  ];
+}
+
+function isRestaurantScene(sceneContext?: SceneContext) {
+  const scene = `${sceneContext?.id ?? ''} ${sceneContext?.labelZh ?? ''}`;
+  return /restaurant|cafeteria|餐廳|食堂/.test(scene);
 }
 
 export function directObjectBindingPromptLinesForTest(input: string) {
@@ -2310,7 +2332,12 @@ function sanitizeConversationContent(
   return addressed;
 }
 
-function repairFreeWorldSoulLine(line: string, playerName: string, previous: LLMMessage[]) {
+function repairFreeWorldSoulLine(
+  line: string,
+  playerName: string,
+  previous: LLMMessage[],
+  humanFacingPair = false,
+) {
   const singleBeat = singleSpokenBeat(line);
   const self = displayConversationName(playerName);
   const recent = previous
@@ -2326,6 +2353,10 @@ function repairFreeWorldSoulLine(line: string, playerName: string, previous: LLM
       : candidate;
   const mirrorRepair = repairCrossSpeakerMirrorLine(singleBeat, playerName, previous);
   if (mirrorRepair) {
+    // Canned substitution is reserved for Alan-facing chats (rare, variety
+    // survives); autonomous mirror echoes abort instead — at 100+ convs/day
+    // any 3-line pool saturates the corpus (手比嘴誠實多了 x12, 2026-06-11).
+    if (!humanFacingPair) return '[ABORT_CONVERSATION] cross-speaker mirror echo';
     return safeRepair(mirrorRepair) ?? mirrorRepair;
   }
   // 2026-06-11: style-class canned-line substitution removed (Alan-approved).
@@ -2356,6 +2387,9 @@ function mahiruSoftCareRepeat(line: string, recent: string) {
 }
 
 function repairRelayExhausted(self: string, line: string, recent: string) {
+  if (foodObjectRelayExhausted(line, recent)) {
+    return true;
+  }
   if (['海', '貓貓'].includes(self)) {
     const cues = [
       '不是觀察工具',
@@ -2482,6 +2516,66 @@ function repairRelayExhausted(self: string, line: string, recent: string) {
     if (recentHits >= 2 && lineHits >= 1) return true;
   }
   return false;
+}
+
+function foodObjectRelayExhausted(line: string, recent: string) {
+  const recentCounts = restaurantFoodCueCounts(recent);
+  const lineCounts = restaurantFoodCueCounts(line);
+  return (
+    (recentCounts.primary >= 2 && lineCounts.primary >= 1) ||
+    (recentCounts.primary >= 2 && lineCounts.auxiliary >= 2) ||
+    (recentCounts.primary >= 1 && lineCounts.primary >= 2)
+  );
+}
+
+function restaurantFoodCueCounts(text: string) {
+  const normalized = normalizeTraditionalZh(text).replace(/咖喱/g, '咖哩');
+  const primaryCues = [
+    '便當',
+    '便當盒',
+    '餐盤',
+    '餐具',
+    '湯匙',
+    '筷',
+    '水煮蛋',
+    '布丁',
+    '點心',
+    '甜食',
+    '甜點',
+    '蛋糕',
+    '胃口',
+    '吃不下',
+    '不想吃',
+    '沒吃',
+    '沒動',
+    '動筷子',
+    '冷掉',
+    '熱著',
+    '太甜',
+  ];
+  const auxiliaryCues = [
+    '一半',
+    '留著',
+    '留給',
+    '留到明天',
+    '分給',
+    '空位',
+    '座位',
+    '窗邊',
+    '發呆',
+    '學生',
+    '填滿',
+    '獎勵',
+    '加班',
+    '勉強',
+    '推開',
+    '表格',
+    '安排',
+  ];
+  return {
+    primary: primaryCues.filter((cue) => normalized.includes(cue)).length,
+    auxiliary: auxiliaryCues.filter((cue) => normalized.includes(cue)).length,
+  };
 }
 
 function repairRepeatedPropLine(self: string, previous: LLMMessage[]) {
@@ -2662,10 +2756,10 @@ function sanitizeUmiMahiruPilotLine(
   const quotedStageNarration =
     /[:：]「|(?:我|你|妳|他|她).{0,18}說[:：]/.test(line) ||
     (line.match(/「/g)?.length ?? 0) !== (line.match(/」/g)?.length ?? 0);
+  const humanFacingPair = playerName === 'Alan' || otherPlayerName === 'Alan';
   const propEchoLeak = hasFreeWorldPropEchoLeak(line, previous);
-  if (propEchoLeak) {
-    const propRepair = repairRepeatedPropLine(displayConversationName(playerName), previous);
-    if (propRepair) return propRepair;
+  if (propEchoLeak && !humanFacingPair) {
+    return '[ABORT_CONVERSATION] repeated prop relay';
   }
   const blocked =
     /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是天澤|你是天澤|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|天澤 to|天澤 to|Umi to|Mahiru to|Tianze to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|我看見你|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|會議流程|流程表|公告欄|通知文書|明天.*會議|海邊|海景|風景|景色|海浪|海面|海洋/.test(
@@ -2674,7 +2768,6 @@ function sanitizeUmiMahiruPilotLine(
   if (
     blocked ||
     hasDialogueSystemPhraseLeak(line) ||
-    propEchoLeak ||
     startHallucinatedPrevious ||
     quotedStageNarration ||
     line.length < 2
@@ -2697,7 +2790,7 @@ function sanitizeUmiMahiruPilotLine(
   const repaired = repairWrongConversationAddressee(line, playerName, otherPlayerName);
   const repairedOpener = stripRepeatedPilotOpener(repaired, previous);
   const deEchoed = stripPilotEcho(repairedOpener, previous);
-  const soulRepaired = repairFreeWorldSoulLine(deEchoed, playerName, previous);
+  const soulRepaired = repairFreeWorldSoulLine(deEchoed, playerName, previous, humanFacingPair);
   const recent = previous
     .slice(-3)
     .map((message) => stripConversationPrefix(message.content ?? ''))
