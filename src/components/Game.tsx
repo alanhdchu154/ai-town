@@ -64,6 +64,17 @@ type GameProps = {
   view?: 'world' | 'conversations';
   onChangeView?: (next: 'world' | 'conversations') => void;
 };
+type NotebookTab = '今日' | '日程' | '約定';
+type NotebookCommitmentsData = {
+  checkedAt: number;
+  commitments: Array<{
+    text: string;
+    rememberedBy: string;
+    createdAt: number;
+    expired: boolean;
+    aboutAlan: boolean;
+  }>;
+};
 
 export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const convex = useConvex();
@@ -77,17 +88,14 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     globalThis.localStorage?.getItem('giis:world-view-mode') === 'map' ? 'map' : 'scene',
   );
   const [sceneMessage, setSceneMessage] = useState('');
-  const [umiPanelCollapsed, setUmiPanelCollapsed] = useState(
-    () => globalThis.localStorage?.getItem('giis:umi-panel-collapsed') !== '0',
-  );
-  const [campusFeedCollapsed, setCampusFeedCollapsed] = useState(true);
+  // 海的校園手帳: one front door for 今日 (Umi briefing + campus feed),
+  // 日程 (schedule) and 約定 (commitments). Replaces the old 海/今日/日程 pills.
+  const [notebookOpen, setNotebookOpen] = useState(false);
+  const [notebookTab, setNotebookTab] = useState<NotebookTab>('今日');
   const [campusFeedFullView, setCampusFeedFullView] = useState(false);
   const [quickTextAction, setQuickTextAction] = useState<QuickActionType>();
   const [quickText, setQuickText] = useState('');
   const [floatingActionSummary, setFloatingActionSummary] = useState<FloatingActionSummary>();
-  const [schedulePanelCollapsed, setSchedulePanelCollapsed] = useState(
-    () => globalThis.localStorage?.getItem('giis:schedule-panel-collapsed') !== '0',
-  );
   const [campusFeedFilter, setCampusFeedFilter] = useState<CampusFeedFilter>('全部');
   const [readCampusFeedIds, setReadCampusFeedIds] = useState<Set<string>>(() => {
     try {
@@ -121,6 +129,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const clockState = useQuery(api.school.worldClock, { timeZone: userTimeZone, tick: minuteTick });
   const campusSocialState = useQuery(api.school.campusSocialState, { timeZone: userTimeZone });
   const umiBriefing = useQuery(api.school.umiBriefing, { timeZone: userTimeZone });
+  const notebookCommitments = useQuery(api.school.notebookCommitments);
   const playerIdentity = useQuery(api.school.currentPlayerIdentity);
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
@@ -160,19 +169,8 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }, []);
 
   useEffect(() => {
-    globalThis.localStorage?.setItem('giis:umi-panel-collapsed', umiPanelCollapsed ? '1' : '0');
-  }, [umiPanelCollapsed]);
-
-  useEffect(() => {
     globalThis.localStorage?.setItem('giis:world-view-mode', worldViewMode);
   }, [worldViewMode]);
-
-  useEffect(() => {
-    globalThis.localStorage?.setItem(
-      'giis:schedule-panel-collapsed',
-      schedulePanelCollapsed ? '1' : '0',
-    );
-  }, [schedulePanelCollapsed]);
 
   useEffect(() => {
     globalThis.localStorage?.setItem(
@@ -194,14 +192,16 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }, [floatingActionSummary]);
 
   useEffect(() => {
+    // Both legacy events now open the notebook at the 今日 tab: 海的判讀 and
+    // the campus feed live together there.
     const openUmiPanel = () => {
-      setCampusFeedCollapsed(true);
       setCampusFeedFullView(false);
-      setUmiPanelCollapsed(false);
+      setNotebookTab('今日');
+      setNotebookOpen(true);
     };
     const openCampusFeed = () => {
-      setUmiPanelCollapsed(true);
-      setCampusFeedCollapsed(false);
+      setNotebookTab('今日');
+      setNotebookOpen(true);
     };
     window.addEventListener('giis:open-umi-panel', openUmiPanel);
     window.addEventListener('giis:open-campus-feed', openCampusFeed);
@@ -933,134 +933,119 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
           </div>
         </div>
 
-        <div className="giis-left-column">
-          {/* Pill row: 海 / 今日 / 日程 sit side-by-side when collapsed.
-              When any panel is expanded, that panel renders below; the
-              other two pills stay visible in this row. */}
+        <div className={`giis-left-column ${notebookOpen ? 'giis-left-column-notebook-open' : ''}`}>
+          {/* 海的校園手帳: one pill, one panel. The old 海/今日/日程 panels
+              now live inside the notebook tabs. */}
           <div className="giis-left-pill-row">
-            {umiPanelCollapsed ? (
-              <button
-                className="giis-left-pill giis-left-pill-umi"
-                onClick={() => {
-                  setUmiPanelCollapsed(false);
-                  setCampusFeedCollapsed(true);
-                  setSchedulePanelCollapsed(true);
-                }}
-              >
-                海
-              </button>
-            ) : null}
-            {campusFeedCollapsed ? (
-              <button
-                className="giis-left-pill giis-left-pill-feed"
-                onClick={() => {
-                  setUmiPanelCollapsed(true);
-                  setSchedulePanelCollapsed(true);
-                  setCampusFeedCollapsed(false);
-                  setCampusFeedFullView(false);
-                }}
-                onDoubleClick={(event) => {
-                  event.preventDefault();
-                  setUmiPanelCollapsed(true);
-                  setSchedulePanelCollapsed(true);
-                  setCampusFeedCollapsed(false);
-                  setCampusFeedFullView(true);
-                }}
-                title="雙擊展開全部校園動態"
-              >
-                今日
-                {unreadCampusFeedCount ? (
-                  <span className="giis-unread-badge">{unreadCampusFeedCount}</span>
-                ) : null}
-              </button>
-            ) : null}
-            {schedulePanelCollapsed ? (
-              <button
-                className="giis-left-pill giis-left-pill-schedule"
-                onClick={() => {
-                  setSchedulePanelCollapsed(false);
-                  setUmiPanelCollapsed(true);
-                  setCampusFeedCollapsed(true);
-                }}
-              >
-                日程
-                {scheduleEntries.length ? (
-                  <span className="giis-schedule-count">{scheduleEntries.length}</span>
-                ) : null}
-              </button>
-            ) : null}
+            <button
+              className="giis-left-pill giis-left-pill-notebook"
+              aria-expanded={notebookOpen}
+              aria-controls="giis-notebook-panel"
+              onClick={() => setNotebookOpen((open) => !open)}
+              title="海的校園手帳：今日簡報、校園日程與大家的約定"
+            >
+              <span className="giis-notebook-pill-portrait" aria-hidden="true">
+                <CharacterPortrait name="Umi" size="sm" showName={false} />
+              </span>
+              手帳
+              {unreadCampusFeedCount ? (
+                <span className="giis-unread-badge">{unreadCampusFeedCount}</span>
+              ) : null}
+            </button>
           </div>
 
-          {!umiPanelCollapsed && (
-            <LeftUmiPanel
-              collapsed={false}
-              tasks={umiSuggestions}
-              dailyFocus={campusSocialState?.dailyFocus ?? []}
-              today={campusSocialState?.today}
-              briefing={umiBriefing?.briefing}
-              umiEmotion={campusSocialState?.emotions?.find((item: any) => item.name === 'Umi')?.currentEmotion}
-              onCollapse={() => setUmiPanelCollapsed(true)}
-              onExpand={() => {
-                setUmiPanelCollapsed(false);
-                setCampusFeedCollapsed(true);
-                setSchedulePanelCollapsed(true);
-              }}
-              onOpenDialogue={() => {
-                window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
-                openPanelTab('dialogue');
-              }}
-            />
-          )}
-
-          {!campusFeedCollapsed && (
-            <CampusNotificationPanel
-              collapsed={false}
-              items={campusFeedItems}
-              filter={campusFeedFilter}
-              fullView={campusFeedFullView}
-              readIds={readCampusFeedIds}
-              unreadCount={unreadCampusFeedCount}
-              onToggle={() =>
-                setCampusFeedCollapsed((value) => {
-                  if (!value) {
-                    setCampusFeedFullView(false);
-                    return true;
-                  }
-                  setUmiPanelCollapsed(true);
-                  setSchedulePanelCollapsed(true);
-                  return false;
-                })
-              }
-              onShowAll={() => {
-                setUmiPanelCollapsed(true);
-                setSchedulePanelCollapsed(true);
-                setCampusFeedCollapsed(false);
-                setCampusFeedFullView(true);
-              }}
-              onSummaryView={() => setCampusFeedFullView(false)}
-              onFilterChange={setCampusFeedFilter}
-              onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
-              onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
-            />
-          )}
-
-          {!schedulePanelCollapsed && (
-            <LeftSchedulePanel
-              collapsed={false}
-              entries={scheduleEntries}
-              periodLabel={periodLabel}
-              onCollapse={() => setSchedulePanelCollapsed(true)}
-              onExpand={() => {
-                setSchedulePanelCollapsed(false);
-                setUmiPanelCollapsed(true);
-                setCampusFeedCollapsed(true);
-              }}
-              onSelectCharacter={(name) =>
-                window.dispatchEvent(
-                  new CustomEvent('giis:navigate-character', { detail: { name } }),
-                )
-              }
-            />
+          {notebookOpen && (
+            <aside className="giis-notebook-panel" id="giis-notebook-panel" aria-label="海的校園手帳">
+              <div className="giis-left-panel-header">
+                <div>
+                  <span className="giis-kicker">海的校園手帳</span>
+                  <h3>
+                    {notebookTab === '今日'
+                      ? '今天的校園'
+                      : notebookTab === '日程'
+                        ? `${periodLabel}｜大家在哪`
+                        : '記著的約定'}
+                  </h3>
+                </div>
+                <button
+                  className="giis-icon-button"
+                  onClick={() => setNotebookOpen(false)}
+                  aria-label="收合手帳"
+                  title="收合手帳"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="giis-notebook-tabs" role="tablist" aria-label="手帳分頁">
+                {(['今日', '日程', '約定'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={notebookTab === tab}
+                    className={notebookTab === tab ? 'active' : ''}
+                    onClick={() => setNotebookTab(tab)}
+                  >
+                    {tab}
+                    {tab === '今日' && unreadCampusFeedCount ? (
+                      <span className="giis-unread-badge">{unreadCampusFeedCount}</span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+              <div className="giis-notebook-tab-body">
+                {notebookTab === '今日' ? (
+                  <>
+                    <LeftUmiPanel
+                      collapsed={false}
+                      tasks={umiSuggestions}
+                      dailyFocus={campusSocialState?.dailyFocus ?? []}
+                      today={campusSocialState?.today}
+                      briefing={umiBriefing?.briefing}
+                      umiEmotion={campusSocialState?.emotions?.find((item: any) => item.name === 'Umi')?.currentEmotion}
+                      onCollapse={() => setNotebookOpen(false)}
+                      onExpand={() => setNotebookOpen(true)}
+                      onOpenDialogue={() => {
+                        window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
+                        openPanelTab('dialogue');
+                      }}
+                    />
+                    <CampusNotificationPanel
+                      collapsed={false}
+                      items={campusFeedItems}
+                      filter={campusFeedFilter}
+                      fullView={campusFeedFullView}
+                      readIds={readCampusFeedIds}
+                      unreadCount={unreadCampusFeedCount}
+                      onToggle={() => {
+                        setCampusFeedFullView(false);
+                        setNotebookOpen(false);
+                      }}
+                      onShowAll={() => setCampusFeedFullView(true)}
+                      onSummaryView={() => setCampusFeedFullView(false)}
+                      onFilterChange={setCampusFeedFilter}
+                      onMarkRead={(id) => setReadCampusFeedIds((ids) => new Set([...ids, id]))}
+                      onMarkAllRead={() => setReadCampusFeedIds(new Set(campusFeedItems.map((item) => item.id)))}
+                    />
+                  </>
+                ) : notebookTab === '日程' ? (
+                  <LeftSchedulePanel
+                    collapsed={false}
+                    entries={scheduleEntries}
+                    periodLabel={periodLabel}
+                    onCollapse={() => setNotebookOpen(false)}
+                    onExpand={() => setNotebookOpen(true)}
+                    onSelectCharacter={(name) =>
+                      window.dispatchEvent(
+                        new CustomEvent('giis:navigate-character', { detail: { name } }),
+                      )
+                    }
+                  />
+                ) : (
+                  <NotebookCommitmentsTab data={notebookCommitments} />
+                )}
+              </div>
+            </aside>
           )}
         </div>
 
@@ -2037,6 +2022,8 @@ function CampusNotificationPanel({
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
 }) {
+  // Underlying categories are unchanged; only the player-facing labels are
+  // renamed to plain language (關係事件→誰跟誰, 場景事件→校園裡, 對話→誰說了什麼).
   const filters: CampusFeedFilter[] = ['全部', '未讀', '今日焦點', '傳聞', '關係事件', '對話', '場景事件'];
   const filteredItems = items
     .filter((item) => {
@@ -2107,7 +2094,7 @@ function CampusNotificationPanel({
               onFilterChange(item);
             }}
           >
-            {item}
+            {campusFeedFilterLabel(item)}
           </button>
         ))}
       </div>
@@ -2138,7 +2125,7 @@ function CampusNotificationPanel({
                   {displayTextPreview(item.detail, fullView ? 96 : 54)}
                 </p>
               ) : null}
-              <small>{item.category}</small>
+              <small>{campusFeedFilterLabel(item.category)}</small>
             </button>
           ))
         ) : (
@@ -2147,6 +2134,79 @@ function CampusNotificationPanel({
       </div>
     </aside>
   );
+}
+
+// Player-language labels for the campus feed categories. The machine-flavored
+// category values stay as-is (they're keys for filtering); only display changes.
+const CAMPUS_FEED_FILTER_LABELS: Partial<Record<CampusFeedFilter, string>> = {
+  關係事件: '誰跟誰',
+  場景事件: '校園裡',
+  對話: '誰說了什麼',
+};
+
+function campusFeedFilterLabel(filter: CampusFeedFilter) {
+  return CAMPUS_FEED_FILTER_LABELS[filter] ?? filter;
+}
+
+// 約定 tab: commitments 海 has collected from character memories.
+// 與你的約定 (aboutAlan) first, then 角色之間.
+function NotebookCommitmentsTab({ data }: { data?: NotebookCommitmentsData }) {
+  const commitments = data?.commitments ?? [];
+  const aboutAlan = commitments.filter((item) => item.aboutAlan);
+  const betweenCharacters = commitments.filter((item) => !item.aboutAlan);
+  return (
+    <div className="giis-notebook-commitments">
+      <p className="giis-umi-brief-line">「我幫你把大家說過的約定都記下來了。」</p>
+      {!data ? (
+        <p className="giis-empty-feed">約定整理中…</p>
+      ) : commitments.length === 0 ? (
+        <p className="giis-empty-feed">目前沒有未了的約定。</p>
+      ) : (
+        <>
+          {aboutAlan.length ? (
+            <CommitmentGroup titleZh="與你的約定" items={aboutAlan} />
+          ) : null}
+          {betweenCharacters.length ? (
+            <CommitmentGroup titleZh="角色之間" items={betweenCharacters} />
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function CommitmentGroup({
+  titleZh,
+  items,
+}: {
+  titleZh: string;
+  items: NotebookCommitmentsData['commitments'];
+}) {
+  return (
+    <section className="giis-commitment-group">
+      <b>{titleZh}</b>
+      {items.map((item) => (
+        <div
+          key={`${item.rememberedBy}-${item.createdAt}-${stableTextHash(item.text)}`}
+          className={`giis-commitment-row ${item.expired ? 'is-expired' : ''}`}
+        >
+          <span className="giis-commitment-text">{displayTextWithNames(item.text)}</span>
+          <small className="giis-commitment-meta">
+            {item.rememberedBy} 記得 · {commitmentDateLabel(item.createdAt)}
+            {item.expired ? <span className="giis-commitment-expired">已過期</span> : null}
+          </small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function commitmentDateLabel(createdAt: number) {
+  try {
+    return new Date(createdAt).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric' });
+  } catch {
+    return '';
+  }
 }
 
 function focusText(item: any) {

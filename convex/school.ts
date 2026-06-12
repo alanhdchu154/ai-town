@@ -20,7 +20,12 @@ import { archiveDeletedConversation } from './aiTown/game';
 import { chatCompletion } from './util/llm';
 import { isGeneratedFallbackText } from './modelPolicy';
 import { hasDialogueSystemPhraseLeak } from './agent/dialogueHygiene';
-import { RECALL_CORRECTED_MARKER } from './agent/memory';
+import {
+  RECALL_CORRECTED_MARKER,
+  commitmentFromMemoryDescription,
+  commitmentIsExpired,
+  shouldExposeMemoryDescription,
+} from './agent/memory';
 import { AlanProfile, GiisProfiles, RelationshipDimensions } from '../data/giisProfiles';
 import { ClassroomCenter, ClassroomWalkBounds, clampToClassroom } from '../data/classroomBounds';
 import {
@@ -3685,6 +3690,61 @@ export const exportPilotMemoriesForAudit = query({
       });
     }
     return { checkedAt: Date.now(), characters };
+  },
+});
+
+// 約定頁 (校園手帳): every active commitment extracted from character
+// memories, deduped across the participants who each remember it. Read-only;
+// powers the 約定 tab so promises are visible without asking anyone.
+export const notebookCommitments = query({
+  args: {},
+  handler: async (ctx) => {
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const alanIds = new Set(
+      [...descriptions.values()]
+        .filter((description) => description.name === DEFAULT_NAME)
+        .map((description) => description.playerId),
+    );
+    const seen = new Map<
+      string,
+      {
+        text: string;
+        rememberedBy: string;
+        createdAt: number;
+        expired: boolean;
+        aboutAlan: boolean;
+      }
+    >();
+    for (const description of descriptions.values()) {
+      if (description.name === DEFAULT_NAME) continue;
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', description.playerId).eq('data.type', 'conversation'),
+        )
+        .order('desc')
+        .take(150);
+      for (const memoryDoc of memories) {
+        if (memoryDoc.data.type !== 'conversation') continue;
+        if (!shouldExposeMemoryDescription(memoryDoc.description)) continue;
+        const text = commitmentFromMemoryDescription(memoryDoc.description);
+        if (!text) continue;
+        const key = text.replace(/\s+/g, '');
+        if (seen.has(key)) continue;
+        seen.set(key, {
+          text,
+          rememberedBy: displayNameZh(description.name),
+          createdAt: memoryDoc._creationTime,
+          expired: commitmentIsExpired(text, memoryDoc._creationTime),
+          aboutAlan: memoryDoc.data.playerIds.some((id) => alanIds.has(id)),
+        });
+      }
+    }
+    const commitments = [...seen.values()]
+      .sort((left, right) => right.createdAt - left.createdAt)
+      .slice(0, 30);
+    return { checkedAt: Date.now(), commitments };
   },
 });
 

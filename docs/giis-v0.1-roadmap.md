@@ -376,8 +376,12 @@ asked only "is yesterday remembered".)
 
 ### C. Promises & schedule (player-facing, in-world — NOT a dev dashboard)
 
-- C1 約定頁 hosted by 海 inside the 校園手帳: all active commitments (who
-  promised whom, due day, expired/fulfilled), from the dated-commitment data.
+- C1 約定頁 hosted by 海 inside the 校園手帳 — **SHIPPED 2026-06-11 evening**:
+  the three top-left pills (海/今日/日程) are now one 「手帳」 pill opening a
+  tabbed notebook (今日 = 海的判讀 + campus feed with player-language filter
+  labels; 日程 = unchanged; 約定 = new tab fed by `school:notebookCommitments`,
+  deduped commitments across rememberers, 與你的約定 grouped first, expired
+  chips). One unread badge. Fulfilled-marking still pending C2.
 - C2 Fulfillment detection: honored promise → fulfilled mark + relationship
   warmth; missed → disappointment residue. (First real data: the 6/12 Friday
   curry dinner.)
