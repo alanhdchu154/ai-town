@@ -4,6 +4,78 @@ Last updated: 2026-06-11 America/Chicago
 
 This file holds one active worker handoff at a time. Keep it narrow.
 
+## Active Task
+
+`uw-2026-06-11-role-dialogue-food-object-policy`
+
+Goal:
+
+- Finish the current role-to-role mirror/motif cleanup by replacing the
+  expanding one-off food-name guard pattern with a higher-level pair+scene
+  policy for restaurant food-object relay.
+
+Current evidence:
+
+- Alan-facing 海 has a current archived PASS artifact at 09:54 CDT.
+- Role-to-role dialogue remains active QA, not complete.
+- Targeted guard tests pass 60/60 after fresh-evidence additions.
+- Current live worktree at 2026-06-11 19:47 CDT is not the old huge dirty tree:
+  dirty files are mostly the emotion-render/visual-asset lane
+  (`data/characterVisuals.ts`, `docs/giis-emotion-asset-manifest.md`,
+  `public/renders/*`, `public/renders/README.md`) plus coordination files
+  (`WORKLOG.md`, `umi/workload.md`). Treat visual assets as a separate
+  completed/verification lane and do not modify or stage them while doing
+  dialogue QA.
+- Runtime evidence after the afternoon patch:
+  - 祥子/天澤 improved from hard FAIL to WARN in one fresh probe.
+  - 一之瀨/真晝 still produced hard FAIL rows through restaurant food-object
+    variants (`水煮蛋`, `布丁`, `一半/真的嗎/表格`).
+- Next implementation should not keep adding individual food names forever.
+
+Allowed scope:
+
+- First, report the current worktree buckets:
+  1. visual/emotion asset lane,
+  2. coordination docs,
+  3. dialogue policy/test lane,
+  4. unrelated surprises.
+  Do not stage, commit, delete, or revert anything.
+- Inspect and edit only the dialogue policy / sanitizer / guard path needed for
+  restaurant food-object relay, primarily:
+  - `convex/agent/conversation.ts`
+  - `convex/agent/conversationMotifGuard.test.ts`
+  - `evals/conversations/metrics/conversation_metrics.ts` only if the current
+    rubric is proven to misclassify an acceptable non-mirror sample.
+- Update `WORKLOG.md` and `docs/giis-v0.1-roadmap.md` after verification.
+
+Constraints:
+
+- Do not rewrite the whole prompt system.
+- Do not weaken Alan-facing 海 behavior.
+- Do not make restaurant scenes silent by default; the goal is to force a
+  different move after one food-object beat, or soft-close when the pair keeps
+  relaying food objects.
+- Preserve night quiet policy and do not use old archived failures as proof of
+  current failure.
+
+Suggested verification:
+
+```bash
+npm test -- convex/agent/conversationMotifGuard.test.ts
+npx tsc --noEmit --pretty false
+node scripts/run-free-world-routing-disposable-sample.mjs --focus-pair=Ichinose:Mahiru --min-messages=4 --timeout-ms=260000
+node scripts/run-free-world-routing-disposable-sample.mjs --focus-pair=Sakiko:Tianze --min-messages=4 --timeout-ms=260000
+npm run eval:conversation:recent -- --since-created-at=<fresh-boundary>
+```
+
+Stop condition:
+
+- Stop and report if a fresh runtime sample still produces hard FAIL through a
+  genuinely new motif family that is not food-object relay; do not keep stacking
+  unrelated repairs into this task.
+- Stop and report if the actual worktree differs from the current evidence above
+  in a way that would make visual-asset cleanup or dialogue QA unsafe.
+
 ## Completed Task
 
 `uw-2026-06-11-maomao-sakiko-replacement`

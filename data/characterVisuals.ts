@@ -55,6 +55,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     portraitPaths: portraitSet('umi'),
     renderPath: `${RENDER_BASE}/umi-smiling.png`,
     renderPaths: {
+      neutral: `${RENDER_BASE}/umi-neutral.png`,
       worried: `${RENDER_BASE}/umi-worried.png`,
       smiling: `${RENDER_BASE}/umi-smiling.png`,
       serious: `${RENDER_BASE}/umi-serious.png`,
@@ -77,6 +78,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     renderPaths: {
       neutral: `${RENDER_BASE}/tianze-neutral.png`,
       smiling: `${RENDER_BASE}/tianze-smiling.png`,
+      worried: `${RENDER_BASE}/tianze-worried.png`,
       serious: `${RENDER_BASE}/tianze-serious.png`,
     },
     spritePath: `${SPRITE_BASE}/tianze.png`,
@@ -95,6 +97,9 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     portraitPaths: portraitSet('ichinose'),
     renderPath: `${RENDER_BASE}/ichinose-serious.png`,
     renderPaths: {
+      neutral: `${RENDER_BASE}/ichinose-neutral.png`,
+      smiling: `${RENDER_BASE}/ichinose-smiling.png`,
+      worried: `${RENDER_BASE}/ichinose-worried.png`,
       serious: `${RENDER_BASE}/ichinose-serious.png`,
     },
     spritePath: `${SPRITE_BASE}/ichinose.png`,
@@ -113,6 +118,9 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     portraitPaths: portraitSet('maomao'),
     renderPath: `${RENDER_BASE}/maomao-serious.png`,
     renderPaths: {
+      neutral: `${RENDER_BASE}/maomao-neutral.png`,
+      smiling: `${RENDER_BASE}/maomao-smiling.png`,
+      worried: `${RENDER_BASE}/maomao-worried.png`,
       serious: `${RENDER_BASE}/maomao-serious.png`,
     },
     spritePath: `${SPRITE_BASE}/maomao.png`,
@@ -138,6 +146,9 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     portraitPaths: portraitSet('sakiko'),
     renderPath: `${RENDER_BASE}/sakiko-serious.png`,
     renderPaths: {
+      neutral: `${RENDER_BASE}/sakiko-neutral.png`,
+      smiling: `${RENDER_BASE}/sakiko-smiling.png`,
+      worried: `${RENDER_BASE}/sakiko-worried.png`,
       serious: `${RENDER_BASE}/sakiko-serious.png`,
     },
     spritePath: `${SPRITE_BASE}/sakiko.png`,
@@ -156,6 +167,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     portraitPaths: portraitSet('mahiru'),
     renderPath: `${RENDER_BASE}/mahiru-worried.png`,
     renderPaths: {
+      neutral: `${RENDER_BASE}/mahiru-neutral.png`,
       smiling: `${RENDER_BASE}/mahiru-smiling.png`,
       worried: `${RENDER_BASE}/mahiru-worried.png`,
       serious: `${RENDER_BASE}/mahiru-serious.png`,

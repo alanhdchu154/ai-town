@@ -3,17 +3,29 @@ surfaces.
 
 Current transparent default-emotion assets:
 
+- `umi-neutral.png`
 - `umi-smiling.png`
 - `umi-worried.png`
 - `umi-serious.png`
+- `mahiru-neutral.png`
 - `mahiru-worried.png`
 - `mahiru-smiling.png`
 - `mahiru-serious.png`
+- `ichinose-neutral.png`
+- `ichinose-smiling.png`
+- `ichinose-worried.png`
 - `ichinose-serious.png`
 - `tianze-neutral.png`
 - `tianze-smiling.png`
+- `tianze-worried.png`
 - `tianze-serious.png`
+- `maomao-neutral.png`
+- `maomao-smiling.png`
+- `maomao-worried.png`
 - `maomao-serious.png`
+- `sakiko-neutral.png`
+- `sakiko-smiling.png`
+- `sakiko-worried.png`
 - `sakiko-serious.png`
 
 These are original generated art assets processed from chroma-key sources in
@@ -31,10 +43,11 @@ Maomao and Sakiko were then scale-balanced against the Umi / Tianze / Ichinose /
 Mahiru reference group so the perceived character size is closer, not just the
 PNG canvas size.
 
-Core emotion switching is currently landed for Umi, Tianze, and Mahiru. Scene
-Mode reads `campusSocialState.emotions.currentEmotion` and selects a matching
-large render when a variant exists, falling back to each character's default
-render otherwise.
+Core emotion switching is landed for all six stage characters across
+`neutral`, `smiling`, `worried`, and `serious`. Scene Mode reads
+`campusSocialState.emotions.currentEmotion` and selects a matching large render
+when a variant exists, falling back to each character's default render
+otherwise.
 
 These are good enough for the current Scene Mode polish pass, but they are not
 a locked production character sheet. If final consistency matters, regenerate

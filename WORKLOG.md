@@ -31,6 +31,19 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-11 17:37 CDT: Completed the bounded v1 stage emotion matrix pass Alan
+  requested after noting scope control. Generated and chroma-key processed the
+  final six large renders (`umi-neutral.png`, `mahiru-neutral.png`,
+  `tianze-worried.png`, `ichinose-worried.png`, `maomao-worried.png`,
+  `sakiko-worried.png`), normalized them against same-character footprints, and
+  wired missing `renderPaths` in `data/characterVisuals.ts`.
+  `docs/giis-emotion-asset-manifest.md` now shows 0 missing large renders and
+  18 remaining portraits; action/talking/working pose generation remains
+  intentionally deferred. Verification: alpha audit/contact sheet
+  `tmp/visual-qa/full-emotion-render-matrix.png`, all 24
+  `/renders/{slug}-{emotion}.png` URLs returned HTTP 200,
+  `npx tsc --noEmit --pretty false`, `git diff --check`, `npm run build`
+  (existing chunk warning only).
 - 2026-06-10 evening (Claude/Cowork session): the `eval_rubric_disagreement`
   blocker was adjudicated — both harnesses are right (soul-triad: differentiation
   improved; recent eval: a real cross-speaker motif loop persists). Record:
@@ -160,6 +173,25 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-11 17:01 CDT: Completed the priority emotion-render pass from
+  `docs/giis-emotion-asset-manifest.md` so Ichinose, Maomao, and Sakiko no
+  longer stay stuck on serious-only stage art. Generated chroma-key sources and
+  processed transparent 1024x1536 knee-up renders for
+  `ichinose-neutral.png`, `ichinose-smiling.png`, `maomao-neutral.png`,
+  `maomao-smiling.png`, `sakiko-neutral.png`, and `sakiko-smiling.png`.
+  Normalized each new variant against its existing serious render footprint,
+  wired the new `renderPaths` in `data/characterVisuals.ts`, updated
+  `docs/giis-emotion-asset-manifest.md`, and updated `public/renders/README.md`.
+  Remaining asset gaps are now 6 large renders (`umi-neutral`,
+  `mahiru-neutral`, `tianze-worried`, `ichinose-worried`, `maomao-worried`,
+  `sakiko-worried`) plus 18 bust portraits. Verification: alpha/bbox audit
+  confirms the nine Ichinose/Maomao/Sakiko stage renders have transparent
+  corners; HTTP smoke returns 200 for the nine stage render URLs; `npx tsc
+  --noEmit --pretty false`; `git diff --check`; `npm run build` (passes with
+  existing Vite chunk-size warning). Browser Scene Mode smoke was blocked
+  because the local Convex websocket at `127.0.0.1:3210` was not running in the
+  headless session; asset and build verification are green. Visual QA:
+  `tmp/visual-qa/priority-emotion-renders-contact.png`.
 - 2026-06-11 15:24 CDT: Continued active role-to-role mirror/motif goal. Added
   fresh-evidence-backed conversation hygiene in `convex/agent/conversation.ts`
   and regression coverage in `convex/agent/conversationMotifGuard.test.ts` for

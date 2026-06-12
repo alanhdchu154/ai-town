@@ -14,15 +14,20 @@ Naming: `public/renders/{slug}-{emotion}.png` (full-body, scene stage) and
 
 | Character | neutral | smiling | worried | serious |
 |---|---|---|---|---|
-| umi | ❌ | ✅ | ✅ | ✅ |
-| mahiru | ❌ | ✅ | ✅ | ✅ |
-| tianze | ✅ | ✅ | ❌ | ✅ |
-| ichinose | ❌ | ❌ | ❌ | ✅ |
-| maomao | ❌ | ❌ | ❌ | ✅ |
-| sakiko | ❌ | ❌ | ❌ | ✅ |
+| umi | ✅ | ✅ | ✅ | ✅ |
+| mahiru | ✅ | ✅ | ✅ | ✅ |
+| tianze | ✅ | ✅ | ✅ | ✅ |
+| ichinose | ✅ | ✅ | ✅ | ✅ |
+| maomao | ✅ | ✅ | ✅ | ✅ |
+| sakiko | ✅ | ✅ | ✅ | ✅ |
 
-Priority: ichinose/maomao/sakiko `neutral` + `smiling` first (they currently
-only ever show serious on stage), then the scattered gaps.
+Completed priority pass: ichinose/maomao/sakiko `neutral` + `smiling` renders
+landed on 2026-06-11 and are wired in `data/characterVisuals.ts`, so they no
+longer only show serious on stage.
+
+Completed v1 emotion-render matrix: all six core stage characters now have
+`neutral`, `smiling`, `worried`, and `serious` large renders wired in
+`data/characterVisuals.ts`.
 
 ## Missing portraits (public/portraits/)
 
@@ -35,5 +40,7 @@ only ever show serious on stage), then the scattered gaps.
 | maomao | ✅ | ❌ | ❌ | ✅ |
 | sakiko | ✅ | ❌ | ❌ | ✅ |
 
-Total to generate: 14 renders + 18 portraits = 32 images. With the art spec's
-per-character prompts this is one batch session in the image pipeline.
+Remaining after the 2026-06-11 v1 stage-render pass: 0 large renders + 18
+portraits = 18 images. The next bounded asset pass should generate bust
+portraits only; do not start action-pose renders until the portrait gap is
+closed or explicitly deferred.
