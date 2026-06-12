@@ -4705,7 +4705,9 @@ export const queryPromptData = internalQuery({
           q.eq('playerId', args.playerId).eq('data.type', 'conversation'),
         )
         .order('desc')
-        .take(150)
+        // 400, not 150: 海's morning promise to Alan must survive a full day
+        // of autonomous chatter and still surface at dinner.
+        .take(400)
     ).filter(
       (entry) =>
         entry.data.type === 'conversation' &&

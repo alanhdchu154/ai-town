@@ -3727,7 +3727,9 @@ export const notebookCommitments = query({
           q.eq('playerId', description.playerId).eq('data.type', 'conversation'),
         )
         .order('desc')
-        .take(150);
+        // 400, not 150: a busy character accumulates 100+ conversation
+        // memories per day, and a morning promise must stay visible at night.
+        .take(400);
       for (const memoryDoc of memories) {
         if (memoryDoc.data.type !== 'conversation') continue;
         if (!shouldExposeMemoryDescription(memoryDoc.description)) continue;
