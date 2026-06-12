@@ -5735,10 +5735,30 @@ export const leaveCampus = mutation({
       for (const conversation of alanConversations) {
         await archiveDeletedConversation(ctx, world._id, conversation, playerNames, humanPlayers);
       }
+      // Same fix as leaveAlanConversationNow: the engine path sets toRemember
+      // on participants when a conversation stops; this direct patch must too,
+      // or characters never write memories of Alan chats ended this way.
+      const alanConversationByAgentPlayer = new Map<string, string>();
+      for (const conversation of alanConversations) {
+        for (const participant of conversation.participants) {
+          if (participant.playerId !== alan.id) {
+            alanConversationByAgentPlayer.set(participant.playerId, conversation.id);
+          }
+        }
+      }
       await ctx.db.patch(world._id, {
         conversations: world.conversations.filter(
           (conversation) =>
             !conversation.participants.some((participant) => participant.playerId === alan.id),
+        ),
+        agents: world.agents.map((agent) =>
+          alanConversationByAgentPlayer.has(agent.playerId)
+            ? {
+                ...agent,
+                lastConversation: now,
+                toRemember: agent.toRemember ?? alanConversationByAgentPlayer.get(agent.playerId),
+              }
+            : agent,
         ),
         players: world.players.filter((player) => player.id !== alan.id),
       });
@@ -5790,10 +5810,34 @@ export const leaveAlanConversationNow = mutation({
     for (const conversation of alanConversations) {
       await archiveDeletedConversation(ctx, world._id, conversation, playerNames, humanPlayers);
     }
+    // The engine's Conversation.stop() sets `toRemember` on participating
+    // agents so they run rememberConversation (memory + residue + commitment
+    // extraction). This direct-leave path bypassed that, which is why NO
+    // Alan-facing conversation produced character memories after the 6/4
+    // archival fix — characters archived the transcript but never "thought
+    // back" on it (found 2026-06-11 night: zero new commitments since 6/4).
+    const alanConversationByAgentPlayer = new Map<string, string>();
+    for (const conversation of alanConversations) {
+      for (const participant of conversation.participants) {
+        if (participant.playerId !== alan.id) {
+          alanConversationByAgentPlayer.set(participant.playerId, conversation.id);
+        }
+      }
+    }
+    const now = Date.now();
     await ctx.db.patch(world._id, {
       conversations: world.conversations.filter(
         (conversation) =>
           !conversation.participants.some((participant) => participant.playerId === alan.id),
+      ),
+      agents: world.agents.map((agent) =>
+        alanConversationByAgentPlayer.has(agent.playerId)
+          ? {
+              ...agent,
+              lastConversation: now,
+              toRemember: agent.toRemember ?? alanConversationByAgentPlayer.get(agent.playerId),
+            }
+          : agent,
       ),
       players: world.players.map((player) =>
         player.id === alan.id
