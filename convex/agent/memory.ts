@@ -657,6 +657,19 @@ export function commitmentFromMemoryDescription(description: string) {
   return match?.[1]?.trim() ?? '';
 }
 
+// Prefix inserted right after `具體承諾：` once the promise has actually been
+// honored in real life (e.g. the curry got cooked). Marked commitments stop
+// surfacing in the 未了的約定 prompt block but remain visible in the notebook
+// as 已兌現 history. Marking is manual via school:markCommitmentFulfilled.
+export const COMMITMENT_FULFILLED_MARKER = '〔約定已兌現〕';
+
+// `commitmentFromMemoryDescription` returns the commitment text including the
+// marker (it sits inside the same `具體承諾：…` segment); callers use this to
+// tell a fulfilled promise from an open one.
+export function commitmentIsFulfilled(commitmentText: string) {
+  return (commitmentText ?? '').includes(COMMITMENT_FULFILLED_MARKER);
+}
+
 // First chars of a residue sentence — used to detect when the same pair
 // would write the same residue shape two times in a row. Treat this as a
 // new template forming and skip the write.

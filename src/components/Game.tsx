@@ -73,6 +73,7 @@ type NotebookCommitmentsData = {
     createdAt: number;
     expired: boolean;
     aboutAlan: boolean;
+    fulfilled: boolean;
   }>;
 };
 
@@ -843,7 +844,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         } ${shellPeriodClass} ${isConversationMode ? 'giis-conversation-active' : ''} ${
           panelCollapsed && !isConversationMode ? 'giis-panel-is-collapsed' : ''
         } ${worldViewMode === 'scene' ? 'giis-scene-first' : 'giis-map-mode'}`}
-        style={sceneVisualStyle(currentScene.id)}
+        style={sceneVisualStyle(currentScene.id, periodLabel)}
       >
         <div className="giis-topbar">
           <div className="giis-topbar-title">
@@ -1786,14 +1787,21 @@ function sceneBackgroundColor(sceneId: SchoolLocationId) {
   }
 }
 
-function sceneVisualStyle(sceneId: SchoolLocationId) {
+function sceneTimeVariant(periodLabel: string) {
+  if (periodLabel === '晚上' || periodLabel === '深夜') return 'night';
+  if (periodLabel === '早晨' || periodLabel === '中午' || periodLabel === '下午') return 'day';
+  return undefined;
+}
+
+function sceneVisualStyle(sceneId: SchoolLocationId, periodLabel: string) {
   const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const variant = sceneTimeVariant(periodLabel);
   const backgroundByScene: Partial<Record<SchoolLocationId, string>> = {
-    classroom: `${base}/backgrounds/classroom.png`,
-    courtyard: `${base}/backgrounds/courtyard.png`,
-    aiClubRoom: `${base}/backgrounds/aiClubRoom.png`,
-    dormitory: `${base}/backgrounds/dormitory.png`,
-    studentCouncilRoom: `${base}/backgrounds/studentCouncilRoom.png`,
+    classroom: `${base}/backgrounds/classroom${variant ? `-${variant}` : ''}.png`,
+    courtyard: `${base}/backgrounds/courtyard${variant ? `-${variant}` : ''}.png`,
+    aiClubRoom: `${base}/backgrounds/aiClubRoom${variant ? `-${variant}` : ''}.png`,
+    dormitory: `${base}/backgrounds/dormitory${variant ? `-${variant}` : ''}.png`,
+    studentCouncilRoom: `${base}/backgrounds/studentCouncilRoom${variant ? `-${variant}` : ''}.png`,
   };
   const background = backgroundByScene[sceneId];
   return background ? ({ ['--vn-scene-bg' as string]: `url("${background}")` } as CSSProperties) : undefined;
@@ -2149,11 +2157,14 @@ function campusFeedFilterLabel(filter: CampusFeedFilter) {
 }
 
 // 約定 tab: commitments 海 has collected from character memories.
-// 與你的約定 (aboutAlan) first, then 角色之間.
+// Open ones first (與你的約定, then 角色之間), fulfilled ones settle into a
+// single 已兌現 group at the bottom (capped at 10).
 function NotebookCommitmentsTab({ data }: { data?: NotebookCommitmentsData }) {
   const commitments = data?.commitments ?? [];
-  const aboutAlan = commitments.filter((item) => item.aboutAlan);
-  const betweenCharacters = commitments.filter((item) => !item.aboutAlan);
+  const open = commitments.filter((item) => !item.fulfilled);
+  const aboutAlan = open.filter((item) => item.aboutAlan);
+  const betweenCharacters = open.filter((item) => !item.aboutAlan);
+  const fulfilled = commitments.filter((item) => item.fulfilled).slice(0, 10);
   return (
     <div className="giis-notebook-commitments">
       <p className="giis-umi-brief-line">「我幫你把大家說過的約定都記下來了。」</p>
@@ -2169,6 +2180,7 @@ function NotebookCommitmentsTab({ data }: { data?: NotebookCommitmentsData }) {
           {betweenCharacters.length ? (
             <CommitmentGroup titleZh="角色之間" items={betweenCharacters} />
           ) : null}
+          {fulfilled.length ? <CommitmentGroup titleZh="已兌現" items={fulfilled} /> : null}
         </>
       )}
     </div>
@@ -2188,12 +2200,18 @@ function CommitmentGroup({
       {items.map((item) => (
         <div
           key={`${item.rememberedBy}-${item.createdAt}-${stableTextHash(item.text)}`}
-          className={`giis-commitment-row ${item.expired ? 'is-expired' : ''}`}
+          className={`giis-commitment-row ${item.expired ? 'is-expired' : ''} ${
+            item.fulfilled ? 'is-fulfilled' : ''
+          }`}
         >
           <span className="giis-commitment-text">{displayTextWithNames(item.text)}</span>
           <small className="giis-commitment-meta">
             {item.rememberedBy} 記得 · {commitmentDateLabel(item.createdAt)}
-            {item.expired ? <span className="giis-commitment-expired">已過期</span> : null}
+            {item.fulfilled ? (
+              <span className="giis-commitment-fulfilled">已兌現</span>
+            ) : item.expired ? (
+              <span className="giis-commitment-expired">已過期</span>
+            ) : null}
           </small>
         </div>
       ))}

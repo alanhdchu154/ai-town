@@ -4628,6 +4628,21 @@ body {
   padding: 0.05rem 0.4rem;
 }
 
+.giis-commitment-row.is-fulfilled {
+  border-color: rgba(74, 222, 128, 0.35);
+  opacity: 0.85;
+}
+
+.giis-commitment-fulfilled {
+  background: rgba(74, 222, 128, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.45);
+  border-radius: 999px;
+  color: #86efac;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+}
+
 .giis-conversation-wall {
   background:
     linear-gradient(180deg, rgba(9, 15, 31, 0.96), rgba(4, 8, 18, 0.98)),

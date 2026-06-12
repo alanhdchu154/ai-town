@@ -1,4 +1,5 @@
 import { commitmentPromptLinesForTest } from './conversation';
+import { COMMITMENT_FULFILLED_MARKER } from './memory';
 
 describe('commitmentPromptLines', () => {
   test('renders open commitments as an actionable block', () => {
@@ -52,6 +53,28 @@ describe('commitmentPromptLines', () => {
     );
     expect(late[1]).toContain('已過了說好的時間');
     expect(late[1]).toContain('不要假裝還來得及');
+  });
+
+  test('fulfilled commitments are excluded from the 未了的約定 block', () => {
+    // Once marked via school:markCommitmentFulfilled the promise is settled —
+    // it must not surface as still open (or as "已過了說好的時間").
+    const onlyFulfilled = commitmentPromptLinesForTest(
+      [{ text: `${COMMITMENT_FULFILLED_MARKER}Umi答應明天為Alan準備咖哩飯`, createdAt: Date.now() }],
+      'Alan',
+    );
+    expect(onlyFulfilled).toEqual([]);
+
+    // A fulfilled promise also frees its slot for an older open one.
+    const mixed = commitmentPromptLinesForTest(
+      [
+        { text: `${COMMITMENT_FULFILLED_MARKER}Umi答應明天為Alan準備咖哩飯`, createdAt: 3 },
+        { text: 'Umi答應週末為Alan泡熱茶', createdAt: 2 },
+      ],
+      'Alan',
+    );
+    expect(mixed.length).toBe(2);
+    expect(mixed[1]).toContain('泡熱茶');
+    expect(mixed.join('\n')).not.toContain(COMMITMENT_FULFILLED_MARKER);
   });
 
   test('legacy undated 明天 commitments expire 48h later; other legacy shapes do not', () => {

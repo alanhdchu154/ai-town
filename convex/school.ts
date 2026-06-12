@@ -21,9 +21,11 @@ import { chatCompletion } from './util/llm';
 import { isGeneratedFallbackText } from './modelPolicy';
 import { hasDialogueSystemPhraseLeak } from './agent/dialogueHygiene';
 import {
+  COMMITMENT_FULFILLED_MARKER,
   RECALL_CORRECTED_MARKER,
   commitmentFromMemoryDescription,
   commitmentIsExpired,
+  commitmentIsFulfilled,
   shouldExposeMemoryDescription,
 } from './agent/memory';
 import { AlanProfile, GiisProfiles, RelationshipDimensions } from '../data/giisProfiles';
@@ -3714,6 +3716,7 @@ export const notebookCommitments = query({
         createdAt: number;
         expired: boolean;
         aboutAlan: boolean;
+        fulfilled: boolean;
       }
     >();
     for (const description of descriptions.values()) {
@@ -3728,16 +3731,27 @@ export const notebookCommitments = query({
       for (const memoryDoc of memories) {
         if (memoryDoc.data.type !== 'conversation') continue;
         if (!shouldExposeMemoryDescription(memoryDoc.description)) continue;
-        const text = commitmentFromMemoryDescription(memoryDoc.description);
+        const rawText = commitmentFromMemoryDescription(memoryDoc.description);
+        if (!rawText) continue;
+        const fulfilled = commitmentIsFulfilled(rawText);
+        // Strip the marker for display/dedupe so a marked copy and a
+        // not-yet-marked copy of the same promise collapse into one row.
+        const text = rawText.replace(COMMITMENT_FULFILLED_MARKER, '').trim();
         if (!text) continue;
         const key = text.replace(/\s+/g, '');
-        if (seen.has(key)) continue;
+        const existing = seen.get(key);
+        if (existing) {
+          // Any rememberer with the marker makes the row fulfilled.
+          if (fulfilled) existing.fulfilled = true;
+          continue;
+        }
         seen.set(key, {
           text,
           rememberedBy: displayNameZh(description.name),
           createdAt: memoryDoc._creationTime,
           expired: commitmentIsExpired(text, memoryDoc._creationTime),
           aboutAlan: memoryDoc.data.playerIds.some((id) => alanIds.has(id)),
+          fulfilled,
         });
       }
     }
@@ -3791,6 +3805,101 @@ export const downweightFalseMemory = mutation({
         });
       }
       marked.push({ id: memoryDoc._id, preview: memoryDoc.description.slice(0, 80) });
+    }
+    return {
+      character: displayNameZh(match.name),
+      fragment,
+      dryRun: args.dryRun ?? false,
+      markedCount: marked.length,
+      marked,
+    };
+  },
+});
+
+// Manual commitment bookkeeping: once a promise was honored in real life
+// (e.g. the curry actually got cooked), stamp COMMITMENT_FULFILLED_MARKER
+// right after `具體承諾：` in every memory that records that promise — first
+// in the named character's memories (matched by fragment within the 具體承諾
+// segment only), then the SAME commitment text in every other non-Alan
+// character's memories, so all rememberers agree it's settled. Marked
+// commitments leave the 未了的約定 prompt block and move to the notebook's
+// 已兌現 group. Importance is untouched — a kept promise is still a memory.
+// Usage (after tomorrow's curry dinner):
+//   npx convex run school:markCommitmentFulfilled \
+//     '{"characterName":"一之瀨","fragment":"咖哩飯","dryRun":true}'
+// then re-run without dryRun to actually mark.
+export const markCommitmentFulfilled = mutation({
+  args: {
+    characterName: v.string(),
+    fragment: v.string(),
+    dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const fragment = args.fragment.trim();
+    // Matching is scoped to the 具體承諾 segment, so a short fragment like
+    // 咖哩飯 is safe; still require something non-trivial.
+    if (fragment.length < 2) {
+      return { error: 'fragment must be at least 2 characters' };
+    }
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const match = [...descriptions.values()].find(
+      (description) =>
+        description.name === args.characterName ||
+        displayNameZh(description.name) === args.characterName,
+    );
+    if (!match) return { error: `character not found: ${args.characterName}` };
+    const take = Math.min(Math.max(args.limit ?? 200, 1), 500);
+    const marked: Array<{ character: string; id: string; commitment: string }> = [];
+    const markDoc = async (memoryDoc: { _id: any; description: string }, character: string) => {
+      if (!args.dryRun) {
+        await ctx.db.patch(memoryDoc._id, {
+          description: memoryDoc.description.replace(
+            '具體承諾：',
+            `具體承諾：${COMMITMENT_FULFILLED_MARKER}`,
+          ),
+        });
+      }
+      marked.push({
+        character,
+        id: memoryDoc._id,
+        commitment: commitmentFromMemoryDescription(memoryDoc.description).slice(0, 80),
+      });
+    };
+    const conversationMemories = (playerId: string) =>
+      ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', playerId).eq('data.type', 'conversation'),
+        )
+        .order('desc')
+        .take(take);
+    // Pass 1: the named character's memories, matched by fragment.
+    const fulfilledKeys = new Set<string>();
+    for (const memoryDoc of await conversationMemories(match.playerId)) {
+      if (memoryDoc.description.includes(RECALL_CORRECTED_MARKER)) continue;
+      if (memoryDoc.description.includes(COMMITMENT_FULFILLED_MARKER)) continue;
+      const commitment = commitmentFromMemoryDescription(memoryDoc.description);
+      if (!commitment || !commitment.includes(fragment)) continue;
+      fulfilledKeys.add(commitment.replace(/\s+/g, ''));
+      await markDoc(memoryDoc, displayNameZh(match.name));
+    }
+    // Pass 2: the same commitment text remembered by anyone else (same dedupe
+    // key as notebookCommitments), so the notebook row and every agent's
+    // prompt agree the promise is settled.
+    if (fulfilledKeys.size) {
+      for (const description of descriptions.values()) {
+        if (description.name === DEFAULT_NAME) continue;
+        if (description.playerId === match.playerId) continue;
+        for (const memoryDoc of await conversationMemories(description.playerId)) {
+          if (memoryDoc.description.includes(RECALL_CORRECTED_MARKER)) continue;
+          if (memoryDoc.description.includes(COMMITMENT_FULFILLED_MARKER)) continue;
+          const commitment = commitmentFromMemoryDescription(memoryDoc.description);
+          if (!commitment || !fulfilledKeys.has(commitment.replace(/\s+/g, ''))) continue;
+          await markDoc(memoryDoc, displayNameZh(description.name));
+        }
+      }
     }
     return {
       character: displayNameZh(match.name),

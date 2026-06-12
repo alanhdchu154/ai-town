@@ -844,11 +844,21 @@ function pilotApiKeyCandidates() {
 }
 
 function pilotBaseUrl() {
-  return (process.env.UMI_MAHIRU_PILOT_BASE_URL ?? 'https://api.newcoin.top').replace(/\/+$/, '');
+  return (
+    process.env.UMI_MAHIRU_PILOT_BASE_URL ??
+    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+  ).replace(/\/+$/, '');
+}
+
+function openAiCompatibleChatCompletionsUrl(baseUrl: string) {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  if (trimmed.endsWith('/chat/completions')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
 }
 
 function openaiCompatibleModelName(model: string | undefined) {
-  const configured = model || process.env.UMI_MAHIRU_PILOT_MODEL || 'qwen3-max';
+  const configured = model || process.env.UMI_MAHIRU_PILOT_MODEL || 'qwen-plus';
   return configured.startsWith('qwen/') ? configured.slice('qwen/'.length) : configured;
 }
 
@@ -864,8 +874,9 @@ async function pilotCloudCompletion(
   return openaiCompatiblePilotCompletion(request, humanFacing);
 }
 
-// OpenAI-compatible chat completion for the Umi/Mahiru pilot (e.g. Qwen via the
-// newcoin.top proxy). Key/base/model all come from env; nothing is hardcoded.
+// OpenAI-compatible chat completion for the Umi/Mahiru pilot (official Qwen /
+// Alibaba Cloud Model Studio or another compatible host). Key/base/model all
+// come from env; nothing sensitive is hardcoded.
 async function openaiCompatiblePilotCompletion(
   request: Parameters<typeof chatCompletion>[0],
   humanFacing = false,
@@ -903,7 +914,7 @@ async function openaiCompatiblePilotCompletion(
       : undefined;
     let response: Response;
     try {
-      response = await fetch(pilotBaseUrl() + '/v1/chat/completions', {
+      response = await fetch(openAiCompatibleChatCompletionsUrl(pilotBaseUrl()), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1544,7 +1555,10 @@ function commitmentPromptLines(
   if (residueReadMode() === 'off') return [];
   const items = (openCommitments ?? [])
     .map((entry) => ({ text: entry.text.trim(), createdAt: entry.createdAt }))
-    .filter((entry) => entry.text)
+    // A promise marked 已兌現 (school:markCommitmentFulfilled) is no longer
+    // "未了" — it must stop surfacing as honorable. Until the owner marks it,
+    // nothing here changes.
+    .filter((entry) => entry.text && !memory.commitmentIsFulfilled(entry.text))
     .slice(0, 2);
   if (!items.length) return [];
   return [
@@ -4703,7 +4717,9 @@ export const queryPromptData = internalQuery({
         text: memory.commitmentFromMemoryDescription(entry.description),
         createdAt: entry._creationTime,
       }))
-      .filter((entry) => entry.text)
+      // Fulfilled promises must not occupy the two open-commitment slots; an
+      // older still-open promise behind them is the one worth surfacing.
+      .filter((entry) => entry.text && !memory.commitmentIsFulfilled(entry.text))
       .slice(0, 2);
     const recentEvents = await ctx.db
       .query('worldEvents')

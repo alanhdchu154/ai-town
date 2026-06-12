@@ -1,8 +1,10 @@
 import {
+  COMMITMENT_FULFILLED_MARKER,
   RECALL_CORRECTED_MARKER,
   claimedRecallFragmentsFromMessages,
   commitmentFromMemoryDescription,
   commitmentIsExpired,
+  commitmentIsFulfilled,
   conversationHasRecallCorrection,
   concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
@@ -96,6 +98,33 @@ describe('commitmentFromMemoryDescription', () => {
   test('returns empty string when there is no commitment line', () => {
     expect(commitmentFromMemoryDescription('與 海 的對話：留下的重點是：「今天有點累。」')).toBe('');
     expect(commitmentFromMemoryDescription('')).toBe('');
+  });
+});
+
+describe('commitmentIsFulfilled', () => {
+  test('detects the fulfilled marker; plain commitments stay open', () => {
+    expect(commitmentIsFulfilled(`${COMMITMENT_FULFILLED_MARKER}Umi答應明天為Alan準備咖哩飯`)).toBe(
+      true,
+    );
+    expect(commitmentIsFulfilled('Umi答應明天為Alan準備咖哩飯')).toBe(false);
+    expect(commitmentIsFulfilled('')).toBe(false);
+  });
+
+  test('marking format round-trips through commitmentFromMemoryDescription', () => {
+    // The exact patch school:markCommitmentFulfilled applies: insert the
+    // marker right after 具體承諾：.
+    const description =
+      '與 Alan 在 2026/6/10 下午7:56 的對話：具體承諾：一之瀨答應明天（6/11 週四）為Alan準備咖哩飯（說於6/10 週三）；短暫對話\n殘留：手心的溫度。';
+    const marked = description.replace('具體承諾：', `具體承諾：${COMMITMENT_FULFILLED_MARKER}`);
+    const parsed = commitmentFromMemoryDescription(marked);
+    expect(parsed).toBe(
+      `${COMMITMENT_FULFILLED_MARKER}一之瀨答應明天（6/11 週四）為Alan準備咖哩飯（說於6/10 週三）`,
+    );
+    expect(commitmentIsFulfilled(parsed)).toBe(true);
+    // The original (unmarked) copy still parses as the open commitment.
+    expect(commitmentIsFulfilled(commitmentFromMemoryDescription(description))).toBe(false);
+    // A fulfilled memory is still exposed to read paths (unlike corrected ones).
+    expect(shouldExposeMemoryDescription(marked)).toBe(true);
   });
 });
 
