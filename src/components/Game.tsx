@@ -477,17 +477,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const timeHoverLabel =
     clockState?.hoverLabelZh ?? `現實：${realClockLabel}\n世界：${worldClockLabel}`;
   const alanPlaceLabel = alanPlayer ? alanLocation?.labelZh ?? currentScene.labelZh : '離校處理其他公司';
-  const visibleSceneNames = scenePlayers
-    .map((player) => displayAgentName(game.playerDescriptions.get(player.id)?.name))
-    .filter(Boolean);
   const alanMovementHint =
     worldViewMode === 'map'
       ? mapMovementHint
       : isConversationMode
         ? '對話中：場景已鎖定。'
-        : visibleSceneNames.length
-          ? `場景中：${visibleSceneNames.join('、')}`
-          : `${currentScene.labelZh}暫時安靜。`;
+        : '';
   const sceneStagePlayers = alanPlayer && !scenePlayers.some((player) => player.id === alanPlayer.id)
     ? [...scenePlayers, alanPlayer]
     : scenePlayers;
@@ -1125,9 +1120,7 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
               </PixiStageErrorBoundary>
             </div>
           )}
-          <div className="giis-move-hint">
-            {alanMovementHint}
-          </div>
+          {alanMovementHint ? <div className="giis-move-hint">{alanMovementHint}</div> : null}
           {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
           {/* Map mode only: in the new scene-stage mode the stage renders its
               own 大家在 chips, so showing the cue too duplicates them. */}
