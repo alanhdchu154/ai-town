@@ -10457,6 +10457,12 @@ export const debugAlanConversationState = query({
       .withIndex('ended', (q) => q.eq('worldId', world._id))
       .order('desc')
       .take(20);
+    // Fetched once: every archived row below filters this same world-scoped
+    // set by conversationId, so collecting it per-iteration just re-reads it.
+    const worldExperienceLogs = await ctx.db
+      .query('experienceLogs')
+      .withIndex('worldDay', (q) => q.eq('worldId', world._id))
+      .collect();
     const recentArchived = [];
     for (const conversation of archived) {
       const participantNames = conversation.participants.map((id) => nameFor(id));
@@ -10485,10 +10491,6 @@ export const debugAlanConversationState = query({
             })),
         );
       }
-      const experienceLogs = await ctx.db
-        .query('experienceLogs')
-        .withIndex('worldDay', (q) => q.eq('worldId', world._id))
-        .collect();
       recentArchived.push({
         id: conversation.id,
         created: conversation.created,
@@ -10497,7 +10499,7 @@ export const debugAlanConversationState = query({
         participantNames,
         memoryCount: participantMemories.length,
         memories: participantMemories,
-        experienceLogs: experienceLogs
+        experienceLogs: worldExperienceLogs
           .filter((row: any) => row.source.conversationId === conversation.id)
           .map((row: any) => ({
             characterName: row.characterName,
