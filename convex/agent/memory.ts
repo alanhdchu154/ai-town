@@ -682,29 +682,48 @@ export function buildResiduePrompt(
       relationshipInsecurity: string;
     };
   },
+  // The other party's Public Self — role, outward manner, how they speak. A
+  // residue lives at the meeting point of what the OTHER actually did/showed
+  // (their surface — you never see their private interior) and what it touched
+  // in YOUR private fear/desire. Grounding on the other's authored Public Self
+  // makes the trace specific to this relationship (海's trace about 真晝 ≠ about
+  // 天澤) and keeps "what they did" inside what that character would plausibly do.
+  otherPublic: { role: string; persona: string; communicationStyle: string } | null,
   transcript: string,
 ) {
-  return [
+  const lines = [
     `You are ${self}. The lines below are your private inner soul. Use them only to interpret what you felt — never quote them, never state them outright.`,
     `隱藏的恐懼：${profile.stakes.hiddenFear}`,
     `隱藏的渴望：${profile.stakes.hiddenDesire}`,
     `情緒上的脆弱：${profile.stakes.emotionalVulnerability}`,
     `關係裡的不安：${profile.stakes.relationshipInsecurity}`,
     `核心價值：${profile.coreValues.join('、')}`,
+  ];
+  if (otherPublic) {
+    lines.push(
+      ``,
+      `這是 ${other} 在別人面前的樣子（你只看得見 ${other} 的表面，看不見 ${other} 的內心）。用它來判斷 ${other} 這次「實際做了什麼、顯露出什麼」：`,
+      `${other} 的角色：${otherPublic.role}`,
+      `${other} 平常的樣子：${otherPublic.persona}`,
+      `${other} 說話的方式：${otherPublic.communicationStyle}`,
+    );
+  }
+  lines.push(
     ``,
     `You just talked with ${other}. The conversation:`,
     transcript,
     ``,
-    `Write at most ONE short line of 情緒殘留 in Traditional Chinese — the trace this conversation left in you: whether it touched your hidden fear or desire, or changed how you now see ${other}.`,
+    `Write at most ONE short line of 情緒殘留 in Traditional Chinese. 一道 情緒殘留 活在一個交會點：「${other} 這次實際做了、或顯露出的某件事（${other} 的表面）」碰上「你自己的恐懼或渴望（你的內裡）」。寫下那個交會點留在你心裡的痕跡，或你因此對 ${other} 的看法有沒有改變。`,
     `規則：`,
-    `- 以「${self}還記得」這類安靜回想的語氣開頭。`,
+    `- 以「${self}還記得」這類安靜回想的語氣開頭，並且要具體指向 ${other} 這次做了什麼。`,
     `- 這是留下的「感覺」，不是摘要：不要逐句複述，也不要引用對話原句。`,
-    `- 只能根據對話真的發生過的內容，不可虛構任何事實、物件、地點或對方沒做過的動作。`,
+    `- 只能根據對話真的發生過的內容，不可虛構任何事實、物件、地點或 ${other} 沒做過的動作。`,
     `- 不要寫成舞台動作描述（不要描寫你的手、視線、動作）。`,
     `- 不超過 40 個中文字。`,
-    `- 如果這段對話沒有真的碰到你的恐懼／渴望，也沒有改變你對 ${other} 的看法，就只輸出：無`,
+    `- 如果 ${other} 這次的表現沒有真的碰到你的恐懼／渴望，也沒有改變你對 ${other} 的看法，就只輸出：無`,
     `[只輸出那一句，或「無」。不要解釋、不要加引號。]`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 // Returns the residue string, '' when the model honestly found no trace (無),
@@ -741,12 +760,23 @@ async function llmResidueSentence(
   if (process.env.UNDERWORLD_RESIDUE_LLM === 'false') return null;
   const profile = giisProfileForName(player.name);
   if (!profile) return null;
+  // The other party's authored Public Self grounds "what they actually did".
+  const otherProfile = giisProfileForName(otherPlayer.name);
+  const otherPublic = otherProfile
+    ? {
+        role: otherProfile.role,
+        persona: otherProfile.persona,
+        communicationStyle: otherProfile.communicationStyle,
+      }
+    : null;
   const self = displayResidueName(player.name);
   const other = displayResidueName(otherPlayer.name);
   const transcript = messages.map((message) => message.text).join('\n');
   const raw = await safeMemoryCompletion(
     {
-      messages: [{ role: 'user', content: buildResiduePrompt(self, other, profile, transcript) }],
+      messages: [
+        { role: 'user', content: buildResiduePrompt(self, other, profile, otherPublic, transcript) },
+      ],
       max_tokens: 120,
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },

@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-12 (night — subjective memory enabled, 睡前回響 shadow shipped; Scene Mode UI contract aligned)
+Last updated: 2026-06-12 (late night — subjective summary deepened, soul-grounded LLM residue live for all six pilots, 心跡 inspection tab; 睡前回響 shadow + Scene Mode contract still in force)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -43,7 +43,48 @@ Key product judgment recorded: **do NOT enable nightly reflection on top of
 fabricated daily memory** — it would harden hallucinations ("海 lives in the
 dorm") into permanent traits. Memory quality must lead reflection.
 
-Shipped tonight:
+### Late-night follow-up — soul-grounded memory deepening (Claude, with Alan)
+
+Built on top of the same evening, after Alan pushed the memory/soul model deeper:
+
+- **Subjective summary deepened.** The first-person `rememberConversation`
+  prompt no longer just tags like/dislike. It now captures the one concrete
+  moment that mattered, the specific emotion (被看見 / 被當工具 / 鬆一口氣 / 愧疚…),
+  whether it shifted how the speaker sees the other, and a forward intention
+  (the seed of Drift) — with an anti-confabulation clause. This is the text that
+  gets embedded, recalled, and reflected on, so depth here compounds everywhere.
+- **Soul-grounded LLM residue, live for all six pilots.** Residue was previously
+  hand-written regex for 海/真晝/天澤 only. `llmResidueSentence` now derives the
+  trace from each character's authored five-layer soul: the model reads the
+  transcript through the speaker's Private Self (giisProfiles `stakes`) **and the
+  other party's Public Self** (role / persona / communication style), because a
+  residue lives at the meeting point of *what the other actually did/showed*
+  (their surface) and *what it touched in me* (my fear/desire). It writes one
+  bounded trace or answers 無 (the prompt is its own resonance gate, so the three
+  characters that never had a hand-written branch are covered). Output passes
+  every existing guard (slogan / system-phrase / stage-direction / length) plus
+  the downstream repeat-pattern and recall-correction gates. Provider failure
+  falls back to the deterministic sentence; an honest 無 is respected. Togglable
+  via `UNDERWORLD_RESIDUE_LLM=false`. `RESIDUE_PILOT_NAMES` expanded 3 → 6.
+- **校園手帳「心跡」inspection tab.** Read-only surface that pairs each recent
+  conversation with the trace it left (or 沒有沉澱下來). Text only, no gauges
+  (honours E3). This is how Alan judges whether an exchange actually touched a
+  character's soul — read the conversation next to its trace, no score needed.
+  `school:notebookSoulTraces`.
+
+Design note (the LLM's "subjective analysis" is generative, not a score): the
+residue decision IS the subjective judgment — one human-readable line or 無. We
+deliberately did NOT build a scoring dashboard; per E3 the soul layer is read as
+text, never quantified into gauges.
+
+Open UI question (Alan, deciding): move 回響 + 心跡 out of the daily 校園手帳 into a
+conversation-adjacent "soul/memory" surface so they sit next to 對話 for
+comparison, and so a conversation can eventually show its per-participant
+subjective memory + residue side by side (same event → divergent souls — the
+research question in `docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`). Leaning
+yes; de-crowds the notebook back to 今日/日程/約定.
+
+Shipped earlier the same evening:
 
 - **Subjective first-person memory (the per-character interpretation Alan
   asked for).** `rememberConversation` now uses the LLM first-person summary

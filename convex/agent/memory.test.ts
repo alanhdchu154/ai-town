@@ -460,16 +460,40 @@ describe('soul-grounded LLM residue', () => {
     },
   };
 
-  it('grounds the prompt on the authored five-layer soul and self-gates with 無', () => {
-    const prompt = buildResiduePrompt('海', '真晝', profile, '真晝：你今天看起來很累。\n海：還好，習慣了。');
+  const otherPublic = {
+    role: '保健室老師 / 校園的安靜照顧者',
+    persona: '真晝在別人面前話不多，但很會察覺誰沒說出口的疲憊。',
+    communicationStyle: '輕聲、不逼問，先陪著再說。',
+  };
+
+  it('grounds the prompt on my Private Self and the other party Public Self, self-gating with 無', () => {
+    const prompt = buildResiduePrompt(
+      '海',
+      '真晝',
+      profile,
+      otherPublic,
+      '真晝：你今天看起來很累。\n海：還好，習慣了。',
+    );
     expect(prompt).toContain('You are 海');
+    // My private interior.
     expect(prompt).toContain('隱藏的恐懼：');
     expect(prompt).toContain(profile.stakes.hiddenFear);
+    // The other party's public surface — the trace must connect to what THEY did.
+    expect(prompt).toContain('真晝 的角色：');
+    expect(prompt).toContain(otherPublic.communicationStyle);
+    expect(prompt).toMatch(/交會點/);
     // Anti-confabulation + anti-template guards must be in the instruction.
     expect(prompt).toMatch(/不可虛構任何事實/);
     expect(prompt).toMatch(/不要逐句複述/);
     // The model is told to answer 無 when nothing resonated — this is the
     // resonance gate for characters that never had a hand-written branch.
+    expect(prompt).toMatch(/就只輸出：無/);
+  });
+
+  it('still builds a valid prompt when the other party has no authored profile', () => {
+    const prompt = buildResiduePrompt('海', 'Alan', profile, null, '海：你又熬夜了。');
+    expect(prompt).toContain('You are 海');
+    expect(prompt).not.toContain('的角色：');
     expect(prompt).toMatch(/就只輸出：無/);
   });
 
