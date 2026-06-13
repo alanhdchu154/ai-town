@@ -3809,6 +3809,55 @@ export const notebookReflections = query({
   },
 });
 
+// 校園手帳「心跡」分頁: the Emotional Residue layer made visible. For each
+// soul-bearing character it pairs a recent conversation with the one trace it
+// left in them (the 殘留 line written by the LLM residue path) — or marks it as
+// not having settled into anything. This is the inspection surface for "did
+// this exchange actually touch the character's soul?": read-only, text-only, no
+// scores or gauges (roadmap E3: text trends, never gauges). A character only
+// appears once at least one of their recent conversations carries a trace, so
+// this naturally scopes to the pilots with an authored five-layer soul.
+export const notebookSoulTraces = query({
+  args: {},
+  handler: async (ctx) => {
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const characters: {
+      name: string;
+      traces: { summary: string; residue: string; importance: number; createdAt: number }[];
+    }[] = [];
+    for (const description of descriptions.values()) {
+      if (description.name === DEFAULT_NAME) continue;
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', description.playerId).eq('data.type', 'conversation'),
+        )
+        .order('desc')
+        .take(24);
+      const traces = memories
+        .filter((memoryDoc) => shouldExposeMemoryDescription(memoryDoc.description))
+        .slice(0, 6)
+        .map((memoryDoc) => ({
+          // First line is the "與 X 在 DATE 的對話：…" gist; the retention line
+          // and 殘留 line live below it and are not shown raw here.
+          summary: memoryDoc.description.split('\n')[0] ?? memoryDoc.description,
+          residue: residueFromMemoryDescription(memoryDoc.description),
+          importance: memoryDoc.importance,
+          createdAt: memoryDoc._creationTime,
+        }));
+      // Only surface characters whose soul layer is actually producing traces.
+      if (traces.some((trace) => trace.residue)) {
+        characters.push({ name: displayNameZh(description.name), traces });
+      }
+    }
+    characters.sort(
+      (left, right) => (right.traces[0]?.createdAt ?? 0) - (left.traces[0]?.createdAt ?? 0),
+    );
+    return { checkedAt: Date.now(), characters };
+  },
+});
+
 // One-off / manual memory hygiene: stamp memories whose content was fabricated
 // and later corrected (e.g. 海's 6/4 「世界變得太聰明」 line) so they stop
 // surfacing as canon. Read paths hide marked memories; importance drops to 0.

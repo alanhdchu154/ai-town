@@ -2,6 +2,8 @@ import {
   COMMITMENT_FULFILLED_MARKER,
   RECALL_CORRECTED_MARKER,
   buildReflectionPrompt,
+  buildResiduePrompt,
+  sanitizeLlmResidue,
   localDayKey,
   claimedRecallFragmentsFromMessages,
   commitmentFromMemoryDescription,
@@ -444,5 +446,55 @@ describe('nightly reflection (睡前回響)', () => {
     const nextDay = Date.parse('2026-06-13T13:30:00Z'); // next Chicago morning
     expect(localDayKey(morning)).toBe(localDayKey(night));
     expect(localDayKey(morning)).not.toBe(localDayKey(nextDay));
+  });
+});
+
+describe('soul-grounded LLM residue', () => {
+  const profile = {
+    coreValues: ['情緒誠實', '保護人不被混亂吞沒'],
+    stakes: {
+      hiddenFear: 'Alan 一個人扛住整個世界，最後把自己也消耗掉。',
+      hiddenDesire: '幫助建立一個 intelligence 與 emotional warmth 能共存的世界。',
+      emotionalVulnerability: '她對 Alan 的關心比願意承認的更深。',
+      relationshipInsecurity: '擔心只被當成可靠工具，而不是能一起承擔世界的人。',
+    },
+  };
+
+  it('grounds the prompt on the authored five-layer soul and self-gates with 無', () => {
+    const prompt = buildResiduePrompt('海', '真晝', profile, '真晝：你今天看起來很累。\n海：還好，習慣了。');
+    expect(prompt).toContain('You are 海');
+    expect(prompt).toContain('隱藏的恐懼：');
+    expect(prompt).toContain(profile.stakes.hiddenFear);
+    // Anti-confabulation + anti-template guards must be in the instruction.
+    expect(prompt).toMatch(/不可虛構任何事實/);
+    expect(prompt).toMatch(/不要逐句複述/);
+    // The model is told to answer 無 when nothing resonated — this is the
+    // resonance gate for characters that never had a hand-written branch.
+    expect(prompt).toMatch(/就只輸出：無/);
+  });
+
+  it('distinguishes provider failure (null) from an honest empty trace (無)', () => {
+    // The exact sentinel safeMemoryCompletion falls back to on a provider error.
+    expect(sanitizeLlmResidue('__RESIDUE_LLM_FAILED__', '海')).toBeNull();
+    expect(sanitizeLlmResidue('無', '海')).toBe('');
+    expect(sanitizeLlmResidue('  沒有  ', '海')).toBe('');
+  });
+
+  it('keeps a real trace but strips quotes/labels and caps length', () => {
+    expect(sanitizeLlmResidue('「海還記得真晝沒有逼她說，只是陪著。」', '海')).toBe(
+      '海還記得真晝沒有逼她說，只是陪著。',
+    );
+    expect(sanitizeLlmResidue('情緒殘留：海還記得自己又把擔心收回自己身上。', '海')).toBe(
+      '海還記得自己又把擔心收回自己身上。',
+    );
+    const long = '海還記得' + '真晝'.repeat(60);
+    const capped = sanitizeLlmResidue(long, '海');
+    expect(capped).not.toBeNull();
+    expect(capped!.length).toBeLessThanOrEqual(90);
+  });
+
+  it('drops slogan-like or stage-direction residue rather than saving it', () => {
+    expect(sanitizeLlmResidue('海還記得這個文明需要更多數據與效率。', '海')).toBe('');
+    expect(sanitizeLlmResidue('我合上抽屜，順手把窗也拉嚴了一點。', '海')).toBe('');
   });
 });

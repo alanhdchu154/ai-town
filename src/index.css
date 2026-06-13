@@ -4631,6 +4631,36 @@ body {
   font-size: 0.74rem;
 }
 
+.giis-trace-row {
+  background: rgba(15, 23, 42, 0.38);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-left: 2px solid rgba(148, 163, 184, 0.4);
+  border-radius: 10px;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.5rem 0.58rem;
+}
+
+.giis-trace-summary {
+  color: #cbd5f5;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.giis-trace-residue {
+  color: #f8fafc;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  border-left: 2px solid rgba(248, 191, 132, 0.5);
+  padding-left: 0.5rem;
+}
+
+.giis-trace-residue--none {
+  color: #64748b;
+  font-style: italic;
+  border-left-color: rgba(100, 116, 139, 0.35);
+}
+
 .giis-commitment-group > b {
   color: #f8fafc;
   font-size: 0.9rem;

@@ -47,7 +47,17 @@ type MemoryRetentionDecision = {
 };
 
 const RESIDUE_PREFIX = '殘留：';
-const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '天澤']);
+// All six pilot characters with an authored five-layer soul (giisProfiles
+// stakes = Private Self + docs/soul/pilots/*.md). Residue used to cover only
+// 海/真晝/天澤 because their soul lens was hand-written as regex in
+// deterministicResidueSentence; the LLM residue path (llmResidueSentence)
+// derives the trace from each character's authored profile instead, so the
+// remaining three can join without a hand-written branch.
+const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', '貓貓', '祥子']);
+// Sentinel returned by safeMemoryCompletion's fallback so we can tell a real
+// provider failure (→ fall back to the deterministic residue) apart from the
+// model genuinely deciding nothing resonated (→ honour the empty "無").
+const RESIDUE_LLM_FAILED = '__RESIDUE_LLM_FAILED__';
 const MEMORY_POST_PROCESSING_DRIFT_CUES = [
   'AI 社',
   'AI社',
@@ -443,6 +453,8 @@ function displayResidueName(name: string) {
   if (name === 'Mahiru' || name === 'Mahiru' || name === '椎名真晝') return '真晝';
   if (name === 'Tianze' || name === '天澤' || name === '天澤一夏' || name === '天擇' || name === '天擇一夏' || name === '天澤' || name === '天澤') return '天澤';
   if (name === 'Ichinose' || name === '一之瀨' || name === '一之瀨帆波' || name === '黑化一之瀨' || name === '一之瀨') return '一之瀨';
+  if (name === 'Maomao' || name === '貓貓' || name === '曹操') return '貓貓';
+  if (name === 'Sakiko' || name === '祥子' || name === '劉備') return '祥子';
   return name;
 }
 
@@ -647,6 +659,100 @@ function deterministicResidueSentence(
   if (!residue || hasSloganLikeResidue(residue)) return '';
   const withCue = cue && !residue.includes(cue) ? `${residue} 觸發：${cue}。` : residue;
   return withCue.length > 90 ? withCue.slice(0, 89) + '。' : withCue;
+}
+
+// Soul-grounded LLM residue. Instead of the hand-written per-character regex in
+// deterministicResidueSentence, this hands the character's authored five-layer
+// soul (Private Self = profile.stakes, plus core values) to the model and asks
+// for the ONE emotional trace this conversation left — whether it touched a
+// hidden fear/desire or shifted how the character now sees the other. The model
+// is told to answer 無 when nothing genuinely resonated, so the prompt itself is
+// the resonance gate (no regex token list needed for the three characters that
+// never had a hand-written branch). The output still passes every existing
+// guard via sanitizeLlmResidue + the downstream repeat/recall-correction gates.
+export function buildResiduePrompt(
+  self: string,
+  other: string,
+  profile: {
+    coreValues: string[];
+    stakes: {
+      hiddenFear: string;
+      hiddenDesire: string;
+      emotionalVulnerability: string;
+      relationshipInsecurity: string;
+    };
+  },
+  transcript: string,
+) {
+  return [
+    `You are ${self}. The lines below are your private inner soul. Use them only to interpret what you felt — never quote them, never state them outright.`,
+    `隱藏的恐懼：${profile.stakes.hiddenFear}`,
+    `隱藏的渴望：${profile.stakes.hiddenDesire}`,
+    `情緒上的脆弱：${profile.stakes.emotionalVulnerability}`,
+    `關係裡的不安：${profile.stakes.relationshipInsecurity}`,
+    `核心價值：${profile.coreValues.join('、')}`,
+    ``,
+    `You just talked with ${other}. The conversation:`,
+    transcript,
+    ``,
+    `Write at most ONE short line of 情緒殘留 in Traditional Chinese — the trace this conversation left in you: whether it touched your hidden fear or desire, or changed how you now see ${other}.`,
+    `規則：`,
+    `- 以「${self}還記得」這類安靜回想的語氣開頭。`,
+    `- 這是留下的「感覺」，不是摘要：不要逐句複述，也不要引用對話原句。`,
+    `- 只能根據對話真的發生過的內容，不可虛構任何事實、物件、地點或對方沒做過的動作。`,
+    `- 不要寫成舞台動作描述（不要描寫你的手、視線、動作）。`,
+    `- 不超過 40 個中文字。`,
+    `- 如果這段對話沒有真的碰到你的恐懼／渴望，也沒有改變你對 ${other} 的看法，就只輸出：無`,
+    `[只輸出那一句，或「無」。不要解釋、不要加引號。]`,
+  ].join('\n');
+}
+
+// Returns the residue string, '' when the model honestly found no trace (無),
+// or null when the provider failed (caller should fall back to deterministic).
+export function sanitizeLlmResidue(raw: string, self: string): string | null {
+  if ((raw ?? '').trim() === RESIDUE_LLM_FAILED) return null;
+  let text = (raw ?? '').split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+  text = text.replace(/^[「『"'\s]+|[」』"'\s]+$/g, '').trim();
+  text = text.replace(/^(情緒殘留|殘留|residue)\s*[：:]\s*/i, '').trim();
+  if (!text || text === '無' || text === '沒有' || text === '没有') return '';
+  if (
+    hasSloganLikeResidue(text) ||
+    hasDialogueSystemPhraseLeak(text) ||
+    hasDialogueStageDirectionLeak(text)
+  ) {
+    return '';
+  }
+  // A trace that forgot to name itself still reads as one if it at least sounds
+  // like remembering; otherwise keep it but bound the length like the
+  // deterministic path so a runaway summary can never become residue.
+  void self;
+  return text.length > 90 ? text.slice(0, 89) + '。' : text;
+}
+
+async function llmResidueSentence(
+  ctx: ActionCtx,
+  player: { id?: string; name: string },
+  otherPlayer: { id?: string; name: string },
+  messages: Doc<'messages'>[],
+  allowShortAutonomousSoulMemory = false,
+): Promise<string | null> {
+  if (!emotionalResidueEnabled() || !pilotResiduePair(player.name, otherPlayer.name)) return null;
+  if (messages.length < RESIDUE_MIN_MESSAGES && !allowShortAutonomousSoulMemory) return null;
+  if (process.env.UNDERWORLD_RESIDUE_LLM === 'false') return null;
+  const profile = giisProfileForName(player.name);
+  if (!profile) return null;
+  const self = displayResidueName(player.name);
+  const other = displayResidueName(otherPlayer.name);
+  const transcript = messages.map((message) => message.text).join('\n');
+  const raw = await safeMemoryCompletion(
+    {
+      messages: [{ role: 'user', content: buildResiduePrompt(self, other, profile, transcript) }],
+      max_tokens: 120,
+      timeoutMs: MEMORY_LLM_TIMEOUT_MS,
+    },
+    RESIDUE_LLM_FAILED,
+  );
+  return sanitizeLlmResidue(raw, self);
 }
 
 export function residueFromMemoryDescription(description: string) {
@@ -948,9 +1054,16 @@ export async function rememberConversation(
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
-      content: `You are ${player.name}, and you just finished a conversation with ${otherPlayer.name}. I would
-      like you to summarize the conversation from ${player.name}'s perspective, using first-person pronouns like
-      "I," and add if you liked or disliked this interaction. Write the summary in Traditional Chinese.`,
+      content: `You are ${player.name}. You just finished a conversation with ${otherPlayer.name}.
+Write a short first-person memory of it in Traditional Chinese, the way ${player.name} would privately
+remember it later — a felt memory, not a report. In 2 to 4 sentences, using "我":
+- the one concrete moment that actually mattered to me (not every line);
+- how it actually made me feel — be specific (e.g. 被看見 / 被當成工具 / 鬆了一口氣 / 有點不安 / 愧疚 / 還抱著期待), not just whether I liked it;
+- whether it changed how I feel about ${otherPlayer.name} (更靠近 / 更有戒心 / 更信任 / 更擔心 / 沒什麼變);
+- one thing I now want to do, or watch for, next time I see them.
+Stay strictly inside what was actually said in this conversation. Do not invent facts, places, objects,
+plans, or anything ${otherPlayer.name} did not actually say. If little of emotional weight happened, it is
+fine to keep the memory brief and plain rather than inflating it.`,
     },
   ];
   const authors = new Set<GameId<'players'>>();
@@ -1014,13 +1127,27 @@ export async function rememberConversation(
     hour: 'numeric',
     minute: '2-digit',
   }).format(new Date(conversationStartedAt))} 的對話：${contentWithCommitment}`;
-  const candidateResidue = deterministicResidueSentence(
+  // Soul-grounded LLM residue first; fall back to the deterministic per-character
+  // sentence only when the model path is unavailable / errored (null). An empty
+  // string from the LLM path means it honestly found no trace (無) and is
+  // respected — we do not paper over that with a template residue.
+  const llmResidue = await llmResidueSentence(
+    ctx,
     player,
     otherPlayer,
     messages,
-    content,
     allowShortAutonomousSoulMemory,
   );
+  const candidateResidue =
+    llmResidue !== null
+      ? llmResidue
+      : deterministicResidueSentence(
+          player,
+          otherPlayer,
+          messages,
+          content,
+          allowShortAutonomousSoulMemory,
+        );
   let residue = candidateResidue;
   // Repeat-pattern gate applies only to autonomous (character↔character)
   // residues, where a repeated opening prefix becomes a template the next prompt
