@@ -53,7 +53,7 @@ type GameProps = {
   view?: 'world' | 'conversations';
   onChangeView?: (next: 'world' | 'conversations') => void;
 };
-type NotebookTab = '今日' | '日程' | '約定' | '回響' | '心跡';
+type NotebookTab = '今日' | '日程' | '約定' | '回響';
 type NotebookCommitmentsData = {
   checkedAt: number;
   commitments: Array<{
@@ -71,14 +71,6 @@ type NotebookReflectionsData = {
   characters: Array<{
     name: string;
     reflections: Array<{ text: string; importance: number; createdAt: number }>;
-  }>;
-};
-
-type NotebookSoulTracesData = {
-  checkedAt: number;
-  characters: Array<{
-    name: string;
-    traces: Array<{ summary: string; residue: string; importance: number; createdAt: number }>;
   }>;
 };
 
@@ -131,7 +123,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const umiBriefing = useQuery(api.school.umiBriefing, { timeZone: userTimeZone });
   const notebookCommitments = useQuery(api.school.notebookCommitments);
   const notebookReflections = useQuery(api.school.notebookReflections);
-  const notebookSoulTraces = useQuery(api.school.notebookSoulTraces);
   const playerIdentity = useQuery(api.school.currentPlayerIdentity);
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
@@ -893,9 +884,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                         ? `${periodLabel}｜大家在哪`
                         : notebookTab === '約定'
                           ? '記著的約定'
-                          : notebookTab === '回響'
-                            ? '大家內化的回響'
-                            : '對話在心裡留下的'}
+                          : '大家內化的回響'}
                   </h3>
                 </div>
                 <button
@@ -908,7 +897,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 </button>
               </div>
               <div className="giis-notebook-tabs" role="tablist" aria-label="手帳分頁">
-                {(['今日', '日程', '約定', '回響', '心跡'] as const).map((tab) => (
+                {(['今日', '日程', '約定', '回響'] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -974,10 +963,8 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                   />
                 ) : notebookTab === '約定' ? (
                   <NotebookCommitmentsTab data={notebookCommitments} />
-                ) : notebookTab === '回響' ? (
-                  <NotebookReflectionsTab data={notebookReflections} />
                 ) : (
-                  <NotebookSoulTracesTab data={notebookSoulTraces} />
+                  <NotebookReflectionsTab data={notebookReflections} />
                 )}
               </div>
             </aside>
@@ -2047,46 +2034,6 @@ function NotebookReflectionsTab({ data }: { data?: NotebookReflectionsData }) {
               >
                 <span className="giis-reflection-text">{displayTextWithNames(reflection.text)}</span>
                 <small className="giis-reflection-meta">{commitmentDateLabel(reflection.createdAt)}</small>
-              </div>
-            ))}
-          </section>
-        ))
-      )}
-    </div>
-  );
-}
-
-function NotebookSoulTracesTab({ data }: { data?: NotebookSoulTracesData }) {
-  const characters = data?.characters ?? [];
-  return (
-    <div className="giis-notebook-reflections">
-      <p className="giis-umi-brief-line">
-        「有些對話過了就忘，有些會在心裡留下一道痕。這裡是大家心裡留下的那道。」
-      </p>
-      {!data ? (
-        <p className="giis-empty-feed">心跡整理中…</p>
-      ) : characters.length === 0 ? (
-        <p className="giis-empty-feed">
-          還沒有對話在誰心裡沉澱下來。等大家多聊幾次、碰到彼此在乎的事，痕跡就會留在這裡。
-        </p>
-      ) : (
-        characters.map((character) => (
-          <section key={character.name} className="giis-reflection-group">
-            <b>{character.name}</b>
-            {character.traces.map((trace) => (
-              <div
-                key={`${character.name}-${trace.createdAt}-${stableTextHash(trace.summary)}`}
-                className="giis-trace-row"
-              >
-                <span className="giis-trace-summary">{displayTextWithNames(trace.summary)}</span>
-                {trace.residue ? (
-                  <span className="giis-trace-residue">{displayTextWithNames(trace.residue)}</span>
-                ) : (
-                  <span className="giis-trace-residue giis-trace-residue--none">
-                    （這段沒有沉澱下來）
-                  </span>
-                )}
-                <small className="giis-reflection-meta">{commitmentDateLabel(trace.createdAt)}</small>
               </div>
             ))}
           </section>

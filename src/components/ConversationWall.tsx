@@ -50,7 +50,10 @@ type WallRow =
 
 type FilterMode = 'all' | 'conversations' | 'residual' | 'status' | 'flagged' | 'triad';
 
-const TRIAD_NAMES = new Set(['海', '真晝', '天澤']);
+// All six pilots with an authored five-layer soul now carry residue, so the
+// "試點" filter and triad highlighting cover the whole soul cast, not just the
+// original three. (Field/flag names keep the `triad` spelling to avoid churn.)
+const PILOT_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', '貓貓', '祥子']);
 
 export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
@@ -89,7 +92,7 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
         ...statusEntries.map<WallRow>((status) => ({
           kind: 'status',
           status,
-          triad: TRIAD_NAMES.has(status.characterName),
+          triad: PILOT_NAMES.has(status.characterName),
         })),
       ].filter((row) => {
           if (selectedCharacter !== 'all' && !wallRowCharacters(row).includes(selectedCharacter)) {
@@ -254,7 +257,7 @@ function conversationSummary(conversations: ConversationEntry[], statusEntries: 
   const characters = new Set(conversations.flatMap((conversation) => conversation.involvedCharacters ?? []));
   const flagged = conversations.filter((conversation) => conversationFlags(conversation).length > 0).length;
   const triad = conversations.filter((conversation) =>
-    (conversation.involvedCharacters ?? []).some((name) => TRIAD_NAMES.has(name)),
+    (conversation.involvedCharacters ?? []).some((name) => PILOT_NAMES.has(name)),
   ).length;
   const traced = conversations.filter((conversation) => conversationTraceItems(conversation).length > 0).length;
   return {
@@ -295,9 +298,15 @@ function StatusCard({ status }: { status: StatusEntry }) {
   );
 }
 
+// The same conversation, side by side in each participant's soul: what trace it
+// left in them (殘留) over what they subjectively took away (記住). This is the
+// "same event → different souls" read — judge whether the exchange actually
+// touched each character by comparing their traces against the transcript below.
 function ConversationTracePreview({ conversation }: { conversation: ConversationEntry }) {
-  const items = conversationTraceItems(conversation);
-  if (!items.length) {
+  const traces = (conversation.memoryTraces ?? []).filter(
+    (trace) => trace.residueLineZh || trace.memoryLineZh,
+  );
+  if (!traces.length) {
     return (
       <div className="giis-wall-trace giis-wall-trace-empty">
         <span>留下</span>
@@ -306,11 +315,15 @@ function ConversationTracePreview({ conversation }: { conversation: Conversation
     );
   }
   return (
-    <div className="giis-wall-trace">
-      {items.slice(0, 3).map((item) => (
-        <div key={`${item.label}-${item.text}`}>
-          <span>{item.label}</span>
-          <p>{clip(item.text, 96)}</p>
+    <div className="giis-wall-trace giis-wall-soul-compare">
+      {traces.map((trace) => (
+        <div key={trace.characterName}>
+          <span>{displayWallName(trace.characterName)}心裡留下的</span>
+          {trace.residueLineZh ? (
+            <p className="giis-wall-residue-line">{displayWallText(trace.residueLineZh)}</p>
+          ) : (
+            <p className="giis-wall-memory-line">{displayWallText(trace.memoryLineZh ?? '')}</p>
+          )}
         </div>
       ))}
     </div>
@@ -411,7 +424,7 @@ function normalizeWallText(text: string) {
 }
 
 function hasTriadCharacter(names: string[]) {
-  return (names ?? []).some((name) => TRIAD_NAMES.has(name));
+  return (names ?? []).some((name) => PILOT_NAMES.has(name));
 }
 
 function wallRowCharacters(row: WallRow) {
