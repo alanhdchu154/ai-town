@@ -26,6 +26,7 @@ This repo follows the global Central Umi coordination contract in `/Users/alanhd
 - Project-local rules in this file control the AI Town product behavior, Convex/Vite architecture, playtest ritual, and repo-specific verification.
 - Use `underworld-continuity-qa` for runtime health, Convex/T9 state, fresh-world evidence, memory attribution, sleepNotes, addressee bugs, Alan-facing playtest gates, character continuity, and goal-alignment checks.
 - Use `cc-code-mode-handoff` before substantial implementation, diagnosis, review, eval, cleanup, or architecture work.
+- After meaningful Underworld work, update `/Users/alanhdchu/umi-central/ai/HANDOFF.md` before marking the task complete.
 - If Alan works directly in an Underworld project-lead conversation, align Central Umi immediately for product v0.1 priority changes, destructive state/storage choices, paper/publication decisions, cross-project tradeoffs, or new red/yellow risks; align at end of turn when `WORKLOG.md`, `umi/workload.md`, runtime evidence, blocker, risk, or next action changes.
 
 ## Local Product Voice
