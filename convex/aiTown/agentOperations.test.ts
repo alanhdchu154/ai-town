@@ -3,6 +3,7 @@ import {
   shouldRunAgentGenerationForTest,
   shouldRunAgentRememberForTest,
 } from './agentOperations';
+import { shouldQueueConversationMemoryOnStop } from './conversation';
 
 describe('agent schedule movement', () => {
   test('is enabled by default so daytime scenes can gather characters', () => {
@@ -73,5 +74,51 @@ describe('agent remember preflight', () => {
         'o:1',
       ),
     ).toEqual({ run: false, clear: true, reason: 'missing_archived_conversation' });
+  });
+
+  test('clears current remember operation when archived human chat has an unanswered tail', () => {
+    expect(
+      shouldRunAgentRememberForTest(
+        {
+          currentOperationId: 'o:1',
+          archivedConversationExists: true,
+          archivedConversationHasUnansweredHumanTail: true,
+        },
+        'o:1',
+      ),
+    ).toEqual({ run: false, clear: true, reason: 'unanswered_human_tail' });
+  });
+
+  test('runs current remember operation when a human conversation ended with the character replying', () => {
+    expect(
+      shouldRunAgentRememberForTest(
+        {
+          currentOperationId: 'o:1',
+          archivedConversationExists: true,
+          archivedConversationHasUnansweredHumanTail: false,
+        },
+        'o:1',
+      ),
+    ).toEqual({ run: true, clear: false, reason: 'ok' });
+  });
+});
+
+describe('conversation stop memory queue policy', () => {
+  test('does not queue memory for conversations with no messages', () => {
+    expect(
+      shouldQueueConversationMemoryOnStop({ hasMessages: false, lastAuthorIsHuman: false }),
+    ).toBe(false);
+  });
+
+  test('does not queue memory when a human sent the final message', () => {
+    expect(
+      shouldQueueConversationMemoryOnStop({ hasMessages: true, lastAuthorIsHuman: true }),
+    ).toBe(false);
+  });
+
+  test('queues memory when the final message came from a character', () => {
+    expect(
+      shouldQueueConversationMemoryOnStop({ hasMessages: true, lastAuthorIsHuman: false }),
+    ).toBe(true);
   });
 });

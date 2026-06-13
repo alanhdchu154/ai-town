@@ -196,6 +196,20 @@ describe('fallback / drift rejection', () => {
     expect(draft.eventSummary.startsWith('海與真晝')).toBe(true);
   });
 
+  test('benign parentheticals do not count as stage-direction leakage', () => {
+    const result = draftConversationExperienceLog({
+      playerName: 'Umi',
+      otherPlayerName: 'Mahiru',
+      summary: REAL_SUMMARY,
+      residue: '海記得真晝沒有催她。',
+      messages: [
+        { text: '（笑）明天早上我們去看鯊魚，好嗎？' },
+        { text: '好。那我不催你。' },
+      ],
+    });
+    expect(result.ok).toBe(true);
+  });
+
   test('an empty summary cannot produce a draft', () => {
     const result = draftConversationExperienceLog({
       playerName: 'Umi',

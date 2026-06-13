@@ -59,11 +59,18 @@ export function shouldRunAgentGenerationForTest(
 }
 
 export function shouldRunAgentRememberForTest(
-  state: { currentOperationId?: string; archivedConversationExists: boolean },
+  state: {
+    currentOperationId?: string;
+    archivedConversationExists: boolean;
+    archivedConversationHasUnansweredHumanTail?: boolean;
+  },
   operationId: string,
 ) {
   if (state.currentOperationId !== operationId) return { run: false, clear: false, reason: 'stale_operation' };
   if (!state.archivedConversationExists) return { run: false, clear: true, reason: 'missing_archived_conversation' };
+  if (state.archivedConversationHasUnansweredHumanTail) {
+    return { run: false, clear: true, reason: 'unanswered_human_tail' };
+  }
   return { run: true, clear: false, reason: 'ok' };
 }
 
@@ -81,10 +88,34 @@ export const agentRememberConversationPreflight = internalQuery({
       .query('archivedConversations')
       .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('id', args.conversationId))
       .first();
+    let archivedConversationHasUnansweredHumanTail = false;
+    if (world && archivedConversation) {
+      const humanParticipantIds = new Set(
+        archivedConversation.participants.filter((participantId: string) =>
+          world.players.some((player: any) => player.id === participantId && player.human),
+        ),
+      );
+      if (humanParticipantIds.size > 0) {
+        const messages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) =>
+            q.eq('worldId', args.worldId).eq('conversationId', args.conversationId),
+          )
+          .collect();
+        const lastMeaningful = messages
+          .filter((message) => message.text.trim().length > 0)
+          .sort((left, right) => left._creationTime - right._creationTime)
+          .at(-1);
+        archivedConversationHasUnansweredHumanTail = Boolean(
+          lastMeaningful && humanParticipantIds.has(lastMeaningful.author),
+        );
+      }
+    }
     return shouldRunAgentRememberForTest(
       {
         currentOperationId: agent?.inProgressOperation?.operationId,
         archivedConversationExists: Boolean(archivedConversation),
+        archivedConversationHasUnansweredHumanTail,
       },
       args.operationId,
     );

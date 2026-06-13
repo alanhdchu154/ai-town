@@ -64,7 +64,7 @@ type GameProps = {
   view?: 'world' | 'conversations';
   onChangeView?: (next: 'world' | 'conversations') => void;
 };
-type NotebookTab = '今日' | '日程' | '約定';
+type NotebookTab = '今日' | '日程' | '約定' | '回響';
 type NotebookCommitmentsData = {
   checkedAt: number;
   commitments: Array<{
@@ -74,6 +74,14 @@ type NotebookCommitmentsData = {
     expired: boolean;
     aboutAlan: boolean;
     fulfilled: boolean;
+  }>;
+};
+
+type NotebookReflectionsData = {
+  checkedAt: number;
+  characters: Array<{
+    name: string;
+    reflections: Array<{ text: string; importance: number; createdAt: number }>;
   }>;
 };
 
@@ -130,6 +138,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const campusSocialState = useQuery(api.school.campusSocialState, { timeZone: userTimeZone });
   const umiBriefing = useQuery(api.school.umiBriefing, { timeZone: userTimeZone });
   const notebookCommitments = useQuery(api.school.notebookCommitments);
+  const notebookReflections = useQuery(api.school.notebookReflections);
   const playerIdentity = useQuery(api.school.currentPlayerIdentity);
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
@@ -974,7 +983,9 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                       ? '今天的校園'
                       : notebookTab === '日程'
                         ? `${periodLabel}｜大家在哪`
-                        : '記著的約定'}
+                        : notebookTab === '約定'
+                          ? '記著的約定'
+                          : '大家內化的回響'}
                   </h3>
                 </div>
                 <button
@@ -987,7 +998,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 </button>
               </div>
               <div className="giis-notebook-tabs" role="tablist" aria-label="手帳分頁">
-                {(['今日', '日程', '約定'] as const).map((tab) => (
+                {(['今日', '日程', '約定', '回響'] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
@@ -1051,8 +1062,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                       )
                     }
                   />
-                ) : (
+                ) : notebookTab === '約定' ? (
                   <NotebookCommitmentsTab data={notebookCommitments} />
+                ) : (
+                  <NotebookReflectionsTab data={notebookReflections} />
                 )}
               </div>
             </aside>
@@ -2200,6 +2213,35 @@ function NotebookCommitmentsTab({ data }: { data?: NotebookCommitmentsData }) {
           ) : null}
           {fulfilled.length ? <CommitmentGroup titleZh="已兌現" items={fulfilled} /> : null}
         </>
+      )}
+    </div>
+  );
+}
+
+function NotebookReflectionsTab({ data }: { data?: NotebookReflectionsData }) {
+  const characters = data?.characters ?? [];
+  return (
+    <div className="giis-notebook-reflections">
+      <p className="giis-umi-brief-line">「睡前我會把今天想通的事，收進心裡。」</p>
+      {!data ? (
+        <p className="giis-empty-feed">回響整理中…</p>
+      ) : characters.length === 0 ? (
+        <p className="giis-empty-feed">大家還沒有沉澱出長期的回響。等世界多過幾天，夜裡的反思就會留在這裡。</p>
+      ) : (
+        characters.map((character) => (
+          <section key={character.name} className="giis-reflection-group">
+            <b>{character.name}</b>
+            {character.reflections.map((reflection) => (
+              <div
+                key={`${character.name}-${reflection.createdAt}-${stableTextHash(reflection.text)}`}
+                className="giis-reflection-row"
+              >
+                <span className="giis-reflection-text">{displayTextWithNames(reflection.text)}</span>
+                <small className="giis-reflection-meta">{commitmentDateLabel(reflection.createdAt)}</small>
+              </div>
+            ))}
+          </section>
+        ))
       )}
     </div>
   );

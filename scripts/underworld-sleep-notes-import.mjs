@@ -48,6 +48,26 @@ const CURATED_NOTES = [
     noteZh: '真晝記得天澤曾提醒她：不要把沉默的人都當成需要被拯救的難題。',
     usageHintZh: '面對沉默的人時，真晝可以陪著，但不要急著把對方變成任務。',
   },
+  {
+    // Alan-approved manual restore (2026-06-12): 海's 6/4 curry promise to
+    // Alan. The source memory exists in the archive export
+    // (umi/exports/archive-continuity-latest/memories.jsonl) but was excluded
+    // from the 12-row legacy evidence packet by the food-care motif skip rule,
+    // so it carries inline manual-source metadata instead of a legacy-evidence
+    // lookup. The original memory text embedded the known-confabulated
+    // 「世界變得太聰明」 line; this rewrite keeps only the verified promise.
+    sourceId: 'k17fd5rhj15b1km5n9det99qgx8821nn',
+    manualSource: {
+      sourceConversationId: 'c:92192',
+      sourceCreatedAt: 1780635081213,
+    },
+    subjectName: '海',
+    participantNames: ['海', 'Alan'],
+    noteType: 'long_term_memory_candidate',
+    importance: 7,
+    noteZh: '海記得自己曾答應 Alan 要為他做一頓咖哩飯，那頓咖哩到現在還沒一起吃。',
+    usageHintZh: '再見到 Alan 時，海可以主動提起這個還沒兌現的約定，重新約一個時間一起吃。',
+  },
 ];
 
 const args = parseArgs(process.argv.slice(2));
@@ -88,12 +108,16 @@ function buildCuratedRows(legacyRows) {
   const now = Date.now();
   const sourceById = new Map(legacyRows.map((row) => [row.sourceId, row]));
   return CURATED_NOTES.map((note) => {
-    const source = sourceById.get(note.sourceId);
-    if (!source) throw new Error(`curated note source not found in legacy rows: ${note.sourceId}`);
+    const source = note.manualSource ? null : sourceById.get(note.sourceId);
+    if (!note.manualSource && !source) {
+      throw new Error(`curated note source not found in legacy rows: ${note.sourceId}`);
+    }
     return {
-      sourceKind: 'legacyContinuityEvidence',
+      sourceKind: note.manualSource ? 'manual' : 'legacyContinuityEvidence',
       sourceEvidenceId: note.sourceId,
-      sourceConversationId: source.primaryConversationId ?? source.conversationIds?.[0],
+      sourceConversationId: note.manualSource
+        ? note.manualSource.sourceConversationId
+        : (source.primaryConversationId ?? source.conversationIds?.[0]),
       legacyArchive: true,
       promptFacing: true,
       freshEvalEligible: false,
@@ -106,7 +130,11 @@ function buildCuratedRows(legacyRows) {
       riskTags: [],
       motifHash: motifHash(`${note.subjectName}:${note.noteZh}`),
       importance: note.importance,
-      createdAt: source.sourceCreatedAtIso ? Date.parse(source.sourceCreatedAtIso) : now,
+      createdAt: note.manualSource
+        ? note.manualSource.sourceCreatedAt
+        : source.sourceCreatedAtIso
+          ? Date.parse(source.sourceCreatedAtIso)
+          : now,
       updatedAt: now,
       promotedAt: now,
       promotedBy: 'alan-approved-codex-20260612',
@@ -235,7 +263,7 @@ function parseArgs(argv) {
 
 function runSelfTest() {
   const rows = CURATED_NOTES.map((note) => ({
-    sourceKind: 'legacyContinuityEvidence',
+    sourceKind: note.manualSource ? 'manual' : 'legacyContinuityEvidence',
     sourceEvidenceId: note.sourceId,
     legacyArchive: true,
     promptFacing: true,

@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { ActionCtx, DatabaseReader, internalAction, internalMutation, internalQuery } from '../_generated/server';
+import { ActionCtx, DatabaseReader, action, internalAction, internalMutation, internalQuery } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { EMBEDDING_DIMENSION, LLMMessage, chatCompletion, fetchEmbedding } from '../util/llm';
@@ -13,7 +13,12 @@ import {
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
 import { conversationEligibleForLLM } from './conversation';
-import { hasDialogueSystemPhraseLeak } from './dialogueHygiene';
+import { pilotExperienceLogName } from './experienceLog';
+import {
+  hasFirstPersonStageDirectionLeak,
+  hasDialogueSystemPhraseLeak,
+  hasThirdPersonSelfNarrationLeak,
+} from './dialogueHygiene';
 import { giisProfileForName } from '../../data/giisProfiles';
 
 // How long to wait before updating a memory's last access time.
@@ -178,6 +183,18 @@ export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
   const best = scored[0];
   if (best.score <= 0) return candidates.at(-1)?.text ?? '';
   return best.text;
+}
+
+export function hasUnansweredHumanTailForMemory(
+  messages: Array<{ author: string; text: string; _creationTime?: number }>,
+  humanPlayerIds: Set<string>,
+) {
+  if (humanPlayerIds.size === 0) return false;
+  const meaningful = messages
+    .filter((message) => message.text.trim().length > 0)
+    .sort((left, right) => (left._creationTime ?? 0) - (right._creationTime ?? 0));
+  const last = meaningful.at(-1);
+  return Boolean(last && humanPlayerIds.has(last.author));
 }
 
 export function concreteCommitmentSummaryForMessages(
@@ -790,6 +807,10 @@ function isDegeneratePilotExitMemory(
   );
 }
 
+export function hasDialogueStageDirectionLeak(text: string) {
+  return hasThirdPersonSelfNarrationLeak(text) || hasFirstPersonStageDirectionLeak(text);
+}
+
 async function memoryEmbedding(description: string) {
   if (MEMORY_EMBEDDING_MODE === 'deterministic') {
     return deterministicEmbedding(description);
@@ -825,6 +846,21 @@ export async function rememberConversation(
   const meaningfulMessages = messages.filter((message) => message.text.trim().length > 0);
   const meaningfulAuthors = new Set(meaningfulMessages.map((message) => message.author));
   const humanInConversation = Boolean(player.human || otherPlayer.human);
+  if (
+    hasUnansweredHumanTailForMemory(
+      messages,
+      new Set([player, otherPlayer].filter((participant) => participant.human).map((participant) => participant.id)),
+    )
+  ) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipUnansweredHumanTail',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+      conversationId,
+    });
+    return;
+  }
   const participantNames = [player.name, otherPlayer.name];
   const meaningfulMessageTexts = meaningfulMessages.map((message) => message.text);
   const allowShortAutonomousSoulMemory =
@@ -885,6 +921,16 @@ export async function rememberConversation(
     });
     return;
   }
+  if (messages.some((message) => hasDialogueStageDirectionLeak(message.text))) {
+    logGiisTiming({
+      action: 'rememberConversation',
+      phase: 'skipDialogueStageDirectionLeak',
+      player: player.name,
+      otherPlayer: otherPlayer.name,
+      conversationId,
+    });
+    return;
+  }
   if (messages.some((message) => hasMemoryPostProcessingDrift(message.text))) {
     logGiisTiming({
       action: 'rememberConversation',
@@ -919,16 +965,29 @@ export async function rememberConversation(
   }
   llmMessages.push({ role: 'user', content: 'Summary:' });
   const summaryStart = Date.now();
-  const content = MEMORY_LLM_DETERMINISTIC
-    ? fallbackSummary
-    : await safeMemoryCompletion(
+  // Subjective first-person memory. The same event should be remembered
+  // differently by each participant ("I liked / disliked this"), so the
+  // conversations that most need a distinct voice — Alan-facing chats and the
+  // pilot residue pairs — get the LLM first-person summary even when the
+  // global default is the cheap deterministic template. NPC-eligible
+  // autonomous small talk keeps the template to bound provider cost. The
+  // early conversationEligibleForLLM gate already removed pure-template
+  // NPC↔NPC chatter, and safeMemoryCompletion falls back to the template on
+  // any provider error/timeout, so this never blocks a memory write.
+  const useSubjectiveLlmSummary =
+    !MEMORY_LLM_DETERMINISTIC ||
+    humanInConversation ||
+    pilotResiduePair(player.name, otherPlayer.name);
+  const content = useSubjectiveLlmSummary
+    ? await safeMemoryCompletion(
         {
           messages: llmMessages,
           max_tokens: 500,
           timeoutMs: MEMORY_LLM_TIMEOUT_MS,
         },
         fallbackSummary,
-      );
+      )
+    : fallbackSummary;
   // Use the conversation's logical start (`created`) rather than the DB row's
   // `_creationTime`. They coincide for live conversations, but for a re-archived
   // (backfilled) conversation `_creationTime` is the re-archive moment, which
@@ -1168,6 +1227,115 @@ export const reflectOnMemoriesAction = internalAction({
       reflected,
     });
     return reflected;
+  },
+});
+
+// Nightly "睡前回響": once a (local) day, each pilot character reviews the day's
+// memories and the LLM consolidates at most a few into long-term character
+// memory. Default mode is 'shadow' — it computes and returns what WOULD be
+// kept, writing nothing — so Alan can read the preview (and catch fabrications
+// hardening into traits) before the write path is ever enabled. 'write'
+// requires the approval token AND skips any character who already reflected
+// today, so re-running the cron is idempotent.
+const NIGHTLY_REFLECTION_APPROVAL = 'alan-approved-nightly-reflection-2026-06-12';
+const NIGHTLY_REFLECTION_THRESHOLD = Number(
+  process.env.NIGHTLY_REFLECTION_THRESHOLD ?? 18,
+);
+
+export function localDayKey(ts: number) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(ts));
+}
+
+export const nightlyReflectionForWorld = action({
+  args: {
+    worldId: v.id('worlds'),
+    mode: v.optional(v.union(v.literal('shadow'), v.literal('write'))),
+    approval: v.optional(v.string()),
+    threshold: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const mode = args.mode ?? 'shadow';
+    if (mode === 'write' && args.approval !== NIGHTLY_REFLECTION_APPROVAL) {
+      throw new Error('nightly reflection write requires the approval token');
+    }
+    const threshold = args.threshold ?? NIGHTLY_REFLECTION_THRESHOLD;
+    const now = Date.now();
+    const todayKey = localDayKey(now);
+
+    const players = await ctx.runQuery(internal.agent.memory.pilotPlayersForReflection, {
+      worldId: args.worldId,
+    });
+
+    const perCharacter = [];
+    let written = 0;
+    for (const player of players) {
+      const result = await computeReflectionInsights(
+        ctx,
+        args.worldId,
+        player.playerId as GameId<'players'>,
+        { threshold },
+      );
+      const alreadyReflectedToday =
+        result.lastReflectionTs !== undefined && localDayKey(result.lastReflectionTs) === todayKey;
+
+      let didWrite = false;
+      if (
+        mode === 'write' &&
+        result.shouldReflect &&
+        result.memoriesToSave.length > 0 &&
+        !alreadyReflectedToday
+      ) {
+        await ctx.runMutation(selfInternal.insertReflectionMemories, {
+          worldId: args.worldId,
+          playerId: player.playerId as GameId<'players'>,
+          reflections: result.memoriesToSave,
+        });
+        didWrite = true;
+        written += 1;
+      }
+
+      perCharacter.push({
+        name: result.name,
+        shouldReflect: result.shouldReflect,
+        sumImportance: result.sumImportance,
+        threshold: result.threshold,
+        newSinceLastCount: result.newSinceLastCount,
+        consideredCount: result.consideredCount,
+        alreadyReflectedToday,
+        wouldKeep: result.memoriesToSave.map((m) => ({
+          insight: m.description,
+          importance: m.importance,
+          relatedCount: m.relatedMemoryIds.length,
+        })),
+        wrote: didWrite,
+      });
+    }
+
+    return { mode, todayKey, threshold, characters: perCharacter, written };
+  },
+});
+
+export const pilotPlayersForReflection = internalQuery({
+  args: { worldId: v.id('worlds') },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) throw new Error(`World ${args.worldId} not found`);
+    const out: { playerId: string; name: string }[] = [];
+    for (const player of world.players) {
+      const description = await ctx.db
+        .query('playerDescriptions')
+        .withIndex('worldId', (q) => q.eq('worldId', args.worldId).eq('playerId', player.id))
+        .first();
+      if (!description) continue;
+      if (!pilotExperienceLogName(description.name)) continue;
+      out.push({ playerId: player.id, name: description.name });
+    }
+    return out;
   },
 });
 
@@ -1421,30 +1589,25 @@ async function reflectOnMemories(
   worldId: Id<'worlds'>,
   playerId: GameId<'players'>,
 ) {
-  const { memories, lastReflectionTs, name } = await ctx.runQuery(
-    internal.agent.memory.getReflectionMemories,
-    {
-      worldId,
-      playerId,
-      numberOfItems: 100,
-    },
-  );
-
-  // Reflect only after enough meaningful daily experiences accumulate. This is the
-  // lightweight promotion step: ordinary moments stay episodic, repeated or
-  // emotionally consequential moments can become long-term character memory.
-  const sumOfImportanceScore = memories
-    .filter((m: Memory) => m._creationTime > (lastReflectionTs ?? 0))
-    .reduce((acc: number, curr: Memory) => acc + curr.importance, 0);
-  const shouldReflect = sumOfImportanceScore > REFLECTION_IMPORTANCE_THRESHOLD;
-
-  if (!shouldReflect) {
+  const insightResult = await computeReflectionInsights(ctx, worldId, playerId, {
+    threshold: REFLECTION_IMPORTANCE_THRESHOLD,
+  });
+  if (!insightResult.shouldReflect || insightResult.memoriesToSave.length === 0) {
     return false;
   }
-  console.debug('sum of importance score = ', sumOfImportanceScore);
-  console.debug('Reflecting...');
+  await ctx.runMutation(selfInternal.insertReflectionMemories, {
+    worldId,
+    playerId,
+    reflections: insightResult.memoriesToSave,
+  });
+  return true;
+}
+
+// The prompt is intentionally separate so the nightly "睡前回響" path and the
+// legacy threshold-triggered path build the exact same reflection instruction.
+export function buildReflectionPrompt(name: string, memories: Pick<Memory, 'description'>[]) {
   const prompt = ['[no prose]', '[Output only JSON]', `You are ${name}, statements about you:`];
-  memories.forEach((m: Memory, idx: number) => {
+  memories.forEach((m, idx) => {
     prompt.push(`Statement ${idx}: ${m.description}`);
   });
   prompt.push(
@@ -1453,52 +1616,112 @@ async function reflectOnMemories(
   prompt.push(
     'Each insight should sound like an internal memory in Traditional Chinese, not a report. Prefer concrete relationship/emotional consequences over generic worldview summaries.',
   );
+  // Anti-confabulation: a single bad daily memory must not become a permanent
+  // belief. Objective facts about Alan and the world (who lives where, who said
+  // what, whether something exists) are never inferred here — only the
+  // character's own relational/emotional stance. This is the guard that stops a
+  // night of fabricated small talk ("AI社海報", "我住宿舍") from hardening into a
+  // trait. See SOUL_PROGRESSION_PLAN nightly-reflection note.
+  prompt.push(
+    'Do NOT invent or assert any external world fact, place, object, schedule, or what another person said or did. If a statement looks like a factual claim about Alan or the world that was corrected or is uncertain, do not promote it. Reflect only on this character\'s own feelings, stance, and relationship change.',
+  );
   prompt.push(
     'Return in JSON format, where the key is a list of input statements that contributed to your insights and value is your insight. Make the response parseable by Typescript JSON.parse() function. DO NOT escape characters or include "\n" or white space in response.',
   );
   prompt.push(
     'Example: [{insight: "...", statementIds: [1,2]}, {insight: "...", statementIds: [1]}, ...]',
   );
+  return prompt.join('\n');
+}
 
-  const reflection = await safeMemoryCompletion(
+export type ReflectionInsightResult = {
+  name: string;
+  shouldReflect: boolean;
+  sumImportance: number;
+  threshold: number;
+  consideredCount: number;
+  newSinceLastCount: number;
+  lastReflectionTs?: number;
+  rawReflection: string;
+  insights: { insight: string; statementIds: number[] }[];
+  memoriesToSave: {
+    description: string;
+    embedding: number[];
+    importance: number;
+    relatedMemoryIds: Id<'memories'>[];
+  }[];
+};
+
+// Compute (but do NOT write) a character's reflection. The nightly "睡前回響"
+// shadow mode calls this to preview what each character would consolidate
+// tonight without polluting memory; the write path inserts memoriesToSave.
+export async function computeReflectionInsights(
+  ctx: ActionCtx,
+  worldId: Id<'worlds'>,
+  playerId: GameId<'players'>,
+  options?: { threshold?: number; numberOfItems?: number },
+): Promise<ReflectionInsightResult> {
+  const threshold = options?.threshold ?? REFLECTION_IMPORTANCE_THRESHOLD;
+  const { memories, lastReflectionTs, name } = await ctx.runQuery(
+    internal.agent.memory.getReflectionMemories,
     {
-      messages: [
-        {
-          role: 'user',
-          content: prompt.join('\n'),
-        },
-      ],
+      worldId,
+      playerId,
+      numberOfItems: options?.numberOfItems ?? 100,
+    },
+  );
+
+  const newSince = memories.filter((m: Memory) => m._creationTime > (lastReflectionTs ?? 0));
+  const sumImportance = newSince.reduce((acc: number, curr: Memory) => acc + curr.importance, 0);
+  const shouldReflect = sumImportance > threshold;
+
+  const empty: ReflectionInsightResult = {
+    name,
+    shouldReflect,
+    sumImportance,
+    threshold,
+    consideredCount: memories.length,
+    newSinceLastCount: newSince.length,
+    lastReflectionTs,
+    rawReflection: '[]',
+    insights: [],
+    memoriesToSave: [],
+  };
+  if (!shouldReflect) {
+    return empty;
+  }
+
+  const rawReflection = await safeMemoryCompletion(
+    {
+      messages: [{ role: 'user', content: buildReflectionPrompt(name, memories) }],
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },
     '[]',
   );
 
+  let insights: { insight: string; statementIds: number[] }[] = [];
   try {
-    const insights = JSON.parse(reflection) as { insight: string; statementIds: number[] }[];
-    const memoriesToSave = await asyncMap(insights, async (item) => {
-      const relatedMemoryIds = item.statementIds.map((idx: number) => memories[idx]._id);
-      const importance = await calculateImportance(item.insight);
-      const embedding = await memoryEmbedding(item.insight);
-      console.debug('adding reflection memory...', item.insight);
-      return {
-        description: item.insight,
-        embedding,
-        importance,
-        relatedMemoryIds,
-      };
-    });
-
-    await ctx.runMutation(selfInternal.insertReflectionMemories, {
-      worldId,
-      playerId,
-      reflections: memoriesToSave,
-    });
+    insights = JSON.parse(rawReflection) as { insight: string; statementIds: number[] }[];
   } catch (e) {
-    console.error('error saving or parsing reflection', e);
-    console.debug('reflection', reflection);
-    return false;
+    console.error('error parsing reflection', e);
+    return { ...empty, rawReflection };
   }
-  return true;
+
+  const memoriesToSave = await asyncMap(insights, async (item) => {
+    const relatedMemoryIds = item.statementIds
+      .map((idx: number) => memories[idx]?._id)
+      .filter((id): id is Id<'memories'> => Boolean(id));
+    const importance = await calculateImportance(item.insight);
+    const embedding = await memoryEmbedding(item.insight);
+    return { description: item.insight, embedding, importance, relatedMemoryIds };
+  });
+
+  return {
+    ...empty,
+    rawReflection,
+    insights,
+    memoriesToSave,
+  };
 }
 
 async function safeMemoryCompletion(

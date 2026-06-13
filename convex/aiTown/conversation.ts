@@ -193,11 +193,18 @@ export class Conversation {
 
   stop(game: Game, now: number) {
     delete this.isTyping;
+    const lastAuthor = this.lastMessage?.author;
+    const shouldQueueMemory = shouldQueueConversationMemoryOnStop({
+      hasMessages: Boolean(lastAuthor),
+      lastAuthorIsHuman: lastAuthor ? Boolean(game.world.players.get(lastAuthor)?.human) : false,
+    });
     for (const [playerId, member] of this.participants.entries()) {
       const agent = [...game.world.agents.values()].find((a) => a.playerId === playerId);
       if (agent) {
         agent.lastConversation = now;
-        agent.toRemember = this.id;
+        if (shouldQueueMemory) {
+          agent.toRemember = this.id;
+        }
       }
     }
     game.world.conversations.delete(this.id);
@@ -223,6 +230,14 @@ export class Conversation {
       participants: serializeMap(this.participants),
     };
   }
+}
+
+export function shouldQueueConversationMemoryOnStop(state: {
+  hasMessages: boolean;
+  lastAuthorIsHuman: boolean;
+}) {
+  if (!state.hasMessages) return false;
+  return !state.lastAuthorIsHuman;
 }
 
 export const serializedConversation = {

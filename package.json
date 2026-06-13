@@ -57,6 +57,8 @@
     "underworld:sleep-notes-import:self-test": "node scripts/underworld-sleep-notes-import.mjs --self-test",
     "underworld:experience-sleep-promote": "node scripts/underworld-experience-sleep-promote.mjs",
     "underworld:experience-sleep-promote:self-test": "node scripts/underworld-experience-sleep-promote.mjs --self-test",
+    "underworld:nightly-reflection": "node scripts/underworld-nightly-reflection.mjs",
+    "underworld:nightly-reflection:write": "node scripts/underworld-nightly-reflection.mjs --write --approval=alan-approved-nightly-reflection-2026-06-12",
     "underworld:rubric-reconcile": "node scripts/underworld-rubric-reconcile.mjs",
     "underworld:rubric-reconcile:self-test": "node scripts/underworld-rubric-reconcile.mjs --self-test",
     "underworld:repair-gate": "node scripts/underworld-repair-gate.mjs",

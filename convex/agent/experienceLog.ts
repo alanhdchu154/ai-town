@@ -5,9 +5,9 @@ import { conversationId, playerId } from '../aiTown/ids';
 import { wouldRepairConversationAddresseeText } from '../aiTown/addresseeRepair';
 import { isGeneratedFallbackText } from '../modelPolicy';
 import {
+  hasFirstPersonStageDirectionLeak,
   hasDialogueSystemPhraseLeak,
   hasThirdPersonSelfNarrationLeak,
-  stripStageDirectionsFromDialogue,
 } from './dialogueHygiene';
 import { hasMemoryPostProcessingDrift } from './memory';
 
@@ -116,7 +116,7 @@ function looksLikeJunkText(text: string) {
 function hasStageDirectionLeak(text: string) {
   if (!text) return false;
   if (hasThirdPersonSelfNarrationLeak(text)) return true;
-  return stripStageDirectionsFromDialogue(text).strippedStageDirection;
+  return hasFirstPersonStageDirectionLeak(text);
 }
 
 function hasWrongAddresseeLeak(

@@ -3766,6 +3766,49 @@ export const notebookCommitments = query({
   },
 });
 
+// 校園手帳「回響」分頁: what each character has internalised from their days,
+// i.e. the long-term `reflection`-type memories produced by 睡前回響 (nightly
+// reflection). Read-only. Returns at most a few recent reflections per pilot so
+// Alan can see who is changing and how, without dumping raw conversation
+// memory. Empty until nightly reflection runs in --write mode.
+export const notebookReflections = query({
+  args: {},
+  handler: async (ctx) => {
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const characters: {
+      name: string;
+      reflections: { text: string; importance: number; createdAt: number }[];
+    }[] = [];
+    for (const description of descriptions.values()) {
+      if (description.name === DEFAULT_NAME) continue;
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId_type', (q) =>
+          q.eq('playerId', description.playerId).eq('data.type', 'reflection'),
+        )
+        .order('desc')
+        .take(20);
+      const reflections = memories
+        .filter((memoryDoc) => shouldExposeMemoryDescription(memoryDoc.description))
+        .slice(0, 4)
+        .map((memoryDoc) => ({
+          text: memoryDoc.description,
+          importance: memoryDoc.importance,
+          createdAt: memoryDoc._creationTime,
+        }));
+      if (reflections.length) {
+        characters.push({ name: displayNameZh(description.name), reflections });
+      }
+    }
+    characters.sort(
+      (left, right) =>
+        (right.reflections[0]?.createdAt ?? 0) - (left.reflections[0]?.createdAt ?? 0),
+    );
+    return { checkedAt: Date.now(), characters };
+  },
+});
+
 // One-off / manual memory hygiene: stamp memories whose content was fabricated
 // and later corrected (e.g. 海's 6/4 「世界變得太聰明」 line) so they stop
 // surfacing as canon. Read paths hide marked memories; importance drops to 0.
@@ -10363,5 +10406,168 @@ export const ensureDefaultWorldProfiles = internalMutation({
     }
     await ensureStoredProfileDefaults(ctx, world._id, descriptions);
     await ensureInitialRelationships(ctx, world._id, descriptions);
+  },
+});
+
+export const debugAlanConversationState = query({
+  args: {},
+  handler: async (ctx) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const nameFor = (id: string) => descriptions.get(id)?.name ?? id;
+    const alan = world.players.find((player) => nameFor(player.id) === DEFAULT_NAME);
+    const umi = world.players.find((player) => nameFor(player.id) === 'Umi');
+    const alanConversationIds = new Set<string>();
+    const activeConversations = [];
+    for (const conversation of world.conversations ?? []) {
+      const participants = (conversation.participants ?? []).map((participant: any) => ({
+        playerId: participant.playerId,
+        name: nameFor(participant.playerId),
+      }));
+      if (participants.some((participant) => participant.name === DEFAULT_NAME)) {
+        alanConversationIds.add(conversation.id);
+      }
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      activeConversations.push({
+        id: conversation.id,
+        created: conversation.created,
+        lastMessage: conversation.lastMessage,
+        numMessages: conversation.numMessages,
+        participants,
+        hasAlan: participants.some((participant) => participant.name === DEFAULT_NAME),
+        hasUmi: participants.some((participant) => participant.name === 'Umi'),
+        messages: messages
+          .sort((a, b) => a._creationTime - b._creationTime)
+          .map((message) => ({
+            author: message.author,
+            authorName: nameFor(message.author),
+            text: message.text,
+            creationTime: message._creationTime,
+            messageUuid: message.messageUuid,
+          })),
+      });
+    }
+    const archived = await ctx.db
+      .query('archivedConversations')
+      .withIndex('ended', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(20);
+    const recentArchived = [];
+    for (const conversation of archived) {
+      const participantNames = conversation.participants.map((id) => nameFor(id));
+      if (!participantNames.includes(DEFAULT_NAME)) continue;
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      const participantMemories = [];
+      for (const participantId of conversation.participants) {
+        const memories = await ctx.db
+          .query('memories')
+          .withIndex('playerId_type', (q) => q.eq('playerId', participantId).eq('data.type', 'conversation'))
+          .collect();
+        participantMemories.push(
+          ...memories
+            .filter((memory: any) => memory.data.conversationId === conversation.id)
+            .map((memory: any) => ({
+              playerId: participantId,
+              playerName: nameFor(participantId),
+              description: memory.description,
+              importance: memory.importance,
+              createdAt: memory._creationTime,
+            })),
+        );
+      }
+      const experienceLogs = await ctx.db
+        .query('experienceLogs')
+        .withIndex('worldDay', (q) => q.eq('worldId', world._id))
+        .collect();
+      recentArchived.push({
+        id: conversation.id,
+        created: conversation.created,
+        ended: conversation.ended,
+        numMessages: conversation.numMessages,
+        participantNames,
+        memoryCount: participantMemories.length,
+        memories: participantMemories,
+        experienceLogs: experienceLogs
+          .filter((row: any) => row.source.conversationId === conversation.id)
+          .map((row: any) => ({
+            characterName: row.characterName,
+            eventSummary: row.eventSummary,
+            residue: row.residue,
+            createdAt: row.createdAt,
+          })),
+        messages: messages
+          .sort((a, b) => a._creationTime - b._creationTime)
+          .map((message) => ({
+            authorName: nameFor(message.author),
+            text: message.text,
+            creationTime: message._creationTime,
+          })),
+      });
+    }
+    const engine = await ctx.db.get(worldStatus.engineId);
+    const agents = world.agents.map((agent: any) => ({
+      id: agent.id,
+      playerId: agent.playerId,
+      playerName: nameFor(agent.playerId),
+      inProgressOperation: agent.inProgressOperation ?? null,
+      toRemember: agent.toRemember,
+      lastConversation: agent.lastConversation,
+    }));
+    return {
+      worldId: world._id,
+      status: worldStatus.status,
+      worldClock: worldStatus.worldClock,
+      engine: engine
+        ? {
+            id: engine._id,
+            running: engine.running,
+            generationNumber: engine.generationNumber,
+            currentTime: engine.currentTime,
+            lastStepTs: engine.lastStepTs,
+            processedInputNumber: engine.processedInputNumber,
+          }
+        : null,
+      alan: alan ? { id: alan.id, name: nameFor(alan.id) } : null,
+      umi: umi ? { id: umi.id, name: nameFor(umi.id) } : null,
+      agents,
+      activeConversationCount: world.conversations?.length ?? 0,
+      alanConversationIds: [...alanConversationIds],
+      activeConversations,
+      recentArchived,
+    };
+  },
+});
+
+export const clearAgentToRememberForRepair = mutation({
+  args: {
+    agentId: v.string(),
+    conversationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { world } = await defaultWorld(ctx);
+    let cleared = false;
+    const agents = world.agents.map((agent: any) => {
+      if (agent.id !== args.agentId || agent.toRemember !== args.conversationId) {
+        return agent;
+      }
+      cleared = true;
+      const { toRemember, ...rest } = agent;
+      void toRemember;
+      return rest;
+    });
+    if (cleared) {
+      await ctx.db.patch(world._id, { agents });
+    }
+    return { cleared, agentId: args.agentId, conversationId: args.conversationId };
   },
 });

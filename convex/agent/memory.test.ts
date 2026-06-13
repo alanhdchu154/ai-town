@@ -1,12 +1,16 @@
 import {
   COMMITMENT_FULFILLED_MARKER,
   RECALL_CORRECTED_MARKER,
+  buildReflectionPrompt,
+  localDayKey,
   claimedRecallFragmentsFromMessages,
   commitmentFromMemoryDescription,
   commitmentIsExpired,
   commitmentIsFulfilled,
   conversationHasRecallCorrection,
   concreteCommitmentSummaryForMessages,
+  hasDialogueStageDirectionLeak,
+  hasUnansweredHumanTailForMemory,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
   otherParticipantIdForConversation,
@@ -198,6 +202,13 @@ describe('memory post-processing hygiene', () => {
     expect(shouldExposeMemoryDescription(helperDescription)).toBe(false);
   });
 
+  test('detects first-person action narration as dialogue stage-direction leakage', () => {
+    expect(hasDialogueStageDirectionLeak('我關上抽屜，順手把窗也拉嚴了一點。')).toBe(true);
+    expect(hasDialogueStageDirectionLeak('我指尖還停在你手背上。')).toBe(true);
+    expect(hasDialogueStageDirectionLeak('（笑）明天早上我們去看鯊魚，好嗎？')).toBe(false);
+    expect(hasDialogueStageDirectionLeak('明天早上我們去看鯊魚，好嗎？')).toBe(false);
+  });
+
   test('hides admin and slogan drift from autonomous conversation memory', () => {
     const budgetDescription =
       '與 一之瀨 在 5/28/2026 的對話：最後留下的重點是：「我先把這筆預算的執行清單寫好，這份文件的核對工作你願意分擔一半嗎？」';
@@ -367,6 +378,41 @@ describe('memory post-processing hygiene', () => {
     expect(shouldPersistConversationMemoryShape(3, 1, false, true)).toBe(false);
   });
 
+  test('treats a final human message as an unanswered tail, not a completed memory', () => {
+    const humanIds = new Set(['p:alan']);
+    expect(
+      hasUnansweredHumanTailForMemory(
+        [
+          { author: 'p:alan', text: '海', _creationTime: 1 },
+          { author: 'p:umi', text: '嗯，我在。', _creationTime: 2 },
+          { author: 'p:alan', text: '哈囉哈囉', _creationTime: 3 },
+        ],
+        humanIds,
+      ),
+    ).toBe(true);
+    expect(
+      hasUnansweredHumanTailForMemory(
+        [
+          { author: 'p:alan', text: '海', _creationTime: 1 },
+          { author: 'p:umi', text: '嗯，我在。', _creationTime: 2 },
+        ],
+        humanIds,
+      ),
+    ).toBe(false);
+  });
+
+  test('does not flag unanswered human tail when no human participant is present', () => {
+    expect(
+      hasUnansweredHumanTailForMemory(
+        [
+          { author: 'p:umi', text: '明天早上我們去看鯊魚，好嗎？', _creationTime: 1 },
+          { author: 'p:mahiru', text: '好。那我不催你。', _creationTime: 2 },
+        ],
+        new Set(),
+      ),
+    ).toBe(false);
+  });
+
   test('chooses emotional burden anchor instead of the final surface action', () => {
     const anchor = memoryAnchorTextForMessages([
       { text: '這份表格我已經填了一半，但下午的會議資料還需要人整理。你願意分走一半嗎？我不想一個人把所有事情都扛下來。' },
@@ -376,5 +422,27 @@ describe('memory post-processing hygiene', () => {
 
     expect(anchor).toContain('不想一個人');
     expect(anchor).toContain('扛');
+  });
+});
+
+describe('nightly reflection (睡前回響)', () => {
+  it('reflection prompt forbids inventing world facts / who-said-what', () => {
+    const prompt = buildReflectionPrompt('海', [
+      { description: '與 Alan 的對話：海答應為 Alan 做咖哩飯。' },
+    ]);
+    expect(prompt).toContain('You are 海');
+    expect(prompt).toContain('Statement 0');
+    // Anti-confabulation guard must be present so a night of fabricated small
+    // talk does not harden into a permanent trait.
+    expect(prompt).toMatch(/Do NOT invent or assert any external world fact/);
+    expect(prompt).toMatch(/Reflect only on this character's own feelings/);
+  });
+
+  it('localDayKey is stable within a local day and changes across days', () => {
+    const morning = Date.parse('2026-06-12T13:30:00Z'); // 08:30 America/Chicago
+    const night = Date.parse('2026-06-13T02:30:00Z'); // 21:30 same Chicago day
+    const nextDay = Date.parse('2026-06-13T13:30:00Z'); // next Chicago morning
+    expect(localDayKey(morning)).toBe(localDayKey(night));
+    expect(localDayKey(morning)).not.toBe(localDayKey(nextDay));
   });
 });
