@@ -540,27 +540,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       if (aRank !== bRank) return aRank - bRank;
       return a.displayName.localeCompare(b.displayName, 'zh-Hant');
     });
-  const alanPresenceCard: SceneStageCharacter | undefined = alanPlayer
-    ? undefined
-    : {
-        name: 'Alan',
-        displayName: 'Alan',
-        statusZh: playerIdentity?.status === 'away' ? '離校處理其他公司' : '尚未接手 Alan',
-        activityLabel: playerIdentity?.status === 'away' ? '離校中' : '未在線',
-        activityKind: 'observing',
-        activityIcon: '⌁',
-        emotion: 'neutral',
-        emotionLabel: playerIdentity?.status === 'away' ? '離線' : '待接手',
-        quietLineZh:
-          playerIdentity?.status === 'away'
-            ? 'Alan 目前沒有站在校園裡。'
-            : '接手 Alan 後，他會出現在世界裡。',
-        isTalking: false,
-        isSelected: false,
-        isAlan: true,
-        isOffScene: true,
-        isPresenceOnly: true,
-      };
   const occupiedGroups = sceneGroups.filter((group) => group.occupants.length > 0);
   const occupiedRoomLabels = occupiedGroups.map(
     (group) => `${group.location.labelZh} (${group.occupants.length})`,
@@ -1087,7 +1066,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
             <SceneStage
               scene={currentScene}
               characters={sceneStageCharacters}
-              alanPresence={alanPresenceCard}
               occupiedGroups={occupiedGroups.map(({ location, occupants }) => ({
                 id: location.id,
                 labelZh: location.labelZh,
@@ -1265,11 +1243,6 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
               </span>
             ) : (
               <span className="giis-soft-prompt">選一位角色開始互動。</span>
-            )}
-            {visibleSceneNames.length ? (
-              <span>本場景：{visibleSceneNames.join('、')}</span>
-            ) : (
-              <span>校園目前很平靜。</span>
             )}
           </div>
           <div className="giis-bottom-actions">
@@ -1490,7 +1463,6 @@ type SceneStageCharacter = {
   isSelected: boolean;
   isAlan: boolean;
   isOffScene?: boolean;
-  isPresenceOnly?: boolean;
 };
 
 type SceneActivityKind =
@@ -1507,7 +1479,6 @@ type SceneActivityKind =
 function SceneStage({
   scene,
   characters,
-  alanPresence,
   occupiedGroups,
   periodLabel,
   onSelectCharacter,
@@ -1516,7 +1487,6 @@ function SceneStage({
 }: {
   scene: SchoolLocation;
   characters: SceneStageCharacter[];
-  alanPresence?: SceneStageCharacter;
   occupiedGroups: Array<{ id: SchoolLocationId; labelZh: string; count: number }>;
   periodLabel: string;
   onSelectCharacter: (id: GameId<'players'>) => void;
@@ -1525,12 +1495,18 @@ function SceneStage({
 }) {
   const hooks = sceneHooksForScene(scene);
   const nonEmptyOtherScenes = occupiedGroups.filter((group) => group.id !== scene.id && group.count > 0);
-  const stageCharacters = alanPresence ? [...characters, alanPresence] : characters;
+  const stageCharacters = characters;
   const hasCharacterFocus = stageCharacters.some((character) => character.isSelected || character.isTalking);
+  const currentSceneNames = stageCharacters
+    .filter((character) => !character.isOffScene)
+    .map((character) => character.displayName);
   return (
     <section className="giis-scene-stage" aria-label={`${scene.labelZh}場景`}>
       <div className="giis-scene-stage-backdrop" />
       <div className="giis-scene-stage-shade" />
+      <div className="giis-scene-presence-banner" aria-live="polite">
+        場景中：{currentSceneNames.length ? currentSceneNames.join('、') : '暫時沒有人'}
+      </div>
       <div className="giis-scene-object-layer" aria-label="場景物件">
         {hooks.map((hook) => (
           <button
@@ -1584,8 +1560,6 @@ function SceneStage({
                 character.isAlan ? 'is-alan' : ''
               } ${
                 character.isOffScene ? 'is-offscene' : ''
-              } ${
-                character.isPresenceOnly ? 'is-presence-only' : ''
               }`}
               onClick={() =>
                 character.id

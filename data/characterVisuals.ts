@@ -44,6 +44,11 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     label: 'Alan',
     portraitPath: `${PORTRAIT_BASE}/alan.png`,
     portraitPaths: portraitSet('alan'),
+    renderPath: `${RENDER_BASE}/alan-neutral.png`,
+    renderPaths: {
+      neutral: `${RENDER_BASE}/alan-neutral.png`,
+    },
+    renderFraming: { zoom: 1.12, y: 'top' },
     spritePath: `${SPRITE_BASE}/alan.png`,
     archetypeZh: '混亂但冷靜的科技校長',
     artDirection:

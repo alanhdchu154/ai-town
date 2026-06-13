@@ -5,6 +5,27 @@ Last updated: 2026-06-12 (20:30 CDT — v0.1 machine gate PASS, caveats patched)
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
 
+## Scene Mode UI Contract
+
+Scene Mode is the default Alan-facing world view for v0.1. It should read like a
+visual-novel stage, not a debug map squeezed behind UI chrome.
+
+Current contract:
+
+- Scene object/hotspot tags stay anchored to their real scene positions. They
+  are UI-only hooks/event seeds and should not be moved into generic toolbars.
+- The `場景中：...` occupant summary belongs near the upper center of the stage,
+  separate from prop tags and bottom action controls.
+- Character standee status cards must render above character art so activity,
+  emotion, and quiet-line previews remain readable.
+- Alan appears as a scene character only when an active Alan player exists in
+  the world. If Alan is away / not currently online, Scene Mode should not show
+  Alan's portrait. Other HUD text may still explain Alan's away status.
+- Alan's scene render uses a transparent-background asset; baked checkerboard
+  or photo-card backgrounds are not acceptable for the stage.
+- The Pixi map remains available behind the `地圖` toggle, but Scene Mode polish
+  should optimize for readable stage composition first.
+
 ## 2026-06-12 State Sustainability Reset
 
 Fresh-world recovery got the app moving again, but it is not the long-term
