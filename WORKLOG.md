@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-12 22:17 CDT
+Last updated: 2026-06-13 00:06 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -32,9 +32,45 @@ historical evidence is needed.
 | 10 | Sustainable state retention is now the priority before more soul-system expansion. Alan correctly objected that fresh reset cannot become the normal answer because it forces character amnesia and blocks long-term residue research. cc read-only review (`umi/reports/20260612T142341Z-workload.md`) agreed the root cause is runtime/job bloat, especially `agentDoSomething` scheduled args carrying full map/player/agent snapshots into `_scheduled_job_args`. Proposal: `umi/proposals/20260612T092435-sustainable-state-retention.md`. Durable system design now exists at `docs/underworld-sustainable-world-system-design.md`. T1 is implemented and measured: `agentDoSomething` scheduled args now pass IDs only; `npm run underworld:state-audit` shows newest active scheduled args are small ID-only/conversation/run-step payloads, while the old archive ended with repeated 95-98 KiB map/player/agent snapshot payloads. State audit is now live-DB lock tolerant and last passed against the active backend at 10:12 CDT: sqlite 45.9MB / state dir 86MB / 1,254 scheduled-arg rows scanned. Export-only archive continuity package is available at `umi/exports/archive-continuity-latest/`: 56,525 rows / about 40MB, no embeddings, no import, no mutation. Package audit (`npm run underworld:continuity-package-audit`) is `REVIEW_REQUIRED`: 14 fallback/pollution-like hits and 8,066 legacy-character hits must be filtered/remapped before any import. cc reviewed the first 24-row dry-run plan at 14:06 CDT (`umi/reports/20260612T190648Z-workload.md`) and found it too duplicated / motif-heavy. Codex tightened the sampler: candidate packet now tracks stage-direction leaks, pollution-adjacent conversations, legacy names, repeated motifs, and first-pass food-care motifs; import plan now defaults to 12 dry-run-only `legacyContinuityEvidence` rows and keeps `promptFacing=false` / `freshEvalEligible=false`. Alan approved schema/dry-run at 15:06 and first live isolated evidence write at 15:19. `legacyContinuityEvidence` now contains 12 rows, with 0 prompt-facing / 0 fresh-eval-eligible rows; duplicate rerun still totals 12. Sleep/consolidation dry-run now exists (`npm run underworld:sleep-consolidation`): latest report checked 50 recent conversations and classified 1 long-term candidate, 2 emotional-residue candidates, 30 short-term context rows, 4 forget/ignore rows, and 13 human-review rows, with 0 Convex writes and 0 prompt-facing writes. cc reviewed the dry-run at 15:44 CDT (`umi/reports/20260612T204455Z-workload.md`); accepted fixes landed. cc then reviewed the `sleepNotes` read-gate proposal at 15:59 CDT (`umi/reports/20260612T205950Z-workload.md`) and rejected direct promotion of raw legacy rows. Codex implemented the safer version: new `sleepNotes` table, approval-gated importer, prompt read capped at one promoted note for current speaker/partner, blocked drift/system wording, source/motif dedupe, and legacy notes always `freshEvalEligible=false`. First approved write imported exactly 2 rewritten promoted notes; duplicate write skipped both. `sleepNotes:sleepNotesSummary` reports count 2 / promptFacing 2 / promoted 2 / freshEvalEligible 0; `legacyContinuityEvidenceSummary` remains count 12 / promptFacing 0 / freshEvalEligible 0. Reports: `umi/reports/sleep-notes-import-latest.md`; design: `umi/proposals/20260612T1608-sleep-notes-read-gate.md`. Preserve memory/conversation/residue tables. Next: collect fresh conversations and watch whether these two old traces influence behavior without slogan/motif relapse. | Umi / Codex / cc | sleep_notes_gate_live_watch_fresh_samples |
 | 11 | Fresh 2026-06-12 conversations exposed two related but separate defects: conversation memory load could pair a player with the wrong `participatedTogether` fallback instead of the archived conversation's actual participant list, and the live message insert addressee repair path still missed titled self-addresses such as `一之瀨姊` / `貓貓老師` plus possessive self-reference like `一之瀨姊姊的...`. Targeted prevention fix is in code with tests. Recent-data cleanup ran against the latest 80 archived conversations: repaired 98 conversation memories, 6 message texts, and removed drifted residue lines by demoting those memories to ordinary when the residue mentioned nonparticipants; no memories/conversations were deleted, and final dry-run is 0 affected. Spot-checks: `conversation-c:6306` now shows 天澤 saying `不用了，祥子。` with 祥子/天澤 memories; `conversation-c:6057` now shows `欸，你的「幫」字...` with 貓貓/一之瀨 memories. | Codex | prevention_and_recent_cleanup_done |
 | 12 | v0.1 evidence layer is live and contributed to the machine PASS. `experienceLogs` accepts only the current evidence pilot (`海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子`), rejects legacy names, requires archived-conversation call contract, and enforces 2 logs per character/day plus 1 log per source conversation/character. The 20:00 observe collected 2 archived 海/真晝 samples and two other focus attempts timed out; a follow-up single 海/真晝 sample created `conversation-c:7152`, giving enough fresh samples for the completion audit. Fresh-window `life-signals` is PASS / `life_signal_observed`; recent eval remains imperfect at 0 PASS / 2 WARN / 1 FAIL. The fresh hand/quote relay caveat is now patched in `conversation.ts` and covered by `conversationMotifGuard.test.ts`; watch future samples rather than broad-rewriting prompts. | Umi / Codex / cc | machine_gate_pass_quality_caveat_patched |
+| 13 | Future paper / v0.2 research idea preserved at `docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`: separate canonical event records from per-character subjective memory traces, so the same event can become different grounded emotional residues and future behaviors for Umi/Mahiru/Maomao/etc. This is explicitly deferred until v0.1 residue -> sleep/tomorrow continuity is stable and should not broaden current implementation scope. | Alan / Umi / cc | future_revisit_after_v01 |
 
 ## Current State Snapshot
 
+- 2026-06-13 00:06 CDT: Midnight closeout after Alan asked for cc contribution
+  summary, roadmap alignment, and commit prep. cc's useful night contributions
+  were: (1) caught scope creep / schema-coupling risk in the orphan-wake +
+  motif patch review, especially `sleepNotes` prompt reads needing schema/index
+  to ship together; (2) flagged TS narrowing/test gaps around explicit human
+  wake; (3) caught the stage-direction memory guard false-positive on benign
+  parentheticals, which Codex accepted and patched before verification; (4)
+  reinforced that failed/hallucinated Alan chats must not enter memory or
+  experience logs. Codex judgment: cc was valuable tonight as a skeptical
+  reviewer, not as an implementation owner. Roadmap now records the 2026-06-13
+  night closeout: keep free-world runtime alive, nightly reflection remains
+  shadow-only, no prompt/memory tuning without fresh evidence, and subjective
+  memory re-bedding is parked as a future v0.2/paper idea. Paper docs were
+  tidied with a new package index and future-idea note; no runtime behavior was
+  changed by this closeout.
+- 2026-06-12 22:33 CDT: Codex-level Underworld automation alignment updated
+  after Alan approved the sleep-recall direction. Existing local Codex
+  automation
+  `/Users/alanhdchu/.codex/automations/underworld-rolling-continuity-telegram/automation.toml`
+  is now `ACTIVE` again and still runs the observe/report-only rolling
+  continuity monitor every 120 minutes. New local Codex automation
+  `/Users/alanhdchu/.codex/automations/underworld-nightly-reflection-shadow/automation.toml`
+  is `ACTIVE` and scheduled daily at 23:30 local time; it may only run
+  `npm run underworld:nightly-reflection` in SHADOW mode and is explicitly
+  forbidden from running `--write`, mutating Convex data, importing sleepNotes,
+  changing prompts/code, sending Telegram, committing, pushing, or restarting
+  the world. Manual shadow smoke before setup produced
+  `umi/reports/nightly-reflection-latest.md` with `mode=shadow`,
+  `characters=6`, and `written=0`; all characters returned no insights, so
+  future runs should be treated as preview/provide-health-signal only until
+  several clean reports justify a separate write approval. Verification:
+  read-back of both automation TOML files plus Python `tomllib` parse for id,
+  status, and rrule. The app-level `automation_update` tool was not available
+  in this session, so this was done by editing local Codex automation config
+  files directly.
 - 2026-06-12 22:17 CDT: Fixed the "Alan goes offline, then immediately comes
   online again" UX bug. Backend `leaveCampus` already removes Alan's player
   from the world; the leak was frontend auto-entry from view/navigation helpers:

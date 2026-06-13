@@ -5,7 +5,7 @@ looking for something and it is not here, ask before grepping — adding a
 new doc location without updating this index is how the project
 accumulates 3 contradictory sources of truth.
 
-Last updated: 2026-06-10.
+Last updated: 2026-06-13.
 
 ---
 
@@ -20,13 +20,20 @@ Last updated: 2026-06-10.
 
 ## Paper / preprint package
 
+The emotional-residue paper has its own sub-index — **[paper/README.md](paper/README.md)**
+maps all ~23 docs into groups (entry points, submission source, experiment
+protocols, evidence ledgers, gates, results) with status and reading order.
+Start there. The most useful entry points:
+
 | Document | Purpose |
 |---|---|
-| [paper/ALAN_HANDOFF.md](paper/ALAN_HANDOFF.md) | One-page boundary summary for the emotional-residue paper. |
-| [paper/OSF_RELEASE_RECORD.md](paper/OSF_RELEASE_RECORD.md) | OSF submission record. Alan reported OSF submission on 2026-06-10; URL / DOI still need to be recorded locally. |
-| [paper/ARXIV_PREPRINT_RELEASE_PACKET.md](paper/ARXIV_PREPRINT_RELEASE_PACKET.md) | Conservative arXiv A-path packet retained for a future arXiv mirror; arXiv is currently blocked by endorsement. |
-| [paper/PUBLISH_READY_CHECKLIST.md](paper/PUBLISH_READY_CHECKLIST.md) | Detailed local checklist of completed paper hardening and remaining blockers. |
+| [paper/README.md](paper/README.md) | **Map of the whole paper package.** Read this first. |
+| [paper/ALAN_HANDOFF.md](paper/ALAN_HANDOFF.md) | One-page boundary: what is defensible now vs blocked. |
+| [paper/PUBLISH_READY_CHECKLIST.md](paper/PUBLISH_READY_CHECKLIST.md) | Detailed local checklist of completed hardening and remaining blockers. |
 | [paper/CLAIM_EVIDENCE_MATRIX.md](paper/CLAIM_EVIDENCE_MATRIX.md) | Claim-to-artifact ledger and reviewer-safe boundaries. |
+
+> Do not move/rename files under `docs/paper/` — `scripts/paper/` audits and
+> `acceptance_hashes.py` hardcode and hash these exact paths.
 
 ## Soul / character architecture
 

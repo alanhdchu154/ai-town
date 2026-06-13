@@ -1,9 +1,41 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-12 (late night — subjective summary deepened, soul-grounded LLM residue live for all six pilots, 心跡 inspection tab; 睡前回響 shadow + Scene Mode contract still in force)
+Last updated: 2026-06-13 (night closeout — v0.1 machine gate PASS, free-world overnight observe, nightly reflection shadow only, subjective memory re-bedding parked as v0.2/paper idea)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-13 Night Closeout / Next Morning Contract
+
+Current stance: **do not expand tonight**. The world is running, v0.1 machine
+gate is PASS, and the right next evidence is natural overnight / morning
+behavior rather than more prompt churn.
+
+What is active:
+
+- Rolling continuity monitor: Codex-level local automation is ACTIVE and should
+  keep running observe/report-only every 120 minutes.
+- Nightly reflection / 睡前回響: Codex-level local automation is ACTIVE at 23:30
+  local time, but **shadow only**. It runs `npm run underworld:nightly-reflection`
+  and must not pass `--write`, import sleepNotes, mutate Convex state, restart
+  the world, or send Telegram.
+- Free-world runtime: keep the world alive overnight if the dev stack remains
+  healthy. Do not force conversations at night.
+
+Tomorrow's first useful checks:
+
+1. Runtime health: confirm `/ai-town` and `world:defaultWorldStatus` are alive.
+2. Read `umi/reports/nightly-reflection-latest.md`; treat empty/no-insight output
+   as `SHADOW_WARN/provider_or_threshold_pending`, not failure.
+3. Check whether fresh morning conversations naturally reference yesterday
+   without motif loops, hallucinated facts, or stage-direction narration.
+4. Only repair if a repeated fresh failure appears. No fresh evidence means no
+   prompt/memory tuning.
+
+Deferred idea: subjective memory re-bedding is preserved at
+`docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`. It is a future v0.2 / paper
+direction ("Yesterday mattered differently to each person"), not part of the
+current v0.1 implementation scope.
 
 ## Scene Mode UI Contract
 
