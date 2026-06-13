@@ -408,14 +408,14 @@ async function assertCollectionAccepted() {
   await assertAcceptedFile({
     path: ACCEPTANCE_PATH,
     label: 'schedule acceptance',
-    document: 'docs/paper/SCHEDULE_DECISION.md',
+    document: 'docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md',
     documentField: 'schedule_document',
     shaField: 'schedule_sha256',
   });
   await assertAcceptedFile({
     path: PREREGISTRATION_ACCEPTANCE_PATH,
     label: 'preregistration acceptance',
-    document: 'docs/paper/PREREGISTRATION_PROTOCOL.md',
+    document: 'docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md',
     documentField: 'preregistration_document',
     shaField: 'preregistration_sha256',
   });
@@ -501,14 +501,14 @@ async function runProvenanceSnapshot(metadata, phase) {
     gitSnapshot(),
     documentAcceptanceSnapshot({
       label: 'schedule',
-      documentPath: 'docs/paper/SCHEDULE_DECISION.md',
-      acceptancePath: 'docs/paper/SCHEDULE_ACCEPTANCE.json',
+      documentPath: 'docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md',
+      acceptancePath: 'docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json',
       shaField: 'schedule_sha256',
     }),
     documentAcceptanceSnapshot({
       label: 'preregistration',
-      documentPath: 'docs/paper/PREREGISTRATION_PROTOCOL.md',
-      acceptancePath: 'docs/paper/PREREGISTRATION_ACCEPTANCE.json',
+      documentPath: 'docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md',
+      acceptancePath: 'docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json',
       shaField: 'preregistration_sha256',
     }),
     sourceArchiveSnapshot(),

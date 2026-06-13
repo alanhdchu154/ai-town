@@ -289,7 +289,7 @@ def write_json(path: Path, value: object) -> None:
 
 
 def write_fixture(root: Path, complete: bool = True) -> Path:
-    run_dir = root / "docs/paper/results/arm-window-fixture-on"
+    run_dir = root / "docs/paper/emotional-residue/results/arm-window-fixture-on"
     (run_dir / "logs").mkdir(parents=True, exist_ok=True)
     metadata = {
         "kind": "arm_pure_residue_window",

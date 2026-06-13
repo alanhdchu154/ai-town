@@ -21,7 +21,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/pdf-preflight.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/pdf-preflight.md"
 PDF_TOOLS = ["tectonic", "latexmk", "pdflatex", "xelatex", "lualatex", "pandoc"]
 
 
@@ -81,10 +81,10 @@ def compile_with_tool(tool: str, tool_path: str, workdir: Path) -> tuple[bool, s
 
 def audit_pdf(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    source_dir = root / "docs/paper/arxiv"
+    source_dir = root / "docs/paper/emotional-residue/manuscript"
     main = source_dir / "main.tex"
     if not main.exists():
-        add(findings, "FAIL", "main_tex", "Missing docs/paper/arxiv/main.tex")
+        add(findings, "FAIL", "main_tex", "Missing docs/paper/emotional-residue/manuscript/main.tex")
         return findings
 
     tools = available_tools()
@@ -147,7 +147,7 @@ def render(findings: list[Finding], root: Path) -> str:
             "",
             "## Interpretation",
             "",
-            "- `PASS` means a local tool compiled `docs/paper/arxiv/main.tex` into a non-empty PDF in a temporary directory.",
+            "- `PASS` means a local tool compiled `docs/paper/emotional-residue/manuscript/main.tex` into a non-empty PDF in a temporary directory.",
             "- `PDF_BLOCKER` means no local PDF-capable tool was found; source readiness can still be conservative, but rendered-PDF readiness is unverified.",
             "- `FAIL` means a local PDF tool exists but compilation failed.",
             "",
@@ -157,7 +157,7 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path) -> None:
-    arxiv = root / "docs/paper/arxiv"
+    arxiv = root / "docs/paper/emotional-residue/manuscript"
     arxiv.mkdir(parents=True, exist_ok=True)
     main = arxiv / "main.tex"
     if not main.exists():

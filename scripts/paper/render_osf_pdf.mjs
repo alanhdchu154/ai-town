@@ -4,8 +4,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(new URL("../..", import.meta.url).pathname);
-const sourcePath = resolve(root, "docs/paper/arxiv/main.tex");
-const outDir = resolve(root, "docs/paper/results/osf");
+const sourcePath = resolve(root, "docs/paper/emotional-residue/manuscript/main.tex");
+const outDir = resolve(root, "docs/paper/emotional-residue/results/osf");
 const htmlPath = resolve(outDir, "emotional-residue-osf-preprint.html");
 const pdfPath = resolve(outDir, "emotional-residue-osf-preprint.pdf");
 

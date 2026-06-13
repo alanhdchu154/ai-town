@@ -36,12 +36,12 @@ missing generation/provenance schema needed to reconstruct the study version.
 rolling-continuity reports for simple residue-trace-to-callback text overlap so
 the "pressure, not quotation" claim has an explicit pilot validation gate.
 `paper_evidence_matrix_audit.py` checks that
-`docs/paper/CLAIM_EVIDENCE_MATRIX.md` maps each major manuscript claim to
+`docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md` maps each major manuscript claim to
 current artifacts and explicit claim boundaries. `paper_claim_audit.py` checks the arXiv
 source and evidence package for unsupported causal/player-study claims,
 placeholder text, sample-size blockers, annotation readiness, and transcript
 label leakage. `paper_citation_audit.py` checks
-`docs/paper/CITATION_PROVENANCE.md` so each bibliography key has an explicit
+`docs/paper/emotional-residue/claims/CITATION_PROVENANCE.md` so each bibliography key has an explicit
 source-status row and recent LLM-agent / AI Town references point to primary or
 official sources. `paper_source_audit.py` checks local LaTeX/source hygiene:
 structure, labels/refs, citation keys, table columns, placeholders, and source
@@ -55,7 +55,7 @@ prompt injection, time labels, and motif guard. `paper_design_audit.py` checks
 whether the causal/mechanism design is ready beyond conservative-preprint
 framing, including the placebo-or-narrowed-claim boundary, MDE/final-N state,
 annotation minimum, preregistration protocol, and schedule acceptance.
-`docs/paper/PREREGISTRATION_PROTOCOL.md` is the machine-audited draft for the
+`docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md` is the machine-audited draft for the
 future rigorous empirical version; it is not accepted and does not authorize
 collection. `paper_run_provenance_audit.py` audits a completed arm-window run
 directory for run metadata, accepted-document provenance, row-level provenance,
@@ -67,14 +67,14 @@ available. `paper_pdf_verification_audit.py` checks the rendered-PDF/platform
 preview verification record and requires tool/environment/source-archive hash,
 PDF hash, and visual-check details before PDF readiness can pass.
 `paper_submission_audit.py` checks
-`docs/paper/SUBMISSION_DECISIONS.json` so author metadata, category, license,
+`docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json` so author metadata, category, license,
 account readiness, transcript policy, timing, attribution, and preview decisions
 are explicit before any external posting.
-`docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` is the A-path release packet for
+`docs/paper/emotional-residue/release/ARXIV_PREPRINT_RELEASE_PACKET.md` is the A-path release packet for
 the conservative arXiv design/systems preprint. Alan reported submitting the
 conservative A-path preprint on OSF on 2026-06-10 because arXiv upload is
 blocked by endorsement; the OSF posting ledger is
-`docs/paper/OSF_RELEASE_RECORD.md`. The arXiv packet remains useful for a future
+`docs/paper/emotional-residue/release/OSF_RELEASE_RECORD.md`. The arXiv packet remains useful for a future
 arXiv mirror and records the local package paths, recommended-but-unconfirmed
 submitter choices, required PDF/platform checks, official arXiv documentation
 links, stop conditions, and the B-path empirical follow-up.
@@ -95,8 +95,8 @@ step. No network access is performed and no files outside the paths you pass in
 
 Exception: `run_arm_pure_residue_window.mjs` is a live collection runner and can
 change `UNDERWORLD_RESIDUE_READ` after the schedule and preregistration are
-accepted. It refuses to run unless `docs/paper/SCHEDULE_ACCEPTANCE.json` and
-`docs/paper/PREREGISTRATION_ACCEPTANCE.json` both record explicit acceptance.
+accepted. It refuses to run unless `docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json` and
+`docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json` both record explicit acceptance.
 
 ## Install
 
@@ -250,8 +250,8 @@ merging it into longitudinal results:
 
 ```
 npm run paper:run-provenance-audit -- \
-  --run-dir docs/paper/results/arm-window-YYYY-MM-DD-on \
-  --out docs/paper/results/arm-window-YYYY-MM-DD-on/provenance-audit.md
+  --run-dir docs/paper/emotional-residue/results/arm-window-YYYY-MM-DD-on \
+  --out docs/paper/emotional-residue/results/arm-window-YYYY-MM-DD-on/provenance-audit.md
 ```
 
 The run audit expects `metadata.json`, `generation-metadata.json`,
@@ -278,9 +278,9 @@ Merge audited runs:
 
 ```
 npm run paper:merge-ablation-runs -- \
-  --runs 'docs/paper/results/arm-window-*' \
-  --out docs/paper/results/longitudinal/dataset.json \
-  --manifest docs/paper/results/longitudinal/merge-manifest.json
+  --runs 'docs/paper/emotional-residue/results/arm-window-*' \
+  --out docs/paper/emotional-residue/results/longitudinal/dataset.json \
+  --manifest docs/paper/emotional-residue/results/longitudinal/merge-manifest.json
 ```
 
 Arm-window runs and any run directory containing `run-provenance.json` must pass
@@ -356,12 +356,12 @@ npm run paper:archive-audit
 npm run paper:readiness
 ```
 
-These commands write `docs/paper/results/claim-audit.md`,
-`docs/paper/results/annotation-audit.md`, and
-`docs/paper/results/source-audit.md`, then create
-`docs/paper/results/arxiv-source/emotional-residue-arxiv-source.tar.gz` plus a
+These commands write `docs/paper/emotional-residue/results/claim-audit.md`,
+`docs/paper/emotional-residue/results/annotation-audit.md`, and
+`docs/paper/emotional-residue/results/source-audit.md`, then create
+`docs/paper/emotional-residue/results/arxiv-source/emotional-residue-arxiv-source.tar.gz` plus a
 SHA-256 manifest and verify it with
-`docs/paper/results/archive-audit.md`. A claim-audit `FAIL` verdict means the paper package contains
+`docs/paper/emotional-residue/results/archive-audit.md`. A claim-audit `FAIL` verdict means the paper package contains
 an unsupported claim or internal inconsistency. A
 `PASS_CONSERVATIVE_PREPRINT` verdict means the current source remains defensible
 only as a design/systems preprint with explicit limitations; empirical and
@@ -401,9 +401,9 @@ excludes datasets, logs, annotations, transcripts, figures, and generated
 results. An archive-audit `PASS` means the generated archive and manifest match
 the allowlist and no obvious source-package data or secret leakage was detected.
 The readiness report writes
-`docs/paper/results/readiness.md` and is the recommended one-command status
+`docs/paper/emotional-residue/results/readiness.md` and is the recommended one-command status
 check before discussing publication timing. `paper:alan-decision-packet` writes
-`docs/paper/results/alan-decision-packet.md`, a read-only Alan-facing summary of
+`docs/paper/emotional-residue/results/alan-decision-packet.md`, a read-only Alan-facing summary of
 the current readiness verdict, top empirical/external blockers, acceptance
 hashes, and the commands to rerun before collection or posting.
 

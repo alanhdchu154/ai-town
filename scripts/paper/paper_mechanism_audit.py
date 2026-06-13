@@ -48,7 +48,7 @@ def require_regex(findings: list[Finding], text: str, pattern: str, check: str, 
 
 def audit_mechanism(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    main_path = root / "docs/paper/arxiv/main.tex"
+    main_path = root / "docs/paper/emotional-residue/manuscript/main.tex"
     memory_path = root / "convex/agent/memory.ts"
     conversation_path = root / "convex/agent/conversation.ts"
     agent_path = root / "convex/aiTown/agent.ts"
@@ -174,12 +174,12 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path) -> None:
-    (root / "docs/paper/arxiv").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
     (root / "convex/agent").mkdir(parents=True, exist_ok=True)
     (root / "convex/aiTown").mkdir(parents=True, exist_ok=True)
     (root / "convex").mkdir(parents=True, exist_ok=True)
 
-    main_path = root / "docs/paper/arxiv/main.tex"
+    main_path = root / "docs/paper/emotional-residue/manuscript/main.tex"
     existing = main_path.read_text(encoding="utf-8") if main_path.exists() else ""
     main_path.write_text(
         existing
@@ -259,7 +259,7 @@ def run_selftest() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/mechanism-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/mechanism-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero on any non-PASS finding.")
     args = parser.parse_args(argv)

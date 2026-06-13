@@ -86,7 +86,7 @@ def parse_marker_table(main_text: str) -> dict[str, tuple[float, float, float]]:
 
 
 def compare_marker_table(root: Path, main_text: str, findings: list[Finding]) -> None:
-    csv_rows = load_marker_csv(root / "docs/paper/results/current-smoke/results/soul_uniqueness.csv")
+    csv_rows = load_marker_csv(root / "docs/paper/emotional-residue/results/current-smoke/results/soul_uniqueness.csv")
     table_rows = parse_marker_table(main_text)
 
     for label, marker in MARKER_ROWS.items():
@@ -119,7 +119,7 @@ def compare_marker_table(root: Path, main_text: str, findings: list[Finding]) ->
 
 
 def compare_june5_counts(root: Path, main_text: str, findings: list[Finding]) -> None:
-    summary = parse_summary(root / "docs/paper/results/repeatability/rolling-continuity-2026-06-05.md")
+    summary = parse_summary(root / "docs/paper/emotional-residue/results/repeatability/rolling-continuity-2026-06-05.md")
     expected = {
         "source": int(summary["Source sample count"]),
         "callback": int(summary["Callback sample count"]),
@@ -172,7 +172,7 @@ def parse_repeatability_table(main_text: str) -> dict[str, dict[str, object]]:
 def compare_repeatability(root: Path, main_text: str, findings: list[Finding]) -> None:
     table = parse_repeatability_table(main_text)
     for date in ["2026-06-04", "2026-06-05", "2026-06-06"]:
-        report = root / f"docs/paper/results/repeatability/rolling-continuity-{date}.md"
+        report = root / f"docs/paper/emotional-residue/results/repeatability/rolling-continuity-{date}.md"
         summary = parse_summary(report)
         if date not in table:
             add(findings, "FAIL", "repeatability_row_missing", f"Missing repeatability row for {date}")
@@ -190,7 +190,7 @@ def compare_repeatability(root: Path, main_text: str, findings: list[Finding]) -
 
 
 def compare_longitudinal(root: Path, main_text: str, findings: list[Finding]) -> None:
-    rows = json.loads(read(root / "docs/paper/results/longitudinal/dataset.json"))
+    rows = json.loads(read(root / "docs/paper/emotional-residue/results/longitudinal/dataset.json"))
     condition_counts = Counter(row.get("condition") for row in rows)
     pair_counts = Counter(row.get("pair") for row in rows)
     aftertaste = [row.get("metrics", {}).get("human_aftertaste_score") for row in rows]
@@ -208,9 +208,9 @@ def compare_longitudinal(root: Path, main_text: str, findings: list[Finding]) ->
 
 
 def compare_trace_overlap_docs(root: Path, findings: list[Finding]) -> None:
-    report_path = root / "docs/paper/results/trace-overlap-audit.md"
+    report_path = root / "docs/paper/emotional-residue/results/trace-overlap-audit.md"
     if not report_path.exists():
-        add(findings, "FAIL", "trace_overlap_report_missing", "Missing docs/paper/results/trace-overlap-audit.md")
+        add(findings, "FAIL", "trace_overlap_report_missing", "Missing docs/paper/emotional-residue/results/trace-overlap-audit.md")
         return
     report = read(report_path)
     count_match = re.search(r"Only\s+(\d+)\s+callback case", report)
@@ -222,7 +222,7 @@ def compare_trace_overlap_docs(root: Path, findings: list[Finding]) -> None:
     max_ratio = ratio_match.group(1)
     doc_expectations = [
         (
-            root / "docs/paper/ALAN_HANDOFF.md",
+            root / "docs/paper/emotional-residue/release/ALAN_HANDOFF.md",
             [
                 f"trace-overlap audit over {callback_count} rolling-callback cases",
                 f"trace-overlap audit has only {callback_count} callback cases",
@@ -230,7 +230,7 @@ def compare_trace_overlap_docs(root: Path, findings: list[Finding]) -> None:
             ],
         ),
         (
-            root / "docs/paper/PUBLISH_READY_CHECKLIST.md",
+            root / "docs/paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md",
             [
                 f"{callback_count} callback cases are assessed",
                 f"max overlap ratio is {max_ratio}",
@@ -256,9 +256,9 @@ def compare_trace_overlap_docs(root: Path, findings: list[Finding]) -> None:
 
 def audit_consistency(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    main = root / "docs/paper/arxiv/main.tex"
+    main = root / "docs/paper/emotional-residue/manuscript/main.tex"
     if not main.exists():
-        return [Finding("FAIL", "main_missing", "Missing docs/paper/arxiv/main.tex")]
+        return [Finding("FAIL", "main_missing", "Missing docs/paper/emotional-residue/manuscript/main.tex")]
     main_text = read(main)
     compare_marker_table(root, main_text, findings)
     compare_june5_counts(root, main_text, findings)
@@ -312,11 +312,14 @@ def render(findings: list[Finding], root: Path) -> str:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        (root / "docs/paper/arxiv").mkdir(parents=True)
-        (root / "docs/paper/results/current-smoke/results").mkdir(parents=True)
-        (root / "docs/paper/results/repeatability").mkdir(parents=True)
-        (root / "docs/paper/results/longitudinal").mkdir(parents=True)
-        (root / "docs/paper/results/current-smoke/results/soul_uniqueness.csv").write_text(
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/current-smoke/results").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/repeatability").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/longitudinal").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/current-smoke/results/soul_uniqueness.csv").write_text(
             "scope,pair,marker,n,mean,ci_lo,ci_hi\n"
             "overall,ALL,emotional_expression_uniqueness,8,0.875,0.78125,0.96875\n"
             "overall,ALL,comfort_style_uniqueness,8,0.6875,0.5625,0.875\n"
@@ -331,7 +334,7 @@ def run_selftest() -> None:
             ("2026-06-05", "PASS", "continuity_observed", "14:00-16:00", "16:00-18:00", 22, 15, 2),
             ("2026-06-06", "WARN", "sample_pending", "none", "none", 2, 0, 0),
         ]:
-            (root / f"docs/paper/results/repeatability/rolling-continuity-{date}.md").write_text(
+            (root / f"docs/paper/emotional-residue/results/repeatability/rolling-continuity-{date}.md").write_text(
                 "# report\n\n## Summary\n\n"
                 f"- Status: {status}\n"
                 f"- Decision: {decision}\n"
@@ -350,24 +353,24 @@ def run_selftest() -> None:
             {"condition": "residue_off", "pair": "海-真晝", "metrics": {"human_aftertaste_score": 1.0}},
             {"condition": "residue_off", "pair": "海-真晝", "metrics": {"human_aftertaste_score": 1.0}},
         ]
-        (root / "docs/paper/results/longitudinal/dataset.json").write_text(json.dumps(dataset), encoding="utf-8")
-        (root / "docs/paper/results/trace-overlap-audit.md").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/dataset.json").write_text(json.dumps(dataset), encoding="utf-8")
+        (root / "docs/paper/emotional-residue/results/trace-overlap-audit.md").write_text(
             "# trace\n\n"
             "- **EMPIRICAL_BLOCKER / callback_sample_size**: Only 11 callback case(s) assessed; need at least 30 before treating trace-overlap as validated.\n"
             "- **INFO / trace_overlap_snapshot**: Assessed 11 callback cases; max overlap ratio=0.242.\n",
             encoding="utf-8",
         )
-        (root / "docs/paper/ALAN_HANDOFF.md").write_text(
+        (root / "docs/paper/emotional-residue/release/ALAN_HANDOFF.md").write_text(
             "- a pilot trace-overlap audit over 11 rolling-callback cases, with max overlap\n"
             "  ratio 0.242 and no high verbatim-overlap flag.\n"
             "- trace-overlap audit has only 11 callback cases, below the 30-case validation threshold.\n",
             encoding="utf-8",
         )
-        (root / "docs/paper/PUBLISH_READY_CHECKLIST.md").write_text(
+        (root / "docs/paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md").write_text(
             "- 11 callback cases are assessed, the max overlap ratio is 0.242, no high flag.\n",
             encoding="utf-8",
         )
-        (root / "docs/paper/arxiv/main.tex").write_text(
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(
             r"""We report preliminary feasibility evidence from the live system: a deterministic rule-based soul-triad evaluation over 8 recent conversations and a rolling two-hour continuity report from June 5, 2026.
 On a regenerated report for June 5, 2026, the system selected a 14:00--16:00 source window and a 16:00--18:00 callback window. The report found 3 source conversations, 2 callback conversations, 15 source residue candidates, and 2 rolling callbacks.
 Table \ref{tab:markers} reports a feasibility snapshot over 8 recent soul-triad conversations.
@@ -391,13 +394,13 @@ Two archived-only sanity blocks then produced two qualifying conversations per a
         findings = audit_consistency(root)
         assert verdict(findings) == "PASS"
 
-        text = read(root / "docs/paper/arxiv/main.tex").replace("0.875 & 0.781", "0.111 & 0.781")
-        (root / "docs/paper/arxiv/main.tex").write_text(text, encoding="utf-8")
+        text = read(root / "docs/paper/emotional-residue/manuscript/main.tex").replace("0.875 & 0.781", "0.111 & 0.781")
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(text, encoding="utf-8")
         findings = audit_consistency(root)
         assert verdict(findings) == "FAIL"
         assert any(f.check == "marker_table_mismatch" for f in findings)
 
-        (root / "docs/paper/ALAN_HANDOFF.md").write_text(
+        (root / "docs/paper/emotional-residue/release/ALAN_HANDOFF.md").write_text(
             "- a pilot trace-overlap audit over 12 rolling-callback cases, with max overlap ratio 0.242.\n",
             encoding="utf-8",
         )
@@ -410,7 +413,7 @@ Two archived-only sanity blocks then produced two qualifying conversations per a
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/consistency-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/consistency-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero on any non-PASS finding.")
     args = parser.parse_args(argv)

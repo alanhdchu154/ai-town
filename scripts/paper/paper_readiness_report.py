@@ -42,7 +42,7 @@ import paper_submission_audit  # noqa: E402
 import paper_trace_overlap_audit  # noqa: E402
 
 
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/readiness.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/readiness.md"
 
 
 @dataclass
@@ -162,7 +162,7 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
     citation_findings_raw = paper_citation_audit.audit_citations(root)
     citation_verdict = paper_citation_audit.verdict(citation_findings_raw)
     citation_findings = [Finding(f.severity, f.check, f.detail) for f in citation_findings_raw]
-    citation_report_path = root / "docs/paper/results/citation-audit.md"
+    citation_report_path = root / "docs/paper/emotional-residue/results/citation-audit.md"
     citation_report_path.parent.mkdir(parents=True, exist_ok=True)
     citation_report_path.write_text(paper_citation_audit.render(citation_findings_raw, root), encoding="utf-8")
 
@@ -177,7 +177,7 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
     design_findings_raw = paper_design_audit.audit_design(root)
     design_verdict = paper_design_audit.verdict(design_findings_raw)
     design_findings = [Finding(f.severity, f.check, f.detail) for f in design_findings_raw]
-    design_report_path = root / "docs/paper/results/design-audit.md"
+    design_report_path = root / "docs/paper/emotional-residue/results/design-audit.md"
     design_report_path.parent.mkdir(parents=True, exist_ok=True)
     design_report_path.write_text(paper_design_audit.render(design_findings_raw, root), encoding="utf-8")
 
@@ -192,14 +192,14 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
     empirical_findings_raw = paper_empirical_audit.audit_empirical(root)
     empirical_verdict = paper_empirical_audit.verdict(empirical_findings_raw)
     empirical_findings = [Finding(f.severity, f.check, f.detail) for f in empirical_findings_raw]
-    empirical_report_path = root / "docs/paper/results/empirical-audit.md"
+    empirical_report_path = root / "docs/paper/emotional-residue/results/empirical-audit.md"
     empirical_report_path.parent.mkdir(parents=True, exist_ok=True)
     empirical_report_path.write_text(paper_empirical_audit.render(empirical_findings_raw, root), encoding="utf-8")
 
     trace_findings_raw, trace_cases = paper_trace_overlap_audit.audit_overlap(root)
     trace_verdict = paper_trace_overlap_audit.verdict(trace_findings_raw)
     trace_findings = [Finding(f.severity, f.check, f.detail) for f in trace_findings_raw]
-    trace_report_path = root / "docs/paper/results/trace-overlap-audit.md"
+    trace_report_path = root / "docs/paper/emotional-residue/results/trace-overlap-audit.md"
     trace_report_path.parent.mkdir(parents=True, exist_ok=True)
     trace_report_path.write_text(
         paper_trace_overlap_audit.render(trace_findings_raw, trace_cases, root),
@@ -209,30 +209,30 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
     matrix_findings_raw = paper_evidence_matrix_audit.audit_matrix(root)
     matrix_verdict = paper_evidence_matrix_audit.verdict(matrix_findings_raw)
     matrix_findings = [Finding(f.severity, f.check, f.detail) for f in matrix_findings_raw]
-    matrix_report_path = root / "docs/paper/results/evidence-matrix-audit.md"
+    matrix_report_path = root / "docs/paper/emotional-residue/results/evidence-matrix-audit.md"
     matrix_report_path.parent.mkdir(parents=True, exist_ok=True)
     matrix_report_path.write_text(paper_evidence_matrix_audit.render(matrix_findings_raw, root), encoding="utf-8")
 
     submission_findings_raw = paper_submission_audit.audit_submission(root)
     submission_verdict = paper_submission_audit.verdict(submission_findings_raw)
     submission_findings = [Finding(f.severity, f.check, f.detail) for f in submission_findings_raw]
-    submission_report_path = root / "docs/paper/results/submission-audit.md"
+    submission_report_path = root / "docs/paper/emotional-residue/results/submission-audit.md"
     submission_report_path.parent.mkdir(parents=True, exist_ok=True)
     submission_report_path.write_text(paper_submission_audit.render(submission_findings_raw, root), encoding="utf-8")
 
     archive_findings_raw = paper_archive_audit.audit_archive(root)
     archive_verdict = paper_archive_audit.verdict(archive_findings_raw)
     archive_findings = [Finding(f.severity, f.check, f.detail) for f in archive_findings_raw]
-    archive_report_path = root / "docs/paper/results/archive-audit.md"
+    archive_report_path = root / "docs/paper/emotional-residue/results/archive-audit.md"
     archive_report_path.parent.mkdir(parents=True, exist_ok=True)
     archive_report_path.write_text(paper_archive_audit.render(archive_findings_raw, root), encoding="utf-8")
-    archive_path = root / "docs/paper/results/arxiv-source" / arxiv_package.ARCHIVE_NAME
-    manifest_path = root / "docs/paper/results/arxiv-source" / arxiv_package.MANIFEST_NAME
+    archive_path = root / "docs/paper/emotional-residue/results/arxiv-source" / arxiv_package.ARCHIVE_NAME
+    manifest_path = root / "docs/paper/emotional-residue/results/arxiv-source" / arxiv_package.MANIFEST_NAME
     manifest = read_json(manifest_path)
     pdf_findings_raw = paper_pdf_preflight.audit_pdf(root)
     pdf_verdict = paper_pdf_preflight.verdict(pdf_findings_raw)
     pdf_findings = [Finding(f.severity, f.check, f.detail) for f in pdf_findings_raw]
-    pdf_report_path = root / "docs/paper/results/pdf-preflight.md"
+    pdf_report_path = root / "docs/paper/emotional-residue/results/pdf-preflight.md"
     pdf_report_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_report_path.write_text(paper_pdf_preflight.render(pdf_findings_raw, root), encoding="utf-8")
 
@@ -241,7 +241,7 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
     pdf_verification_findings = [
         Finding(f.severity, f.check, f.detail) for f in pdf_verification_findings_raw
     ]
-    pdf_verification_report_path = root / "docs/paper/results/pdf-verification-audit.md"
+    pdf_verification_report_path = root / "docs/paper/emotional-residue/results/pdf-verification-audit.md"
     pdf_verification_report_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_verification_report_path.write_text(
         paper_pdf_verification_audit.render(pdf_verification_findings_raw, root),
@@ -336,14 +336,17 @@ def generate_report(root: Path, out: Path) -> tuple[str, list[Finding]]:
 
 
 def write_minimal_claim_inputs(root: Path) -> None:
-    (root / "docs/paper/arxiv").mkdir(parents=True)
-    (root / "docs/paper/results/longitudinal/results").mkdir(parents=True)
-    (root / "docs/paper/results/longitudinal/blinded_transcripts").mkdir(parents=True)
-    (root / "docs/paper/results/current-smoke/results").mkdir(parents=True)
-    (root / "docs/paper/results/repeatability").mkdir(parents=True)
-    (root / "docs/paper/results/power").mkdir(parents=True)
-    (root / "scripts/paper").mkdir(parents=True)
-    (root / "docs/paper/arxiv/main.tex").write_text(
+    (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/longitudinal/results").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/current-smoke/results").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/repeatability").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/power").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/release").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/experiments").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/claims").mkdir(parents=True, exist_ok=True)
+    (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(
         r"""\documentclass{article}
 \begin{document}
 This is not a controlled player study. There is no completed causal ablation.
@@ -383,14 +386,14 @@ author details to confirm before submission
 """,
         encoding="utf-8",
     )
-    (root / "docs/paper/arxiv/README.md").write_text(
+    (root / "docs/paper/emotional-residue/manuscript/README.md").write_text(
         "single-file LaTeX source\n"
         "no completed causal ablation or player study\n"
         "PDF compilation must be verified\n"
         "Confirm upstream AI Town license attribution\n",
         encoding="utf-8",
     )
-    (root / "docs/paper/PUBLISH_READY_CHECKLIST.md").write_text(
+    (root / "docs/paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md").write_text(
         "not ready to claim a completed controlled ablation\n"
         "Recruit at least one additional blind rater\nPDF compilation\n",
         encoding="utf-8",
@@ -413,9 +416,9 @@ author details to confirm before submission
         "n>=150/arm\n"
         "Exact N should be set after the pilot estimates baseline callback rate and sample yield.\n"
     )
-    (root / "docs/paper/SCHEDULE_DECISION.md").write_text(design_text, encoding="utf-8")
-    (root / "docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md").write_text(design_text, encoding="utf-8")
-    (root / "docs/paper/PREREGISTRATION_PROTOCOL.md").write_text(
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md").write_text(design_text, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/experiments/LONGITUDINAL_EXPERIMENT_PLAN.md").write_text(design_text, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md").write_text(
         "preregistration_status: draft_not_accepted\n"
         "accepted_schedule_required: true\n"
         "placebo_arm_status: local_plumbing_not_preregistered\n"
@@ -427,11 +430,11 @@ author details to confirm before submission
         "no_arm_extension_after_effect_peeking: true\n",
         encoding="utf-8",
     )
-    (root / "docs/paper/SCHEDULE_ACCEPTANCE.json").write_text(
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json").write_text(
         json.dumps({"accepted": False}),
         encoding="utf-8",
     )
-    (root / "docs/paper/results/current-smoke/results/soul_uniqueness.csv").write_text(
+    (root / "docs/paper/emotional-residue/results/current-smoke/results/soul_uniqueness.csv").write_text(
         "scope,pair,marker,n,mean,ci_lo,ci_hi\n"
         "overall,ALL,emotional_expression_uniqueness,8,0.875,0.78125,0.96875\n"
         "overall,ALL,comfort_style_uniqueness,8,0.6875,0.5625,0.875\n"
@@ -446,7 +449,7 @@ author details to confirm before submission
         ("2026-06-05", "PASS", "continuity_observed", "14:00-16:00", "16:00-18:00", 22, 15, 2),
         ("2026-06-06", "WARN", "sample_pending", "none", "none", 2, 0, 0),
     ]:
-        (root / f"docs/paper/results/repeatability/rolling-continuity-{date}.md").write_text(
+        (root / f"docs/paper/emotional-residue/results/repeatability/rolling-continuity-{date}.md").write_text(
             "# report\n\n## Summary\n\n"
             f"- Status: {status}\n"
             f"- Decision: {decision}\n"
@@ -465,29 +468,29 @@ author details to confirm before submission
         {"condition": "residue_off", "pair": "海-真晝", "metrics": {"human_aftertaste_score": 1.0}},
         {"condition": "residue_off", "pair": "海-真晝", "metrics": {"human_aftertaste_score": 1.0}},
     ]
-    (root / "docs/paper/results/longitudinal/dataset.json").write_text(json.dumps(dataset), encoding="utf-8")
+    (root / "docs/paper/emotional-residue/results/longitudinal/dataset.json").write_text(json.dumps(dataset), encoding="utf-8")
     sheet = "blind_id,x\nER-0001,a\nER-0002,b\nER-0003,c\nER-0004,d\n"
-    (root / "docs/paper/results/longitudinal/annotation_sheet.csv").write_text(sheet, encoding="utf-8")
-    (root / "docs/paper/results/longitudinal/annotation_key.csv").write_text(sheet, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv").write_text(sheet, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/results/longitudinal/annotation_key.csv").write_text(sheet, encoding="utf-8")
     for i in range(1, 5):
-        (root / f"docs/paper/results/longitudinal/blinded_transcripts/ER-{i:04d}.md").write_text(
+        (root / f"docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/ER-{i:04d}.md").write_text(
             "Transcript text.",
             encoding="utf-8",
         )
-    (root / "docs/paper/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
+    (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
         "Transcript text.",
         encoding="utf-8",
     )
     for path in [
-        "docs/paper/results/current-smoke/results/summary.md",
-        "docs/paper/results/longitudinal/results/summary.md",
+        "docs/paper/emotional-residue/results/current-smoke/results/summary.md",
+        "docs/paper/emotional-residue/results/longitudinal/results/summary.md",
     ]:
         (root / path).write_text("ok", encoding="utf-8")
-    (root / "docs/paper/results/power/summary.md").write_text(
+    (root / "docs/paper/emotional-residue/results/power/summary.md").write_text(
         "Cohen's h\n\n## Cluster Sensitivity\n\ndesign-effect approximation",
         encoding="utf-8",
     )
-    (root / "docs/paper/results/power/cluster_power_grid.csv").write_text(
+    (root / "docs/paper/emotional-residue/results/power/cluster_power_grid.csv").write_text(
         "n_per_arm_nominal,cluster_size,icc\n40,4,0.05\n",
         encoding="utf-8",
     )
@@ -511,15 +514,15 @@ def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         write_minimal_claim_inputs(root)
-        result, findings = generate_report(root, root / "docs/paper/results/readiness.md")
+        result, findings = generate_report(root, root / "docs/paper/emotional-residue/results/readiness.md")
         assert result == "LOCAL_CONSERVATIVE_PREPRINT_SOURCE_READY"
         severities = {finding.severity for finding in findings}
         assert "EMPIRICAL_BLOCKER" in severities
         assert "EXTERNAL_BLOCKER" in severities
-        assert (root / "docs/paper/results/arxiv-source/emotional-residue-arxiv-source.tar.gz").exists()
+        assert (root / "docs/paper/emotional-residue/results/arxiv-source/emotional-residue-arxiv-source.tar.gz").exists()
 
-        (root / "docs/paper/arxiv/main.tex").write_text("[FILL]\n", encoding="utf-8")
-        result, findings = generate_report(root, root / "docs/paper/results/readiness.md")
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text("[FILL]\n", encoding="utf-8")
+        result, findings = generate_report(root, root / "docs/paper/emotional-residue/results/readiness.md")
         assert result == "FAIL"
         assert any(f.check == "placeholder" or f.check == "main_placeholders" for f in findings)
     print("SELFTEST: PASS")

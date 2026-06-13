@@ -287,7 +287,7 @@ def selftest() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--outdir", default="docs/paper/results/power")
+    parser.add_argument("--outdir", default="docs/paper/emotional-residue/results/power")
     parser.add_argument("--baselines", help="comma-separated baseline rates")
     parser.add_argument("--effects", help="comma-separated positive risk differences")
     parser.add_argument("--ns", help="comma-separated n-per-arm values")

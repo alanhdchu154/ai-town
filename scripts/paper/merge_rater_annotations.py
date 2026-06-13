@@ -283,7 +283,7 @@ def main() -> int:
         default=[],
         help="Completed blinded sheet, formatted as RATER_ID=path/to/sheet.csv. Repeat for each rater.",
     )
-    parser.add_argument("--out", default="docs/paper/results/longitudinal/annotations.csv")
+    parser.add_argument("--out", default="docs/paper/emotional-residue/results/longitudinal/annotations.csv")
     parser.add_argument(
         "--manifest",
         help="annotations provenance manifest path; defaults to <out stem>_manifest.json",

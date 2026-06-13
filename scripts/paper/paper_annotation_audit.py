@@ -95,14 +95,14 @@ def resolve_manifest_path(root: Path, raw_path: str) -> Path:
 
 def audit_annotations(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    sheet_path = root / "docs/paper/results/longitudinal/annotation_sheet.csv"
-    key_path = root / "docs/paper/results/longitudinal/annotation_key.csv"
-    packet_manifest_path = root / "docs/paper/results/longitudinal/annotation_packet_manifest.json"
-    annotations_path = root / "docs/paper/results/longitudinal/annotations.csv"
-    annotations_manifest_path = root / "docs/paper/results/longitudinal/annotations_manifest.json"
-    transcript_dir = root / "docs/paper/results/longitudinal/blinded_transcripts"
+    sheet_path = root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv"
+    key_path = root / "docs/paper/emotional-residue/results/longitudinal/annotation_key.csv"
+    packet_manifest_path = root / "docs/paper/emotional-residue/results/longitudinal/annotation_packet_manifest.json"
+    annotations_path = root / "docs/paper/emotional-residue/results/longitudinal/annotations.csv"
+    annotations_manifest_path = root / "docs/paper/emotional-residue/results/longitudinal/annotations_manifest.json"
+    transcript_dir = root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts"
     transcript_manifest_path = transcript_dir / "transcript_packet_manifest.json"
-    protocol_path = root / "docs/paper/HUMAN_ANNOTATION_PROTOCOL.md"
+    protocol_path = root / "docs/paper/emotional-residue/experiments/HUMAN_ANNOTATION_PROTOCOL.md"
     merge_script_path = root / "scripts/paper/merge_rater_annotations.py"
 
     for path in [sheet_path, key_path, protocol_path, merge_script_path]:
@@ -459,11 +459,11 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path, rows: int = 4, merged_annotations: bool = False) -> None:
-    base = root / "docs/paper/results/longitudinal"
+    base = root / "docs/paper/emotional-residue/results/longitudinal"
     transcript_dir = base / "blinded_transcripts"
     transcript_dir.mkdir(parents=True, exist_ok=True)
     (root / "docs/paper").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/HUMAN_ANNOTATION_PROTOCOL.md").write_text(
+    (root / "docs/paper/emotional-residue/experiments/HUMAN_ANNOTATION_PROTOCOL.md").write_text(
         "Minimum pilot sample: 30 archived conversations.\n"
         "Minimum: 2 independent raters.\n"
         "Raters should not see:\n"
@@ -657,29 +657,35 @@ def write_fixture(root: Path, rows: int = 4, merged_annotations: bool = False) -
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_fixture(root)
         findings = audit_annotations(root)
         assert verdict(findings) == "PACKET_READY_INCOMPLETE_STUDY"
         assert not any(f.severity == "FAIL" for f in findings)
 
         root2 = Path(tmp) / "complete"
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root2 / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root2 / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_fixture(root2, rows=30, merged_annotations=True)
         findings = audit_annotations(root2)
         assert verdict(findings) == "PASS"
 
-        (root2 / "docs/paper/results/longitudinal/annotations_manifest.json").unlink()
+        (root2 / "docs/paper/emotional-residue/results/longitudinal/annotations_manifest.json").unlink()
         findings = audit_annotations(root2)
         assert verdict(findings) == "FAIL"
         assert any(f.check == "annotations_manifest" for f in findings)
         write_fixture(root2, rows=30, merged_annotations=True)
 
-        (root2 / "docs/paper/results/longitudinal/annotation_packet_manifest.json").unlink()
+        (root2 / "docs/paper/emotional-residue/results/longitudinal/annotation_packet_manifest.json").unlink()
         findings = audit_annotations(root2)
         assert verdict(findings) == "FAIL"
         assert any(f.check == "annotation_packet_manifest" for f in findings)
         write_fixture(root2, rows=30, merged_annotations=True)
 
-        (root2 / "docs/paper/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
+        (root2 / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
             "condition: residue_on\n",
             encoding="utf-8",
         )
@@ -692,7 +698,7 @@ def run_selftest() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/annotation-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/annotation-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero on any non-PASS finding.")
     args = parser.parse_args(argv)

@@ -19,7 +19,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/design-audit.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/design-audit.md"
 
 
 @dataclass
@@ -45,15 +45,15 @@ def has(text: str, phrase: str) -> bool:
 
 def audit_design(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    schedule_path = root / "docs/paper/SCHEDULE_DECISION.md"
-    longitudinal_path = root / "docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md"
-    prereg_path = root / "docs/paper/PREREGISTRATION_PROTOCOL.md"
-    main_path = root / "docs/paper/arxiv/main.tex"
-    acceptance_path = root / "docs/paper/SCHEDULE_ACCEPTANCE.json"
-    preregistration_acceptance_path = root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json"
-    power_path = root / "docs/paper/results/power/summary.md"
-    cluster_power_path = root / "docs/paper/results/power/cluster_power_grid.csv"
-    annotation_sheet_path = root / "docs/paper/results/longitudinal/annotation_sheet.csv"
+    schedule_path = root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md"
+    longitudinal_path = root / "docs/paper/emotional-residue/experiments/LONGITUDINAL_EXPERIMENT_PLAN.md"
+    prereg_path = root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md"
+    main_path = root / "docs/paper/emotional-residue/manuscript/main.tex"
+    acceptance_path = root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json"
+    preregistration_acceptance_path = root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json"
+    power_path = root / "docs/paper/emotional-residue/results/power/summary.md"
+    cluster_power_path = root / "docs/paper/emotional-residue/results/power/cluster_power_grid.csv"
+    annotation_sheet_path = root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv"
     analyze_path = root / "scripts/paper/analyze.py"
 
     required = [
@@ -252,9 +252,9 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path, complete: bool) -> None:
-    (root / "docs/paper/results/power").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/results/longitudinal").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/arxiv").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/power").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/longitudinal").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
     (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
     schedule = """
 arm-pure full-day / long-window collection
@@ -276,8 +276,8 @@ n>=150/arm
         schedule += "\nlength-matched placebo arm has been implemented\nfixed final N is set\n"
     else:
         schedule += "\nExact N should be set after the pilot estimates baseline callback rate and sample yield.\n"
-    (root / "docs/paper/SCHEDULE_DECISION.md").write_text(schedule, encoding="utf-8")
-    (root / "docs/paper/LONGITUDINAL_EXPERIMENT_PLAN.md").write_text(schedule, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md").write_text(schedule, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/experiments/LONGITUDINAL_EXPERIMENT_PLAN.md").write_text(schedule, encoding="utf-8")
     prereg = """
 preregistration_status: draft_not_accepted
 accepted_schedule_required: true
@@ -289,18 +289,18 @@ Exclusion Criteria
 Deviation Policy
 no_arm_extension_after_effect_peeking: true
 """
-    (root / "docs/paper/arxiv/main.tex").write_text(schedule, encoding="utf-8")
-    (root / "docs/paper/SCHEDULE_ACCEPTANCE.json").write_text(
+    (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(schedule, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json").write_text(
         json.dumps({"accepted": complete}),
         encoding="utf-8",
     )
-    (root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json").write_text(
+    (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json").write_text(
         json.dumps(
             {
                 "accepted": complete,
                 "accepted_by": "Alan" if complete else "",
                 "accepted_at": "2026-06-06T00:00:00Z" if complete else "",
-                "preregistration_document": "docs/paper/PREREGISTRATION_PROTOCOL.md",
+                "preregistration_document": "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md",
             }
         ),
         encoding="utf-8",
@@ -309,17 +309,17 @@ no_arm_extension_after_effect_peeking: true
         prereg = prereg.replace("placebo_arm_status: local_plumbing_not_preregistered", "placebo_arm_status: implemented")
         prereg = prereg.replace("placebo_analysis_status: not_analyzed", "placebo_analysis_status: analyzed")
         prereg = prereg.replace("preregistration_status: draft_not_accepted", "preregistration_status: accepted")
-    (root / "docs/paper/PREREGISTRATION_PROTOCOL.md").write_text(prereg, encoding="utf-8")
-    (root / "docs/paper/results/power/summary.md").write_text(
+    (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md").write_text(prereg, encoding="utf-8")
+    (root / "docs/paper/emotional-residue/results/power/summary.md").write_text(
         "Cohen's h\n\n## Cluster Sensitivity\n\ndesign-effect approximation",
         encoding="utf-8",
     )
-    (root / "docs/paper/results/power/cluster_power_grid.csv").write_text(
+    (root / "docs/paper/emotional-residue/results/power/cluster_power_grid.csv").write_text(
         "n_per_arm_nominal,cluster_size,icc\n40,4,0.05\n",
         encoding="utf-8",
     )
     rows = ["blind_id,x"] + [f"ER-{i:04d},x" for i in range(30 if complete else 4)]
-    (root / "docs/paper/results/longitudinal/annotation_sheet.csv").write_text(
+    (root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv").write_text(
         "\n".join(rows) + "\n",
         encoding="utf-8",
     )
@@ -336,6 +336,9 @@ no_arm_extension_after_effect_peeking: true
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_fixture(root, complete=False)
         findings = audit_design(root)
         assert verdict(findings) == "EMPIRICAL_DESIGN_BLOCKED"

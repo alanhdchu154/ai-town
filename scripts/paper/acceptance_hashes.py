@@ -14,10 +14,10 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCHEDULE_PATH = Path("docs/paper/SCHEDULE_DECISION.md")
-PREREG_PATH = Path("docs/paper/PREREGISTRATION_PROTOCOL.md")
-SCHEDULE_ACCEPTANCE_PATH = Path("docs/paper/SCHEDULE_ACCEPTANCE.json")
-PREREG_ACCEPTANCE_PATH = Path("docs/paper/PREREGISTRATION_ACCEPTANCE.json")
+SCHEDULE_PATH = Path("docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md")
+PREREG_PATH = Path("docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md")
+SCHEDULE_ACCEPTANCE_PATH = Path("docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json")
+PREREG_ACCEPTANCE_PATH = Path("docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json")
 
 
 def sha256(path: Path) -> str:

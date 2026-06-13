@@ -20,19 +20,20 @@ Last updated: 2026-06-13.
 
 ## Paper / preprint package
 
-The emotional-residue paper has its own sub-index — **[paper/README.md](paper/README.md)**
-maps all ~23 docs into groups (entry points, submission source, experiment
-protocols, evidence ledgers, gates, results) with status and reading order.
-Start there. The most useful entry points:
+`docs/paper/` is organized by **research topic → paper → category**.
+**[paper/README.md](paper/README.md)** is the topic map (start there). Current topics:
+Paper A *Emotional Residue* (active, v0.1, on OSF) lives under
+`paper/emotional-residue/{manuscript,plan,claims,experiments,release,data,results}`;
+Paper B *Subjective Memory Re-Bedding* (future, v0.2+) under `paper/subjective-rebedding/`.
 
 | Document | Purpose |
 |---|---|
-| [paper/README.md](paper/README.md) | **Map of the whole paper package.** Read this first. |
-| [paper/ALAN_HANDOFF.md](paper/ALAN_HANDOFF.md) | One-page boundary: what is defensible now vs blocked. |
-| [paper/PUBLISH_READY_CHECKLIST.md](paper/PUBLISH_READY_CHECKLIST.md) | Detailed local checklist of completed hardening and remaining blockers. |
-| [paper/CLAIM_EVIDENCE_MATRIX.md](paper/CLAIM_EVIDENCE_MATRIX.md) | Claim-to-artifact ledger and reviewer-safe boundaries. |
+| [paper/README.md](paper/README.md) | **Topic map of all papers.** Read this first. |
+| [paper/emotional-residue/release/ALAN_HANDOFF.md](paper/emotional-residue/release/ALAN_HANDOFF.md) | One-page boundary: what is defensible now vs blocked. |
+| [paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md](paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md) | Detailed local checklist of completed hardening and remaining blockers. |
+| [paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md](paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md) | Claim-to-artifact ledger and reviewer-safe boundaries. |
 
-> Do not move/rename files under `docs/paper/` — `scripts/paper/` audits and
+> Do not move/rename files inside a paper folder — `scripts/paper/` audits and
 > `acceptance_hashes.py` hardcode and hash these exact paths.
 
 ## Soul / character architecture

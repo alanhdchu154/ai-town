@@ -19,7 +19,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DECISIONS = REPO_ROOT / "docs/paper/SUBMISSION_DECISIONS.json"
+DEFAULT_DECISIONS = REPO_ROOT / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json"
 VALID_PRIMARY_CATEGORIES = {"cs.HC", "cs.AI", "cs.CL", "cs.CY", "cs.MA"}
 VALID_LICENSE_PREFIXES = {
     "arxiv-default",
@@ -157,12 +157,12 @@ def author_block_has_public_metadata(author_block: str) -> bool:
 
 def audit_submission(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    decisions_path = root / "docs/paper/SUBMISSION_DECISIONS.json"
-    main_path = root / "docs/paper/arxiv/main.tex"
-    readme_path = root / "docs/paper/arxiv/README.md"
+    decisions_path = root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json"
+    main_path = root / "docs/paper/emotional-residue/manuscript/main.tex"
+    readme_path = root / "docs/paper/emotional-residue/manuscript/README.md"
 
     if not decisions_path.exists():
-        add(findings, "EXTERNAL_BLOCKER", "submission_decisions_file", "Missing docs/paper/SUBMISSION_DECISIONS.json.")
+        add(findings, "EXTERNAL_BLOCKER", "submission_decisions_file", "Missing docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json.")
         return findings
 
     try:
@@ -291,14 +291,14 @@ def audit_submission(root: Path) -> list[Finding]:
         if "\\section*{Acknowledgements}" not in main_text or "\\cite{aitown}" not in main_text:
             add(findings, "EXTERNAL_BLOCKER", "main_attribution", "main.tex should acknowledge/cite AI Town before external posting.")
     else:
-        add(findings, "FAIL", "main_tex", "Missing docs/paper/arxiv/main.tex.")
+        add(findings, "FAIL", "main_tex", "Missing docs/paper/emotional-residue/manuscript/main.tex.")
 
     if readme_path.exists():
         readme = readme_path.read_text(encoding="utf-8")
         if "Confirm upstream AI Town license attribution" not in readme:
             add(findings, "WARN", "readme_attribution_check", "README final checks should mention upstream AI Town attribution.")
     else:
-        add(findings, "FAIL", "arxiv_readme", "Missing docs/paper/arxiv/README.md.")
+        add(findings, "FAIL", "arxiv_readme", "Missing docs/paper/emotional-residue/manuscript/README.md.")
 
     if not findings:
         add(findings, "PASS", "submission_decisions", "All local submission decisions are explicitly confirmed.")
@@ -381,11 +381,11 @@ def write_decisions(root: Path, complete: bool) -> None:
             "pdf_render_verified": False,
             "platform_preview_verified": False,
         }
-    (root / "docs/paper/SUBMISSION_DECISIONS.json").write_text(json.dumps(decisions, indent=2), encoding="utf-8")
+    (root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json").write_text(json.dumps(decisions, indent=2), encoding="utf-8")
 
 
 def write_source(root: Path, complete: bool) -> None:
-    arxiv = root / "docs/paper/arxiv"
+    arxiv = root / "docs/paper/emotional-residue/manuscript"
     arxiv.mkdir(parents=True, exist_ok=True)
     author = "\\author{Alan H. Chu\\\\Independent Researcher}\n" if complete else ""
     placeholder = "" if complete else "\\texttt{author details to confirm before submission}"
@@ -404,6 +404,9 @@ def write_source(root: Path, complete: bool) -> None:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_decisions(root, complete=False)
         write_source(root, complete=False)
         findings = audit_submission(root)
@@ -411,7 +414,7 @@ def run_selftest() -> None:
         assert any(f.check == "author_name" for f in findings)
         assert any(f.check == "main_author_placeholder" for f in findings)
 
-        arxiv = root / "docs/paper/arxiv"
+        arxiv = root / "docs/paper/emotional-residue/manuscript"
         arxiv.joinpath("main.tex").write_text(
             "\\documentclass{article}\n"
             "\\author{Alan H. Chu\\\\Independent Researcher}\n"
@@ -426,14 +429,14 @@ def run_selftest() -> None:
         assert any(f.check == "main_author_identity_unconfirmed" for f in findings)
 
         write_decisions(root, complete=True)
-        decisions = read_json(root / "docs/paper/SUBMISSION_DECISIONS.json")
+        decisions = read_json(root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json")
         decisions["author_name"] = "TO_CONFIRM"
         decisions["affiliation"] = "TO_CONFIRM"
         decisions["contact_email"] = "TO_CONFIRM@example.com"
         decisions["primary_category"] = "CHOOSE_ONE: cs.HC | cs.AI"
         decisions["license_choice"] = "CHOOSE_ONE: arxiv-default"
         decisions["posting_timing_decision"] = "CHOOSE_ONE: hold"
-        (root / "docs/paper/SUBMISSION_DECISIONS.json").write_text(json.dumps(decisions), encoding="utf-8")
+        (root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json").write_text(json.dumps(decisions), encoding="utf-8")
         write_source(root, complete=True)
         findings = audit_submission(root)
         assert verdict(findings) == "EXTERNAL_BLOCKERS"
@@ -451,7 +454,7 @@ def run_selftest() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/submission-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/submission-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero unless all submission decisions are PASS.")
     args = parser.parse_args(argv)

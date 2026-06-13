@@ -188,7 +188,7 @@ def write_manifest(path: Path, rows: list[dict], summaries: list[RunSummary], ar
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        legacy = root / "docs/paper/results/ablation-legacy"
+        legacy = root / "docs/paper/emotional-residue/results/ablation-legacy"
         legacy.mkdir(parents=True)
         (legacy / "dataset.json").write_text(
             json.dumps(
@@ -229,10 +229,10 @@ def main() -> int:
     ap.add_argument(
         "--runs",
         nargs="+",
-        default=["docs/paper/results/ablation-*"],
+        default=["docs/paper/emotional-residue/results/ablation-*"],
         help="run directories or glob patterns",
     )
-    ap.add_argument("--out", default="docs/paper/results/longitudinal/dataset.json")
+    ap.add_argument("--out", default="docs/paper/emotional-residue/results/longitudinal/dataset.json")
     ap.add_argument(
         "--manifest",
         help="merge manifest path; defaults to <out>.merge-manifest.json",

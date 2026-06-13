@@ -13,7 +13,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/evidence-matrix-audit.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/evidence-matrix-audit.md"
 
 
 REQUIRED_CLAIMS = {
@@ -31,22 +31,22 @@ REQUIRED_CLAIMS = {
 }
 
 REQUIRED_ARTIFACTS = [
-    "docs/paper/ALAN_HANDOFF.md",
-    "docs/paper/REVIEWER_PREMORTEM.md",
-    "docs/paper/arxiv/main.tex",
-    "docs/paper/results/mechanism-audit.md",
-    "docs/paper/results/current-smoke/results/summary.md",
-    "docs/paper/results/consistency-audit.md",
-    "docs/paper/results/empirical-audit.md",
-    "docs/paper/results/design-audit.md",
-    "docs/paper/results/trace-overlap-audit.md",
-    "docs/paper/results/annotation-audit.md",
-    "docs/paper/results/source-audit.md",
-    "docs/paper/results/submission-audit.md",
-    "docs/paper/results/pdf-preflight.md",
-    "docs/paper/results/readiness.md",
-    "docs/paper/SCHEDULE_ACCEPTANCE.json",
-    "docs/paper/SUBMISSION_DECISIONS.json",
+    "docs/paper/emotional-residue/release/ALAN_HANDOFF.md",
+    "docs/paper/emotional-residue/claims/REVIEWER_PREMORTEM.md",
+    "docs/paper/emotional-residue/manuscript/main.tex",
+    "docs/paper/emotional-residue/results/mechanism-audit.md",
+    "docs/paper/emotional-residue/results/current-smoke/results/summary.md",
+    "docs/paper/emotional-residue/results/consistency-audit.md",
+    "docs/paper/emotional-residue/results/empirical-audit.md",
+    "docs/paper/emotional-residue/results/design-audit.md",
+    "docs/paper/emotional-residue/results/trace-overlap-audit.md",
+    "docs/paper/emotional-residue/results/annotation-audit.md",
+    "docs/paper/emotional-residue/results/source-audit.md",
+    "docs/paper/emotional-residue/results/submission-audit.md",
+    "docs/paper/emotional-residue/results/pdf-preflight.md",
+    "docs/paper/emotional-residue/results/readiness.md",
+    "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json",
+    "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json",
 ]
 
 REQUIRED_GATE_LINES = [
@@ -88,9 +88,9 @@ def add(findings: list[Finding], severity: str, check: str, detail: str) -> None
 
 def audit_matrix(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    matrix_path = root / "docs/paper/CLAIM_EVIDENCE_MATRIX.md"
+    matrix_path = root / "docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md"
     if not matrix_path.exists():
-        add(findings, "FAIL", "matrix_missing", "Missing docs/paper/CLAIM_EVIDENCE_MATRIX.md.")
+        add(findings, "FAIL", "matrix_missing", "Missing docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md.")
         return findings
     text = matrix_path.read_text(encoding="utf-8")
 
@@ -170,9 +170,9 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path) -> None:
-    (root / "docs/paper/results/current-smoke/results").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/results").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/arxiv").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/current-smoke/results").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
     for artifact in REQUIRED_ARTIFACTS:
         path = root / artifact
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -185,7 +185,7 @@ def write_fixture(root: Path) -> None:
     ]
     for claim, status in REQUIRED_CLAIMS.items():
         rows.append(f"| {claim} | claim | {status} | {'; '.join(REQUIRED_ARTIFACTS)} | Do not claim this; not as a validated psychometric; not as a completed effect claim; not as behavioral-compliance validation; empirical/mechanism claims remain blocked; not the same as rendered-PDF readiness; does not yet support causal |")
-    (root / "docs/paper/CLAIM_EVIDENCE_MATRIX.md").write_text(
+    (root / "docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md").write_text(
         "\n".join(rows)
         + "\n\n"
         + "\n".join(f"- {line}" for line in REQUIRED_GATE_LINES)
@@ -200,7 +200,7 @@ def run_selftest() -> None:
         write_fixture(root)
         findings = audit_matrix(root)
         assert verdict(findings) == "PASS"
-        matrix = root / "docs/paper/CLAIM_EVIDENCE_MATRIX.md"
+        matrix = root / "docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md"
         matrix.write_text(matrix.read_text(encoding="utf-8").replace("C6", "C99"), encoding="utf-8")
         findings = audit_matrix(root)
         assert verdict(findings) == "FAIL"

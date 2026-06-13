@@ -20,9 +20,9 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/trace-overlap-audit.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/trace-overlap-audit.md"
 DEFAULT_REPORT_GLOBS = [
-    "docs/paper/results/repeatability/rolling-continuity-*.md",
+    "docs/paper/emotional-residue/results/repeatability/rolling-continuity-*.md",
     "umi/reports/rolling-continuity-latest.md",
 ]
 MIN_CALLBACKS_FOR_VALIDATION = 30
@@ -251,7 +251,7 @@ def render(findings: list[Finding], cases: list[OverlapCase], root: Path) -> str
 
 
 def write_fixture(root: Path) -> None:
-    report = root / "docs/paper/results/repeatability/rolling-continuity-fixture.md"
+    report = root / "docs/paper/emotional-residue/results/repeatability/rolling-continuity-fixture.md"
     report.parent.mkdir(parents=True, exist_ok=True)
     report.write_text(
         """
@@ -275,7 +275,7 @@ def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         write_fixture(root)
-        findings, cases = audit_overlap(root, ["docs/paper/results/repeatability/*.md"])
+        findings, cases = audit_overlap(root, ["docs/paper/emotional-residue/results/repeatability/*.md"])
         assert cases, "expected fixture callback case"
         assert verdict(findings) == "PILOT_ONLY_TRACE_OVERLAP_AUDIT"
         assert any(f.check == "callback_sample_size" for f in findings)

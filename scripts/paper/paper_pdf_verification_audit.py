@@ -19,7 +19,7 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/pdf-verification-audit.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/pdf-verification-audit.md"
 REQUIRED_VISUAL_CHECKS = [
     "title_author_abstract_checked",
     "tables_checked",
@@ -70,15 +70,15 @@ def sha256ish(value: object) -> bool:
 
 def audit_pdf_verification(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    verification_path = root / "docs/paper/PDF_VERIFICATION.json"
-    protocol_path = root / "docs/paper/PDF_VERIFICATION_PROTOCOL.md"
-    manifest_path = root / "docs/paper/results/arxiv-source/manifest.json"
+    verification_path = root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json"
+    protocol_path = root / "docs/paper/emotional-residue/release/PDF_VERIFICATION_PROTOCOL.md"
+    manifest_path = root / "docs/paper/emotional-residue/results/arxiv-source/manifest.json"
 
     if not verification_path.exists():
-        add(findings, "FAIL", "pdf_verification_file", "Missing docs/paper/PDF_VERIFICATION.json.")
+        add(findings, "FAIL", "pdf_verification_file", "Missing docs/paper/emotional-residue/release/PDF_VERIFICATION.json.")
         return findings
     if not protocol_path.exists():
-        add(findings, "FAIL", "pdf_verification_protocol", "Missing docs/paper/PDF_VERIFICATION_PROTOCOL.md.")
+        add(findings, "FAIL", "pdf_verification_protocol", "Missing docs/paper/emotional-residue/release/PDF_VERIFICATION_PROTOCOL.md.")
 
     try:
         data = read_json(verification_path)
@@ -116,7 +116,7 @@ def audit_pdf_verification(root: Path) -> list[Finding]:
                     f"PDF verification references archive SHA {data.get('source_archive_sha256')}, current archive SHA is {current_sha}.",
                 )
         elif not manifest_path.exists():
-            add(findings, "FAIL", "archive_manifest", "Missing docs/paper/results/arxiv-source/manifest.json.")
+            add(findings, "FAIL", "archive_manifest", "Missing docs/paper/emotional-residue/results/arxiv-source/manifest.json.")
 
         visual = data.get("visual_checks")
         if not isinstance(visual, dict):
@@ -173,14 +173,14 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_fixture(root: Path, complete: bool) -> None:
-    (root / "docs/paper/results/arxiv-source").mkdir(parents=True, exist_ok=True)
+    (root / "docs/paper/emotional-residue/results/arxiv-source").mkdir(parents=True, exist_ok=True)
     (root / "docs/paper").mkdir(parents=True, exist_ok=True)
     archive_sha = "a" * 64
-    (root / "docs/paper/results/arxiv-source/manifest.json").write_text(
+    (root / "docs/paper/emotional-residue/results/arxiv-source/manifest.json").write_text(
         json.dumps({"archive_sha256": archive_sha}),
         encoding="utf-8",
     )
-    (root / "docs/paper/PDF_VERIFICATION_PROTOCOL.md").write_text("protocol", encoding="utf-8")
+    (root / "docs/paper/emotional-residue/release/PDF_VERIFICATION_PROTOCOL.md").write_text("protocol", encoding="utf-8")
     if complete:
         data = {
             "pdf_render_verified": True,
@@ -205,7 +205,7 @@ def write_fixture(root: Path, complete: bool) -> None:
             "rendered_pdf_sha256": "",
             "visual_checks": {key: False for key in REQUIRED_VISUAL_CHECKS},
         }
-    (root / "docs/paper/PDF_VERIFICATION.json").write_text(
+    (root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json").write_text(
         json.dumps(data, indent=2),
         encoding="utf-8",
     )
@@ -214,6 +214,9 @@ def write_fixture(root: Path, complete: bool) -> None:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_fixture(root, complete=False)
         findings = audit_pdf_verification(root)
         assert verdict(findings) == "PDF_BLOCKER"
@@ -223,19 +226,19 @@ def run_selftest() -> None:
         findings = audit_pdf_verification(root)
         assert verdict(findings) == "PASS"
 
-        data = read_json(root / "docs/paper/PDF_VERIFICATION.json")
+        data = read_json(root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json")
         data["source_archive_sha256"] = "c" * 64
-        (root / "docs/paper/PDF_VERIFICATION.json").write_text(json.dumps(data), encoding="utf-8")
+        (root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json").write_text(json.dumps(data), encoding="utf-8")
         findings = audit_pdf_verification(root)
         assert verdict(findings) == "FAIL"
         assert any(f.check == "source_archive_sha_mismatch" for f in findings)
 
         write_fixture(root, complete=True)
-        data = read_json(root / "docs/paper/PDF_VERIFICATION.json")
+        data = read_json(root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json")
         data["render_tool"] = "TO_RECORD: pdflatex"
         data["verified_at"] = "YYYY-MM-DDTHH:MM:SSZ"
         data["rendered_pdf_sha256"] = "TO_RECORD_64_HEX_SHA256_AFTER_RENDER"
-        (root / "docs/paper/PDF_VERIFICATION.json").write_text(json.dumps(data), encoding="utf-8")
+        (root / "docs/paper/emotional-residue/release/PDF_VERIFICATION.json").write_text(json.dumps(data), encoding="utf-8")
         findings = audit_pdf_verification(root)
         assert verdict(findings) == "FAIL"
         checks = {f.check for f in findings}

@@ -1,0 +1,373 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{url}
+
+\title{Emotional Residue: A Lightweight Memory Pattern for Trace-Based Continuity in LLM-Driven Character Agents}
+\author{Alan Hwader Chu\\Independent Researcher}
+\date{June 10, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+LLM-driven character agents can produce fluent conversations while still failing at a quieter form of continuity: the feeling that an earlier encounter changed what a character notices later. We present \emph{emotional residue}, a lightweight memory pattern for persistent character agents. Instead of storing a numeric affect state or a full transcript summary, a qualifying conversation writes one bounded, human-readable trace line into memory. Later conversations between the same pair read at most two recent traces as time-gated pressure on attention, avoidance, tone, and initiative, with an explicit instruction not to quote the trace verbatim. We describe the pattern inside Underworld, an AI Town-derived school simulation, and place it within a local five-layer character framing: public self, private self, relational self, residue, and drift. We report preliminary feasibility evidence from a single-player, author-observed live system: a deterministic rule-based three-character ``soul-triad'' evaluation over 8 recent conversations, a rolling two-hour continuity report demonstrating that archived windows can surface concrete callback moments, and an analysis pipeline for future ablations and human annotation. This is a design/systems contribution, not a controlled player study: the current evidence supports feasibility and inspectability, while causal and player-experience claims remain future work.
+\end{abstract}
+
+\section{Introduction}
+
+Persistent character agents often remember more than they feel. A memory stream can retrieve facts, summaries, or observations, yet the player may still experience the next encounter as emotionally reset. The problem is not only whether an agent can recall that something happened. It is whether the next conversation is subtly shaped by the aftermath of the previous one.
+
+This paper argues for a deliberately small unit of emotional memory: \emph{emotional residue}. In Underworld, a qualifying conversation leaves a single bounded trace line in the agent memory. A later conversation with the same partner may read one or two recent traces, but only as pressure on what to notice, avoid, shorten, soften, or initiate. The trace should not be quoted. The system is trying to produce memory as aftertaste, not memory as citation.
+
+The contribution is a design and systems pattern for LLM-driven character agents:
+\begin{enumerate}
+  \item the emotional residue write/read pattern, including bounded traces, same-pair retrieval, time labels, and rollback flags;
+  \item a framing device that situates residue inside broader character identity;
+  \item a deterministic evaluation harness for character distinctiveness, residue continuity, and hygiene failures;
+  \item an honest account of what the current prototype does and does not establish.
+\end{enumerate}
+
+\section{Background and Related Work}
+
+\paragraph{Generative agents and AI Town.}
+Generative Agents introduced a simulation architecture in which agents observe, remember, reflect, plan, and interact in a shared world \cite{park2023generative}. AI Town provides an open implementation lineage for agent-populated spaces \cite{aitown}. Underworld inherits the broad substrate of persistent agents in a shared world, but differs in the proposed unit of emotional continuity. The aim is not to retrieve more observations. The aim is to store a small trace whose later use is constrained to behavioral pressure.
+
+\paragraph{Affective and believable agents.}
+Affective computing and appraisal-based agent models have long represented emotion as computational state \cite{picard1997affective,ortony1988cognitive,mehrabian1974approach}. Such representations are useful for simulation control, but in LLM dialogue they can become brittle if the state is surfaced too directly. A number such as sadness or trust may be legible to a system designer while still being the wrong unit to feed into a natural conversation. Believable agent work in games and interactive narrative similarly emphasizes that coherence and personality are experienced through behavior, timing, and relation, not only through explicit state labels \cite{bates1994role}.
+
+\paragraph{Relational and role-playing agents.}
+Relational-agent research frames long-term social-emotional relationship building as a central interface problem rather than a decorative layer \cite{bickmore2005relational}. Recent LLM role-playing work such as Character-LLM studies how models can be trained from profiles, experiences, and emotional states to simulate specific people \cite{shao2023characterllm}. Emotional residue is complementary to that line: it is a runtime memory primitive for an already-running character world, not a training-time persona construction method and not yet a validated relational-agent intervention.
+
+\paragraph{Social-agent evaluation.}
+Recent benchmarks such as SOTOPIA evaluate language agents in interactive, goal-driven social scenarios \cite{sotopia}, and Lifelong SOTOPIA extends this concern to multi-episode interaction histories \cite{lifelongsotopia}. Those benchmarks foreground social intelligence, goal completion, believability, and the difficulty of using interaction history over time. Emotional residue addresses a narrower engineering question inside a deployed character world: what small memory unit can make a later conversation feel behaviorally shaped by an earlier one without turning the prior exchange into a quoted recap?
+
+\paragraph{Layered social selves.}
+The five-layer model in this paper is not a claim that layered identity is new. It is a local engineering model that borrows from a long tradition of frontstage/backstage social presentation \cite{goffman1959presentation} and believable-agent work \cite{bates1994role}, then assigns one narrow runtime role to residue: the trace between a relational encounter and later behavior.
+
+\paragraph{LLM memory.}
+Current LLM-agent memory systems commonly use transcript summaries, vector retrieval, reflections, context-management tiers, or task-oriented episodic memory. MemoryBank studies long-term memory for companion-style dialogue \cite{memorybank}; LongMem and MemGPT address long-context or virtual-context management \cite{longmem,memgpt}; Reflexion stores verbal feedback for later trials \cite{reflexion}; and Voyager stores executable skills for embodied open-ended learning \cite{voyager}. Recent surveys organize these mechanisms as a central component of LLM-based agents \cite{llmagentmemorysurvey}. Emotional residue is positioned differently: it is not mainly a capacity mechanism, a skill library, or a task-improvement reflection. It is a small relational trace designed to shape later character behavior without becoming a quoted summary. Compared with a relationship-tagged summary plus a do-not-quote instruction, the operational unit here is intentionally smaller and more constrained: one bounded same-pair trace, time-labeled retrieval of at most two traces, explicit rollback flags for write/read paths, and motif guards that treat repeated props as a failure mode rather than a continuity signal.
+
+\paragraph{Contrast with summary memory.}
+The closest simple alternative is to store a one-line relationship summary and
+tell the model not to quote it. For example, a summary might say that
+\emph{A coordinator character and a quiet-care peer discussed how care can become another task}. Even with a
+do-not-quote instruction, such a sentence invites explicit callback language:
+``I remember when we talked about care becoming another task.'' Emotional
+residue narrows the stored unit: \emph{the coordinator still feels the quiet weight of
+the peer noticing that care had almost become another task}. The intended later
+effect is not a spoken recap, but a changed behavior such as a shorter first
+question, a pause before offering help, or a refusal to optimize the moment.
+The distinction is small, but operational: the system stores residue as
+behavioral pressure and treats quoted recall, motif repetition, and slogan-like
+callbacks as failure modes.
+
+\section{System Setting}
+
+Underworld is an AI Town-derived school-world simulation built on a Convex backend and a browser client. The current prototype centers on a small cast of recurring character roles and a returning player. The practical goal is not to maximize autonomous chatter. It is to make the world feel slightly changed when the player returns.
+
+The relevant loop is:
+\[
+\textrm{conversation} \rightarrow \textrm{residue} \rightarrow \textrm{memory continuity} \rightarrow \textrm{small behavioral consequence}.
+\]
+
+This narrow loop is important. The paper does not claim a general theory of synthetic emotion, consciousness, or social simulation. It describes a reversible memory primitive for a bounded agent world.
+
+\subsection{Residue Architecture}
+
+The implementation has a deliberately small write/read path. Conversation memory is generated in \texttt{convex/agent/memory.ts}. Before writing residue, the system checks that the conversation has enough meaningful turns, enough distinct authors, and no fallback or one-sided shape. Residue writes are disabled when \texttt{UNDERWORLD\_RESIDUE\_WRITE=false}. For the pilot cast, \texttt{deterministicResidueSentence} emits at most one bounded Chinese sentence, rejects slogan-like residue, and appends it to the ordinary memory description under a fixed residue prefix. The stored memory remains a normal memory row whose \texttt{description} contains both the base summary and the residue line; the schema also allows memories to be classified with the \texttt{emotional\_residue} outcome label for later inspection, but the current read path still uses the bounded text trace rather than a numeric affect state.
+
+Read-time prompt construction happens in \texttt{convex/agent/conversation.ts}. The conversation prompt receives \texttt{recentResidues} for the same pair and calls \texttt{residuePromptLines}. If \texttt{UNDERWORLD\_RESIDUE\_READ=false}, this function returns no residue block. Otherwise it injects at most two recent residue lines, each with a deployment-local time label (America/Chicago in this prototype), plus an instruction to use them only as pressure on attention, avoidance, tone length, or initiative. A separate motif guard reads previous messages and recent residues to warn against repeated object families such as cups, meals, files, windows, or burden-sharing phrases. The current motif list is hand-curated for the pilot cast; measuring its trigger rate and false positives is future work. In schematic form:
+\[
+\textrm{archived conversation}
+\rightarrow
+\textrm{memory.description + residue prefix}
+\rightarrow
+\textrm{same-pair recentResidues}
+\rightarrow
+\textrm{bounded prompt block}
+\rightarrow
+\textrm{behavioral pressure, not quotation}.
+\]
+
+\section{The Five-Layer Character Model}
+
+The residue pattern sits inside a five-layer character model:
+\begin{description}
+  \item[Public self.] The role, tone, and outward way a character helps.
+  \item[Private self.] Hidden cost, fear, or contradiction. This should leak through hesitation and behavior, not exposition.
+  \item[Relational self.] Who the character becomes around a specific person.
+  \item[Residue.] What survives a conversation as an emotional trace.
+  \item[Drift.] Slow changes to behavior, silence, availability, or initiative.
+\end{description}
+
+The differentiation rule is: same emotional direction, different emotional language. In the prototype, one character reduces overload, another stays near quiet pain, and another stress-tests rules until the test itself risks becoming harm. Residue alone is not sufficient if all characters convert it into the same comforting voice. It needs relational style to remain legible.
+
+\section{The Emotional Residue Pattern}
+
+\subsection{Write Path}
+
+A qualifying conversation writes at most one residue line. The line is bounded, human-readable, and stored inside the existing memory description field. This choice avoids a schema migration and keeps the pattern cheap to adopt, inspect, and remove. The write path is gated to avoid saving fallback text, one-sided interactions, or trivial exchanges as emotional memory.
+
+The design intentionally avoids full transcript summaries. A full summary is often too complete: it encourages the next prompt to quote or restate the prior event. A residue line should be specific enough to carry relational texture, but small enough that the next agent must translate it into behavior.
+
+\subsection{Read Path}
+
+During a later conversation between the same pair, the prompt can include at most two recent residue lines. The instruction is asymmetric: the character may let the trace influence what it notices, avoids, asks first, or shortens, but should not say that it remembers the residue and should not quote it verbatim.
+
+Residue is time-labeled in the deployment-local day context. Recent traces may produce sharper callbacks. Older traces must be handled softly and cannot be spoken of as if they happened today. This protects continuity from a common failure mode: stale memory presented with false immediacy.
+
+The contrastive example above illustrates the intended read behavior: the trace
+should bias timing, initiative, and restraint, not produce a spoken recap.
+
+\subsection{Motif Guard}
+
+LLMs can turn continuity into repeated props. If a cup, light, file, or other motif has already appeared repeatedly, the system warns the model not to reuse the same object as a cheap signal of memory. The target is a behavioral shift, not decorative recurrence.
+
+\subsection{Rollback and Ablation}
+
+The pattern has two environment flags. One disables residue writes, and one disables residue reads. The primary mechanism pilot proposed for the current package is read-off: leave residue in memory, but prevent it from being injected into the next prompt. In the preregistration draft, this is framed narrowly as a read-block-suppression contrast, not as clean isolation of residue content from prompt length or instruction shape. A length-matched placebo arm is the planned stronger control before making a clean read-path mechanism claim.
+
+\section{Evaluation Harness}
+
+\subsection{Rule-Based Soul-Triad Evaluation}
+
+The current evaluation is deterministic and rule-based. The term ``soul-triad'' refers to the three-character pilot evaluation suite used to stress-test differentiated emotional style among the core characters. It is not an LLM-as-judge result. For each evaluated conversation, the harness records markers such as emotional expression uniqueness, comfort style uniqueness, burden response uniqueness, a rule-based aftertaste proxy, echo similarity penalty, and stage-direction leak penalty. The same author designed the prototype, the residue pattern, and the rule-based markers, and also observed the single-player system. We therefore treat both the markers and the observation reports as feasibility evidence pending independent annotation.
+
+This is a strength for reproducibility and a limitation for validity. The metrics can be run repeatedly without seed or model variance, but they are not a validated psychometric instrument. Human annotation is therefore required before making stronger claims about player experience.
+
+\subsection{Rolling Two-Hour Continuity}
+
+The rolling-continuity script selects a source window and a later callback window. It counts source residue candidates and later callbacks where a prior trace appears to shape behavior or phrasing. Generic prop reuse alone does not count.
+
+On a regenerated report for June 5, 2026, the system selected a 14:00--16:00 source window and a 16:00--18:00 callback window. The report found 3 source conversations, 2 callback conversations, 15 source residue candidates, and 2 rolling callbacks. This supports feasibility of the measurement and shows concrete continuity moments, but it is not a controlled ablation.
+
+\subsection{Preliminary Marker Snapshot}
+
+Table \ref{tab:markers} reports a feasibility snapshot over 8 recent soul-triad conversations, parsed from the current evaluation report and analyzed with 10,000 bootstrap resamples. These are convenience-sampled recent archived soul-triad evaluations, not a randomized sample. The pilot cast is described by role rather than public character names: one role reduces overload, one stays near quiet pain, and one stress-tests rules until the test itself risks becoming harm. The parsed pairs are sparse, with 1--2 examples per observed pair, so the bootstrap intervals are a pipeline diagnostic rather than stable uncertainty estimates.
+
+\begin{table}[t]
+\centering
+\caption{Analysis-pipeline self-check over 8 recent conversations. The bootstrap columns are diagnostics for the current script, not stable population inference.}
+\label{tab:markers}
+\begin{tabular}{lrrr}
+\toprule
+Marker & Mean & Diagnostic CI low & Diagnostic CI high \\
+\midrule
+Emotional expression uniqueness & 0.875 & 0.781 & 0.969 \\
+Comfort style uniqueness & 0.688 & 0.562 & 0.875 \\
+Burden response uniqueness & 0.688 & 0.562 & 0.875 \\
+Rule-based aftertaste proxy & 0.876 & 0.752 & 0.959 \\
+Echo similarity penalty & 0.044 & 0.014 & 0.078 \\
+Stage-direction leak penalty & 0.000 & 0.000 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Analysis-Pipeline Determinism Checks}
+
+The checks in this section test analysis-pipeline determinism, not model-generation stability. They were run without generating new cloud-provider conversations. First, the 8-conversation feasibility dataset was analyzed twice with the same deterministic script and seed. The resulting CSV outputs had identical SHA-1 hashes across runs for both the marker table and the ablation table.
+
+Second, the rolling-continuity report was regenerated sequentially for three archived dates. Table \ref{tab:repeatability} shows that the metric is re-runnable, but also that continuity evidence depends on data density and selected windows. The PASS/WARN values are harness labels for window coverage and detected callback moments, not statistical significance labels. June 5 produced a PASS continuity report in the 14:00--18:00 rolling window, while a separate 15:00--19:00 archived yield check on the same date was only WARN / weak continuity. June 4 and June 6 were WARN reports because the selected source/callback windows did not meet sufficient sample coverage, even though June 4 still contained later callback candidates. We therefore restrict the present claim to feasibility and inspectability rather than a stable population effect.
+
+\begin{table}[t]
+\centering
+\caption{Rolling-continuity archive-window diagnostics over archived dates.}
+\label{tab:repeatability}
+\begin{tabular}{llllrrr}
+\toprule
+Date & Status & Decision & Windows & Seen & Source-window candidates & Callback-window callbacks \\
+\midrule
+2026-06-04 & WARN & sample\_pending & 18--20 / 20--22 & 25 & 4 & 6 \\
+2026-06-05 & PASS & continuity\_observed & 14--16 / 16--18 & 22 & 15 & 2 \\
+2026-06-06 & WARN & sample\_pending & none / none & 2 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The candidate and callback columns are window-level diagnostics rather than a
+row-wise conversion funnel. A later callback can be counted from a different
+conversation set than the source candidates summarized for that selected window,
+so candidates may be smaller than callbacks in sparse archived windows.
+
+\subsection{Archived-Only Ablation Sanity Check and Planned Scale-Up}
+
+The planned within-world read-path manipulation collects fresh conversations after each arm is enabled, then evaluates only from the arm start time. Re-scoring old transcripts under a new environment flag is not an ablation, because the dialogue has already been generated.
+
+After an initial forced-sample pilot revealed that active, not-yet-archived conversations could enter the raw evaluation report, the protocol was tightened to exclude \texttt{active-conversation-*} rows and require at least three messages. Two archived-only sanity blocks then produced two qualifying conversations per arm. All four records came from the same dyad, and the current aftertaste scores are saturated in both arms. This confirms that the read-on/read-off pipeline can produce valid arm-scoped records and restore the environment variable, but it is far too small and too homogeneous to estimate an effect.
+
+The scaled analysis should merge many such archived-only blocks using a pre-registered schedule, arm-aware callback labels, a callback-window denominator for rolling-callback rates, and a sample-size target anchored to a stated minimum detectable effect. The initial n=40-per-arm target is not powered for small effects; an offline sensitivity table in the paper package treats it as large-effect pilot evidence. Even n=150 per arm is baseline-dependent for 10 percentage-point effects, and clustered dyad/window samples can reduce effective sample size. A stronger empirical version should pre-register an MDE-anchored final sample size. Future analysis will use bootstrap confidence intervals, permutation tests, Cliff's delta for continuous outcomes, risk differences for callback rates, verbatim-overlap checks between residue traces and later dialogue, and agreement statistics for human annotation. The included analysis script self-test plants a synthetic residue effect and verifies that the pipeline recovers the expected direction.
+
+Three caveats remain for the read-off control. First, disabling residue reads also removes the residue prompt block, so the off arm has a shorter prompt unless a future placebo arm length-matches the prompt shape. Second, motif-guard logic can still inspect residue-derived motif text even when the direct residue read block is disabled. Third, the smallest forced sanity blocks were run back-to-back in one live world, so the read-off arm did not start from a residue-empty memory state; it measured what happens when existing residue is not injected into the prompt. We accept these as known limitations of the present pilot. A stronger empirical version should include either a length-matched placebo arm or a narrowed read-block-suppression claim, and should use arm-pure windows separated by a pre-specified schedule.
+
+\section{Discussion}
+
+The design argument is that continuity-shaping behavior may sometimes require smaller, more constrained memory rather than more memory. In this prototype, scalar affect labels would have been too coarse for the relational texture the system tries to preserve, while full transcript summaries risk encouraging quotation. A residue line is intended to be the right size for pressure: it names the emotional trace while forcing the next agent to translate that trace into timing, silence, or changed attention.
+
+The pattern is also operationally modest. It does not require a new database schema, a new memory architecture, or a new model provider. It can be inspected as text, disabled with flags, and tested with read-path ablation. These traits matter because many agent-world failures are not conceptual failures alone; they are maintenance failures, hygiene failures, and rollback failures.
+
+\section{Limitations and Threats to Validity}
+
+\paragraph{No controlled player study.}
+The current system is a single-player prototype with author-observer evidence. It does not establish that residue improves player-perceived continuity in a population.
+
+\paragraph{Scope and ethics.}
+This work reports an author-observed, single-player prototype. No IRB or
+human-subjects approval is claimed, no external participants were recruited or
+recorded, and raw player-conversation transcripts are intentionally excluded
+from the source archive accompanying this paper. A controlled player study with
+appropriate review remains future work.
+
+\paragraph{No completed causal ablation yet.}
+The paper reports a feasible pattern, regenerated continuity evidence, a working analysis pipeline, and an archived-only read-on/read-off sanity check with two inclusion-criteria-passing records per arm. This is not enough for an effect claim. The controlled read-off ablation remains future work until longitudinal collection reaches the target sample size and broader dyad coverage.
+
+\paragraph{Rule-based metrics require validation.}
+The deterministic markers are reproducible but not validated. They were designed by the same author who designed the residue mechanism, which makes construct validity and reflexivity central threats rather than minor footnotes. A stronger empirical version should include at least two human raters, inter-rater agreement, and convergent validity between marker outputs and human emotional-binding ratings.
+
+\paragraph{Current read-off control has prompt-shape confounds.}
+Turning residue reads off also removes the residue prompt block, so the off arm
+has a shorter prompt unless a future placebo arm length-matches the prompt
+shape. Motif-guard logic can also still inspect residue-derived motif text even
+when direct residue reads are disabled. The current read-off design is therefore
+appropriate as a mechanism pilot, but a stronger empirical version should either
+add a length-matched placebo condition or narrow the mechanism claim.
+
+\paragraph{Behavioral compliance with ``pressure, not quotation'' is not yet measured.}
+The implementation instructs the model not to quote residue traces, and the
+mechanism audit confirms that this instruction is present in the read path. The
+current package does not yet measure whether later dialogue copies residue text
+verbatim or near-verbatim. A stronger empirical version should report a
+trace-to-dialogue overlap rate and treat high overlap as a failure of the
+pattern, not as evidence of continuity.
+
+\paragraph{Pilot blocks include inter-block carryover.}
+The current n=2-per-arm sanity data were collected from adjacent blocks in the
+same live world. Residue written during the read-on block may still exist during
+the later read-off block; the off arm therefore tests suppression of prompt
+injection, not an empty-memory world. The planned arm-pure long-window protocol
+is designed to make this carryover explicit and schedule-balanced rather than
+hidden inside short forced blocks.
+
+\paragraph{The aftertaste proxy is saturated in the current pilot.}
+The rule-based aftertaste proxy is useful as a deterministic hygiene marker, but
+the current n=2-per-arm sanity check saturates it at 1.0 in both arms. It should
+not be used as a primary outcome, and it cannot support an effect estimate until
+future data show usable variance and human convergent validity.
+
+\paragraph{Small language and cast scope.}
+The prototype uses a small cast and a Chinese-language school-world register. Larger casts, other languages, and other genres may require different residue gates and motif guards.
+
+\paragraph{Not a consciousness claim.}
+The pattern concerns memory representation and dialogue behavior. It does not imply sentience, authentic emotion, or general social understanding.
+
+\section{Conclusion}
+
+Emotional residue is a lightweight memory pattern for making prior conversations matter without turning memory into quotation. A single bounded trace line, read back as time-gated pressure rather than content, gives LLM-driven characters a practical way to carry aftertaste into later behavior. The current Underworld prototype shows that the pattern can be implemented, inspected, rolled back, and evaluated with deterministic tools. Stronger causal, mechanism, and player-experience claims require the planned read-path manipulation, clearer prompt-shape controls, and human annotation study.
+
+\section*{Reproducibility Notes}
+
+The paper package includes the protocol documents and analysis scripts under \texttt{docs/paper/} and \texttt{scripts/paper/}. Current feasibility data were generated from \texttt{evals/conversations/reports/soul-triad-latest.md}, labeled with \texttt{umi/reports/rolling-continuity-latest.md}, and analyzed into \texttt{docs/paper/emotional-residue/results/current-smoke/results/}. Analysis determinism snapshots are stored under \texttt{docs/paper/emotional-residue/results/repeatability/}. Longitudinal ablation tooling and the n=2/arm single-dyad pilot dataset are stored under \texttt{docs/paper/emotional-residue/results/longitudinal/}. Sample-size sensitivity outputs are stored under \texttt{docs/paper/emotional-residue/results/power/}. The current ablation schedule decision is documented in \texttt{docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md}. A length-matched placebo arm (\texttt{UNDERWORLD\_RESIDUE\_READ=placebo}) exists in the runtime as draft plumbing but is not preregistered, collected, or analyzed in this paper. The system code routes local smoke-model use through \texttt{convex/modelPolicy.ts} and \texttt{convex/util/llm.ts}: the smoke-only policy names \texttt{qwen2.5:1.5b}, the general local Ollama default is \texttt{qwen3:8b}, and the character-soul cloud path defaults to an OpenAI-compatible Qwen adapter with \texttt{qwen3-max}. The present datasets do not yet store per-conversation provider/model metadata, so these artifacts should not be used for provider-controlled comparisons.
+
+\section*{Disclosure}
+
+The manuscript and supporting scripts were developed with LLM-assisted drafting and coding support. The author is responsible for the claims, source inspection, and final submission.
+
+\section*{Acknowledgements}
+
+Underworld is derived from the open-source AI Town project \cite{aitown}, which itself follows the Generative Agents lineage \cite{park2023generative}. The present paper describes modifications and evaluation tooling in the Underworld fork, not the original AI Town project.
+
+\begin{thebibliography}{99}
+
+\bibitem{park2023generative}
+Joon Sung Park, Joseph C. O'Brien, Carrie J. Cai, Meredith Ringel Morris, Percy Liang, and Michael S. Bernstein.
+\newblock Generative Agents: Interactive Simulacra of Human Behavior.
+\newblock In \emph{Proceedings of UIST 2023}, 2023. arXiv:2304.03442.
+
+\bibitem{aitown}
+a16z-infra.
+\newblock AI Town.
+\newblock \url{https://github.com/a16z-infra/ai-town}.
+
+\bibitem{picard1997affective}
+Rosalind W. Picard.
+\newblock \emph{Affective Computing}.
+\newblock MIT Press, 1997.
+
+\bibitem{ortony1988cognitive}
+Andrew Ortony, Gerald L. Clore, and Allan Collins.
+\newblock \emph{The Cognitive Structure of Emotions}.
+\newblock Cambridge University Press, 1988.
+
+\bibitem{mehrabian1974approach}
+Albert Mehrabian and James A. Russell.
+\newblock \emph{An Approach to Environmental Psychology}.
+\newblock MIT Press, 1974.
+
+\bibitem{bates1994role}
+Joseph Bates.
+\newblock The role of emotion in believable agents.
+\newblock \emph{Communications of the ACM}, 37(7):122--125, 1994.
+
+\bibitem{goffman1959presentation}
+Erving Goffman.
+\newblock \emph{The Presentation of Self in Everyday Life}.
+\newblock Doubleday, 1959.
+
+\bibitem{bickmore2005relational}
+Timothy W. Bickmore, Lisa Caruso, Kerri Clough-Gorr, and Tim Heeren.
+\newblock ``It's just like you talk to a friend'': relational agents for older adults.
+\newblock \emph{Interacting with Computers}, 17(6):711--735, 2005.
+\newblock doi:10.1016/j.intcom.2005.09.002.
+
+\bibitem{shao2023characterllm}
+Yunfan Shao, Linyang Li, Junqi Dai, and Xipeng Qiu.
+\newblock Character-LLM: A Trainable Agent for Role-Playing.
+\newblock In \emph{Proceedings of EMNLP 2023}, pages 13153--13187, 2023.
+\newblock arXiv:2310.10158.
+
+\bibitem{sotopia}
+Xuhui Zhou, Hao Zhu, Leena Mathur, Ruohong Zhang, Haofei Yu, Zhengyang Qi, Louis-Philippe Morency, Yonatan Bisk, Daniel Fried, Graham Neubig, and Maarten Sap.
+\newblock SOTOPIA: Interactive Evaluation for Social Intelligence in Language Agents.
+\newblock In \emph{Proceedings of ICLR 2024}, 2024.
+\newblock arXiv:2310.11667.
+
+\bibitem{lifelongsotopia}
+Hitesh Goel and Hao Zhu.
+\newblock LIFELONG SOTOPIA: Evaluating Social Intelligence of Language Agents Over Lifelong Social Interactions.
+\newblock arXiv:2506.12666, 2025.
+
+\bibitem{memorybank}
+Wanjun Zhong, Lianghong Guo, Qiqi Gao, He Ye, and Yanlin Wang.
+\newblock MemoryBank: Enhancing Large Language Models with Long-Term Memory.
+\newblock arXiv:2305.10250, 2023.
+
+\bibitem{longmem}
+Weizhi Wang, Li Dong, Hao Cheng, Xiaodong Liu, Xifeng Yan, Jianfeng Gao, and Furu Wei.
+\newblock Augmenting Language Models with Long-Term Memory.
+\newblock arXiv:2306.07174, 2023.
+
+\bibitem{memgpt}
+Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, and Joseph E. Gonzalez.
+\newblock MemGPT: Towards LLMs as Operating Systems.
+\newblock arXiv:2310.08560, 2023.
+
+\bibitem{reflexion}
+Noah Shinn, Federico Cassano, Edward Berman, Ashwin Gopinath, Karthik Narasimhan, and Shunyu Yao.
+\newblock Reflexion: Language Agents with Verbal Reinforcement Learning.
+\newblock arXiv:2303.11366, 2023.
+
+\bibitem{voyager}
+Guanzhi Wang, Yuqi Xie, Yunfan Jiang, Ajay Mandlekar, Chaowei Xiao, Yuke Zhu, Linxi Fan, and Anima Anandkumar.
+\newblock Voyager: An Open-Ended Embodied Agent with Large Language Models.
+\newblock arXiv:2305.16291, 2023.
+
+\bibitem{llmagentmemorysurvey}
+Zeyu Zhang, Xiaohe Bo, Chen Ma, Rui Li, Xu Chen, Quanyu Dai, Jieming Zhu, Zhenhua Dong, and Ji-Rong Wen.
+\newblock A Survey on the Memory Mechanism of Large Language Model based Agents.
+\newblock arXiv:2404.13501, 2024.
+
+\end{thebibliography}
+
+\end{document}

@@ -33,7 +33,7 @@ Tomorrow's first useful checks:
    prompt/memory tuning.
 
 Deferred idea: subjective memory re-bedding is preserved at
-`docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`. It is a future v0.2 / paper
+`docs/paper/subjective-rebedding/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`. It is a future v0.2 / paper
 direction ("Yesterday mattered differently to each person"), not part of the
 current v0.1 implementation scope.
 
@@ -113,7 +113,7 @@ Open UI question (Alan, deciding): move 回響 + 心跡 out of the daily 校園�
 conversation-adjacent "soul/memory" surface so they sit next to 對話 for
 comparison, and so a conversation can eventually show its per-participant
 subjective memory + residue side by side (same event → divergent souls — the
-research question in `docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`). Leaning
+research question in `docs/paper/subjective-rebedding/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`). Leaning
 yes; de-crowds the notebook back to 今日/日程/約定.
 
 Shipped earlier the same evening:
@@ -446,7 +446,7 @@ the right weekday.
 
 ## Paper Track Status (2026-06-10)
 
-- **Paper 1** (feasibility / systems contribution, `docs/paper/arxiv/main.tex`)
+- **Paper 1** (feasibility / systems contribution, `docs/paper/emotional-residue/manuscript/main.tex`)
   is **submitted to OSF**. Lane 1 is done.
 - **Paper 2** (the empirical residue read-on/off study) is **deferred**, not
   started. We have no collected data and no confirmed effect yet. Do not write

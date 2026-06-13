@@ -19,8 +19,8 @@ from typing import Iterable
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_DATASET = Path("docs/paper/results/longitudinal/dataset.json")
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/empirical-audit.md"
+DEFAULT_DATASET = Path("docs/paper/emotional-residue/results/longitudinal/dataset.json")
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/empirical-audit.md"
 CLUSTER_COLUMNS = ["pair", "source_run", "window"]
 MISSING_CLUSTER_VALUES = {"", "none", "null", "nan", "missing"}
 GENERATION_METADATA_REQUIRED = ["schema_version", "captured_at", "llm_provider"]
@@ -375,7 +375,7 @@ def render(findings: list[Finding], root: Path) -> str:
 
 
 def write_dataset(root: Path, complete: bool) -> Path:
-    out = root / "docs/paper/results/longitudinal/dataset.json"
+    out = root / "docs/paper/emotional-residue/results/longitudinal/dataset.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     if complete:
         rows = []

@@ -47,10 +47,10 @@ def require_regex(findings: list[Finding], text: str, pattern: str, check: str, 
 
 def audit_protocol(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    schedule_path = root / "docs/paper/SCHEDULE_DECISION.md"
-    acceptance_path = root / "docs/paper/SCHEDULE_ACCEPTANCE.json"
-    preregistration_path = root / "docs/paper/PREREGISTRATION_PROTOCOL.md"
-    preregistration_acceptance_path = root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json"
+    schedule_path = root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md"
+    acceptance_path = root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json"
+    preregistration_path = root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md"
+    preregistration_acceptance_path = root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json"
     runner_path = root / "scripts/paper/run_arm_pure_residue_window.mjs"
     legacy_runner_path = root / "scripts/paper/run_residue_ablation.mjs"
     legacy_blocks_path = root / "scripts/paper/run_longitudinal_ablation_blocks.mjs"
@@ -86,16 +86,16 @@ def audit_protocol(root: Path) -> list[Finding]:
         add(findings, "FAIL", "acceptance_state", "accepted_by/accepted_at should be blank while accepted=false.")
     if acceptance.get("schedule_sha256"):
         add(findings, "FAIL", "acceptance_state", "schedule_sha256 should be blank while accepted=false.")
-    if acceptance.get("schedule_document") != "docs/paper/SCHEDULE_DECISION.md":
-        add(findings, "FAIL", "acceptance_document", "Acceptance file does not point to docs/paper/SCHEDULE_DECISION.md.")
+    if acceptance.get("schedule_document") != "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md":
+        add(findings, "FAIL", "acceptance_document", "Acceptance file does not point to docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md.")
     if preregistration_acceptance.get("accepted") is not False:
         add(findings, "FAIL", "preregistration_acceptance_state", "PREREGISTRATION_ACCEPTANCE.json should remain accepted=false until Alan explicitly accepts.")
     if preregistration_acceptance.get("accepted_by") or preregistration_acceptance.get("accepted_at"):
         add(findings, "FAIL", "preregistration_acceptance_state", "accepted_by/accepted_at should be blank while preregistration accepted=false.")
     if preregistration_acceptance.get("preregistration_sha256"):
         add(findings, "FAIL", "preregistration_acceptance_state", "preregistration_sha256 should be blank while preregistration accepted=false.")
-    if preregistration_acceptance.get("preregistration_document") != "docs/paper/PREREGISTRATION_PROTOCOL.md":
-        add(findings, "FAIL", "preregistration_acceptance_document", "Preregistration acceptance file does not point to docs/paper/PREREGISTRATION_PROTOCOL.md.")
+    if preregistration_acceptance.get("preregistration_document") != "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md":
+        add(findings, "FAIL", "preregistration_acceptance_document", "Preregistration acceptance file does not point to docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md.")
 
     schedule_requirements = [
         ("arm-pure full-day / long-window collection", "schedule_design"),
@@ -145,7 +145,7 @@ def audit_protocol(root: Path) -> list[Finding]:
     require_regex(findings, runner, r"async function main\(\) \{\s*await assertCollectionAccepted\(\);", "runner_acceptance_first")
     require_text(findings, runner, "if (CHECK_ACCEPTANCE_ONLY)", "runner_acceptance_preflight")
     require_text(findings, runner, "PREREGISTRATION_ACCEPTANCE.json", "runner_preregistration_acceptance")
-    require_text(findings, runner, "docs/paper/PREREGISTRATION_PROTOCOL.md", "runner_preregistration_acceptance")
+    require_text(findings, runner, "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md", "runner_preregistration_acceptance")
     require_text(findings, runner, "await assertAcceptedFile({", "runner_acceptance_helper")
     require_text(findings, runner, "parsed.accepted !== true || !parsed.accepted_by || !parsed.accepted_at", "runner_acceptance_fields")
     require_text(findings, runner, "sha256File", "runner_acceptance_hash")
@@ -233,7 +233,7 @@ def render(findings: list[Finding], root: Path) -> str:
 def write_fixture(root: Path, accepted: bool = False) -> None:
     (root / "docs/paper").mkdir(parents=True, exist_ok=True)
     (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/SCHEDULE_DECISION.md").write_text(
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md").write_text(
         """
 Use **arm-pure full-day / long-window collection**.
 - `residue_on` day: `UNDERWORLD_RESIDUE_READ` unset
@@ -259,7 +259,7 @@ Current paper must not say:
 """.strip(),
         encoding="utf-8",
     )
-    (root / "docs/paper/PREREGISTRATION_PROTOCOL.md").write_text(
+    (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md").write_text(
         """
 preregistration_status: draft_not_accepted
 accepted_schedule_required: true
@@ -273,25 +273,25 @@ no_arm_extension_after_effect_peeking: true
 """.strip(),
         encoding="utf-8",
     )
-    (root / "docs/paper/SCHEDULE_ACCEPTANCE.json").write_text(
+    (root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json").write_text(
         json.dumps(
             {
                 "accepted": accepted,
                 "accepted_by": "" if not accepted else "Alan",
                 "accepted_at": "" if not accepted else "2026-06-06T00:00:00Z",
-                "schedule_document": "docs/paper/SCHEDULE_DECISION.md",
+                "schedule_document": "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md",
                 "schedule_sha256": "" if not accepted else "wrong-fixture-hash",
             }
         ),
         encoding="utf-8",
     )
-    (root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json").write_text(
+    (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json").write_text(
         json.dumps(
             {
                 "accepted": accepted,
                 "accepted_by": "" if not accepted else "Alan",
                 "accepted_at": "" if not accepted else "2026-06-06T00:00:00Z",
-                "preregistration_document": "docs/paper/PREREGISTRATION_PROTOCOL.md",
+                "preregistration_document": "docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md",
                 "preregistration_sha256": "" if not accepted else "wrong-fixture-hash",
             }
         ),
@@ -320,13 +320,13 @@ async function main() {
 async function assertScheduleAccepted() {
   if (parsed.accepted !== true || !parsed.accepted_by || !parsed.accepted_at) {}
 }
-const PREREGISTRATION_ACCEPTANCE_PATH = 'docs/paper/PREREGISTRATION_ACCEPTANCE.json';
+const PREREGISTRATION_ACCEPTANCE_PATH = 'docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json';
 await assertAcceptedFile({
 async function assertAcceptedFile() {}
 function sha256File() { return createHash('sha256'); }
 const scheduleHash = 'schedule_sha256';
 const preregistrationHash = 'preregistration_sha256';
-const prereg = 'docs/paper/PREREGISTRATION_PROTOCOL.md';
+const prereg = 'docs/paper/emotional-residue/experiments/PREREGISTRATION_PROTOCOL.md';
 async function runProvenanceSnapshot() { return { env_policy: { secret_values_recorded: false } }; }
 await writeJson('run-provenance.json', await runProvenanceSnapshot());
 async function artifactHashesSnapshot() {}
@@ -368,6 +368,9 @@ const argsForA = [`--since-created-at=${metadata.windowStartMs}`, `--until-creat
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
         write_fixture(root)
         findings = audit_protocol(root)
         assert verdict(findings) == "PASS"
@@ -382,7 +385,7 @@ def run_selftest() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/protocol-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/protocol-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero on any non-PASS finding.")
     args = parser.parse_args(argv)

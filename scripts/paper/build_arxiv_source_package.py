@@ -21,7 +21,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTDIR = REPO_ROOT / "docs/paper/results/arxiv-source"
+DEFAULT_OUTDIR = REPO_ROOT / "docs/paper/emotional-residue/results/arxiv-source"
 ARCHIVE_NAME = "emotional-residue-arxiv-source.tar.gz"
 MANIFEST_NAME = "manifest.json"
 
@@ -45,9 +45,9 @@ def sha256_file(path: Path) -> str:
 
 
 def package_files(root: Path, include_readme: bool = False) -> list[PackageFile]:
-    files = [PackageFile(root / "docs/paper/arxiv/main.tex", "main.tex")]
+    files = [PackageFile(root / "docs/paper/emotional-residue/manuscript/main.tex", "main.tex")]
     if include_readme:
-        files.append(PackageFile(root / "docs/paper/arxiv/README.md", "README.md"))
+        files.append(PackageFile(root / "docs/paper/emotional-residue/manuscript/README.md", "README.md"))
     return files
 
 
@@ -128,7 +128,7 @@ def inspect_archive(path: Path) -> list[str]:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        arxiv = root / "docs/paper/arxiv"
+        arxiv = root / "docs/paper/emotional-residue/manuscript"
         arxiv.mkdir(parents=True)
         (arxiv / "main.tex").write_text(
             "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}\n",

@@ -113,14 +113,14 @@ def has_phrase(text: str, phrase: str) -> bool:
 
 def audit_citations(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    main_path = root / "docs/paper/arxiv/main.tex"
-    ledger_path = root / "docs/paper/CITATION_PROVENANCE.md"
+    main_path = root / "docs/paper/emotional-residue/manuscript/main.tex"
+    ledger_path = root / "docs/paper/emotional-residue/claims/CITATION_PROVENANCE.md"
 
     if not main_path.exists():
-        add(findings, "FAIL", "main_tex", "Missing docs/paper/arxiv/main.tex")
+        add(findings, "FAIL", "main_tex", "Missing docs/paper/emotional-residue/manuscript/main.tex")
         return findings
     if not ledger_path.exists():
-        add(findings, "FAIL", "citation_ledger", "Missing docs/paper/CITATION_PROVENANCE.md")
+        add(findings, "FAIL", "citation_ledger", "Missing docs/paper/emotional-residue/claims/CITATION_PROVENANCE.md")
         return findings
 
     main_text = read_text(main_path)
@@ -244,7 +244,7 @@ def render(findings: list[Finding], root: Path) -> str:
 
 def write_fixture(root: Path) -> None:
     (root / "docs/paper").mkdir(parents=True, exist_ok=True)
-    (root / "docs/paper/CITATION_PROVENANCE.md").write_text(
+    (root / "docs/paper/emotional-residue/claims/CITATION_PROVENANCE.md").write_text(
         "# Citation Provenance Ledger\n\n"
         "This ledger is not a substitute for final copyediting and must not strengthen novelty claims.\n"
         "It does not clear empirical, PDF, or submitter-decision blockers.\n\n"
@@ -258,8 +258,11 @@ def write_fixture(root: Path) -> None:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        (root / "docs/paper/arxiv").mkdir(parents=True)
-        (root / "docs/paper/arxiv/main.tex").write_text(
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(
             r"""\documentclass{article}
 \begin{document}
 See \cite{x}.
@@ -273,7 +276,7 @@ See \cite{x}.
         write_fixture(root)
         findings = audit_citations(root)
         assert verdict(findings) == "PASS"
-        (root / "docs/paper/CITATION_PROVENANCE.md").write_text(
+        (root / "docs/paper/emotional-residue/claims/CITATION_PROVENANCE.md").write_text(
             "| key | source_status | source | manuscript role | boundary |\n"
             "|---|---|---|---|---|\n",
             encoding="utf-8",
@@ -287,7 +290,7 @@ See \cite{x}.
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/citation-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/citation-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args(argv)

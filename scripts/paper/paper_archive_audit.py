@@ -28,7 +28,7 @@ if str(SCRIPT_DIR) not in sys.path:
 import build_arxiv_source_package as arxiv_package  # noqa: E402
 
 
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/archive-audit.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/archive-audit.md"
 EXPECTED_MEMBERS = ["main.tex"]
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9_+\-.,=/]+$")
 FORBIDDEN_MEMBER_FRAGMENTS = [
@@ -97,7 +97,7 @@ def audit_archive(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     archive_path, manifest_path, manifest = arxiv_package.build_archive(
         root,
-        root / "docs/paper/results/arxiv-source",
+        root / "docs/paper/emotional-residue/results/arxiv-source",
     )
 
     if not archive_path.exists():
@@ -225,7 +225,7 @@ def render(findings: list[Finding], root: Path) -> str:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        arxiv = root / "docs/paper/arxiv"
+        arxiv = root / "docs/paper/emotional-residue/manuscript"
         arxiv.mkdir(parents=True)
         (arxiv / "main.tex").write_text(
             "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}\n",
@@ -246,7 +246,7 @@ def run_selftest() -> None:
             "\\documentclass{article}\n\\begin{document}\nHello.\n\\end{document}\n",
             encoding="utf-8",
         )
-        bad_file = root / "docs/paper/results/dataset.json"
+        bad_file = root / "docs/paper/emotional-residue/results/dataset.json"
         bad_file.parent.mkdir(parents=True, exist_ok=True)
         bad_file.write_text("[]", encoding="utf-8")
         try:

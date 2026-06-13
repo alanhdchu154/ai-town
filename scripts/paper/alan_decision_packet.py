@@ -16,7 +16,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUT = REPO_ROOT / "docs/paper/results/alan-decision-packet.md"
+DEFAULT_OUT = REPO_ROOT / "docs/paper/emotional-residue/results/alan-decision-packet.md"
 
 
 def load_module(name: str, path: Path):
@@ -87,7 +87,7 @@ def section_from(report: str, heading: str) -> list[str]:
 
 
 def current_archive_sha(root: Path) -> str:
-    manifest_path = root / "docs/paper/results/arxiv-source/manifest.json"
+    manifest_path = root / "docs/paper/emotional-residue/results/arxiv-source/manifest.json"
     if not manifest_path.exists():
         return "RUN npm run paper:archive-audit FIRST"
     manifest = read_json(manifest_path)
@@ -95,7 +95,7 @@ def current_archive_sha(root: Path) -> str:
 
 
 def submission_decisions_template(root: Path) -> dict:
-    current = read_json(root / "docs/paper/SUBMISSION_DECISIONS.json")
+    current = read_json(root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json")
     return {
         "author_name": current.get("author_name") or "TO_CONFIRM",
         "affiliation": current.get("affiliation") or "TO_CONFIRM",
@@ -137,15 +137,15 @@ def pdf_verification_template(root: Path) -> dict:
 
 def build_packet(root: Path) -> str:
     readiness_result, readiness_findings = paper_readiness_report.generate_report(
-        root, root / "docs/paper/results/readiness.md"
+        root, root / "docs/paper/emotional-residue/results/readiness.md"
     )
     submission_findings = paper_submission_audit.audit_submission(root)
     submission_result = paper_submission_audit.verdict(submission_findings)
     hashes = acceptance_hashes.build_report(root)
 
-    schedule_acceptance = read_json(root / "docs/paper/SCHEDULE_ACCEPTANCE.json")
-    prereg_acceptance = read_json(root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json")
-    submission_decisions = read_json(root / "docs/paper/SUBMISSION_DECISIONS.json")
+    schedule_acceptance = read_json(root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json")
+    prereg_acceptance = read_json(root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json")
+    submission_decisions = read_json(root / "docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json")
 
     lines = [
         "# Alan Decision Packet: Emotional-Residue Paper",
@@ -220,13 +220,13 @@ def build_packet(root: Path) -> str:
             "",
             "## If Alan Wants External Posting",
             "",
-            "First fill `docs/paper/SUBMISSION_DECISIONS.json` from this worksheet. It is not pass-ready until all `TO_CONFIRM` / `CHOOSE_ONE` values are replaced and Alan explicitly confirms the booleans:",
+            "First fill `docs/paper/emotional-residue/release/SUBMISSION_DECISIONS.json` from this worksheet. It is not pass-ready until all `TO_CONFIRM` / `CHOOSE_ONE` values are replaced and Alan explicitly confirms the booleans:",
             "",
             "```json",
             json.dumps(submission_decisions_template(root), ensure_ascii=False, indent=2),
             "```",
             "",
-            "After rendering and inspecting the PDF/platform preview, fill `docs/paper/PDF_VERIFICATION.json` from this evidence template. It is not pass-ready until the rendered PDF SHA and all render details are real:",
+            "After rendering and inspecting the PDF/platform preview, fill `docs/paper/emotional-residue/release/PDF_VERIFICATION.json` from this evidence template. It is not pass-ready until the rendered PDF SHA and all render details are real:",
             "",
             "```json",
             json.dumps(pdf_verification_template(root), ensure_ascii=False, indent=2),

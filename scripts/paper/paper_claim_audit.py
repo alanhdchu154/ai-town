@@ -79,18 +79,18 @@ def leakage_scan_files(transcripts_dir: Path) -> tuple[list[Path], list[Path]]:
 def audit_package(root: Path) -> list[Finding]:
     findings: list[Finding] = []
 
-    arxiv = root / "docs/paper/arxiv/main.tex"
-    checklist = root / "docs/paper/PUBLISH_READY_CHECKLIST.md"
-    schedule = root / "docs/paper/SCHEDULE_DECISION.md"
-    acceptance = root / "docs/paper/SCHEDULE_ACCEPTANCE.json"
-    preregistration_acceptance = root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json"
-    longitudinal_dataset = root / "docs/paper/results/longitudinal/dataset.json"
-    annotation_sheet = root / "docs/paper/results/longitudinal/annotation_sheet.csv"
-    annotation_key = root / "docs/paper/results/longitudinal/annotation_key.csv"
-    transcripts_dir = root / "docs/paper/results/longitudinal/blinded_transcripts"
-    power_summary = root / "docs/paper/results/power/summary.md"
-    smoke_summary = root / "docs/paper/results/current-smoke/results/summary.md"
-    longitudinal_summary = root / "docs/paper/results/longitudinal/results/summary.md"
+    arxiv = root / "docs/paper/emotional-residue/manuscript/main.tex"
+    checklist = root / "docs/paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md"
+    schedule = root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md"
+    acceptance = root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json"
+    preregistration_acceptance = root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json"
+    longitudinal_dataset = root / "docs/paper/emotional-residue/results/longitudinal/dataset.json"
+    annotation_sheet = root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv"
+    annotation_key = root / "docs/paper/emotional-residue/results/longitudinal/annotation_key.csv"
+    transcripts_dir = root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts"
+    power_summary = root / "docs/paper/emotional-residue/results/power/summary.md"
+    smoke_summary = root / "docs/paper/emotional-residue/results/current-smoke/results/summary.md"
+    longitudinal_summary = root / "docs/paper/emotional-residue/results/longitudinal/results/summary.md"
 
     required_files = [
         arxiv,
@@ -343,13 +343,16 @@ def render_markdown(findings: list[Finding], root: Path) -> str:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        (root / "docs/paper/arxiv").mkdir(parents=True)
-        (root / "docs/paper/results/longitudinal/results").mkdir(parents=True)
-        (root / "docs/paper/results/longitudinal/blinded_transcripts").mkdir(parents=True)
-        (root / "docs/paper/results/current-smoke/results").mkdir(parents=True)
-        (root / "docs/paper/results/power").mkdir(parents=True)
+        for _cat in ("manuscript","plan","claims","experiments","release","results","data"):
+            (root / "docs/paper/emotional-residue" / _cat).mkdir(parents=True, exist_ok=True)
+        (root / "scripts/paper").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/manuscript").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/longitudinal/results").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/current-smoke/results").mkdir(parents=True, exist_ok=True)
+        (root / "docs/paper/emotional-residue/results/power").mkdir(parents=True, exist_ok=True)
 
-        (root / "docs/paper/arxiv/main.tex").write_text(
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(
             "This is not a controlled player study. There is no completed causal ablation yet. "
             "No IRB or human-subjects approval is claimed. No external participants were recruited "
             "or recorded. Raw player-conversation transcripts are intentionally excluded. "
@@ -359,17 +362,17 @@ def run_selftest() -> None:
             "author details to confirm before submission",
             encoding="utf-8",
         )
-        (root / "docs/paper/PUBLISH_READY_CHECKLIST.md").write_text(
+        (root / "docs/paper/emotional-residue/release/PUBLISH_READY_CHECKLIST.md").write_text(
             "not ready to claim a completed controlled ablation\n"
             "Recruit at least one additional blind rater\nPDF compilation",
             encoding="utf-8",
         )
-        (root / "docs/paper/SCHEDULE_DECISION.md").write_text("schedule", encoding="utf-8")
-        (root / "docs/paper/SCHEDULE_ACCEPTANCE.json").write_text(
+        (root / "docs/paper/emotional-residue/experiments/SCHEDULE_DECISION.md").write_text("schedule", encoding="utf-8")
+        (root / "docs/paper/emotional-residue/experiments/SCHEDULE_ACCEPTANCE.json").write_text(
             json.dumps({"accepted": False}),
             encoding="utf-8",
         )
-        (root / "docs/paper/PREREGISTRATION_ACCEPTANCE.json").write_text(
+        (root / "docs/paper/emotional-residue/experiments/PREREGISTRATION_ACCEPTANCE.json").write_text(
             json.dumps({"accepted": False}),
             encoding="utf-8",
         )
@@ -379,31 +382,31 @@ def run_selftest() -> None:
             {"condition": "residue_off"},
             {"condition": "residue_off"},
         ]
-        (root / "docs/paper/results/longitudinal/dataset.json").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/dataset.json").write_text(
             json.dumps(dataset),
             encoding="utf-8",
         )
-        (root / "docs/paper/results/longitudinal/annotation_sheet.csv").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/annotation_sheet.csv").write_text(
             "blind_id,x\nER-0001,a\nER-0002,b\n",
             encoding="utf-8",
         )
-        (root / "docs/paper/results/longitudinal/annotation_key.csv").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/annotation_key.csv").write_text(
             "blind_id,x\nER-0001,a\nER-0002,b\n",
             encoding="utf-8",
         )
         for blind_id in ["ER-0001", "ER-0002"]:
-            (root / f"docs/paper/results/longitudinal/blinded_transcripts/{blind_id}.md").write_text(
+            (root / f"docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/{blind_id}.md").write_text(
                 f"# {blind_id}\n\nTranscript text.",
                 encoding="utf-8",
             )
-        (root / "docs/paper/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
             "# Transcript packet\n\nTranscript text.",
             encoding="utf-8",
         )
         for path in [
-            "docs/paper/results/power/summary.md",
-            "docs/paper/results/current-smoke/results/summary.md",
-            "docs/paper/results/longitudinal/results/summary.md",
+            "docs/paper/emotional-residue/results/power/summary.md",
+            "docs/paper/emotional-residue/results/current-smoke/results/summary.md",
+            "docs/paper/emotional-residue/results/longitudinal/results/summary.md",
         ]:
             (root / path).write_text("ok", encoding="utf-8")
 
@@ -412,19 +415,19 @@ def run_selftest() -> None:
         assert any(f.check == "longitudinal_sample_size" for f in findings)
         assert not any(f.severity == "FAIL" for f in findings)
 
-        (root / "docs/paper/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
             "# Transcript packet\n\ncondition: residue_on",
             encoding="utf-8",
         )
         findings = audit_package(root)
         assert verdict(findings) == "FAIL"
         assert any(f.check == "transcript_leakage" for f in findings)
-        (root / "docs/paper/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
+        (root / "docs/paper/emotional-residue/results/longitudinal/blinded_transcripts/transcripts.md").write_text(
             "# Transcript packet\n\nTranscript text.",
             encoding="utf-8",
         )
 
-        (root / "docs/paper/arxiv/main.tex").write_text(
+        (root / "docs/paper/emotional-residue/manuscript/main.tex").write_text(
             "We show that residue improves felt continuity. [FILL result]",
             encoding="utf-8",
         )
@@ -438,7 +441,7 @@ def run_selftest() -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/claim-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/claim-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument(
         "--strict",

@@ -85,7 +85,7 @@ async function mergeAndAnalyze() {
   await runLogged('python3', [
     'scripts/paper/merge_ablation_runs.py',
     '--runs',
-    'docs/paper/results/ablation-*',
+    'docs/paper/emotional-residue/results/ablation-*',
     '--out',
     DATASET_PATH,
   ], 60_000);

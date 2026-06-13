@@ -1,0 +1,20 @@
+{
+  "archive": "emotional-residue-arxiv-source.tar.gz",
+  "archive_sha256": "d9a7b2a928403b12976b9422381b5353a340394728c840b54375c59097c5e911",
+  "excluded_by_design": [
+    "experiment datasets",
+    "ablation logs",
+    "annotation sheets",
+    "annotation keys",
+    "blinded transcript packets",
+    "generated figures/results"
+  ],
+  "files": [
+    {
+      "archive_name": "main.tex",
+      "sha256": "9ed5042e441f7175a09558feeed011eb6e0f2559117ccb1c766ce95cfd73f5b2",
+      "source": "docs/paper/emotional-residue/manuscript/main.tex"
+    }
+  ],
+  "policy": "allowlisted local source package; no upload performed"
+}

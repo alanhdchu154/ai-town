@@ -70,13 +70,13 @@ def table_column_count(line: str) -> int:
 
 def audit_source(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    arxiv_dir = root / "docs/paper/arxiv"
+    arxiv_dir = root / "docs/paper/emotional-residue/manuscript"
     main = arxiv_dir / "main.tex"
     readme = arxiv_dir / "README.md"
 
-    add_if(findings, not arxiv_dir.exists(), "FAIL", "arxiv_dir", "Missing docs/paper/arxiv")
-    add_if(findings, not main.exists(), "FAIL", "main_tex", "Missing docs/paper/arxiv/main.tex")
-    add_if(findings, not readme.exists(), "FAIL", "arxiv_readme", "Missing docs/paper/arxiv/README.md")
+    add_if(findings, not arxiv_dir.exists(), "FAIL", "arxiv_dir", "Missing docs/paper/emotional-residue/manuscript")
+    add_if(findings, not main.exists(), "FAIL", "main_tex", "Missing docs/paper/emotional-residue/manuscript/main.tex")
+    add_if(findings, not readme.exists(), "FAIL", "arxiv_readme", "Missing docs/paper/emotional-residue/manuscript/README.md")
     if not main.exists():
         return findings
 
@@ -219,7 +219,7 @@ def render(findings: list[Finding], root: Path) -> str:
 def run_selftest() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        arxiv = root / "docs/paper/arxiv"
+        arxiv = root / "docs/paper/emotional-residue/manuscript"
         arxiv.mkdir(parents=True)
         (arxiv / "README.md").write_text(
             "single-file LaTeX source\n"
@@ -282,7 +282,7 @@ See Table \ref{tab:missing} and \cite{missing}.
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=REPO_ROOT)
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/results/source-audit.md")
+    parser.add_argument("--out", type=Path, default=REPO_ROOT / "docs/paper/emotional-residue/results/source-audit.md")
     parser.add_argument("--selftest", action="store_true")
     parser.add_argument("--strict", action="store_true", help="Exit nonzero on WARN as well as FAIL.")
     args = parser.parse_args(argv)

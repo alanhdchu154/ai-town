@@ -273,12 +273,12 @@ def main() -> int:
         "--reports",
         nargs="+",
         default=[
-            "docs/paper/results/**/soul-triad.md",
+            "docs/paper/emotional-residue/results/**/soul-triad.md",
             "evals/conversations/reports/soul-triad-latest.md",
         ],
         help="soul-triad report paths or glob patterns",
     )
-    parser.add_argument("--outdir", default="docs/paper/results/longitudinal/blinded_transcripts")
+    parser.add_argument("--outdir", default="docs/paper/emotional-residue/results/longitudinal/blinded_transcripts")
     parser.add_argument(
         "--manifest",
         help="transcript packet manifest path; defaults to <outdir>/transcript_packet_manifest.json",
