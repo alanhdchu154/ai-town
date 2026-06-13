@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-12 (20:30 CDT — v0.1 machine gate PASS, caveats patched)
+Last updated: 2026-06-12 (night — subjective memory enabled, 睡前回響 shadow shipped; Scene Mode UI contract aligned)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -25,6 +25,75 @@ Current contract:
   or photo-card backgrounds are not acceptable for the stage.
 - The Pixi map remains available behind the `地圖` toggle, but Scene Mode polish
   should optimize for readable stage composition first.
+
+## 2026-06-12 Night — Memory Quality + 睡前回響 (Claude, with Alan)
+
+Context: Alan's first real fresh-world chat with 海 (53 turns, 21:29) felt warm
+but "不夠好". Honest diagnosis: the failures were mostly **generation**, not
+memory — (1) the model fabricates world facts every turn (紅椒粉, AI社海報, a
+2022 club key, 素紗 borrowing a skirt) and keeps inventing NEW ones after each
+correction; (2) stage-direction narration in every line (Alan complained
+directly); (3) a structural motif — almost every reply ends 「要現在，X 嗎？還是
+…」; (4) objective facts about Alan/world remembered wrong (thinks 海 lives in
+the dorm, school/student roles reversed). The curry sleepNote DID work (海
+raised the promise unprompted), but she stayed evasive about it.
+
+Key product judgment recorded: **do NOT enable nightly reflection on top of
+fabricated daily memory** — it would harden hallucinations ("海 lives in the
+dorm") into permanent traits. Memory quality must lead reflection.
+
+Shipped tonight:
+
+- **Subjective first-person memory (the per-character interpretation Alan
+  asked for).** `rememberConversation` now uses the LLM first-person summary
+  ("summarize from my perspective; did I like/dislike this") for Alan-facing
+  chats and pilot residue pairs, instead of the shared deterministic template.
+  Same event → each participant remembers it differently. NPC small talk stays
+  deterministic for cost. Falls back to template on provider timeout. The
+  earlier `conversationEligibleForLLM` gate already removed NPC↔NPC chatter, so
+  this is scoped by construction. `convex/agent/memory.ts`; tsc + 26 memory
+  tests pass. Takes effect on next Convex deploy.
+- **Nightly reflection "睡前回響" — built, default SHADOW.** Refactored the
+  proven `reflectOnMemories` into compute (`computeReflectionInsights`) + write,
+  and added public action `agent/memory:nightlyReflectionForWorld` plus
+  `npm run underworld:nightly-reflection`. Once per local day, each pilot reviews
+  the day's memories and the LLM previews ≤3 long-term consolidations. SHADOW
+  writes nothing (so Alan reads the preview and catches fabrications first);
+  `--write` needs the approval token and skips characters who already reflected
+  today (idempotent). The reflection prompt now carries an **anti-confabulation
+  guard**: never invent world facts / who-said-what; promote only the
+  character's own stance. Report at `umi/reports/nightly-reflection-latest.md`.
+  tsc + 31 memory tests pass. This is the in-world version of E2; the old
+  manual `sleep-consolidation` heuristic stays as the offline classifier.
+
+Alan's two design intents map cleanly:
+
+1. "對話完判斷哪些要被記住 + 情緒波動" → the immediate pass (rememberConversation
+   retention classify + residue), now upgraded to subjective summaries.
+2. "睡覺前是另一次回響，讓事情被記住" → nightly reflection above (the second,
+   consolidating echo).
+
+Sequencing (Claude's recommendation, Alan to confirm):
+
+1. Land subjective summaries + let the world run a few days so memories
+   accumulate in the new (subjective) shape.
+2. Run nightly reflection in SHADOW nightly; read the preview. Expect it to
+   surface the fabrication problem concretely.
+3. Fix generation (anti-fabrication grounding + stage-direction/motif guards —
+   Codex's conversation.ts lane) BEFORE enabling reflection `--write`.
+4. Then enable `--write`, and only after that flip real embeddings.
+
+Embeddings (real semantic, build b) — assessed, NOT flipped yet. `full` mode
+already wires to Ollama `mxbai-embed-large` (1024-dim) via `fetchEmbedding`;
+it's deterministic only because the global memory mode is deterministic. Hold
+because: (a) requires the Ollama embed model pulled + adds latency/cost per
+memory; (b) deterministic→full is a representation change, so old
+deterministic vectors won't be comparable to new real ones — retrieval is
+degraded across the boundary until memories are re-embedded. Right order: turn
+embeddings on AFTER subjective summaries are the norm (embedding rich subjective
+text is high value; embedding deterministic templates is not), and plan a
+re-embed pass. Config when ready: `MEMORY_EMBEDDING_MODE=full` with the embed
+model available.
 
 ## 2026-06-12 State Sustainability Reset
 
@@ -662,7 +731,10 @@ asked only "is yesterday remembered".)
 
 - E1 Behavioral drift: residue changes initiative/avoidance — from tone to feet.
 - E2 Daily diary: 2-3 lines per character per day; cross-day reads consume the
-  diary, not raw memory dumps.
+  diary, not raw memory dumps. **Mechanism shipped 2026-06-12 night as nightly
+  reflection (睡前回響), default SHADOW** — see top section. Remaining: read
+  shadow previews, gate generation quality, then enable `--write`, then have
+  prompts read the consolidated reflection rather than raw memory.
 - E3 Relationship drift: residue nudges trust/affection in small steps; UI
   shows text trends (最近比較親近/疏遠), never gauges.
 - E4 Gossip with provenance: cross-character memory spread carries 「聽海說的」

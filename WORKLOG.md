@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-12 20:30 CDT
+Last updated: 2026-06-12 22:17 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -35,6 +35,82 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-12 22:17 CDT: Fixed the "Alan goes offline, then immediately comes
+  online again" UX bug. Backend `leaveCampus` already removes Alan's player
+  from the world; the leak was frontend auto-entry from view/navigation helpers:
+  character notebook travel, scene select, and `找到 Alan` each called
+  `enterCampus()` when Alan was away. `src/components/Game.tsx` now treats away
+  mode as observation-only: scene select changes camera view, character travel
+  focuses the target scene, and `找到 Alan` explains that Alan is away without
+  rejoining. Only explicit `接手 Alan` and explicit start-chat actions still
+  enter campus. Verification: `npx tsc --noEmit --pretty false`, `git diff
+  --check -- src/components/Game.tsx`, `npm run build` (existing Vite chunk
+  warning), and Chrome headless smoke confirmed presence button stayed
+  `接手 Alan` after scene select and `找到 Alan`.
+- 2026-06-12 21:45 CDT: Scene Mode polish for Alan's mobile/UI follow-up is
+  implemented. Root cause for "window sits idle then jumps to another scene and
+  back" was the Alan-follow effect calling `setSelectedSceneId()` on every Alan
+  position update while `followAlanRef` was true; tiny coordinate updates near a
+  room boundary could yank the selected scene. `Game.tsx` now only switches to
+  Alan's scene on initial lock / explicit `找到 Alan`, then refocuses only when
+  Alan is still in the selected scene. Scene Mode also keeps Alan visible as a
+  stage card: live Alan appears in the character row, off-scene Alan is shown as
+  a dim presence card with his location, and away/unclaimed Alan gets a dashed
+  presence card so Alan can tell whether he is online. Scene hotspot banners
+  moved into an upper rail, and standee labels now sit above the portrait
+  stacking layer. Visual QA screenshots:
+  `tmp/visual-qa/scene-polish-final2-mobile.png` and
+  `tmp/visual-qa/scene-polish-final2-desktop.png`; both showed no horizontal
+  overflow and included the Alan presence card in the tested runtime.
+- 2026-06-12 21:39 CDT: Deep-dived Alan's repeated Alan/海 `連線暫時不穩`
+  reports after the cloud-Qwen env fix. The later 21:11-21:13 symptom was not
+  an official Qwen timeout: live debug showed Umi had been carrying stale
+  `toRemember: c:7180` from an archived Alan chat whose final meaningful
+  messages were Alan-side pings (`海`, `海`, `哈囉哈囉`), and the engine had
+  generation-number races while new code was deploying. Manual repair cleared
+  the stale marker; a stop/quiet-check confirmed it stayed gone. Both affected
+  archived Alan/海 conversations (`c:7180` and the later bad recovery
+  conversation `c:7246`) currently report `memoryCount: 0` and
+  `experienceLogs: []`, so the failed/hallucinated transcripts did not enter
+  Umi's memory or the v0.1 experience-log layer. Durable hotfix: human-facing
+  conversations with no messages or a final human message no longer queue
+  `agent.toRemember`; remember preflight clears `unanswered_human_tail`; memory
+  writing has a defense-in-depth `skipUnansweredHumanTail`; memory and
+  experience-log writers now reject first-person/third-person stage-direction
+  leakage without treating benign parentheticals as leaks. cc completed a
+  read-only postpatch review at `umi/reports/20260613T023526Z-workload.md` and
+  flagged the parenthetical false-positive risk; Codex accepted and patched it.
+  Verification: targeted Jest 66/66, `npx convex codegen`, `npx tsc --noEmit
+  --pretty false`, `npm run build` (existing chunk warning only), `git diff
+  --check`, `world:defaultWorldStatus` running at day 25 21:38, and
+  `school:debugAlanConversationState` summary clean.
+- 2026-06-12 21:12 CDT: Deep-dived Alan's 20:59-21:03 Alan/海 chat timeout
+  where the UI showed `連線暫時不穩，這段沒有寫入角色記憶。`. Evidence:
+  `mobile-dev-stack.log` showed repeated `Human-facing retry failed; aborting
+  instead of weak-model fallback` / `AbortError` around 21:04, followed by
+  `LLM_PROVIDER=ollama` warnings. Root cause was config mismatch, not official
+  Qwen slowness: Qwen pilot env existed, but Alan human chat cloud switches were
+  absent, so human-facing replies fell through to local Ollama and then aborted
+  rather than saving weak fallback. Official Qwen smoke against the configured
+  primary key/base/model returned HTTP 200 in about 1.6s; the backup key returned
+  401 and was removed from local Convex env. Fixed local env:
+  `HUMAN_CONVERSATION_CLOUD_LLM=true`, `ALAN_HUMAN_CLOUD_LLM=true`,
+  `COMPANION_PILOT_TIMEOUT_MS=60000`; restarted detached `screen`
+  `underworld-mobile`. Verified env, HTTP 200 for `/ai-town` and Convex proxy,
+  and `world:defaultWorldStatus` `running` at world day 25 21:11.
+- 2026-06-12 20:59 CDT: Alan reported the world collapsed. Runtime triage found
+  no active Vite/mobile proxy/Convex dev processes, `5173` was unreachable, and
+  `world:defaultWorldStatus` showed `stoppedByDeveloper` at world day 25 20:42.
+  Root cause was operational: the previous mobile stack was tied to an
+  ephemeral Codex exec session instead of a durable local session. Recovered by
+  launching a detached `screen` session named `underworld-mobile` with
+  `npm run dev:mobile -- --host 192.168.1.239 --skip-init`, then running
+  `testing:resume`. Verified `http://127.0.0.1:5173/ai-town`,
+  `http://192.168.1.239:5173/ai-town`, and `http://192.168.1.239:13210` return
+  HTTP 200. `world:defaultWorldStatus` reports `running` at world day 25 20:58.
+  Manage with `screen -r underworld-mobile` to view, `screen -S
+  underworld-mobile -X quit` to stop, and `tail -f
+  umi/reports/mobile-dev-stack.log` for logs.
 - 2026-06-12 20:30 CDT: Patched the two closing caveats Alan flagged after the
   v0.1 PASS. Orphan Alan/海 timeline diagnosis: `messages.writeMessage` now
   force-wakes a `stoppedByDeveloper` world for explicit human chat, while

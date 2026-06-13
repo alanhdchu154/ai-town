@@ -1,62 +1,81 @@
 # Umi Workload
 
-Last updated: 2026-06-12 20:34 America/Chicago
+Last updated: 2026-06-12 21:34 America/Chicago
 
 This file holds one active worker handoff at a time. Keep it narrow.
 
 ## Active Task
 
-`uw-2026-06-12-orphan-wake-motif-review`
+`uw-2026-06-12-alan-umi-timeout-memory-guard-review`
 
 Goal:
 
-- Read-only review of Codex's two v0.1 caveat fixes before commit/push:
-  1. Alan chat no-response/orphan timeline when the world is `stoppedByDeveloper`.
-  2. Fresh 海/真晝 hand / quoted-phrase motif relay from c:7057 / c:7038 / c:7152.
+- Read-only postpatch review of Codex's Alan-facing conversation timeout / memory-pollution hotfix.
 
 Current evidence:
 
-- `npm run underworld:v01-completion-audit` is PASS as of 2026-06-12 20:15 CDT:
-  0 fail / 0 pending / 0 deferred / 8 pass.
-- Fresh-window `life-signals` is PASS / `life_signal_observed`.
-- Alan-facing 海 playtest artifact is PASS at 2026-06-11 09:54 CDT.
-- Fresh recent eval remains imperfect: 0 PASS / 2 WARN / 1 FAIL across three
-  fresh 海/真晝 samples. Treat this as a v0.1 quality caveat, not a blocker under
-  the current completion audit.
-- One 2026-06-12 20:06 Alan/海 timeline session appears as an orphan diagnostic
-  with Alan-side messages only. Fresh runtime diagnostics showed
-  `worldStatus: stoppedByDeveloper`, `engineRunning: false`, and no pending
-  `finishSendingMessage`; `convex/messages.ts` previously returned without
-  waking on `stoppedByDeveloper`.
-- Codex patch under review:
-  - `convex/messages.ts` exports a pure wake-policy helper and schedules the
-    post-write wake with `forceHumanInputWake: true`.
-  - `convex/messagesWake.test.ts` locks passive stop respect vs explicit human
-    chat wake.
-  - `convex/agent/conversation.ts` adds a fresh-evidence motif family and
-    output relay abort for hand / `這句話` / `明天簡報第一行` / `收進口袋`.
-  - `convex/agent/conversationMotifGuard.test.ts` locks prompt and output guards.
-- Targeted Jest already passed:
-  `npm test -- --runTestsByPath convex/messagesWake.test.ts convex/agent/conversationMotifGuard.test.ts`.
+- Alan reported repeated `連線暫時不穩，這段沒有寫入角色記憶。` in Alan ↔ 海 around 21:02 and 21:13 CDT.
+- Earlier evidence showed a cloud/local config mismatch, but the later failure was a separate engine-state issue:
+  - `c:7180` archived with Alan trailing messages after Umi's last reply.
+  - Umi agent had stale `toRemember: c:7180` and earlier stale `agentGenerateMessage`.
+  - `c:7180` currently has `memoryCount: 0` and `experienceLogs: []`.
+- A later recovery conversation `c:7246` became bad quality (hallucinated red pepper powder / old AI club / first-person stage directions), but it also currently has `memoryCount: 0` and `experienceLogs: []`.
+- World is running; build/typecheck and targeted tests passed.
+
+Codex patch under review:
+
+- `convex/aiTown/conversation.ts`
+  - Adds `shouldQueueConversationMemoryOnStop`.
+  - Does not queue `agent.toRemember` when a conversation has no messages or the final message author is human.
+- `convex/aiTown/agentOperations.ts`
+  - Extends remember preflight with `archivedConversationHasUnansweredHumanTail`.
+  - Clears current remember operation with reason `unanswered_human_tail` when an archived human conversation ends on a human message.
+- `convex/agent/memory.ts`
+  - Adds `hasUnansweredHumanTailForMemory` defense-in-depth before memory write.
+  - Adds `hasDialogueStageDirectionLeak` and skips memory writes for first-person/third-person stage-direction contamination.
+- `convex/agent/dialogueHygiene.ts`
+  - Expands stage-direction detection for `我關上...`, `我把...拉嚴`, and `我手/指尖/目光...停在/碰/握...` style narration.
+- Tests:
+  - `convex/aiTown/agentOperations.test.ts`
+  - `convex/agent/memory.test.ts`
 
 Allowed scope:
 
 - Read-only review only.
-- Inspect only:
-  - `convex/messages.ts`
-  - `convex/messagesWake.test.ts`
-  - `convex/agent/conversation.ts`
-  - `convex/agent/conversationMotifGuard.test.ts`
-  - relevant `git diff` for those files.
-- Do not edit, stage, commit, push, run broad evals, or inspect unrelated files
-  unless needed to explain a direct bug in this patch.
+- Inspect current git diff and these files:
+  - `convex/aiTown/conversation.ts`
+  - `convex/aiTown/agentOperations.ts`
+  - `convex/agent/memory.ts`
+  - `convex/agent/dialogueHygiene.ts`
+  - `convex/aiTown/agentOperations.test.ts`
+  - `convex/agent/memory.test.ts`
+  - `convex/agent/experienceLog.ts` only if needed to assess memory/experience contamination.
+- Do not edit, stage, commit, push, run dev servers, or run broad evals.
+
+Commands already run by Codex:
+
+- `npm test -- --runTestsByPath convex/agent/memory.test.ts convex/aiTown/agentOperations.test.ts convex/agent/experienceLog.test.ts`
+- `npx convex codegen`
+- `npx tsc --noEmit --pretty false`
+- `npm run build`
+- live checks with `school:debugAlanConversationState` and `world:defaultWorldStatus`
+
+Review questions:
+
+1. Does the unanswered-human-tail guard correctly prevent half-failed Alan-facing conversations from becoming memory without blocking normal completed chats too aggressively?
+2. Is placing the guard in conversation stop, remember preflight, and memory writer reasonable, or is one layer unsafe/redundant?
+3. Does the expanded stage-direction detector create obvious false positives for normal spoken lines?
+4. Are there missing tests or edge cases before we keep this patch?
+
+Expected output:
+
+- Findings first, ordered by severity.
+- State whether patch is safe to keep, safe with small follow-up, or should be narrowed.
+- Mention any test gap that should be added now.
 
 Stop condition:
 
-- Report top findings by severity, missing tests if any, and whether the patch is
-  safe to keep before build/gate.
-- If the review needs broader repo context, stop and say exactly what is missing
-  rather than expanding scope.
+- Report only. If more repo context is needed, say exactly what context; do not expand scope.
 
 ## Last Completed Handoff
 
@@ -64,17 +83,6 @@ Stop condition:
 
 Outcome:
 
-- cc completed a read-only postpatch review at
-  `umi/reports/20260612T221947Z-workload.md`.
-- cc found the five-pilot experience-log scope, pollution guards, caps, and
-  dry-run sleep bridge sound.
-- Codex accepted cc's only small follow-up and added an explicit
-  `sourceKind: archivedConversation` internal contract to the writer call.
-
-Next likely cc handoff:
-
-- Only after fresh evidence repeats the same failure across enough clean
-  archived samples.
-- Candidate scope: review motif-loop / character-voice failures from
-  `umi/reports/v01-approach-latest.md` and recommend whether the fix should be
-  auto-fix, proposal-only, or observe-only.
+- cc completed a read-only postpatch review at `umi/reports/20260612T221947Z-workload.md`.
+- cc found the five-pilot experience-log scope, pollution guards, caps, and dry-run sleep bridge sound.
+- Codex accepted cc's only small follow-up and added an explicit `sourceKind: archivedConversation` internal contract to the writer call.
