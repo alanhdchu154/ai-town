@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { internalAction, internalQuery } from '../_generated/server';
-import { WorldMap, serializedWorldMap } from './worldMap';
+import { WorldMap } from './worldMap';
 import { rememberConversation } from '../agent/memory';
 import { GameId, agentId, conversationId, playerId } from './ids';
 import {
@@ -9,7 +9,6 @@ import {
   startConversationMessage,
 } from '../agent/conversation';
 import { assertNever } from '../util/assertNever';
-import { serializedAgent } from './agent';
 import {
   ACTIVITIES,
   ACTIVITY_COOLDOWN,
@@ -17,7 +16,6 @@ import {
 } from '../constants';
 import { api, internal } from '../_generated/api';
 import { sleep } from '../util/sleep';
-import { serializedPlayer } from './player';
 import {
   ClassroomWalkBounds,
   clampToClassroom,
@@ -364,19 +362,63 @@ export const agentGenerateMessage = internalAction({
   },
 });
 
+export const loadAgentDoSomethingContext = internalQuery({
+  args: {
+    worldId: v.id('worlds'),
+    playerId,
+    agentId,
+  },
+  handler: async (ctx, args) => {
+    const world = await ctx.db.get(args.worldId);
+    if (!world) return null;
+    const map = await ctx.db
+      .query('maps')
+      .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
+      .first();
+    if (!map) return null;
+    const player = world.players.find((candidate: any) => candidate.id === args.playerId);
+    const agent = world.agents.find((candidate: any) => candidate.id === args.agentId);
+    if (!player || !agent) return null;
+    const busyPlayerIds = new Set<string>();
+    for (const conversation of world.conversations) {
+      for (const participant of conversation.participants) {
+        busyPlayerIds.add(participant.playerId);
+      }
+    }
+    const otherFreePlayers = world.players.filter(
+      (candidate: any) => candidate.id !== player.id && !busyPlayerIds.has(candidate.id),
+    );
+    return { player, agent, map, otherFreePlayers };
+  },
+});
+
 export const agentDoSomething = internalAction({
   args: {
     worldId: v.id('worlds'),
-    player: v.object(serializedPlayer),
-    agent: v.object(serializedAgent),
-    map: v.object(serializedWorldMap),
-    otherFreePlayers: v.array(v.object(serializedPlayer)),
+    playerId,
+    agentId,
     operationId: v.string(),
   },
   handler: async (ctx, args) => {
     try {
-      const { player, agent } = args;
-      const map = new WorldMap(args.map);
+      const context = await ctx.runQuery(internal.aiTown.agentOperations.loadAgentDoSomethingContext, {
+        worldId: args.worldId,
+        playerId: args.playerId,
+        agentId: args.agentId,
+      });
+      if (!context) {
+        await sendInputWithRetry(ctx, {
+          worldId: args.worldId,
+          name: 'clearAgentOperation',
+          args: {
+            agentId: args.agentId,
+            operationId: args.operationId,
+          },
+        });
+        return;
+      }
+      const { player, agent } = context;
+      const map = new WorldMap(context.map);
       const now = Date.now();
       const scheduleContext = await loadScheduleContext(ctx, args.worldId, player.id);
     // Don't try to start a new conversation if we were just in one.
@@ -397,7 +439,7 @@ export const agentDoSomething = internalAction({
         name: 'finishDoSomething',
         args: {
           operationId: args.operationId,
-          agentId: args.agent.id,
+          agentId: args.agentId,
           destination: scheduleMovementDestination(map, scheduleContext),
           activity: {
             description: nightActivity.description,
@@ -436,8 +478,8 @@ export const agentDoSomething = internalAction({
         const invitee = await ctx.runQuery(internal.aiTown.agent.findConversationCandidate, {
           now,
           worldId: args.worldId,
-          player: args.player,
-          otherFreePlayers: args.otherFreePlayers,
+          player,
+          otherFreePlayers: context.otherFreePlayers,
         });
         if (invitee) {
           await sleep(Math.random() * 1000);
@@ -477,8 +519,8 @@ export const agentDoSomething = internalAction({
         : await ctx.runQuery(internal.aiTown.agent.findConversationCandidate, {
             now,
             worldId: args.worldId,
-            player: args.player,
-            otherFreePlayers: args.otherFreePlayers,
+            player,
+            otherFreePlayers: context.otherFreePlayers,
           });
 
     if (!invitee) {
@@ -506,15 +548,15 @@ export const agentDoSomething = internalAction({
     // TODO: We hit a lot of OCC errors on sending inputs in this file. It's
     // easy for them to get scheduled at the same time and line up in time.
     await sleep(Math.random() * 1000);
-      await sendInputWithRetry(ctx, {
-        worldId: args.worldId,
-        name: 'finishDoSomething',
-        args: {
-          operationId: args.operationId,
-          agentId: args.agent.id,
-          invitee,
-        },
-      });
+    await sendInputWithRetry(ctx, {
+      worldId: args.worldId,
+      name: 'finishDoSomething',
+      args: {
+        operationId: args.operationId,
+        agentId: args.agentId,
+        invitee,
+      },
+    });
     } catch (error) {
       console.error('agentDoSomething failed; clearing operation', error);
       try {
@@ -522,7 +564,7 @@ export const agentDoSomething = internalAction({
           worldId: args.worldId,
           name: 'clearAgentOperation',
           args: {
-            agentId: args.agent.id,
+            agentId: args.agentId,
             operationId: args.operationId,
           },
         });

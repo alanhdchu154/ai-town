@@ -43,9 +43,9 @@ export function schoolDayRhythmContext(
   const tomorrowLabelZh = `明天是${tomorrowWeekdayZh}${isTomorrowWeekend ? '，週末' : '，上課日'}`;
   const scheduleLabelZh =
     schoolDayTypeZh === '週末'
-      ? '週末自由活動 / 休息 / 吃飯 / 私下聊天'
+      ? '週末自由活動 / 社團 / 私下聊天 / 補作業'
       : schoolDayTypeZh === '假日前夜'
-        ? '假日前夜 / 收尾 / 休息前的對話'
+        ? '假日前夜 / 收尾 / 週末約定 / 私下對話'
         : '上課日 / 課堂 / 午餐 / 放學後活動';
 
   return {
@@ -59,9 +59,9 @@ export function schoolDayRhythmContext(
     scheduleLabelZh,
     calendarHintZh:
       schoolDayTypeZh === '週末'
-        ? '今天是週末，沒有正式課堂；角色以自由活動、吃飯、休息、補作業、閒聊和私下關心為主。'
+        ? '今天是週末，沒有正式課堂；角色以自由活動、社團、補作業、散步、洗衣、閒聊和私下關心為主。'
         : schoolDayTypeZh === '假日前夜'
-          ? `${tomorrowLabelZh}，角色可以自然想到休息、晚睡、未完成作業、週末約定或回避。`
+          ? `${tomorrowLabelZh}，角色可以自然想到未完成作業、社團約定、週末計畫、回家/不回家的選擇或私下回避。`
           : `${tomorrowLabelZh}，今天仍是一般上課節奏。`,
   };
 }

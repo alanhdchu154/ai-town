@@ -26,35 +26,7 @@ import { Point } from '../util/types';
 import { internal } from '../_generated/api';
 import { blocked, findRoute, movePlayer } from './movement';
 import { insertInput } from './insertInput';
-
-const CONVERSATION_NAME_ALIASES = [
-  'Alan',
-  'Umi',
-  '海',
-  '朝凪海',
-  'Tianze',
-  '天澤',
-  '天澤',
-  'Ichinose',
-  '一之瀨',
-  '一之瀨',
-  'Mahiru',
-  'Mahiru Shiina',
-  '真晝',
-  '明晝',
-  '阿真晝',
-  '椎名真晝',
-  'Maomao',
-  '貓貓',
-  'CaoCao',
-  'Cao Cao',
-  '曹操',
-  'Sakiko',
-  '祥子',
-  'Liu Bei',
-  'LiuBei',
-  '劉備',
-];
+import { repairConversationAddresseeText } from './addresseeRepair';
 
 function envNumber(name: string, fallback: number, min: number, max: number) {
   const raw = process.env[name];
@@ -320,15 +292,8 @@ export class Agent {
       }
       this.startOperation(game, now, 'agentDoSomething', {
         worldId: game.worldId,
-        player: player.serialize(),
-        otherFreePlayers: [...game.world.players.values()]
-          .filter((p) => p.id !== player.id)
-          .filter(
-            (p) => ![...game.world.conversations.values()].find((c) => c.participants.has(p.id)),
-          )
-          .map((p) => p.serialize()),
-        agent: this.serialize(),
-        map: game.worldMap.serialize(),
+        playerId: player.id,
+        agentId: this.id,
       });
       return;
     }
@@ -771,22 +736,11 @@ async function repairMessageAddresseeAtInsert(
     .collect();
   const names = new Map(descriptions.map((description) => [description.playerId, description.name]));
   const authorName = names.get(authorPlayerId) ?? authorPlayerId;
-  const namePattern = CONVERSATION_NAME_ALIASES.map(escapeRegex).join('|');
-  const leadingName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${namePattern})([，,、：:])`, 'g');
   if (!otherPlayerId) {
-    const authorAliases = conversationNameAliasesFor(authorName);
-    return text.replace(leadingName, (match, lineStart: string, _prefix: string, name: string) => {
-      return authorAliases.has(name) ? '' : match;
-    });
+    return repairConversationAddresseeText(text, authorName);
   }
   const otherName = names.get(otherPlayerId) ?? otherPlayerId;
-  const allowed = conversationNameAliasesFor(otherName);
-  const authorAliases = conversationNameAliasesFor(authorName);
-  const repaired = text.replace(leadingName, (match, lineStart: string, prefix: string, name: string, punctuation: string) => {
-    if (allowed.has(name) && !authorAliases.has(name)) return match;
-    return `${lineStart}${prefix}${displayConversationName(otherName)}${punctuation}`;
-  });
-  return stripLeadingConversationVocatives(repaired);
+  return repairConversationAddresseeText(text, authorName, otherName);
 }
 
 async function avoidDuplicateConversationMessage(
@@ -840,67 +794,6 @@ function conversationTextTooSimilar(previous: string, current: string) {
     if (right.includes(fragment)) return true;
   }
   return false;
-}
-
-function stripLeadingConversationVocatives(text: string) {
-  const namePattern = CONVERSATION_NAME_ALIASES.map(escapeRegex).join('|');
-  const leadingName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${namePattern})([，,、：:])\\s*`, 'g');
-  return text.replace(leadingName, (_match, lineStart: string, prefix: string) => `${lineStart}${prefix}`);
-}
-
-function displayConversationName(name: string) {
-  switch (name) {
-    case 'Umi':
-    case '朝凪海':
-      return '海';
-    case 'Tianze':
-    case '天澤':
-    case '天擇':
-    case '天擇一夏':
-    case '天澤一夏':
-      return '天澤';
-    case 'Ichinose':
-    case '一之瀨':
-    case '一之瀨帆波':
-    case '黑化一之瀨':
-      return '一之瀨';
-    case 'Mahiru':
-    case 'Mahiru Shiina':
-    case '椎名真晝':
-    case '明晝':
-    case '阿真晝':
-      return '真晝';
-    case 'Maomao':
-    case '貓貓':
-    case 'CaoCao':
-    case 'Cao Cao':
-    case '曹操':
-      return '貓貓';
-    case 'Sakiko':
-    case '祥子':
-    case 'Liu Bei':
-    case 'LiuBei':
-    case '劉備':
-      return '祥子';
-    default:
-      return name;
-  }
-}
-
-function conversationNameAliasesFor(name: string) {
-  const displayName = displayConversationName(name);
-  const aliases = new Set([name, displayName]);
-  if (displayName === '海') aliases.add('Umi').add('朝凪海');
-  if (displayName === '天澤') aliases.add('Tianze').add('天澤').add('天澤').add('天擇').add('天擇一夏').add('天澤一夏');
-  if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨').add('一之瀨').add('一之瀨帆波').add('黑化一之瀨');
-  if (displayName === '真晝') aliases.add('Mahiru').add('Mahiru Shiina').add('椎名真晝').add('明晝').add('阿真晝');
-  if (displayName === '貓貓') aliases.add('Maomao').add('CaoCao').add('Cao Cao').add('曹操');
-  if (displayName === '祥子') aliases.add('Sakiko').add('Liu Bei').add('LiuBei').add('劉備');
-  return aliases;
-}
-
-function escapeRegex(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export const findConversationCandidate = internalQuery({

@@ -56,6 +56,21 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('不要再靠這些物件或場景推進');
   });
 
+  test('flags fresh Umi/Mahiru hand and quoted-phrase relay from runtime sample', () => {
+    const lines = motifGuardPromptLinesForTest(
+      [
+        '真晝 to 海: 你手還舉著，我聽進去了。',
+        '海 to 真晝: 你手還舉著，我幫你把這句話先記在明天簡報第一行。',
+      ],
+      [],
+      'Umi',
+      'Mahiru',
+    ).join('\n');
+
+    expect(lines).toContain('手/這句話接力');
+    expect(lines).toContain('不要再靠這些物件或場景推進');
+  });
+
   test('adds a response-move guard when the last speaker already split responsibility', () => {
     const lines = motifGuardPromptLinesForTest(
       [
@@ -187,6 +202,25 @@ describe('conversation motif guard', () => {
     );
 
     expect(repaired).toContain('[ABORT_CONVERSATION]');
+  });
+
+  test('aborts Umi/Mahiru hand and quoted-phrase relay after it repeats', () => {
+    const repaired = repairFreeWorldSoulLineForTest(
+      '你手還舉著——這句話，我先幫你收進口袋。',
+      'Umi',
+      [
+        '真晝 to 海: 你手還舉著，我聽進去了。',
+        '海 to 真晝: 你手還舉著，我幫你把這句話先記在明天簡報第一行。',
+      ],
+    );
+    const ordinary = repairFreeWorldSoulLineForTest(
+      '你手還在抖嗎？要不要先坐一下。',
+      'Mahiru',
+      ['海 to 真晝: 今天走廊有點吵，我先把通知關掉。'],
+    );
+
+    expect(repaired).toContain('[ABORT_CONVERSATION]');
+    expect(ordinary).not.toContain('[ABORT_CONVERSATION]');
   });
 
   test('blocks stale template phrase that leaked into Ichinose/Sakiko', () => {

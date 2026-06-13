@@ -1014,6 +1014,7 @@ export default function PlayerDetails({
     sameConversation &&
     playerStatus?.kind === 'participating' &&
     humanStatus?.kind === 'participating';
+  const compactDialogueMode = activeTab === 'dialogue' && inConversationWithMe;
 
   const onStartConversation = async () => {
     if (!playerId) return;
@@ -1066,24 +1067,37 @@ export default function PlayerDetails({
 
   return (
     <>
-      <div className="flex items-start gap-4">
-        <div className="giis-vn-card mr-auto flex w-3/4 items-center justify-center p-2 sm:w-full">
-          <CharacterPortrait
-            name={playerDescription?.name}
-            size="lg"
-            emotion={emotionFor(playerDescription?.name)}
-          />
-        </div>
+      {compactDialogueMode ? (
         <button
-          className="giis-panel-close pointer-events-auto"
+          className="giis-panel-close giis-dialogue-panel-close pointer-events-auto"
           onClick={() => setSelectedElement(undefined)}
           title="關閉"
           aria-label="關閉"
         >
           <img src={closeImg} alt="" />
         </button>
-      </div>
-      <div className="mt-3">{renderTabs()}</div>
+      ) : (
+        <>
+          <div className="flex items-start gap-4">
+            <div className="giis-vn-card mr-auto flex w-3/4 items-center justify-center p-2 sm:w-full">
+              <CharacterPortrait
+                name={playerDescription?.name}
+                size="lg"
+                emotion={emotionFor(playerDescription?.name)}
+              />
+            </div>
+            <button
+              className="giis-panel-close pointer-events-auto"
+              onClick={() => setSelectedElement(undefined)}
+              title="關閉"
+              aria-label="關閉"
+            >
+              <img src={closeImg} alt="" />
+            </button>
+          </div>
+          <div className="mt-3">{renderTabs()}</div>
+        </>
+      )}
       {activeTab === 'action' ? (
         <>
           <PlayerOverviewCard
@@ -1130,15 +1144,17 @@ export default function PlayerDetails({
           </details>
         </>
       ) : null}
-      <div className="giis-vn-card mt-3 p-2 text-sm leading-tight">
-        {isMe ? (
-          <span>Alan｜{playerLocation?.labelZh ?? currentScene?.labelZh ?? schoolObservation?.currentLocation?.labelZh ?? '校園'}｜{timeBlock.title}</span>
-        ) : (
-          <span>
-            {displayAgentName(playerDescription?.name) || '角色'}｜所在場景：{playerLocation?.labelZh ?? '校園'}
-          </span>
-        )}
-      </div>
+      {!compactDialogueMode ? (
+        <div className="giis-vn-card mt-3 p-2 text-sm leading-tight">
+          {isMe ? (
+            <span>Alan｜{playerLocation?.labelZh ?? currentScene?.labelZh ?? schoolObservation?.currentLocation?.labelZh ?? '校園'}｜{timeBlock.title}</span>
+          ) : (
+            <span>
+              {displayAgentName(playerDescription?.name) || '角色'}｜所在場景：{playerLocation?.labelZh ?? '校園'}
+            </span>
+          )}
+        </div>
+      ) : null}
       {canInvite && (
         <button
           className="action-pill action-pill-active pointer-events-auto mt-3 w-full disabled:opacity-60"
@@ -1175,7 +1191,7 @@ export default function PlayerDetails({
       {waitingForNearby && (
         <div className="giis-vn-card mt-3 p-2 text-center text-sm opacity-80">正在走近...</div>
       )}
-      {inConversationWithMe && (
+      {inConversationWithMe && !compactDialogueMode && (
         // Compact, right-aligned: leaving is an escape hatch, not the main
         // action of a conversation — the old full-width text-xl bar was the
         // single most prominent element on the screen.
@@ -1376,6 +1392,7 @@ function ConversationPanel({
     const hasNow = !!humanConversation;
     if (hasNow && !hadActiveConversationRef.current) {
       setConversationTab('current');
+      window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
     }
     hadActiveConversationRef.current = hasNow;
   }, [humanConversation]);

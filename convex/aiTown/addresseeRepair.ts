@@ -28,6 +28,12 @@ const CONVERSATION_NAME_ALIASES = [
   '劉備',
   '曉夢同學',
   '曉夢',
+  ...titledAliasesFor('海'),
+  ...titledAliasesFor('天澤'),
+  ...titledAliasesFor('一之瀨'),
+  ...titledAliasesFor('真晝'),
+  ...titledAliasesFor('貓貓'),
+  ...titledAliasesFor('祥子'),
 ];
 const REPAIRED_LEADING_ADDRESSEE_MARKER = '__repaired_leading_addressee__';
 
@@ -40,15 +46,18 @@ export function repairConversationAddresseeText(
   const namePattern = CONVERSATION_NAME_ALIASES.map(escapeRegex).join('|');
   const leadingName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${namePattern})([，,、：:])`, 'g');
   const authorAliases = conversationNameAliasesFor(authorName);
+  const selfReferenceRepaired = otherName
+    ? repairSelfPossessiveReference(normalizedText, authorAliases)
+    : normalizedText;
 
   if (!otherName) {
-    return normalizedText.replace(leadingName, (match, lineStart: string, prefix: string, name: string) => {
+    return selfReferenceRepaired.replace(leadingName, (match, lineStart: string, prefix: string, name: string) => {
       return authorAliases.has(name) ? `${lineStart}${prefix}` : match;
     });
   }
 
   const allowed = conversationNameAliasesFor(otherName);
-  const repaired = normalizedText.replace(
+  const repaired = selfReferenceRepaired.replace(
     leadingName,
     (match, lineStart: string, prefix: string, name: string, punctuation: string) => {
       if (allowed.has(name) && !authorAliases.has(name)) return match;
@@ -65,10 +74,39 @@ export function repairConversationAddresseeText(
   ).replaceAll(REPAIRED_LEADING_ADDRESSEE_MARKER, '');
 }
 
+export function wouldRepairConversationAddresseeText(
+  text: string,
+  authorName: string,
+  otherName?: string,
+) {
+  const normalizedText = normalizeKnownNameArtifacts(text);
+  const repairedText = repairConversationAddresseeText(text, authorName, otherName);
+  const cleanBaseline = stripAllowedPartnerLeadingVocatives(normalizedText, otherName);
+  return repairedText !== cleanBaseline;
+}
+
+function repairSelfPossessiveReference(text: string, authorAliases: Set<string>) {
+  const authorPattern = [...authorAliases]
+    .sort((left, right) => right.length - left.length)
+    .map(escapeRegex)
+    .join('|');
+  return text.replace(new RegExp(`(${authorPattern})的`, 'g'), '你的');
+}
+
 function stripLeadingConversationVocatives(text: string) {
   const namePattern = CONVERSATION_NAME_ALIASES.map(escapeRegex).join('|');
   const leadingName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${namePattern})([，,、：:])\\s*`, 'g');
   return text.replace(leadingName, (_match, lineStart: string, prefix: string) => `${lineStart}${prefix}`);
+}
+
+function stripAllowedPartnerLeadingVocatives(text: string, otherName?: string) {
+  if (!otherName) return text;
+  const allowedAliases = [...conversationNameAliasesFor(otherName)]
+    .sort((left, right) => right.length - left.length)
+    .map(escapeRegex)
+    .join('|');
+  const leadingAllowedName = new RegExp(`(^|\\n+)([\\s「『（(]*?)(${allowedAliases})([，,、：:])\\s*`, 'g');
+  return text.replace(leadingAllowedName, (_match, lineStart: string, prefix: string) => `${lineStart}${prefix}`);
 }
 
 function repairEmbeddedThanksFrameAddressee(
@@ -102,13 +140,13 @@ function repairTerminalVocativeAddressee(
   );
   return text.replace(terminalVocative, (match, prefix: string, nameCluster: string, suffix: string) => {
     const names = splitNameCluster(nameCluster);
-  if (
-    names.length === 1 &&
-    allowed.has(names[0]) &&
-    !authorAliases.has(names[0])
-  ) {
+    if (
+      names.length === 1 &&
+      allowed.has(names[0]) &&
+      !authorAliases.has(names[0])
+    ) {
       return `${prefix}${replacement}${suffix}`;
-  }
+    }
     if (!names.length || names.every((name) => !allowed.has(name) || authorAliases.has(name))) {
       return `${prefix}${replacement}${suffix}`;
     }
@@ -163,6 +201,7 @@ function displayConversationName(name: string) {
 function conversationNameAliasesFor(name: string) {
   const displayName = displayConversationName(name);
   const aliases = new Set([name, displayName]);
+  for (const alias of titledAliasesFor(displayName)) aliases.add(alias);
   if (displayName === '海') aliases.add('Umi').add('朝凪海');
   if (displayName === '天澤') aliases.add('Tianze').add('天澤').add('明天奈').add('天擇').add('天擇一夏').add('天澤一夏');
   if (displayName === '一之瀨') aliases.add('Ichinose').add('一之瀨').add('一之瀨帆波').add('黑化一之瀨');
@@ -170,6 +209,18 @@ function conversationNameAliasesFor(name: string) {
   if (displayName === '貓貓') aliases.add('Maomao').add('CaoCao').add('Cao Cao').add('曹操');
   if (displayName === '祥子') aliases.add('Sakiko').add('Liu Bei').add('LiuBei').add('劉備');
   return aliases;
+}
+
+function titledAliasesFor(displayName: string) {
+  return [
+    `${displayName}姊`,
+    `${displayName}姐`,
+    `${displayName}姊姊`,
+    `${displayName}姐姐`,
+    `${displayName}老師`,
+    `${displayName}前輩`,
+    `${displayName}同學`,
+  ];
 }
 
 function normalizeKnownNameArtifacts(text: string) {

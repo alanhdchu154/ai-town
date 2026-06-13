@@ -3,9 +3,9 @@
 //
 //   node scripts/test-qwen-key.mjs [model] [baseUrl]
 //
-// Defaults: model=qwen3-max, base=https://api.newcoin.top (OpenAI-compatible proxy).
+// Defaults: model=qwen-plus, base=https://dashscope-intl.aliyuncs.com/compatible-mode/v1.
 // - Never prints the key.
-// - Tries "{base}/v1/chat/completions" then "{base}/chat/completions".
+// - Accepts either an OpenAI-compatible base URL or a full chat/completions URL.
 // - Reports HTTP status, latency, token usage, and a sample Umi-voice reply.
 
 import { execFileSync } from 'node:child_process';
@@ -28,13 +28,15 @@ if (!key) {
 }
 
 const positionalArgs = process.argv.slice(2).filter((arg) => arg !== '--backup');
-const model = positionalArgs[0] || 'qwen3-max';
-const base = (positionalArgs[1] || 'https://api.newcoin.top').replace(/\/$/, '');
+const model = positionalArgs[0] || 'qwen-plus';
+const base = (
+  positionalArgs[1] || 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+).replace(/\/+$/, '');
 console.log(`key: ${useBackup ? 'backup ' : ''}set (${key.length} chars)`);
 console.log(`base: ${base}`);
 console.log(`model: ${model}\n`);
 
-const urls = [base + '/v1/chat/completions', base + '/chat/completions'];
+const urls = [chatCompletionsUrl(base)];
 
 const body = {
   model,
@@ -99,11 +101,18 @@ for (const url of urls) {
 
 if (!ok) {
   console.log(
-    '\n✗ 未通過。401 → key 無效或餘額/權限問題（查 https://cha.newcoin.tech）；連線失敗 → 檢查主機 URL/網路。',
+    '\n✗ 未通過。401 → key 無效或 region/base URL 不匹配；402/403 → 餘額、權限或服務未開通；連線失敗 → 檢查主機 URL/網路。',
   );
   process.exit(2);
 }
 console.log('\n✓ key 可用，可以接下一步接進 Mahiru × Umi pilot。');
+
+function chatCompletionsUrl(baseUrl) {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  if (trimmed.endsWith('/chat/completions')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
+}
 
 function convexEnvGet(name) {
   try {

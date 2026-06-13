@@ -9,10 +9,11 @@ DEV_LOG_FILE="$REPORT_DIR/underworld-dev-stack.log"
 DEV_PID_FILE="$REPORT_DIR/underworld-dev-stack.pid"
 DEV_STACK_LABEL="com.giis.underworld.dev-stack"
 DEV_STACK_PLIST="$HOME/Library/LaunchAgents/$DEV_STACK_LABEL.plist"
+STATE_AUDIT_FILE="$REPORT_DIR/state-growth-audit-latest.md"
 
 export PATH="$HOME/.nvm/versions/node/v21.7.2/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 export NVM_DIR="$HOME/.nvm"
-export CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS="${CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:-180}"
+export CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS="${CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS:-900}"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
   # shellcheck disable=SC1091
   . "$NVM_DIR/nvm.sh"
@@ -40,7 +41,7 @@ http_ok() {
 # (Umi / Mahiru / Tianze / Ichinose) goes silent because fetch fails at
 # DNS, the abort marker is filtered, and the UI looks frozen. Swap the
 # system resolver to public DNS if the Qwen host stops resolving.
-LLM_API_HOST="${LLM_API_HOST:-api.newcoin.top}"
+LLM_API_HOST="${LLM_API_HOST:-dashscope-intl.aliyuncs.com}"
 LLM_API_DNS_SERVICE="${LLM_API_DNS_SERVICE:-Wi-Fi}"
 LLM_API_DNS_PUBLIC="${LLM_API_DNS_PUBLIC:-1.1.1.1 8.8.8.8}"
 
@@ -74,6 +75,10 @@ convex_ok() {
 
 world_status() {
   npx convex run --typecheck disable --codegen disable world:defaultWorldStatus 2>/dev/null || true
+}
+
+state_audit() {
+  npm run underworld:state-audit >/tmp/underworld-state-audit.out 2>/tmp/underworld-state-audit.err
 }
 
 stack_ok() {
@@ -111,7 +116,10 @@ restart_stack() {
 }
 
 wait_until_ready() {
-  local deadline=$((SECONDS + 210))
+  # Match run_underworld_dev_stack.sh: the T9-backed Convex sqlite can take
+  # several minutes to replay cold. A shorter wait mislabels healthy bootstrap
+  # work as a failed restart and can trigger restart loops.
+  local deadline=$((SECONDS + CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS))
   while [ "$SECONDS" -lt "$deadline" ]; do
     if stack_ok; then
       return 0
@@ -138,7 +146,9 @@ write_status_report() {
   local result="$1"
   local action="$2"
   local clock_json
+  local state_summary
   clock_json="$(cat /tmp/underworld-worldClock.json 2>/dev/null || true)"
+  state_summary="$(sed -n '/## Summary/,/## Scheduled Arg Scan/p' "$STATE_AUDIT_FILE" 2>/dev/null || true)"
   cat >"$STATUS_FILE" <<EOF
 # Underworld Morning Healthcheck
 
@@ -149,12 +159,17 @@ write_status_report() {
 - Backend: http://localhost:3210/version
 - Dev log: $DEV_LOG_FILE
 - LaunchAgent log: $LOG_FILE
+- State audit: $STATE_AUDIT_FILE
 
 ## worldClock
 
 \`\`\`json
 $clock_json
 \`\`\`
+
+## state growth
+
+$state_summary
 EOF
 }
 
@@ -164,6 +179,7 @@ main() {
   if stack_ok; then
     resume_world_if_needed || true
     if stack_ok; then
+      state_audit || log "WARN: state audit failed; see /tmp/underworld-state-audit.err"
       log "Underworld healthy; no restart needed"
       write_status_report "PASS" "No restart needed"
       exit 0
@@ -175,6 +191,7 @@ main() {
   if wait_until_ready; then
     resume_world_if_needed || true
     if stack_ok; then
+      state_audit || log "WARN: state audit failed after restart; see /tmp/underworld-state-audit.err"
       log "Underworld restarted and verified healthy"
       write_status_report "PASS_AFTER_RESTART" "Restarted npm run dev and verified"
       exit 0

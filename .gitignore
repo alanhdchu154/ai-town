@@ -51,6 +51,7 @@ key.md
 .claude/
 .hatch-pet-runs/
 umi/reports/
+umi/exports/
 umi/__pycache__/
 __pycache__/
 

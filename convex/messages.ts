@@ -22,12 +22,33 @@ function logGiisTiming(payload: Record<string, unknown>) {
   console.log('[GIIS timing]', payload);
 }
 
-async function wakeWorldForConversationInput(ctx: MutationCtx, worldId: Id<'worlds'>) {
+export function shouldWakeWorldForConversationInputStatus(
+  status: 'running' | 'inactive' | 'stoppedByDeveloper' | undefined,
+  forceHumanInputWake = false,
+) {
+  if (!status) return false;
+  if (status === 'stoppedByDeveloper' && !forceHumanInputWake) return false;
+  return true;
+}
+
+async function wakeWorldForConversationInput(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  options: { forceHumanInputWake?: boolean } = {},
+) {
   const worldStatus = await ctx.db
     .query('worldStatus')
     .withIndex('worldId', (q) => q.eq('worldId', worldId))
     .first();
-  if (!worldStatus || worldStatus.status === 'stoppedByDeveloper') return;
+  if (!worldStatus) return;
+  if (
+    !shouldWakeWorldForConversationInputStatus(
+      worldStatus.status,
+      options.forceHumanInputWake,
+    )
+  ) {
+    return;
+  }
   const engine = await ctx.db.get(worldStatus.engineId);
   if (!engine) return;
   const now = Date.now();
@@ -51,9 +72,11 @@ async function wakeWorldForConversationInput(ctx: MutationCtx, worldId: Id<'worl
 }
 
 export const wakeWorldForConversationInputAfterWrite = internalMutation({
-  args: { worldId: v.id('worlds') },
+  args: { worldId: v.id('worlds'), forceHumanInputWake: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    await wakeWorldForConversationInput(ctx, args.worldId);
+    await wakeWorldForConversationInput(ctx, args.worldId, {
+      forceHumanInputWake: args.forceHumanInputWake,
+    });
   },
 });
 
@@ -244,6 +267,7 @@ export const writeMessage = mutation({
     });
     await ctx.scheduler.runAfter(0, internal.messages.wakeWorldForConversationInputAfterWrite, {
       worldId: args.worldId,
+      forceHumanInputWake: true,
     });
     logGiisTiming({
       action: 'writeMessage',

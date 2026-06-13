@@ -14,7 +14,21 @@ const COMMAND_ENV = {
     process.env.CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS ?? '180',
 };
 const REPORT_PATH = join(__dirname, 'reports', 'soul-triad-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', 'Umi', 'Mahiru', 'Tianze', 'Ichinose']);
+const TRIAD_NAMES = new Set([
+  '海',
+  '真晝',
+  '貓貓',
+  '天澤',
+  '一之瀨',
+  '祥子',
+  'Umi',
+  'Mahiru',
+  'Mahiru Shiina',
+  'Maomao',
+  'Tianze',
+  'Ichinose',
+  'Sakiko',
+]);
 
 type Conversation = {
   id: string;
@@ -587,8 +601,11 @@ function conversationPairKey(conversation: Conversation) {
 function displayNameForEval(name: string) {
   if (name === 'Umi') return '海';
   if (name === 'Mahiru') return '真晝';
+  if (name === 'Mahiru Shiina') return '真晝';
+  if (name === 'Maomao') return '貓貓';
   if (name === 'Tianze') return '天澤';
   if (name === 'Ichinose') return '一之瀨';
+  if (name === 'Sakiko') return '祥子';
   return name;
 }
 
@@ -762,7 +779,7 @@ function normalizeForEcho(text: string) {
 function printSummary(results: Result[]) {
   console.log('\nSoul Triad Conversation Harness\n');
   if (!results.length) {
-    console.log('No Umi/Mahiru/Tianze/Ichinose soul samples found.');
+    console.log('No current evidence-pilot soul samples found.');
     return;
   }
   for (const result of results) {

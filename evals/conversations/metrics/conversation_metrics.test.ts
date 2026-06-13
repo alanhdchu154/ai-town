@@ -161,6 +161,48 @@ describe('conversation quality metrics', () => {
     expect(metric?.status).toBe('PASS');
   });
 
+  it('credits behavior-shaped Tianze pressure tests without requiring literal slogan words', () => {
+    const metric = metricStatus(
+      [
+        '真晝: 你湯匙停在半空好久了……要先吃一口嗎？',
+        '真晝: 我手放下了，你湯匙還懸著。',
+        '天澤: 你剛才那句「我手放下了」——是說給我聽的，還是說給自己聽的？',
+        '天澤: 你睫毛顫了兩下才抬頭——這句，我收進口袋了。',
+      ].join('\n'),
+      'characterVoiceScore',
+    );
+
+    expect(metric?.status).toBe('PASS');
+    expect(metric?.notes.join(' ')).toContain('tianze_pressure_test_question');
+  });
+
+  it('credits Umi and Mahiru behavior-shaped voice without forcing fatigue or food words', () => {
+    const metric = metricStatus(
+      [
+        '海: 真晝，你剛才說「已經說過一次了」——那這次，我想先聽你說。',
+        '真晝: 你手還一直握著筆蓋……要先放下來嗎？',
+        '海: 我得先離開一下——',
+      ].join('\n'),
+      'characterVoiceScore',
+    );
+
+    expect(metric?.status).toBe('PASS');
+    expect(metric?.notes.join(' ')).toContain('umi_reduce_overload_or_yield_focus');
+    expect(metric?.notes.join(' ')).toContain('mahiru_quiet_care_attention');
+  });
+
+  it('still fails generic dialogue without lexical or behavior-shaped character voice', () => {
+    const metric = metricStatus(
+      [
+        '真晝: 今天天氣很好。',
+        '天澤: 是啊，等一下應該也不錯。',
+      ].join('\n'),
+      'characterVoiceScore',
+    );
+
+    expect(metric?.status).toBe('FAIL');
+  });
+
   it('credits Tianze continuity cues such as 底線 / 不拆 alongside a callback marker', () => {
     const metric = metricStatus(
       '天澤: 剛才你說的底線，這次我先不拆你。',

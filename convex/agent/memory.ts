@@ -156,6 +156,15 @@ function deterministicConversationSummary(
     .join('；');
 }
 
+export function otherParticipantIdForConversation(
+  conversation: { participants?: string[] },
+  playerIdValue: string,
+  participatedTogetherFallback?: { player2?: string } | null,
+) {
+  const participantOther = conversation.participants?.find((participantId) => participantId !== playerIdValue);
+  return participantOther ?? participatedTogetherFallback?.player2;
+}
+
 export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
   const candidates = messages
     .map((message, index) => ({ text: message.text.trim(), index }))
@@ -1070,6 +1079,44 @@ export async function rememberConversation(
     ms: Date.now() - insertStart,
     player: player.name,
   });
+  // Underworld experience-log MVP. Runs only AFTER every existing quality
+  // gate above (weak-shape, fallback-only, degenerate-pilot-exit, system
+  // phrase leak, post-processing drift) has passed and the conversation
+  // memory was actually inserted. The writer itself gates again on the
+  // current evidence pilot cast and dedupe/cap; non-pilot pairs short-circuit
+  // cheaply inside the mutation. Never written from raw message insert.
+  const experienceStart = Date.now();
+  const experienceResult = await ctx.runMutation(
+    internal.agent.experienceLog.recordExperienceLogIfEligible,
+    {
+      worldId,
+      playerId: player.id as GameId<'players'>,
+      otherPlayerId: otherPlayer.id as GameId<'players'>,
+      conversationId,
+      sourceKind: 'archivedConversation',
+      playerName: player.name,
+      otherPlayerName: otherPlayer.name,
+      summary: content,
+      residue,
+      messageTexts: messages.map((message) => message.text),
+      messages: messages.map((message) => {
+        const author = message.author === player.id ? player : otherPlayer;
+        return {
+          authorName: author.name,
+          text: message.text,
+        };
+      }),
+      conversationStartedAt,
+    },
+  );
+  logGiisTiming({
+    action: 'rememberConversation',
+    phase: 'experienceLogTime',
+    ms: Date.now() - experienceStart,
+    player: player.name,
+    written: experienceResult.written,
+    reason: experienceResult.reason,
+  });
   const outcomeStart = Date.now();
   await ctx.runMutation(internal.school.recordConversationOutcome, {
     worldId,
@@ -1162,12 +1209,10 @@ export const loadConversation = internalQuery({
           .eq('conversationId', args.conversationId),
       )
       .first();
-    if (!otherParticipator) {
-      throw new Error(
-        `Couldn't find other participant in conversation ${args.conversationId} with player ${args.playerId}`,
-      );
+    const otherPlayerId = otherParticipantIdForConversation(conversation, args.playerId, otherParticipator);
+    if (!otherPlayerId) {
+      throw new Error(`Conversation ${args.conversationId} other participant not found`);
     }
-    const otherPlayerId = otherParticipator.player2;
     let otherPlayer: SerializedPlayer | Doc<'archivedPlayers'> | null =
       world.players.find((p) => p.id === otherPlayerId) ?? null;
     if (!otherPlayer) {

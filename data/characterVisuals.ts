@@ -8,6 +8,11 @@ export type CharacterVisual = {
   portraitPaths: Record<PortraitEmotion, string>;
   renderPath?: string;
   renderPaths?: Partial<Record<PortraitEmotion, string>>;
+  renderFraming?: {
+    zoom: number;
+    y: string;
+    offsetY?: string;
+  };
   spritePath: string;
   archetypeZh: string;
   artDirection: string;
@@ -60,6 +65,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       smiling: `${RENDER_BASE}/umi-smiling.png`,
       serious: `${RENDER_BASE}/umi-serious.png`,
     },
+    renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/umi.png`,
     archetypeZh: '聰明吐槽系助理校長',
     artDirection:
@@ -81,6 +87,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       worried: `${RENDER_BASE}/tianze-worried.png`,
       serious: `${RENDER_BASE}/tianze-serious.png`,
     },
+    renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/tianze.png`,
     archetypeZh: '笑著拆系統的壓力測試者',
     artDirection:
@@ -102,6 +109,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       worried: `${RENDER_BASE}/ichinose-worried.png`,
       serious: `${RENDER_BASE}/ichinose-serious.png`,
     },
+    renderFraming: { zoom: 1.16, y: 'top' },
     spritePath: `${SPRITE_BASE}/ichinose.png`,
     archetypeZh: '用善意收債的粉紅髮溫柔惡魔',
     artDirection:
@@ -123,6 +131,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       worried: `${RENDER_BASE}/maomao-worried.png`,
       serious: `${RENDER_BASE}/maomao-serious.png`,
     },
+    renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/maomao.png`,
     archetypeZh: '冷眼診斷怪才',
     artDirection:
@@ -151,6 +160,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       worried: `${RENDER_BASE}/sakiko-worried.png`,
       serious: `${RENDER_BASE}/sakiko-serious.png`,
     },
+    renderFraming: { zoom: 1.24, y: 'top', offsetY: '-1.3rem' },
     spritePath: `${SPRITE_BASE}/sakiko.png`,
     archetypeZh: '破碎舞台大小姐',
     artDirection:
@@ -172,6 +182,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       worried: `${RENDER_BASE}/mahiru-worried.png`,
       serious: `${RENDER_BASE}/mahiru-serious.png`,
     },
+    renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/mahiru.png`,
     archetypeZh: '溫柔治癒系學生事務助理',
     artDirection:

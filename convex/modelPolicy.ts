@@ -13,9 +13,9 @@ export const MODEL_POLICY = {
     allowedProviders: ['gemini', 'qwen', 'openai', 'openai-compatible'],
     defaultModelByProvider: {
       gemini: 'gemini-2.5-flash',
-      qwen: 'qwen3-max',
-      openai: 'qwen3-max',
-      'openai-compatible': 'qwen3-max',
+      qwen: 'qwen-plus',
+      openai: 'qwen-plus',
+      'openai-compatible': 'qwen-plus',
     },
   },
   memorySummarization: {

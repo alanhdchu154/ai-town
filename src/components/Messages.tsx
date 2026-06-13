@@ -18,6 +18,8 @@ type PendingChatMessage = {
   createdAt: number;
 };
 
+const HUMAN_REPLY_WAIT_TIMEOUT_MS = 45_000;
+
 export function Messages({
   worldId,
   engineId,
@@ -49,6 +51,8 @@ export function Messages({
     targetName?: string;
     afterMessageUuid: string;
   } | null>(null);
+  const [replyWaitExpired, setReplyWaitExpired] = useState(false);
+  const [typingWaitExpired, setTypingWaitExpired] = useState(false);
   const confirmedMessageUuids = useMemo(
     () => new Set((messages ?? []).map((message: { messageUuid: string }) => message.messageUuid)),
     [messages],
@@ -88,7 +92,15 @@ export function Messages({
       }, 0);
     }
     setAwaitingReply(null);
+    setReplyWaitExpired(false);
   }, [messages, awaitingReply, humanPlayerId]);
+  useEffect(() => {
+    setReplyWaitExpired(false);
+    if (!awaitingReply) return undefined;
+    const remaining = Math.max(0, HUMAN_REPLY_WAIT_TIMEOUT_MS - (Date.now() - awaitingReply.since));
+    const timeout = window.setTimeout(() => setReplyWaitExpired(true), remaining);
+    return () => window.clearTimeout(timeout);
+  }, [awaitingReply?.since, awaitingReply?.afterMessageUuid]);
   let currentlyTyping = conversation.kind === 'active' ? conversation.doc.isTyping : undefined;
   if (messages !== undefined && currentlyTyping) {
     if (
@@ -102,6 +114,13 @@ export function Messages({
     descriptions?.playerDescriptions.find(
       (p: { playerId: string }) => p.playerId === currentlyTyping?.playerId,
     )?.name;
+  useEffect(() => {
+    setTypingWaitExpired(false);
+    if (!currentlyTyping || currentlyTyping.playerId === humanPlayerId) return undefined;
+    const remaining = Math.max(0, HUMAN_REPLY_WAIT_TIMEOUT_MS - (Date.now() - currentlyTyping.since));
+    const timeout = window.setTimeout(() => setTypingWaitExpired(true), remaining);
+    return () => window.clearTimeout(timeout);
+  }, [currentlyTyping?.since, currentlyTyping?.messageUuid, currentlyTyping?.playerId, humanPlayerId]);
 
   const conversationLogRef = useRef<HTMLDivElement>(null);
   const getScrollView = () => conversationLogRef.current ?? scrollViewRef.current;
@@ -126,20 +145,30 @@ export function Messages({
   useEffect(() => {
     const scrollView = getScrollView();
     if (!scrollView) return;
+    const scrollToBottom = (behavior: ScrollBehavior) =>
+      scrollView.scrollTo({
+        top: scrollView.scrollHeight,
+        behavior,
+      });
     if (!initializedScroll.current && messages !== undefined) {
       initializedScroll.current = true;
-      scrollView.scrollTo({
-        top: scrollView.scrollHeight,
-        behavior: 'auto',
-      });
+      scrollToBottom('auto');
+      const frame = window.requestAnimationFrame(() => scrollToBottom('auto'));
+      const timeout = window.setTimeout(() => scrollToBottom('auto'), 120);
       isScrolledToBottom.current = true;
-      return;
+      return () => {
+        window.cancelAnimationFrame(frame);
+        window.clearTimeout(timeout);
+      };
     }
     if (isScrolledToBottom.current || awaitingReply) {
-      scrollView.scrollTo({
-        top: scrollView.scrollHeight,
-        behavior: 'smooth',
-      });
+      scrollToBottom('smooth');
+      const frame = window.requestAnimationFrame(() => scrollToBottom('auto'));
+      const timeout = window.setTimeout(() => scrollToBottom('auto'), 120);
+      return () => {
+        window.cancelAnimationFrame(frame);
+        window.clearTimeout(timeout);
+      };
     }
   }, [messages, currentlyTyping, pendingMessages.length, awaitingReply?.since, conversation.doc.id]);
 
@@ -278,9 +307,16 @@ export function Messages({
               </time>
             </div>
             <div className={clsx('bubble')}>
-              <p className="-mx-3 -my-1">
-                <i>{displayAgentName(currentlyTypingName) === '海' ? '海正在思考...' : '正在思考...'}</i>
-              </p>
+              {typingWaitExpired ? (
+                <div className="-mx-3 -my-1 space-y-1">
+                  <p>連線暫時不穩，這段還沒有收到角色回覆。</p>
+                  <p className="text-xs opacity-70">為了不污染記憶，系統不會補一段弱 fallback 當成真話。</p>
+                </div>
+              ) : (
+                <p className="-mx-3 -my-1">
+                  <i>{displayAgentName(currentlyTypingName) === '海' ? '海正在思考...' : '正在思考...'}</i>
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -296,13 +332,20 @@ export function Messages({
               </time>
             </div>
             <div className={clsx('bubble')}>
-              <p className="-mx-3 -my-1">
-                <i>
-                  {displayAgentName(awaitingReply.targetName ?? placeholderTargetName) === '海'
-                    ? '海正在思考...'
-                    : '正在思考...'}
-                </i>
-              </p>
+              {replyWaitExpired ? (
+                <div className="-mx-3 -my-1 space-y-1">
+                  <p>連線暫時不穩，這段沒有寫入角色記憶。</p>
+                  <p className="text-xs opacity-70">你可以稍後再送一次；我不會用弱 fallback 假裝角色回覆。</p>
+                </div>
+              ) : (
+                <p className="-mx-3 -my-1">
+                  <i>
+                    {displayAgentName(awaitingReply.targetName ?? placeholderTargetName) === '海'
+                      ? '海正在思考...'
+                      : '正在思考...'}
+                  </i>
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -325,6 +368,7 @@ export function Messages({
                   targetName: placeholderTargetName,
                   afterMessageUuid: message.messageUuid,
                 });
+                setReplyWaitExpired(false);
               }
             }
           />

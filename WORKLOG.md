@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-11
+Last updated: 2026-06-12 20:30 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -20,17 +20,400 @@ historical evidence is needed.
 | # | Item | Owner | Status |
 |---|---|---|---|
 | 0 | Local storage migration status: Ollama models are active on T9 and verified by `ollama list`. Underworld Convex local backend state is active on T9 via `/Users/alanhdchu/.convex/convex-backend-state/local-alan_chu-ai_town` -> `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town`; `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=180 ./node_modules/.bin/convex run --typecheck disable --codegen disable school:debugState` returned world/debug data. See `/Users/alanhdchu/umi-central/docs/local_storage_layout.md`. | Umi / Codex | active_on_t9_verified |
-| 1 | Next Alan <-> Umi playtest should confirm greeting behavior, latest-sentence binding, correction binding (`不是依賴，是喜歡`), yesterday/today continuity, and closing behavior using `umi/playtest-v01-alan-facing-gate.md`; fill the existing ignored local `PARTIAL` draft at `umi/reports/alan-facing-v01-playtest-latest.md`, then validate it with `npm run underworld:alan-playtest-check`. The read-only candidate scan at `umi/reports/alan-playtest-candidates-latest.md` found `NO_COMPLETE_CANDIDATE`, so do not backfill this gate from old chats. | Alan / Umi | pending fresh playtest |
+| 1 | Alan-facing v0.1 playtest is currently proven by `umi/reports/alan-facing-v01-playtest-latest.md`: 2026-06-11 09:54 CDT `Verdict: PASS`, 5/5 checklist rows. Later fresh recent-eval saw one diagnostic orphan Alan/海 timeline session at 2026-06-12 20:06 with Alan-side messages only; root cause matched `worldStatus=stoppedByDeveloper` / engine not running after controlled checks. `messages.writeMessage` now force-wakes the world for explicit human chat while passive wakes still respect developer stop; covered by `convex/messagesWake.test.ts`. | Alan / Umi | pass_caveat_patched_watch_next_real_chat |
 | 2 | Decide whether to backfill old memory strings that used UTC + `en-US` formatting before the newer `zh-TW` + `America/Chicago` convention. | Alan / Codex | waiting on Alan decision |
 | 3 | Compact Alan-facing v0.1 playtest checklist and success/failure record format exists at `umi/playtest-v01-alan-facing-gate.md`; `v01-completion-audit` now reads `umi/reports/alan-facing-v01-playtest-latest.md` when present and only accepts `Verdict: PASS` if all five required checklist lines are present and marked PASS, so use that artifact before treating Alan-facing quality as proven. | Codex | ready |
 | 4 | CC timeout is an orchestration issue, not a reason to give up on cc. `umi/orchestrator.py` now follows a Claude Code timeout with a read-only recovery pass that narrows the task and reports exact retry/auth/tooling evidence. If cc returns auth/provider errors, diagnose and fix that layer or produce the smallest explicit blocker; do not silently mark cc as unusable. | Umi / Codex | watch_and_recover |
-| 5 | Post-role-change v0.1 rerun remains active, not complete. On 2026-06-10 10:35 CDT, `npm run underworld:v01-completion-audit` is `FAIL` with 2 fail / 2 pending / 4 pass after a fresh morning observe pass. The useful evidence is mixed: runtime/provider/fallback are healthy, two fresh archived triad samples passed soul-triad eval, but the third focused sample timed out and left an active incomplete 海/天澤 conversation; recent eval marked 0 PASS / 0 WARN / 3 FAIL, while `v01-approach` labels the blocker `eval_rubric_disagreement` / proposal-only. Later evidence improved one gate: the 18:58 CDT `rolling-continuity-latest.md` is now `PASS / continuity_observed` with 34 callbacks from the 10:00-12:00 source window to the 12:00-14:00 callback window, so rolling continuity is no longer the leading blocker. The 20:26 CDT Alan-facing candidate scan still found `NO_COMPLETE_CANDIDATE`, and the durable Alan-facing playtest artifact remains `PARTIAL` with 0/5 PASS rows. The next safe actions are to reconcile eval framing before changing dialogue code, and fill/replace `umi/reports/alan-facing-v01-playtest-latest.md` only from a real Alan <-> Umi playtest or explicit Alan/product-owner defer. | Alan / Umi | active_fail_eval_framing_and_alan_playtest |
+| 5 | Post-role-change v0.1 machine gate is now PASS as of 2026-06-12 20:30 CDT: `npm run underworld:v01-completion-audit` reports 0 fail / 0 pending / 0 deferred / 8 pass after the orphan/no-response and 海/真晝 motif-relay caveat patches. This is human-review-ready, not a claim of perfect dialogue: fresh recent eval still has 0 PASS / 2 WARN / 1 FAIL across the latest three 海/真晝 samples, and the best next product judgment is Alan acceptance plus one small real playtest, not more synthetic prompt churn. | Alan / Umi | machine_gate_pass_human_review_ready |
 | 6 | Paper (emotional residue) is local-source ready only as a conservative design/systems preprint, and Alan reported submitting the A-path preprint on OSF on 2026-06-10 because arXiv upload is blocked by endorsement. `docs/paper/OSF_RELEASE_RECORD.md` is the current OSF posting ledger; public OSF URL / DOI / license metadata remain `TO_RECORD` locally, while the local OSF-ready PDF is `docs/paper/results/osf/emotional-residue-osf-preprint.pdf` (SHA-256 `27e03968d30bb09d6449ca2121afa9ff721d9516a6ebda21e17a5110aea1da8f`). `docs/paper/arxiv/main.tex` now uses public author text `Alan Hwader Chu / Independent Researcher`, uses `Underworld` rather than `GIIS Underworld`, describes pilot characters by role/personality rather than public character names, includes provider/model-path disclosure, measured-limits text for untested verbatim leakage, an explicit ethics/scope note, denominator-safe wording for the 15-candidate/2-callback rolling window, reflexivity disclosure for author-designed rule markers, narrowed read-block-suppression wording instead of "primary causal ablation", social-agent evaluation context via SOTOPIA / Lifelong SOTOPIA, and a disclosure that `UNDERWORLD_RESIDUE_READ=placebo` is draft runtime plumbing that is not preregistered, collected, or analyzed in this paper. `docs/paper/ARXIV_PREPRINT_RELEASE_PACKET.md` remains the future arXiv mirror packet; arXiv is paused until endorsement/account readiness and platform preview are resolved. `docs/paper/CITATION_PROVENANCE.md` plus `npm run paper:citation-audit` cover all 17 bibliography keys and primary/official URLs for recent LLM-agent / AI Town / social-agent references. `docs/paper/PREREGISTRATION_PROTOCOL.md` is a machine-audited draft for the future empirical study, not an accepted collection authorization; it now records continuing-world carryover/read-eligibility, dyad fallback, no interim effect peeking, and a concrete final-N selection procedure from pilot baseline/MDE/design-effect. `paper:residue-arm-window` still requires both `SCHEDULE_ACCEPTANCE.json` and `PREREGISTRATION_ACCEPTANCE.json` before it can change `UNDERWORLD_RESIDUE_READ` or hold a collection window; it now writes `run-provenance.json` / `artifact-hashes.json` and attaches `run_provenance` to future dataset rows so long-window collection preserves secret-safe git state, accepted schedule/preregistration hashes, source-archive hash, command args, runtime, env policy, and artifact/log hashes. Legacy forced runners `paper:residue-ablation` and `paper:residue-ablation:blocks` now refuse to run unless `--allow-legacy-forced-pilot` is explicitly provided, so accidental short forced collection is blocked by default. `paper:run-provenance-audit` can check each completed arm-window run directory before merge, and `paper:merge-ablation-runs` now writes a merge manifest and refuses to merge failed-provenance arm-window runs. Human annotation plumbing is ready but unrun: `annotation_sheet.csv` is still a blank blinded worksheet with only 4 rows; `annotation_packet_manifest.json` and `transcript_packet_manifest.json` now prove the pre-rater sheet/key/transcript hashes, selected blind IDs, exact blind-id-to-source-report mapping, missing-transcript status, source-report hashes, and blinding flags; `paper:annotation-audit` now verifies those source report paths/hashes and future completed rater sheet paths/hashes. `scripts/paper/merge_rater_annotations.py` must later merge completed independent rater sheets into analysis-ready `annotations.csv` with `annotations_manifest.json`, and now refuses completed rater sheets that include leaked/unblinded columns or non-blinded `case_ref` values. `paper:annotation-audit` reports `PACKET_READY_INCOMPLETE_STUDY`: 0 FAIL, with empirical blockers for stale/missing source-report hashes, 4 rows, no merged annotations, and one dyad. `docs/paper/ALAN_HANDOFF.md` is the one-page boundary summary; `docs/paper/REVIEWER_PREMORTEM.md` records cc-reviewed objections including between-arm carryover. `paper:archive-audit` rebuilds the local arXiv/source archive with atomic output replacement, verifies the manifest/SHA/member allowlist, and checks for accidental data/results/annotation/transcript or obvious secret leakage. Current `npm run paper:readiness` verdict is `LOCAL_SOURCE_READY_WITH_WARNINGS`, archive SHA-256 `d9a7b2a928403b12976b9422381b5353a340394728c840b54375c59097c5e911`. Empirical/mechanism claims remain blocked: n=4, one dyad, no completed independent rater merge, stale/missing annotation source-report packet, saturated aftertaste proxy, missing generation metadata/provenance on old rows, trace-overlap audit only has 11 callback cases, final N is not fixed, no accepted long-window schedule or preregistration, and the local placebo plumbing is not preregistered, collected, or analyzed. | Alan / Codex | osf_pdf_ready_arxiv_endorsement_blocked_empirical_blocked |
 | 7 | Scene-first UI lane is now active: the main world defaults to generated VN-style Scene Mode, while the original Pixi map remains behind the `地圖` toggle. Scene objects are intentionally UI-only hotspots/event seeds for now; do not add durable backend object/event behavior without a proposal because that would affect world continuity and memory. Corrected transparent default-emotion standees now exist for the active core cast (`海`, `天澤`, `一之瀨`, `貓貓`, `祥子`, `真晝`); the next art task is completing consistent multi-emotion render sets, not another Tianze rescue. | Alan / Umi / Codex | scene_mode_landed_phase2_emotion_renders_pending |
 | 8 | CaoCao / Liu Bei live replacement is implemented as Maomao / Sakiko, while old conversations/memories remain as transfer-student history unless Alan later approves a destructive purge. Code/profile/docs/eval/assets now use Maomao diagnostic-symptom soul and Sakiko stage-composure soul; legacy aliases map old names to new display/runtime names. Local Convex profile migration ran non-destructively with `school:migrateCharacterRuntimeNames` (`scope=profiles`, `clearHistory=false`), and `school:debugState` confirms active roster has `Maomao` and `Sakiko` with no active `CaoCao` / `Liu Bei`; target short-term state is cleared. LLM active path is cloud-Qwen for all free-world soul characters (`Umi`, `Mahiru`, `Tianze`, `Ichinose`, `Maomao`, `Sakiko`) with local Ollama fallback enabled on the local Convex deployment (`CHARACTER_SOUL_LOCAL_FALLBACK=true`, `CHARACTER_SOUL_LOCAL_FALLBACK_MODEL=qwen3:8b`). The two soul files define Maomao's five layers as diagnosis-as-reluctant-care and Sakiko's five layers as stage-composure-as-protection. Runtime prompts now explicitly constrain both to short, concrete, non-mirroring lines; active event/Alan-state inference no longer treats Maomao as a student-council/order strategist. Disposable probes produced two-line Maomao/Sakiko, Umi/Maomao, and Ichinose/Sakiko samples; names/routing/personality were directionally correct, but local fallback live probes can still be slow or sample-pending, so short-sample quality should be rechecked after provider quota/key health is stable. `.env.local.example`, active soul index, portrait README, memory examples, life-signals cues, PlayerDetails flavor text, and the disposable free-world runner are aligned. Deep historical deletion was dry-run only because it would delete 759 conversations, 2727 messages, 252 memories, and 414 timeline events; require explicit Alan approval before running destructive `clearHistory=true`. Verification: targeted Jest suite 55/55 pass, `npx tsc --noEmit --pretty false`, `npm run build`, asset HTTP smoke for `/ai-town`, `/portraits/maomao.png`, `/renders/sakiko-serious.png`, `/sprites/maomao.png`; post-followup active-doc stale-reference scan returned no hits; smoke follow-up ran `npm run underworld:life-signals:self-test`, targeted model/dialogue/metrics Jest 45/45, typecheck, disposable probes, cleanup, and `world:defaultWorldStatus` with status `running`. | Alan / Umi / Codex | live_replacement_complete_keep_history_souls_done_provider_quality_recheck |
+| 9 | Local Convex state blocker resolved by fresh-world-with-archive recovery. Old active state was moved, not deleted, to `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town-archive-20260612T085455-pre-fresh-world` (18GB). Fresh active state was recreated at `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town`, with only `config.json` copied back from the archive. `npx convex run init` created a fresh default world; `world:defaultWorldStatus` shows `running`, `school:debugState` / `school:worldClock` / `school:umiBriefing` return without timeout, and `/ai-town` is HTTP 200. Fresh active state is about 3.6MB and backend RSS is about 252MB. Do not delete the archive or treat old archived conversations as fresh samples; next v0.1 loop must collect fresh-world evidence. Reports: `umi/proposals/20260612T082840-local-convex-state-hygiene.md`, `umi/reports/local-convex-state-diagnostic-latest.md`, `umi/reports/local-convex-fresh-world-recovery-latest.md`. | Umi / Codex | fresh_world_recovered_collect_new_samples |
+| 10 | Sustainable state retention is now the priority before more soul-system expansion. Alan correctly objected that fresh reset cannot become the normal answer because it forces character amnesia and blocks long-term residue research. cc read-only review (`umi/reports/20260612T142341Z-workload.md`) agreed the root cause is runtime/job bloat, especially `agentDoSomething` scheduled args carrying full map/player/agent snapshots into `_scheduled_job_args`. Proposal: `umi/proposals/20260612T092435-sustainable-state-retention.md`. Durable system design now exists at `docs/underworld-sustainable-world-system-design.md`. T1 is implemented and measured: `agentDoSomething` scheduled args now pass IDs only; `npm run underworld:state-audit` shows newest active scheduled args are small ID-only/conversation/run-step payloads, while the old archive ended with repeated 95-98 KiB map/player/agent snapshot payloads. State audit is now live-DB lock tolerant and last passed against the active backend at 10:12 CDT: sqlite 45.9MB / state dir 86MB / 1,254 scheduled-arg rows scanned. Export-only archive continuity package is available at `umi/exports/archive-continuity-latest/`: 56,525 rows / about 40MB, no embeddings, no import, no mutation. Package audit (`npm run underworld:continuity-package-audit`) is `REVIEW_REQUIRED`: 14 fallback/pollution-like hits and 8,066 legacy-character hits must be filtered/remapped before any import. cc reviewed the first 24-row dry-run plan at 14:06 CDT (`umi/reports/20260612T190648Z-workload.md`) and found it too duplicated / motif-heavy. Codex tightened the sampler: candidate packet now tracks stage-direction leaks, pollution-adjacent conversations, legacy names, repeated motifs, and first-pass food-care motifs; import plan now defaults to 12 dry-run-only `legacyContinuityEvidence` rows and keeps `promptFacing=false` / `freshEvalEligible=false`. Alan approved schema/dry-run at 15:06 and first live isolated evidence write at 15:19. `legacyContinuityEvidence` now contains 12 rows, with 0 prompt-facing / 0 fresh-eval-eligible rows; duplicate rerun still totals 12. Sleep/consolidation dry-run now exists (`npm run underworld:sleep-consolidation`): latest report checked 50 recent conversations and classified 1 long-term candidate, 2 emotional-residue candidates, 30 short-term context rows, 4 forget/ignore rows, and 13 human-review rows, with 0 Convex writes and 0 prompt-facing writes. cc reviewed the dry-run at 15:44 CDT (`umi/reports/20260612T204455Z-workload.md`); accepted fixes landed. cc then reviewed the `sleepNotes` read-gate proposal at 15:59 CDT (`umi/reports/20260612T205950Z-workload.md`) and rejected direct promotion of raw legacy rows. Codex implemented the safer version: new `sleepNotes` table, approval-gated importer, prompt read capped at one promoted note for current speaker/partner, blocked drift/system wording, source/motif dedupe, and legacy notes always `freshEvalEligible=false`. First approved write imported exactly 2 rewritten promoted notes; duplicate write skipped both. `sleepNotes:sleepNotesSummary` reports count 2 / promptFacing 2 / promoted 2 / freshEvalEligible 0; `legacyContinuityEvidenceSummary` remains count 12 / promptFacing 0 / freshEvalEligible 0. Reports: `umi/reports/sleep-notes-import-latest.md`; design: `umi/proposals/20260612T1608-sleep-notes-read-gate.md`. Preserve memory/conversation/residue tables. Next: collect fresh conversations and watch whether these two old traces influence behavior without slogan/motif relapse. | Umi / Codex / cc | sleep_notes_gate_live_watch_fresh_samples |
+| 11 | Fresh 2026-06-12 conversations exposed two related but separate defects: conversation memory load could pair a player with the wrong `participatedTogether` fallback instead of the archived conversation's actual participant list, and the live message insert addressee repair path still missed titled self-addresses such as `一之瀨姊` / `貓貓老師` plus possessive self-reference like `一之瀨姊姊的...`. Targeted prevention fix is in code with tests. Recent-data cleanup ran against the latest 80 archived conversations: repaired 98 conversation memories, 6 message texts, and removed drifted residue lines by demoting those memories to ordinary when the residue mentioned nonparticipants; no memories/conversations were deleted, and final dry-run is 0 affected. Spot-checks: `conversation-c:6306` now shows 天澤 saying `不用了，祥子。` with 祥子/天澤 memories; `conversation-c:6057` now shows `欸，你的「幫」字...` with 貓貓/一之瀨 memories. | Codex | prevention_and_recent_cleanup_done |
+| 12 | v0.1 evidence layer is live and contributed to the machine PASS. `experienceLogs` accepts only the current evidence pilot (`海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子`), rejects legacy names, requires archived-conversation call contract, and enforces 2 logs per character/day plus 1 log per source conversation/character. The 20:00 observe collected 2 archived 海/真晝 samples and two other focus attempts timed out; a follow-up single 海/真晝 sample created `conversation-c:7152`, giving enough fresh samples for the completion audit. Fresh-window `life-signals` is PASS / `life_signal_observed`; recent eval remains imperfect at 0 PASS / 2 WARN / 1 FAIL. The fresh hand/quote relay caveat is now patched in `conversation.ts` and covered by `conversationMotifGuard.test.ts`; watch future samples rather than broad-rewriting prompts. | Umi / Codex / cc | machine_gate_pass_quality_caveat_patched |
 
 ## Current State Snapshot
 
+- 2026-06-12 20:30 CDT: Patched the two closing caveats Alan flagged after the
+  v0.1 PASS. Orphan Alan/海 timeline diagnosis: `messages.writeMessage` now
+  force-wakes a `stoppedByDeveloper` world for explicit human chat, while
+  passive wake attempts still respect developer stop. 海/真晝 motif diagnosis:
+  the fresh `手還舉著` / `這句話` / `明天簡報第一行` / `收進口袋` relay is now a
+  named motif family with output abort once it repeats. cc did a read-only
+  review and flagged TS narrowing + test coverage; Codex applied both followups
+  and confirmed `sleepNotes` schema/index ships with the broader v0.1 memory
+  batch. Verification: targeted Jest 40/40, full Jest 233/233,
+  `npm run build`, `npm run underworld:harness:self-test`, and
+  `npm run underworld:v01-completion-audit` PASS 0/0/0/8.
+- 2026-06-12 20:19 CDT: Mobile UI pass completed for `/ai-town`.
+  `src/index.css` now has a narrow-screen (`max-width: 700px`) scene layout
+  override: the topbar is compacted into three rows, `手帳` stays as a
+  horizontal chip below the topbar, scene characters stop idle animation on
+  mobile so taps are stable, the character row/bottom bar no longer occupy the
+  same band, and active conversations switch to a single-column phone layout
+  with compact portrait header, horizontal tabs, full-width message body, and
+  usable input. Visual QA screenshots were captured under `tmp/visual-qa/`,
+  including `mobile-world-layer-final2-390x844.png` and
+  `mobile-dialogue-after-390x844.png`; Playwright mobile tap selected a
+  standee successfully. Verification: `npx tsc --noEmit --pretty false`,
+  `git diff --check -- src/index.css`, and `npm run build` passed (existing
+  Vite chunk-size warning only).
+- 2026-06-12 19:34 CDT: Mobile same-Wi-Fi dev stack is live for Alan testing.
+  The normal `com.giis.underworld.dev-stack` LaunchAgent was stopped to avoid a
+  port conflict with the mobile stack. Current process is
+  `npm run dev:mobile -- --host 192.168.1.239`, with Vite on `*:5173`,
+  Convex proxies on `*:13210` / `*:13211`, and Convex backend on `*:3210`.
+  Verified `http://127.0.0.1:5173/ai-town`, `http://192.168.1.239:5173/ai-town`,
+  and `http://192.168.1.239:13210` return HTTP 200 after allowing the active
+  Homebrew Node binary (`/opt/homebrew/Cellar/node/26.0.0/bin/node`) through the
+  macOS application firewall. `world:defaultWorldStatus` reports `running`
+  at world day 25 19:32. Phone URL: `http://192.168.1.239:5173/ai-town`.
+- 2026-06-12 18:57 CDT: Added same-Wi-Fi mobile dev launcher
+  (`scripts/dev-mobile.mjs`) and npm entry `dev:mobile` so Alan can open the
+  local Underworld UI from a phone without editing `.env.local`, while the
+  laptop can still use `http://localhost:<port>/ai-town`. The launcher
+  detects the Mac LAN IP, starts Vite on `0.0.0.0`, sets
+  LAN-facing `VITE_CONVEX_URL` / `VITE_CONVEX_SITE_URL`, injects
+  localhost-only `VITE_CONVEX_URL_LOCAL` / `VITE_CONVEX_SITE_URL_LOCAL`, and
+  exposes local Convex through TCP proxies on `13210` / `13211` to avoid
+  assuming Convex listens directly on LAN. `ConvexClientProvider` now chooses
+  the local Convex URL when the browser hostname is `localhost`, `127.0.0.1`,
+  or `::1`; phone/LAN browsers keep using the LAN proxy URL. Current detected
+  URLs: phone `http://192.168.1.239:5173/ai-town`, laptop
+  `http://localhost:5173/ai-town`. Verification: `npm run dev:mobile --
+  --print`, `node --check scripts/dev-mobile.mjs`, package JSON parse,
+  `git diff --check -- package.json scripts/dev-mobile.mjs
+  src/components/ConvexClientProvider.tsx`, `npx tsc --noEmit --pretty false`,
+  and `npm run build` passed (existing Vite chunk warning only). Earlier short
+  smoke with `--no-backend --skip-init --frontend-port 5174` started Vite and
+  both proxies; `127.0.0.1:5174` returned HTTP 200 and proxy
+  `127.0.0.1:13210` returned Convex HTTP 200. Mac self-curl to its own LAN IP
+  connected but timed out even with a minimal Node HTTP server, so final LAN
+  proof should be a real phone browser on the same Wi-Fi.
+- 2026-06-12 17:24 CDT: Implemented the v0.1 evidence-layer pass after Alan's
+  scope reset. World rebuild baseline is acceptable for continued evidence:
+  `underworld:runtime-preflight` PASS, `underworld:afternoon-world-ready`
+  resumed inactive -> running, `underworld:state-audit` reported db 172.3MB /
+  state 454MB, and `school:debugState` returned the live roster
+  Umi/Ichinose/Maomao/Mahiru/Sakiko/Tianze. Old 18GB state remains archived and
+  legacy evidence stays non-fresh. Experience logs now use the six current
+  evidence pilots only (`海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子`) with alias
+  normalization, archived-source call contract, fallback/drift/wrong-addressee/
+  stage/echo guards, 2/day cap, 1/source-conversation cap, dedupe, and no
+  embeddings. Observe/report now prints fresh transcripts plus experience-log
+  created/rejected status. Latest fresh archived run produced 4 samples:
+  `conversation-c:6842` 一之瀨/貓貓 wrote 2 logs; `conversation-c:6861`
+  真晝/天澤 was blocked as `obvious_echo_or_motif_loop`; two other samples did
+  not write because of cap/dedupe/no qualifying residue. `eval:soul-triad` now
+  includes 貓貓 and reported 4 PASS; `eval:conversation:recent` remains
+  0 PASS / 2 WARN / 2 FAIL due to repeated everyday-object motifs and weak
+  character voice. `underworld:experience-sleep-promote` dry-run read 12 logs,
+  prepared 2 tiny candidates, inserted 0. `rolling-continuity` remains WARN /
+  weak_continuity and exits 1 because v0.1 completion audit is still FAIL;
+  AM->PM continuity PASS and sleep-consolidation dry-run PASS. Verification:
+  codegen, targeted Jest 54/54, `npx tsc --noEmit --pretty false`,
+  `npm run build`, and `git diff --check`.
+- 2026-06-12 16:10 CDT: Investigated Alan's pasted 一之瀨/貓貓 and 貓貓/一之瀨
+  samples. Recent eval data confirmed systemic memory attribution pollution
+  (54 mismatched memory traces across 68 checked traces / 27 conversations),
+  plus a separate send-time addressee repair gap for titled self-vocatives like
+  `一之瀨姊`. Codex fixed future prevention by making memory conversation load
+  prefer archived `participants` over stale `participatedTogether` fallback,
+  routing `agentSendMessage` through the shared addressee repair helper, and
+  teaching the helper titled aliases (`姊`, `姐`, `老師`, `前輩`, `同學`) for
+  the active cast. Existing Convex rows were not mutated; cleanup requires a
+  dry-run-first pass. Verification: targeted Jest 39/39, `git diff --check`,
+  and `npx tsc --noEmit --pretty false` passed.
+- 2026-06-12 16:24 CDT: Alan showed a 15:03 祥子/天澤 case where 天澤 said
+  `不用了，真晝。` and both memories were attributed through 真晝. Codex added
+  `school:repairRecentConversationParticipantDrift`, ran dry-run first, then
+  repaired the latest 80 archived conversations. Write results: first pass fixed
+  50 affected conversations, 5 message texts, and 98 conversation memories; a
+  second normalization pass fixed 3 remaining repaired-address messages; a
+  final possessive self-reference pass fixed 1 `一之瀨姊姊的...` message. No
+  memories/conversations were deleted, no unrepairable memories remained, and
+  no stale/missing participatedTogether edges were found in this recent window.
+  Final dry-run: 0 affected. Recent eval mismatch counter: 70 memory traces,
+  0 mismatches. Verification: targeted Jest 40/40, `npx tsc --noEmit --pretty
+  false`, and `git diff --check` passed.
+- 2026-06-12 08:58 CDT: Alan approved the fresh-world-with-archive recovery
+  path. Codex moved the old active state to
+  `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town-archive-20260612T085455-pre-fresh-world`
+  and recreated a fresh active directory at the original T9 symlink target.
+  Only Convex local deployment `config.json` was copied back from the archive;
+  no old sqlite/storage data was copied into the fresh world. After
+  `npx convex run init`, `world:defaultWorldStatus` returned a running default
+  world, `school:debugState`, `school:worldClock`, and `school:umiBriefing`
+  returned without timeout, and `/ai-town` returned HTTP 200. Fresh active
+  state is about 3.6MB; old archive is 18GB. Next step: collect fresh-world
+  v0.1 samples before making further prompt/residue changes.
+- 2026-06-12 09:24 CDT: Alan corrected the direction: a long-running emotional
+  world cannot reset every time local DB state becomes too large. Codex and cc
+  shifted priority to sustainable state retention. cc's read-only report
+  identifies the likely main growth source as `agentDoSomething` scheduling
+  whole map/player/agent snapshots into Convex internal scheduled-job args.
+  Roadmap/proposal now require preserving soul/continuity data and slimming
+  runtime/job payloads first. The next code task is T1 scheduled-arg slimming,
+  then archive continuity export/import.
+- 2026-06-12 09:32 CDT: T1 scheduled-arg slimming completed. `agentDoSomething`
+  no longer schedules full map/player/agent snapshots; it passes IDs only and
+  reloads context inside `agentOperations.loadAgentDoSomethingContext`. This
+  directly targets the `_scheduled_job_args` byte-rate source without touching
+  memories, residues, conversations, or the archived old state. Verification:
+  typecheck passed, targeted agent Jest 12/12 passed, build passed with the
+  existing chunk-size warning, and live smoke confirmed world `running`,
+  `school:debugState` returns 6 characters, and `/ai-town` is HTTP 200.
+- 2026-06-12 09:47 CDT: Added read-only state growth audit
+  (`scripts/underworld-state-growth-audit.mjs`; npm scripts
+  `underworld:state-audit` and `underworld:state-audit:self-test`). Active
+  fresh audit reports state dir about 42MB / sqlite about 36MB and newest
+  scheduled args are small ID-only / conversation / run-step payloads, which is
+  positive evidence that T1 is working for new rows. The fresh state still has
+  217 large pre-T1 map/snapshot rows in scheduled args backlog. Archive fast
+  audit reports the old 18GB state has 6.3GB sqlite, 6.6GB local storage,
+  1.56M document rows, 2.1GB freelist, and large map/player/agent snapshot
+  payloads near its final scheduled args. Updated roadmap/proposal: next step is
+  export-only archive continuity recovery, not deleting memory or trying direct
+  sqlite surgery. cc review retry was blocked by Claude session limit until
+  12:30 CDT, recorded in `umi/reports/20260612T144121Z-workload.md`.
+- 2026-06-12 09:51 CDT: Added export-only archive continuity recovery script
+  (`scripts/underworld-archive-continuity-export.mjs`; npm scripts
+  `underworld:archive-continuity-export` and
+  `underworld:archive-continuity-export:self-test`). Active smoke export passed.
+  Full old-archive export completed from readonly sqlite and wrote
+  `umi/exports/archive-continuity-latest/`: 87,751 candidate rows scanned,
+  56,525 continuity rows exported, package about 40MB. Exported counts:
+  archived conversations 4,154; messages 25,449; memories 5,974; school
+  timeline 5,478; notifications 3,061; participated-together 10,210;
+  school-world-pressure 2,046; Alan behavior profiles 88; agent descriptions
+  30; player descriptions 35. Embeddings were excluded by default. This is not
+  an import and should not count as fresh v0.1 evidence. Next safe step is
+  export audit / curated import design, not runtime mutation.
+- 2026-06-12 10:07 CDT: Added sustainable-world system design doc
+  (`docs/underworld-sustainable-world-system-design.md`), package audit script
+  (`scripts/underworld-continuity-package-audit.mjs`; npm scripts
+  `underworld:continuity-package-audit` and self-test), and morning healthcheck
+  integration for active state-audit summaries. Continuity package audit reports
+  `REVIEW_REQUIRED`: archived conversations are present; 14 fallback/pollution
+  hits (memories 3, messages 11) need filtering; 8,066 legacy CaoCao/Liu
+  Bei-era hits need alias/remap or historical-label review; 41,924 raw evidence
+  rows should not be directly imported. Import boundary remains Alan-approved
+  curated summaries only, with `legacyArchive` provenance and exclusion from
+  fresh v0.1 samples.
+- 2026-06-12 10:12 CDT: Hardened the active state audit for live sqlite lock
+  behavior. `scripts/underworld-state-growth-audit.mjs` now uses sqlite
+  busy-timeout plus short retry for `database is locked` so morning checks do
+  not fail just because Convex is writing. Verification passed:
+  `underworld:state-audit:self-test`, live `underworld:state-audit` (sqlite
+  45.9MB, state 86MB, 1,254 scheduled-arg rows scanned),
+  `underworld:continuity-package-audit`, `bash -n
+  umi/underworld_morning_healthcheck.sh`, `git diff --check`, `npx tsc
+  --noEmit --pretty false`, and `npm run build`.
+- 2026-06-12 10:46 CDT: Added read-only curated restore tooling for the old
+  archive continuity package. `scripts/underworld-continuity-restore-candidates.mjs`
+  / `npm run underworld:continuity-restore-candidates` creates capped Tier 1,
+  review-only, and rejected candidate packets under
+  `umi/exports/curated-continuity-candidates-latest/` plus report
+  `umi/reports/curated-continuity-candidates-latest.md`; the current
+  classification saw 650 Tier 1 candidates, 7,526 review-only candidates, and
+  26,251 reject/evidence-only rows after dedupe and policy checks.
+  `scripts/underworld-legacy-continuity-import-plan.mjs` /
+  `npm run underworld:legacy-continuity-import-plan` creates a 24-row
+  dry-run-only `legacyContinuityEvidence` plan under
+  `umi/exports/legacy-continuity-import-plan-latest/`; all proposed rows are
+  `legacyArchive: true`, `freshEvalEligible: false`, `promptFacing: false`,
+  and `reviewRequired: true`. This is still not an import. A cc retry at 10:41
+  CDT still hit the Claude session limit until 12:30 CDT, recorded in
+  `umi/reports/20260612T154155Z-workload.md`.
+- 2026-06-12 14:15 CDT: cc review succeeded after the session reset
+  (`umi/reports/20260612T190648Z-workload.md`). cc agreed the export/audit/dry-run
+  shape is safe, but rejected the original 24-row packet as too duplicated and
+  motif-heavy: repeated curry/food/fatigue, mirror duplicates, and abstract
+  Alan behavior profiles should not be the first restore packet. Codex accepted
+  the review and tightened the tools. The candidate sampler now tracks
+  stage-direction leaks, Mai/Asuna legacy names, pollution-adjacent conversation
+  IDs, residue/conversation dedupe, repeated motif families, and review-only
+  Alan behavior profiles/notifications. The import plan now defaults to 12
+  dry-run rows and skips food-care motifs, stage-direction leaks, repeated motif
+  families, duplicate summaries, and non-first-restore kinds. Latest reports:
+  `umi/reports/curated-continuity-candidates-latest.md` and
+  `umi/reports/legacy-continuity-import-plan-latest.md`. No live Convex import
+  or mutation has happened. Follow-up proposal written:
+  `umi/proposals/20260612T1418-legacy-continuity-evidence-layer.md`; after
+  15:06, schema + dry-run are implemented, while live write mode, prompt read
+  path, and legacy evidence promotion still require Alan approval.
+- 2026-06-12 15:06 CDT: Alan approved the schema + dry-run importer boundary,
+  not live row write. Added `legacyContinuityEvidence` to `convex/schema.ts`
+  with `promptFacing`, `freshEvalEligible`, `reviewRequired`, provenance,
+  `primaryConversationId`, and import-run metadata. Added
+  `scripts/underworld-legacy-continuity-import.mjs` plus npm scripts
+  `underworld:legacy-continuity-import` and self-test. The dry-run validator
+  wrote `umi/reports/legacy-continuity-import-latest.md` and
+  `umi/exports/legacy-continuity-import-latest/`: 12 valid rows, 0 rejected,
+  0 prompt-facing, 0 fresh-eval-eligible. `--write` mode is intentionally
+  blocked and throws an explicit error. `npx convex codegen` was run for local
+  generated bindings; it uploaded function metadata as part of Convex's codegen
+  flow, but no import command or legacy row write was executed. Verification:
+  importer self-test, dry-run import, `npx tsc --noEmit --pretty false`, and
+  `npm run build` passed.
+- 2026-06-12 08:29 CDT: v0.1 morning push paused on runtime health. After the
+  07:50 fresh observe, Codex attempted to collect one more Umi/Mahiru sample to
+  satisfy the ≥3 fresh-sample rule. The sample failed before collection because
+  `convex run world:defaultWorldStatus` waited for the local backend. Logs and
+  process inspection showed `Invalid conversation ID c:103698`, repeated
+  system-operation timeouts, dead-engine restart, and then multiple local
+  backends briefly competing for port 3210. Codex stopped the LaunchAgent,
+  killed duplicate/stuck Convex run/backend processes, restarted only the
+  dev-stack, and waited more than 5 minutes. A single backend still consumed
+  high CPU/RAM and never bound 3210; active sqlite state is 6.3GB on T9. The
+  dev-stack was intentionally stopped to protect the machine. Root cause is
+  currently local Convex state/startup health, not frontend or Qwen. Proposal
+  written: `umi/proposals/20260612T082840-local-convex-state-hygiene.md`.
+  Follow-up diagnostics at 08:45-08:53 CDT were copy-only: copied the state to a
+  timestamped T9 diagnostic directory, ran sqlite `quick_check=ok`, found 1.56M
+  document rows / 1.03M index rows, about 2.1GB freelist, and confirmed the
+  largest bloat is internal `_scheduled_job_args` / `_scheduled_jobs` rather
+  than character memories. `VACUUM INTO` reduced a copy from 6.3GB to 4.0GB and
+  `quick_check=ok`, but a sandbox backend boot against the compacted copy still
+  did not bind 3210 within 60s and reached about 4GB RSS. The sandbox backend was
+  stopped. Updated recommendation: do not directly swap compacted sqlite; choose
+  fresh-world-with-archive for momentum or deeper supported Convex scheduled-job
+  cleanup investigation for continuity preservation.
+- 2026-06-12 07:50 CDT: Started the next-day v0.1 push from fresh evidence
+  instead of treating yesterday's state as current. Runtime preflight passed
+  (`npm run underworld:runtime-preflight`), Vite `/ai-town` returned HTTP 200,
+  local Convex responded on port 3210, and the official Qwen smoke
+  (`node scripts/test-qwen-key.mjs`) returned HTTP 200 on `qwen-plus` without
+  printing key material. A daytime observe run collected fresh controlled
+  samples and printed transcripts, but recent eval mixed together pre-change
+  samples and found real object/food loops (`湯匙`, `豆漿`, `筷子`, `蛋捲`) plus a
+  character-voice rubric mismatch. Per Alan's reminder to use cc, Codex assigned
+  cc a read-only second-opinion pass in `umi/workload.md`; report:
+  `umi/reports/20260612T124215Z-workload.md`. cc agreed the primary harness issue
+  was a too-literal `characterVoiceScore`, while the object/food motif loop was
+  a real separate runtime pressure problem. Applied a narrow harness fix so
+  character voice can credit behavior-shaped cues without disabling object-loop
+  detection; then applied a bounded prompt/data pressure fix that removes
+  default food/rest care moves and "Alan is tired" assumptions in favor of
+  broader school-life cues. Verification so far: targeted Jest suite for motif
+  guard + conversation metrics, `npx tsc --noEmit --pretty false`, `npm run
+  build` (existing chunk-size warning only), and `git diff --check` on touched
+  files. Next proof: run a fresh observe/eval after this runtime prompt/data
+  change; do not use the older 12:30Z eval boundary as post-change evidence.
+- 2026-06-11 22:46 CDT: Applied a bounded life-topic diversity pass after Alan
+  observed that the world kept circling bento/food/rest/tiredness, especially
+  in Alan-facing chats. Root cause was prompt/data pressure, not a memory
+  architecture problem: companion prompts did not explicitly forbid assuming
+  Alan is tired, weekend/calendar hints over-weighted food/rest, scene topic
+  lists for dorm/club/courtyard leaned on fatigue/lunch, and several fallback
+  lines used food/rest as the default care move. `convex/agent/conversation.ts`
+  now tells Alan-facing companion mode to answer Alan's actual intent without
+  assuming fatigue unless Alan or fresh evidence says so; everyday pivots now
+  prefer class mistakes, rumors, hobbies, clubs, weekend plans, lost items,
+  awkward friendships, and scene-specific memories before food/rest. `data/schoolCalendar.ts`
+  no longer defines weekend as rest/eating first, and `data/dailyLifeBulletin.ts`
+  swaps several food/rest bulletin items for club notes, practice sheets,
+  borrowed-item notes, moved chairs, flyers, and quiz mistakes. This is a
+  low-risk prompt/data pass only; no runtime memory/provider architecture was
+  changed. Verification: `git diff --check -- convex/agent/conversation.ts
+  data/dailyLifeBulletin.ts data/schoolCalendar.ts`, `npx tsc --noEmit --pretty
+  false`, `npm run build` (existing chunk-size warning only).
+- 2026-06-11 22:05 CDT: Updated `docs/giis-v0.1-roadmap.md` with the memory
+  relevance principle for v0.1. Decision: do not deepen characters by dumping
+  more raw memory into every prompt. The next memory step is to rank/select the
+  right 1-3 usable traces for the current partner, scene, event thread, Alan
+  context, and soul cue. Alan-facing chats should prioritize Alan-related
+  commitments/corrections/residues; NPC-to-NPC chats should prioritize the
+  other speaker, current scene, today's event thread, and unresolved residues.
+  This is a tomorrow work item after official Qwen/provider stability is
+  rechecked; no runtime behavior changed in this note.
+- 2026-06-11 23:40 CDT: Completed a bounded large-render framing pass based on
+  Alan's request to make character display scale closer to Mahiru and crop
+  visible art around head-to-knee instead of showing full body too small. Added
+  per-character `renderFraming` data in `data/characterVisuals.ts`; `CharacterPortrait`
+  now exports `--render-zoom` / `--render-y`; Scene Mode standees and the active
+  dialogue portrait stage now use a clipped viewport with zoomed top-aligned
+  art. No PNGs were regenerated or overwritten. Visual QA: live scene screenshot
+  `tmp/visual-qa/render-framing-scene-final.png` and comparison sheet
+  `tmp/visual-qa/render-framing-contact.png`. Verification:
+  `npx tsc --noEmit --pretty false`, `git diff --check`, and `npm run build`
+  (existing chunk warning only).
+  2026-06-12 02:55 CDT follow-up: after Alan's screenshot showed Sakiko visually
+  shorter and the character row feeling off-center/cropped on one side, added a
+  Sakiko-only `offsetY: -1.3rem` and changed the Scene Mode standee row from
+  width-by-content flex to a centered equal-slot grid (`row center=1024` in a
+  2048px probe). Visual QA: `tmp/visual-qa/render-framing-scene-centered.png`.
+  Verification: `npx tsc --noEmit --pretty false`, `git diff --check`,
+  `npm run build` (existing chunk warning only), and headless Chrome geometry
+  probe against `http://localhost:5173/ai-town`.
+  2026-06-12 07:33 CDT follow-up: Alan still perceived the stage characters as
+  cropped, so the Scene Mode standee card no longer hard-clips with `clip-path`;
+  it keeps `overflow: visible` and lets the character render naturally extend
+  beyond the invisible slot while labels/UI remain on top. This removes the hard
+  horizontal cut line without regenerating art. Visual QA:
+  `tmp/visual-qa/render-framing-no-hard-crop-dormitory.png`. Verification:
+  `npx tsc --noEmit --pretty false`, `git diff --check`, and `npm run build`
+  (existing chunk warning only).
+- 2026-06-11 22:38 CDT: Fixed the Alan conversation drawer initial-position
+  bug where opening dialogue and starting to type could push the usable text
+  area out of view until refresh. Root cause was browser focus scroll plus
+  duplicated outer character chrome above the active `ConversationPanel`.
+  `MessageInput` now focuses the textarea with `preventScroll`, `Messages`
+  schedules a second bottom-align after layout settles, and the selected-player
+  drawer hides the redundant outer portrait/tabs/location/leave controls while
+  an active dialogue is open so the real conversation panel starts near the top
+  of the viewport. Visual probe: `tmp/visual-qa/dialogue-open-after-compact-fix.png`
+  showed `window.scrollY=0`, active panel y=35, and input bottom=873 in a
+  1440x1000 viewport. Verification: `npx tsc --noEmit --pretty false`,
+  `git diff --check`, `npm run build` (existing chunk warning only), and
+  headless Chrome layout probe against `http://localhost:5173/ai-town`.
+- 2026-06-11 21:49 CDT: Migrated Alan's new official Alibaba Cloud Model
+  Studio / Qwen workspace API key out of `.env.local.example` and into
+  `~/.config/giis-underworld/secrets.env` (600, with timestamped backup) plus
+  the local Convex deployment env `local-alan_chu-ai_town`. `.env.local.example`
+  is back to a secret-free template. Official Qwen routing now defaults to
+  `UMI_MAHIRU_PILOT_MODEL=qwen-plus` and an OpenAI-compatible
+  `/compatible-mode/v1` base URL; the runtime and preflight scripts normalize
+  base URLs that already end in `/v1` so they do not append a duplicate path.
+  `qwen-plus` smoke-tested successfully against the official endpoint
+  (HTTP 200, 2.3s). `qwen3.5-plus` timed out at 40s in the same smoke script,
+  so keep `qwen-plus` as the Underworld default and only use `qwen3.5-plus` for
+  a later longer-timeout A/B quality check. Verification: repo scan found no
+  `sk-ws-` key material, `node scripts/test-qwen-key.mjs`, `npm test -- --runTestsByPath
+  convex/modelPolicy.test.ts`, and `npm run build`.
+- 2026-06-11 21:20 CDT: Diagnosed Alan-facing 海 / 一之瀨 chats that appeared
+  stuck on "正在思考". Root cause was not Vite, Convex, input queue, or local
+  CPU slowness: both primary and backup Qwen/newcoin cloud paths returned
+  HTTP 429 (`insufficient_user_quota` / upstream saturated), the character-soul
+  provider entered cooldown, and local fallback was not allowed to masquerade
+  as a real Alan-facing soul reply. The affected conversations were archived as
+  single-sided diagnostics (`c:101049` Alan/海 and `c:101087` Alan/一之瀨), so no
+  weak fallback reply entered memory. Frontend `Messages.tsx` now converts stale
+  typing/awaiting-reply states after 45s into an explicit "connection unstable,
+  not written to memory" bubble instead of showing infinite "正在思考".
+  Recommendation: move v0.1 primary traffic to a stable official cloud provider
+  before relying on long Alan playtests; keep local Ollama as smoke/debug or
+  explicitly labeled non-memory fallback only. Verification: primary and backup
+  `scripts/test-qwen-key.mjs` returned HTTP 429 without printing keys, `ollama
+  list` confirmed local models exist, `npx tsc --noEmit --pretty false`, `npm
+  run build`, `npm run test -- convex/modelPolicy.test.ts`, `git diff --check`.
+- 2026-06-11 20:19 CDT: Completed the bounded Scene Mode day/night backdrop
+  pass. Generated and saved 10 new VN backgrounds under `public/backgrounds/`:
+  `classroom-day.png`, `classroom-night.png`, `courtyard-day.png`,
+  `courtyard-night.png`, `aiClubRoom-day.png`, `aiClubRoom-night.png`,
+  `studentCouncilRoom-day.png`, `studentCouncilRoom-night.png`,
+  `dormitory-day.png`, and `dormitory-night.png`. `Game.tsx` now selects day
+  variants for 早晨 / 中午 / 下午 and night variants for 晚上 / 深夜, with the
+  original no-suffix backgrounds kept as fallback. This intentionally does not
+  add weather, sunset, event-specific, or backend scene-state systems. QA
+  contact sheet: `tmp/visual-qa/scene-day-night-contact.png`. Verification:
+  `npx tsc --noEmit --pretty false`, `git diff --check`, `npm run build`
+  (existing chunk warning only), and HTTP 200 asset smoke for all 10 new
+  day/night background URLs. Headless Chrome `/ai-town` runtime smoke was
+  blocked by the existing local Convex websocket refusal at
+  `ws://127.0.0.1:3210/api/1.39.1/sync`; screenshot saved to
+  `tmp/visual-qa/scene-day-night-browser-smoke.png`.
 - 2026-06-11 17:37 CDT: Completed the bounded v1 stage emotion matrix pass Alan
   requested after noting scope control. Generated and chroma-key processed the
   final six large renders (`umi-neutral.png`, `mahiru-neutral.png`,
@@ -173,6 +556,46 @@ historical evidence is needed.
 
 ## Work Log
 
+- 2026-06-11 20:47 CDT: Recovered the local Underworld FE/BE after Alan saw the
+  frontend appear broken. Current central/local state was refreshed first.
+  Root cause: Vite on 5173 was still serving HTML, but the local Convex backend
+  on 3210 was not listening, so browser sync/websocket failed. A manual
+  `bash umi/underworld_morning_healthcheck.sh` restarted the launchd dev stack;
+  Convex took roughly 10 minutes to open the 6.7GB T9-backed sqlite and start
+  listening on 3210. The healthcheck had incorrectly waited only 210 seconds
+  despite `run_underworld_dev_stack.sh` documenting a 900-second cold-start
+  budget, so it reported FAIL while the backend was still bootstrapping. Patched
+  `umi/underworld_morning_healthcheck.sh` to default
+  `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS` to 900 and use that same value in
+  `wait_until_ready`, preventing false failed-restart reports and restart-loop
+  risk. Verification: `curl -I http://localhost:5173/ai-town`, `curl
+  http://localhost:3210/version`, `npx convex run --typecheck disable --codegen
+  disable world:defaultWorldStatus` now reports `status: running`,
+  `school:debugState` and `school:worldClock` return data, `npx tsc --noEmit
+  --pretty false` passes, and `git diff --check` passes.
+- 2026-06-11 20:10 CDT: Worktree hygiene + cc coordination refresh. Initial
+  `git status --porcelain=v1 -uall` was clean, so the earlier visual/emotion
+  asset lane is no longer an active dirty-worktree blocker. A bounded
+  Claude Code handoff was written in `umi/workload.md` and dry-run report
+  `umi/reports/20260612T004808Z-workload.md` was generated, but the actual
+  `python umi/orchestrator.py run umi/workload.md --skip-codex --write
+  --timeout 600` run timed out; its recovery Claude process also remained
+  stuck and was killed. Treat this as an orchestration/tooling timeout with no
+  useful cc findings, not as approval or rejection of the plan. Codex then made
+  the narrow v0.1-aligned dialogue fix directly: `convex/agent/conversation.ts`
+  now adds a scene-aware restaurant food-object relay prompt when prior turns
+  already leaned on food/cutlery/eating/empty-seat cues, and the output repair
+  path now aborts generic food-object relay attempts without needing a specific
+  food name like `水煮蛋` or `布丁`. A narrowed 20:08 CDT cc read-only diff review
+  then flagged that the first output guard was broader than the scene-gated
+  prompt and could over-fire on ordinary classroom/dorm food chat; Codex
+  accepted that finding, removed broad everyday cues (`茶` / `杯` / `早餐` /
+  `吐司` / `麵包` / `湯`) from the generic abort cue set, and added regression
+  coverage proving ordinary breakfast chatter is not aborted. Verification:
+  `npm test -- convex/agent/conversationMotifGuard.test.ts` passes 34/34;
+  `npx tsc --noEmit --pretty false` passes. Fresh long runtime samples were not
+  forced at 20:10 CDT to preserve the quiet/winding-down policy; next evidence
+  should be several non-quiet-window core-pair samples plus recent eval.
 - 2026-06-11 17:01 CDT: Completed the priority emotion-render pass from
   `docs/giis-emotion-asset-manifest.md` so Ichinose, Maomao, and Sakiko no
   longer stay stuck on serious-only stage art. Generated chroma-key sources and
@@ -398,8 +821,8 @@ historical evidence is needed.
 - 2026-06-11 06:56 CDT: Rotated the Qwen cloud key after Alan supplied a new
   provider token. The old primary key failed `scripts/test-qwen-key.mjs` with
   HTTP 403 `token quota is not enough`. A one-off smoke using the new key passed
-  HTTP 200 against `https://api.newcoin.top/v1/chat/completions` with
-  `qwen3-max`. Updated local personal secrets at
+  HTTP 200 against the configured OpenAI-compatible chat completions endpoint
+  with `qwen3-max`. Updated local personal secrets at
   `~/.config/giis-underworld/secrets.env` (`QWEN_API_KEY`, file mode remains
   600) and updated the local Convex deployment env
   `UMI_MAHIRU_PILOT_API_KEY` so the character-soul runtime path uses the new
@@ -3565,8 +3988,8 @@ historical evidence is needed.
   OpenAI-compatible Qwen pilot path so it uses the primary key first and retries
   the backup key once on provider/auth/quota/rate/timeout/server failures.
   Updated `scripts/test-qwen-key.mjs --backup` and `.env.local.example` to make
-  the backup path explicit. Verified the key works against
-  `https://api.newcoin.top/v1/chat/completions` with `qwen3-max`; no secret was
+  the backup path explicit. Verified the key works against the configured
+  OpenAI-compatible chat completions endpoint with `qwen3-max`; no secret was
   found in repo search.
   Verification: masked secrets/env checks, `node scripts/test-qwen-key.mjs
   --backup`, `npx tsc --noEmit --pretty false`, `npm run build`, repo `rg`
@@ -3611,18 +4034,18 @@ historical evidence is needed.
   --sample-timeout-ms=240000 --since-created-at=1780272321375`, `npm run
   underworld:v01-goal-audit`, `npm run underworld:rubric-reconcile`, `npm run
   underworld:repair-gate`.
-- 2026-05-31 local: Rotated the Qwen/newcoin key after Alan provided a
+- 2026-05-31 local: Rotated the Qwen key after Alan provided a
   replacement purchase screenshot. Updated `~/.config/giis-underworld/secrets.env`
   and local Convex env `UMI_MAHIRU_PILOT_API_KEY`; kept the secret out of the
   repo. Verified the secret file remains mode 600 and ran a minimal Qwen smoke
-  test against `https://api.newcoin.top` with `qwen3-max`, which returned HTTP
-  200. I did not run the full 3-sample v0.1 gate immediately in order to avoid
+  test against the configured OpenAI-compatible endpoint with `qwen3-max`, which
+  returned HTTP 200. I did not run the full 3-sample v0.1 gate immediately in order to avoid
   burning the newly purchased quota without Alan explicitly asking for that next
   spend. Next useful command: rerun a quota-aware fresh gate for the prop/motif
   candidate patch.
   Verification: masked `awk`/`stat` on `~/.config/giis-underworld/secrets.env`,
   `npx convex env set UMI_MAHIRU_PILOT_API_KEY "$QWEN_API_KEY"`, `node
-  scripts/test-qwen-key.mjs qwen3-max https://api.newcoin.top`.
+  scripts/test-qwen-key.mjs qwen3-max <configured-base-url>`.
 - 2026-05-31 local: Alan approved the narrow prop/motif diversification proposal,
   so I implemented it as a bounded v0.1 candidate. `convex/agent/conversation.ts`
   now builds a motif guard from current conversation messages plus recent

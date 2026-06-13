@@ -68,14 +68,14 @@ export function MessageInput({
   const writeMessage = useMutation(api.messages.writeMessage);
   const startTyping = useSendInputQueued(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
+  const focusInput = () => inputRef.current?.focus({ preventScroll: true });
 
   useEffect(() => {
-    const handle = window.setTimeout(() => inputRef.current?.focus(), 80);
+    const handle = window.setTimeout(() => focusInput(), 80);
     return () => window.clearTimeout(handle);
   }, [conversation.id]);
 
   useEffect(() => {
-    const focusInput = () => inputRef.current?.focus();
     window.addEventListener('giis:focus-chat-input', focusInput);
     return () => window.removeEventListener('giis:focus-chat-input', focusInput);
   }, []);
@@ -114,7 +114,7 @@ export function MessageInput({
         createdAt,
       });
       setText('');
-      window.setTimeout(() => inputRef.current?.focus(), 0);
+      window.setTimeout(() => focusInput(), 0);
       const mutationStart = performance.now();
       const writeMessageArgs = {
         worldId,
@@ -168,7 +168,7 @@ export function MessageInput({
     } finally {
       sendingRef.current = false;
       setSending(false);
-      window.setTimeout(() => inputRef.current?.focus(), 0);
+      window.setTimeout(() => focusInput(), 0);
     }
   };
 

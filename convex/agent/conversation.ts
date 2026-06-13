@@ -213,7 +213,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, openCommitments, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -253,6 +253,7 @@ export async function startConversationMessage(
         lastConversation,
         recentEvents,
         recentResidues,
+        sleepNotes,
         selfState,
         otherState,
         sceneContext,
@@ -272,6 +273,7 @@ export async function startConversationMessage(
             ]
           : []),
         ...(companionMode ? [] : relatedMemoriesPrompt(memories)),
+        ...sleepNotePromptLines(sleepNotes, otherPlayer.name),
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         ...singlePurposeConversationPrompt(player.name, otherPlayer.name, sceneContext),
       ];
@@ -343,7 +345,7 @@ export async function continueConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, openCommitments, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -404,6 +406,7 @@ export async function continueConversationMessage(
         now,
         recentEvents,
         recentResidues,
+        sleepNotes,
         selfState,
         otherState,
         sceneContext,
@@ -434,6 +437,7 @@ export async function continueConversationMessage(
         ...(companionMode && companionIntent && !companionNeedsMemoryContext(companionIntent)
           ? []
           : relatedMemoriesPrompt(memories)),
+        ...sleepNotePromptLines(sleepNotes, otherPlayer.name),
         ...commitmentPromptLines(openCommitments, otherPlayer.name),
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         `Below is the current chat history between you and ${otherPlayer.name}.`,
@@ -653,9 +657,9 @@ async function safeConversationCompletion(
     // Human-facing replies must never be served by the weak local model: its
     // echo-parrot output (「小壞蛋」？) is worse than a visible abort, and it
     // gets archived as if the character really said it — polluting memory and
-    // eval (observed 2026-06-11 morning while api.newcoin.top was flapping:
-    // 天澤/祥子 parroted Alan for whole stretches). Retry the primary provider
-    // once after a short pause, then abort instead of degrading.
+    // eval (observed 2026-06-11 morning while an OpenAI-compatible endpoint
+    // was flapping: 天澤/祥子 parroted Alan for whole stretches). Retry the
+    // primary provider once after a short pause, then abort instead of degrading.
     if (humanFacing) {
       try {
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -1074,6 +1078,14 @@ type PromptResidue = {
   createdAt: number;
 };
 
+type PromptSleepNote = {
+  noteZh: string;
+  usageHintZh: string;
+  noteType: string;
+  createdAt: number;
+  legacyArchive: boolean;
+};
+
 type PromptCharacterState = {
   emotionZh?: string;
   intentionZh?: string;
@@ -1088,6 +1100,7 @@ function compactAutonomousStartPrompt({
   lastConversation,
   recentEvents,
   recentResidues,
+  sleepNotes,
   selfState,
   otherState,
   sceneContext,
@@ -1100,6 +1113,7 @@ function compactAutonomousStartPrompt({
   lastConversation: { created: number } | null;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
+  sleepNotes?: PromptSleepNote[];
   selfState?: PromptCharacterState;
   otherState?: PromptCharacterState;
   sceneContext?: SceneContext;
@@ -1113,6 +1127,7 @@ function compactAutonomousStartPrompt({
       otherAgent,
       recentEvents,
       recentResidues,
+      sleepNotes,
       selfState,
       otherState,
       sceneContext,
@@ -1143,6 +1158,7 @@ function compactAutonomousStartPrompt({
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
     ...propDiversityPromptLines(undefined, recentResidues, playerName, otherPlayerName, sceneContext),
+    ...sleepNotePromptLines(sleepNotes, otherPlayerName),
     'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
   ].filter(Boolean);
@@ -1157,6 +1173,7 @@ function compactAutonomousContinuePromptBase({
   now,
   recentEvents,
   recentResidues,
+  sleepNotes,
   selfState,
   otherState,
   sceneContext,
@@ -1171,6 +1188,7 @@ function compactAutonomousContinuePromptBase({
   now: number;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
+  sleepNotes?: PromptSleepNote[];
   selfState?: PromptCharacterState;
   otherState?: PromptCharacterState;
   sceneContext?: SceneContext;
@@ -1185,6 +1203,7 @@ function compactAutonomousContinuePromptBase({
       otherAgent,
       recentEvents,
       recentResidues,
+      sleepNotes,
       selfState,
       otherState,
       sceneContext,
@@ -1212,6 +1231,7 @@ function compactAutonomousContinuePromptBase({
     dayAnchorPromptLine(clockContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
+    ...sleepNotePromptLines(sleepNotes, otherPlayerName),
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
     closingBeatPromptLine(playerName, otherPlayerName),
@@ -1256,7 +1276,7 @@ function turnMoveContrastPrompt(playerName: string, otherPlayerName: string) {
     return `${base} As 海, do not turn every concern into a checklist; make one small handoff or admit one limit.`;
   }
   if (self === '真晝') {
-    return `${base} As 真晝, do not re-check the same wound or ask if the other person slept; offer a quieter seat, food, silence, or a gentle boundary.`;
+    return `${base} As 真晝, do not re-check the same wound or ask if the other person slept or ate; offer a quieter seat, silence, a concrete observation, or a gentle boundary.`;
   }
   if (self === '天澤') {
     return `${base} As 天澤, do not repeat the same pressure-test twice; stop just before cruelty or expose a different rule.`;
@@ -1333,6 +1353,7 @@ function richUmiMahiruPrompt({
   otherAgent,
   recentEvents,
   recentResidues,
+  sleepNotes,
   selfState,
   otherState,
   sceneContext,
@@ -1346,6 +1367,7 @@ function richUmiMahiruPrompt({
   otherAgent: PromptAgent;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
+  sleepNotes?: PromptSleepNote[];
   selfState?: PromptCharacterState;
   otherState?: PromptCharacterState;
   sceneContext: SceneContext | undefined;
@@ -1360,6 +1382,7 @@ function richUmiMahiruPrompt({
   const ownMemories = relevantSoulMemories(playerName, otherPlayerName, recentEvents);
   const otherMemories = relevantSoulMemories(otherPlayerName, playerName, recentEvents).slice(0, 2);
   const residuePrompt = residuePromptLines(recentResidues, other);
+  const sleepNotePrompt = sleepNotePromptLines(sleepNotes, other);
   const statePrompt = characterStatePromptLines(self, other, selfState, otherState);
   const relationship = relationshipSummary(ownProfile?.initialRelationships[otherPlayerName]);
   const dailyState = umiMahiruDailyState(self, recentEvents, clockContext);
@@ -1432,7 +1455,7 @@ function richUmiMahiruPrompt({
       ? '海的差異：你不是第二個真晝。可以溫柔，但要帶一點校長助理的整理與保護 Alan 的本能；把關心落成一個小交接、少接一件事、或一句短提醒，不要只陪坐和安撫。'
       : '';
   const everydayPilotRule =
-    '生活感硬規則：如果場景是餐廳，就停在便當、湯匙、冷掉的茶、沒吃完的飯、旁邊空位或誰還沒吃。不要把餐廳對話轉成會議流程、流程表、公告欄、通知、文書或明天的安排。';
+    '生活感硬規則：餐廳或午間場景可以有一個食物/餐具細節，但只能是一拍；下一句要轉向座位距離、誰沒有加入、週末安排、短拒絕、不同生活細節或 soft close。不要把整段對話停在便當、湯匙、冷掉的茶、沒吃完的飯、旁邊空位或誰還沒吃，也不要轉成會議流程、流程表、公告欄、通知、文書或明天的安排。';
   const tianzeEverydayBoundaryRule =
     self === '天澤'
       ? '天澤此刻不是來處理責任的：可以說「這條規則誰受益？」「臉紅得太快了吧」「你剛剛躲過去了」「再往前一步就不好玩了」。不要說會議流程、流程表、公告欄、通知或文書。'
@@ -1443,18 +1466,18 @@ function richUmiMahiruPrompt({
       : '';
   const mahiruEverydayCareRule =
     self === '真晝'
-      ? '真晝照顧人時不要把同一個物件重複三次；如果已經提過便當或湯匙，下一句改成不催、坐旁邊、問要不要先停。'
+      ? '真晝照顧人時不要把同一個物件重複三次；如果已經提過便當、湯匙、茶、杯子或早餐，下一句改成不催、坐旁邊、注意距離、問要不要先停，或直接讓對話安靜收束。'
       : '';
   const intraAuthorSloganRule =
     self === '天澤'
       ? '作者內防口號 / 天澤：如果你已經說過測試、規則、底線或破綻，下一句不要再用同一組詞。改成一句輕笑、讓對方臉紅的日常刺點、退半步，或直接說「算了，這次不拆你」。'
       : self === '海'
         ? '作者內防口號 / Umi：如果你已經提過 Alan、簡報、明天或整理，下一句不要再用同一組詞。改成一個很小的停頓、生活問題、或少接一件事。'
-        : self === '真晝'
-          ? '作者內防口號 / Mahiru：如果你已經說過休息、坐一下、還好嗎或不急，下一句不要再用同一組詞。改成安靜、吃飯、外套、茶、或不催。'
+      : self === '真晝'
+          ? '作者內防口號 / Mahiru：如果你已經說過休息、坐一下、還好嗎或不急，下一句不要再用同一組詞。改成安靜、外套、座位、書包、窗邊距離、或不催。'
           : '作者內防口號 / 一之瀨：如果你已經說過善意、條件、主權或拒絕，下一句不要再用同一組詞。改成一句更甜的大姊姊式拒絕、請對方親口說想要什麼、或指出誰正在把誰當成理所當然。';
   const bindingRule = mode === 'continue'
-    ? '鬆綁規則：可以呼應對方上一句的一個具體詞，也可以停一下、答得太實際、岔開到一個小物件或小任務。不要每句都「接住」對方的情緒；三句裡至少要有一句不直接命名心理，只用角色自己的方式留下反應。不要照抄對方核心短句，尤其不要重複「其實就是」「那條」「誰都不動」「先坐五分鐘」這種句型。關心要同向但形狀不同：海整理一件小事或突然問吃飯，真晝可以只回「嗯」或不催，天澤可以笑著問底線但在最後收手。'
+    ? '鬆綁規則：可以呼應對方上一句的一個具體詞，也可以停一下、答得太實際、岔開到一個小物件或小任務。不要每句都「接住」對方的情緒；三句裡至少要有一句不直接命名心理，只用角色自己的方式留下反應。不要照抄對方核心短句，尤其不要重複「其實就是」「那條」「誰都不動」「先坐五分鐘」這種句型。關心要同向但形狀不同：海整理一件小事或問今天哪個小事件還留著，真晝可以只回「嗯」或不催，天澤可以笑著問底線但在最後收手。'
     : '開場規則：不要假裝對方剛剛說過話；只從眼前看見的一個狀態、今天殘留的一件事、或自己手上的一個小動作開始。';
   return [
     'conversationMode: character_soul_triad_pilot',
@@ -1468,6 +1491,7 @@ function richUmiMahiruPrompt({
     relationship ? `Relational self with ${other}：${relationship}` : '',
     `Memory residue：${unresolvedMemory}`,
     ...residuePrompt,
+    ...sleepNotePrompt,
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
     `Behavior signal：情緒要改變你的可用程度、沉默、行動或語氣；不要只解釋心理。`,
     `你的內在方向：${clipPromptText(agent?.plan ?? ownProfile?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 160)}`,
@@ -1478,7 +1502,7 @@ function richUmiMahiruPrompt({
     '角色設定只用來影響你注意什麼、避開什麼、保護什麼；不要直接背設定。',
     '不要介紹、建議、教學、問身份、提宿舍小貼士、提課、提睡覺、提海邊風景、照抄指令。',
     '禁用泛用寒暄：你好、最近過得好、很開心聊天、笑容很美、時光無價、日子更美好。可以有短短的自然開場，例如「欸」「真晝」「等一下」，但後面一定要接具體原因。',
-    '不要每句都問累、休息、喝水；如果已經照顧過一次，就往想家、沉默、誰沒被理解、Alan 今天的負擔、或誰可以一起承擔推進一小步。',
+    '不要每句都問累、休息、喝水；如果已經照顧過一次，就往想家、沉默、誰沒被理解、週末安排、社團小事、或誰可以一起承擔推進一小步。',
     '禁用抽象隱喻：不能說「世界變冷」「只剩數據」「沒人敢說」「文明」「系統」「智能」「機器」「算法」「扛在肩上」；要換成一個身體訊號、一個動作、或一個非常短的事實。',
     `情感表達身份：${emotionalIdentity}`,
     antiEchoIdentityRule,
@@ -1533,6 +1557,21 @@ function residuePromptLines(recentResidues: PromptResidue[] | undefined, other: 
       .slice(0, 2)
       .map((entry) => ` - ${residueTimeLabelZh(entry.createdAt, now)}：${clipPromptText(entry.text.trim(), 95)}`),
     '使用方式：只讓它影響你注意什麼、避開什麼、語氣變短或先問誰；不要直接說「我記得殘留」。標籤是今天或剛才時，可以用一句很短的「早上那件事」或「剛才那件事」帶出行為變化；標籤是昨天時，只能柔和接「昨天留下的感覺/昨天那件事」，不要編出更精準細節；標籤是之前或具體日期時，不能說成今天、昨天或剛才。',
+  ];
+}
+
+function sleepNotePromptLines(sleepNotes: PromptSleepNote[] | undefined, other: string) {
+  const items = (sleepNotes ?? [])
+    .filter((entry) => entry.noteZh.trim())
+    .slice(0, 2);
+  if (!items.length) return [];
+  return [
+    `睡眠整理後留下的舊痕跡（已審查，可能和${displayConversationName(other)}有關；不要逐字背）：`,
+    ...items.map(
+      (entry) =>
+        ` - ${clipPromptText(entry.noteZh.trim(), 90)}；用法：${clipPromptText(entry.usageHintZh.trim(), 70)}`,
+    ),
+    '使用方式：只讓它影響你注意誰、避開什麼、語氣長短或下一個小行動。不要說「資料顯示」「我讀到記憶」「睡眠整理」。如果不合此刻場景，就完全不要提。',
   ];
 }
 
@@ -1705,7 +1744,7 @@ function restaurantFoodRelayPromptLines(previousMessages?: LLMMessage[], sceneCo
   if (restaurantFoodCueCounts(recent).primary < 2) return [];
   return [
     '餐廳接力硬規則：上一兩句已經靠食物、餐具、剩飯、空位或吃不下推進。',
-    '下一句不要再提食物、餐具、吃不下、留到明天、空位、窗邊、表格或安排；改成一個非食物動作、短拒絕、承認疲憊、換責任，或 soft close。',
+    '下一句不要再提食物、餐具、吃不下、留到明天、空位、窗邊、表格或安排；改成一個非食物社交訊號、短拒絕、換責任、不同生活細節，或 soft close。',
   ];
 }
 
@@ -1814,6 +1853,27 @@ const CONVERSATION_MOTIF_FAMILIES = [
   {
     label: '先停/先別推',
     cues: ['先別推', '別再推', '先停', '停一下', '先別急', '先別想', '手在抖'],
+  },
+  // 2026-06-12 c:7057/c:7038/c:7152: 海/真晝 fresh samples passed
+  // identity but got stuck relaying the same hand + quoted-phrase beat
+  // (手還舉著 / 這句話 / 明天簡報第一行 / 收進口袋). Body noticing is
+  // still in-voice; the guard only fires once the same beat becomes the engine.
+  {
+    label: '手/這句話接力',
+    cues: [
+      '手還舉',
+      '手沒放',
+      '手放下',
+      '手還在',
+      '喉嚨動',
+      '這句話',
+      '明天簡報第一行',
+      '第一行',
+      '收進口袋',
+      '先記',
+      '喘半口氣',
+      '放下手',
+    ],
   },
   // 2026-06-10 21:04 Alan/海: four consecutive turns leaned on sysadmin
   // imagery (伺服器閃紅燈 / 發高燒 / 數據流慢半拍 / 關掉螢幕). The metaphor is
@@ -1943,7 +2003,7 @@ function soulDifferentiationIdentity(self: string) {
     case '海':
       return '海靠近人的方式是把混亂變輕：少一件待辦、少一段噪音、替 Alan 和對方分清下一個最小負擔；她累的樣子是變得更有用、更安靜。';
     case '真晝':
-      return '真晝靠近人的方式是留下來看見安靜的痛：不急著解決，先問人有沒有吃、手有沒有放下、話是不是說不出口；她累的樣子是仍然溫柔但停頓變長。';
+      return '真晝靠近人的方式是留下來看見安靜的痛：不急著解決，先看人有沒有退開、手有沒有放下、話是不是說不出口；她累的樣子是仍然溫柔但停頓變長。';
     case '天澤':
       return '天澤靠近人的方式是測底線：一句小惡魔式玩笑、一個太準的問題、或故意把規則推到邊緣讓人臉紅；她在意人的樣子不是安慰，而是在真正傷到人之前突然停手。';
     case '一之瀨':
@@ -2183,14 +2243,14 @@ function topicShiftPrompt(playerName: string, sceneContext?: SceneContext, compa
   const everydayInstruction = `Also allow ordinary school-life topics when natural for ${sceneContext?.labelZh ?? 'the current scene'}: ${sceneEverydayTopics(sceneContext).join('、')}.`;
   switch (playerName) {
     case 'Maomao':
-      return `As Maomao, take initiative with one concrete symptom: a skipped meal, too-clean answer, shaking hand, odd smell, hidden bruise, or suspiciously polite silence. Keep it short and a little poisonous; one sentence under 32 Chinese characters is ideal. Hide care by calling it observation. No percentages, no long case report, no order/power/document/strategy lecture. ${everydayInstruction}`;
+      return `As Maomao, take initiative with one concrete symptom: a too-clean answer, shaking hand, odd smell, hidden bruise, unusual silence, misplaced object, or suspiciously polite retreat. Keep it short and a little poisonous; one sentence under 32 Chinese characters is ideal. Hide care by calling it observation. No percentages, no long case report, no order/power/document/strategy lecture. ${everydayInstruction}`;
     case 'Umi':
       if (companionMode) {
         return `As Umi in companion_chat mode, answer Alan as a trusted desktop companion, not as a world-event narrator. Prefer emotional clarity, real-life grounding, gentle teasing only when natural, and one useful next question. Do not use canned phrases like "這件事也不能忽略", "先別只點頭", or "主線". Do not turn Alan's vulnerable sentence into a report; answer the feeling first.`;
       }
       return `As Umi, take initiative by responding to the other person's actual feeling before mentioning Alan. If the topic repeats, do not reuse the "Alan carries everything" concern; instead ask what this specific person needs, fears, or noticed today. ${everydayInstruction} When worried she may over-organize or dodge care by being useful; she can answer briefly instead of confessing fatigue. She may tease Alan about sleep, food, clutter, or overworking only when Alan is present. Avoid sounding like a briefing unless Alan asks for one.`;
     case 'Mahiru':
-      return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may become quieter when tired and fail to name herself while noticing others. Her strongest lines should be gentle but specific, like noticing someone stopped eating lunch or avoided eye contact.`;
+      return `As Mahiru, take initiative by noticing who feels unsafe, naming quiet emotional pressure, and making someone lower their guard. ${everydayInstruction} She may become quieter when tired and fail to name herself while noticing others. Her strongest lines should be gentle but specific, like noticing someone avoided eye contact, stopped mid-sentence, or stayed just outside the group.`;
     case 'Sakiko':
       return `As Sakiko, take initiative by preserving composure while one visible crack appears: a too-perfect bow, a paused sentence, a hand tightening around sheet music, or a polite refusal that sounds like retreat. Keep the reply restrained and slightly evasive; one sentence under 32 Chinese characters is ideal. One breath or stage image is enough. She should not solve loneliness with generic invitations or meetings. ${everydayInstruction}`;
     case 'Tianze':
@@ -2413,6 +2473,25 @@ function repairRelayExhausted(self: string, line: string, recent: string) {
       '先看反應',
       '症狀太整齊',
       '別把人寫成病例',
+    ];
+    const recentHits = cues.filter((cue) => recent.includes(cue)).length;
+    const lineHits = cues.filter((cue) => line.includes(cue)).length;
+    if (recentHits >= 2 && lineHits >= 1) return true;
+  }
+  if (['海', '真晝'].includes(self)) {
+    const cues = [
+      '手還舉',
+      '手沒放',
+      '手放下',
+      '手還在',
+      '喉嚨動',
+      '這句話',
+      '明天簡報第一行',
+      '第一行',
+      '收進口袋',
+      '先記',
+      '喘半口氣',
+      '放下手',
     ];
     const recentHits = cues.filter((cue) => recent.includes(cue)).length;
     const lineHits = cues.filter((cue) => line.includes(cue)).length;
@@ -3190,6 +3269,7 @@ function companionIntentPrompt(intent: CompanionIntent, input?: string): string[
     'Answer Alan’s actual question or intention first. Only then add emotional support if useful.',
     'If Alan just greeted you, greet him back first. Do not answer as if he already confessed a problem.',
     'Do not use a generic reassurance opening if Alan is asking about Umi, the world, a project, or a concrete decision.',
+    'Do not assume Alan is tired, overworked, emotionally overloaded, or needs rest unless Alan says so or the prompt contains concrete recent evidence. When unsure, offer ordinary campus/life topics instead of a fatigue check.',
   ];
 }
 
@@ -3337,9 +3417,10 @@ function everydayLifePrompt(
     ' - If the conversation already analyzed the same issue, move to one of: a small personal truth, a concrete decision, a quiet pause, avoidance, or an invitation.',
     ' - If it is night, late, or emotionally heavy, prefer shorter and quieter replies.',
     ' - Do not make every conversation about AI 社, 學生會, influence, or public discussion.',
-    ' - If today is weekend, there is no formal class. Free activity can create more casual conversations: breakfast/lunch, unfinished homework, laundry, club room quiet, wandering the courtyard, who avoids going back to the dorm, or who finally has time to check on someone.',
-    ' - If tomorrow is weekend, let the holiday-eve feeling appear in small ways: someone stays up too late, delays a task, asks about tomorrow, or says they can talk after breakfast.',
-    ' - If AI 社 or 學生會 has already appeared recently, lower its priority and shift toward sleep, food, loneliness, awkwardness, hobbies, stress, relationships, or ordinary emotional texture.',
+    ' - If today is weekend, there is no formal class. Free activity can create more casual conversations: unfinished homework, laundry, club room quiet, wandering the courtyard, music practice, a lost item, a small errand, weekend plans, or who finally has time to check on someone.',
+    ' - If tomorrow is weekend, let the holiday-eve feeling appear in small ways: someone delays a task, asks about tomorrow, plans a club errand, avoids going home, wants to practice, or says they can talk later.',
+    ' - If AI 社 or 學生會 has already appeared recently, lower its priority and shift toward class mistakes, rumors, hobbies, awkwardness, favorite places, loneliness, admiration, friendship, small conflicts, weekend plans, or ordinary emotional texture.',
+    ' - Do not default care to food/rest. If recent lines already mentioned lunch, bento, tea, rest, tiredness, or sleep, pivot to class, club, hobby, rumor, weather, weekend plan, lost item, or a relationship-specific memory.',
     ' - Relationship-driven topics are preferred: shared memories, trust, disappointment, admiration, concern, feeling left out, fear of disappointing someone.',
     ' - 節奏：不要每一句都用問句結尾。一則回覆最多一個問句，其餘用陳述、一個小動作、一個決定、或一句停頓收尾。連續被問句逼問會讓人累。',
     ' - 不要捏造回憶：如果對方問你記不記得某件事，而上面的殘留／未了的約定／對話記錄裡沒有對應證據，就誠實說「我不太確定」或請對方提醒，不要編一段聽起來合理的往事當成事實。寧可承認記不清，也不要把想像說成記得。',
@@ -3371,13 +3452,13 @@ function conversationMicroPurpose(
 ) {
   const scene = sceneContext?.id;
   if (playerName === 'Sakiko') return 'hold composure while one crack, refusal, or stage-trained ritual reveals what she cannot say directly';
-  if (playerName === 'Mahiru') return 'check whether one person is tired or emotionally unsafe';
+  if (playerName === 'Mahiru') return 'notice one quiet person without forcing them to explain themselves';
   if (playerName === 'Tianze') return 'ask one safe little-devil pressure-test question, make the other person blush or pause, then decide where to stop';
   if (playerName === 'Ichinose') return 'make one person admit the kindness or care they want, then decide what sweet boundary should hold';
   if (playerName === 'Maomao') return 'diagnose one concrete symptom in the scene and decide whether to say it out loud';
   if (playerName === 'Umi' && otherPlayerName === 'Alan') return 'answer Alan directly and reduce his mental load';
   if (playerName === 'Umi') return 'help the other person name one concrete concern without turning it into a briefing';
-  if (scene === 'dormitory') return 'notice fatigue and decide whether to rest, answer, or stop';
+  if (scene === 'dormitory') return 'notice a private habit, room tension, delayed chore, or quiet avoidance';
   if (scene === 'courtyard') return 'notice one social signal without turning it into a formal meeting';
   return 'exchange one concrete observation and decide whether anything needs to happen next';
 }
@@ -3385,24 +3466,24 @@ function conversationMicroPurpose(
 function sceneEverydayTopics(sceneContext?: SceneContext) {
   switch (sceneContext?.id) {
     case 'dormitory':
-      return ['睡眠不足', '疲憊', '孤單', '室友距離', '洗衣沒收', '熄燈後還在擔心', '私下擔心', '想休息卻停不下來', '害怕讓別人失望', '關係距離'];
+      return ['洗衣沒收', '室友距離', '忘記回訊息', '週末打掃', '借吹風機', '門口太安靜', '有人不想回房', '私下擔心', '害怕讓別人失望', '關係距離'];
     case 'courtyard':
-      return ['天氣', '午餐', '告白', '秘密被聽見', '校園傳聞', '尷尬互動', '喜歡待在哪裡', '誰最近變安靜', '朋友之間的小誤會', '有人在門口等很久'];
+      return ['天氣', '告白', '秘密被聽見', '校園傳聞', '尷尬互動', '喜歡待在哪裡', '朋友之間的小誤會', '有人在門口等很久', '社團招新', '放學後練球聲'];
     case 'aiClubRoom':
-      return ['午餐吃不完', '有人替誰留座位', '餐盤還沒收', '週末要不要一起吃飯', '誰今天吃太少', '便當放涼', '小聲聊天', '不想一個人坐'];
+      return ['社團桌位', '誰替誰留座位', '小聲聊天', '不想一個人坐', '社團傳單', '週末小組活動', '桌上忘收的筆記', '有人不敢加入', '音樂或遊戲話題', '一個玩笑冷掉'];
     case 'studentCouncilRoom':
-      return ['海邀請進來的個別談話', '善意邊界', '規則壓力測試', '被期待的疲憊', '不想承認的害怕', '誰在假裝沒事', '不好開口的硬話'];
+      return ['海邀請進來的個別談話', '善意邊界', '規則壓力測試', '不好開口的硬話', '校長室距離感', '誰需要先被聽完', '不想承認的害怕', '被期待的壓力'];
     case 'classroom':
       return ['小考考差', '作業壓力', '作弊被發現', '公開發言的尷尬', '怕答錯', '成績焦慮', '上課精神不好', '未來不確定感'];
     default:
-      return ['睡眠', '食物', '天氣', '興趣', '壓力', '孤單', '關係'];
+      return ['天氣', '興趣', '小考', '作業', '社團', '傳聞', '週末', '孤單', '關係'];
   }
 }
 
 function personalLifeFragment(playerName: string) {
   switch (playerName) {
     case 'Umi':
-      return '她可能注意到 Alan 沒有真正休息，也會用輕微 teasing 包住關心。';
+      return '她會先接住 Alan 真正問的事，再用輕微 teasing 把混亂縮小；除非 Alan 自己提到疲憊，不要預設他需要休息。';
     case 'Mahiru':
       return '她一直在照顧別人，但偶爾會承認自己也有點累。';
     case 'Ichinose':
@@ -3422,9 +3503,9 @@ function everydayFallback(playerName: string, otherPlayerName: string, sceneCont
   const scene = sceneContext?.labelZh ?? '校園';
   switch (playerName) {
     case 'Umi':
-      return `${otherPlayerName}，先把那些大題目放旁邊。現在在${scene}，我反而想問：你最近有真正休息嗎？我不是在查勤，嗯……只是覺得大家都把疲憊藏得太熟練了。`;
+      return `${otherPlayerName}，先把那些大題目放旁邊。現在在${scene}，我反而想問：今天有哪個瞬間，是你真的想多待一下的？`;
     case 'Mahiru':
-      return `${otherPlayerName}，我們先不要急著談大事。你今天看起來有點累。可以不用馬上回答，只要告訴我：你是不是也有一點不想再逞強了？`;
+      return `${otherPlayerName}，我們先不要急著談大事。你剛剛好像避開了一個名字；可以不用解釋，我只是有點在意。`;
     case 'Ichinose':
       return `${otherPlayerName}，乖，先不要把它說成「沒事」。如果你想要我照顧你，就親口說清楚：你要拿走的是安慰，還是我的讓步？`;
     case 'Maomao':
@@ -3507,7 +3588,7 @@ function compactEventTopic(event: {
     event.descriptionZh.includes('疲憊') ||
     event.descriptionZh.includes('普通聊天')
   ) {
-    return '校園裡出現了一些普通但重要的日常疲憊與沉默';
+    return '校園裡出現了一些普通但重要的日常變化與沉默';
   }
   if (event.descriptionZh.includes('AI Club') || event.descriptionZh.includes('社團')) {
     return 'Alan 的 AI Club / 新社團正在影響校園氣氛';
@@ -4038,9 +4119,9 @@ function conversationLifecyclePrompt(lifecycle: ConversationLifecycle) {
       : 'Advance the conversation only if needed. A simple reply, small observation, or quiet pause is also valid.',
     conversationArcInstruction(lifecycle),
     lifecycle.repeatedSemanticPoint === '學生會與社團' || lifecycle.repeatedSemanticPoint === '操控與權力風險'
-      ? 'Main-plot repetition detected. Force a softer everyday pivot: sleep, loneliness, food, awkwardness, personal habits, favorite places, or why someone is tired of always discussing big systems.'
+      ? 'Main-plot repetition detected. Force a softer everyday pivot: class mistakes, rumors, hobbies, awkwardness, favorite places, friendship, small conflicts, weekend plans, or why someone avoids a specific room/person.'
       : 'If tension is low, prefer ordinary school-life texture over another strategic debate.',
-    'Naturalness rule: one reply should feel like a person in a school scene, not a product requirements memo. Use at most one concrete image or action when helpful: looking at the window, untouched lunch, hallway silence, tired eyes, someone avoiding the room, a notebook, a late-night screen.',
+    'Naturalness rule: one reply should feel like a person in a school scene, not a product requirements memo. Use at most one concrete image or action when helpful: chalk mark, forgotten notebook, hallway silence, someone avoiding the room, club flyer, rain at the window, instrument case, or an empty seat.',
     'Ending rule: if the idea has been said twice, do not analyze again. First redirect to a smaller human moment. Only end after the scene has reached reflection or resolution/silence.',
     'Language ban: do not say "形成意圖", "conversationOutcome", "主線", "不能忽略", "最近校園裡有些事還在發酵", "我先不把它整理成報告", "我先記住", "我先不替這段話下結論", "讓它安靜一下", "先讓這句話停一下", "我先不排新任務", "這才是問題", "漂亮規格", or "Alan 又開始把所有人的不安都放進自己腦袋".',
     stakesLayerInstruction(lifecycle.escalationLayer),
@@ -4073,9 +4154,9 @@ function dialogueRhythmPrompt(lifecycle: ConversationLifecycle) {
     ` - shared silence allowed: ${rhythm.allowSilence ? 'yes' : 'no'}`,
     ` - reason: ${rhythm.reason}`,
     'Do not make the reply profound just because the topic is emotional.',
-    'Allowed simple replies: "……你今天看起來很累。", "我不知道。", "先不要講這個也可以。", "你是不是又沒睡？"',
+    'Allowed simple replies: "……我不知道。", "先不要講這個也可以。", "你剛剛是不是避開那個名字？", "這個座位今天空得有點久。"',
     rhythm.move === 'topic_drift'
-      ? 'Topic drift instruction: naturally drift from the main topic into pressure, exhaustion, sleep, loneliness, a small habit, or a quiet personal truth.'
+      ? 'Topic drift instruction: naturally drift from the main topic into a class mistake, club habit, rumor, awkward friendship moment, favorite place, small conflict, weekend plan, or quiet personal truth.'
       : 'Stay responsive, but do not over-explain.',
     rhythm.allowSilence
       ? 'You may include a short silence or hesitation. If nothing new needs to be said, one sentence is enough.'
@@ -4191,7 +4272,7 @@ function bindingFallback(
       if (otherPlayerName === '貓貓' || otherPlayerName === 'Maomao') {
         return pickFreshConversationLine([
           `……你剛剛不是在挑毛病。\n\n貓貓，你是先看見症狀，然後才假裝那跟你無關。`,
-          `妳可以說那只是觀察。\n\n但妳連對方沒吃完的便當都記住了，這種「只是」很可疑。`,
+          `妳可以說那只是觀察。\n\n但妳連對方忘收的筆記都記住了，這種「只是」很可疑。`,
           `貓貓，別把自己也當成病例。\n\n妳不是檢查表，妳只是比別人早一點聞到不對勁。`,
         ], previous);
       }
@@ -4267,7 +4348,7 @@ function motifBurnoutRedirect(
   }
   if (playerName === 'Maomao' && /症狀|觀察|沒事|手|杯|便當|沉默|不對勁|可疑/.test(recent)) {
     return pickFreshConversationLine([
-      `別一直盯著同一個症狀。\n\n看旁邊那杯水，半小時都沒動過。那比較有用。`,
+      `別一直盯著同一個症狀。\n\n看桌角那張沒人承認的傳單。那比較有用。`,
       `我換個說法。\n\n如果一個人一直說沒事，先別信嘴，信手。`,
       `這裡太乾淨了。\n\n太乾淨的回答通常有問題，像藥味被香水蓋過去。`,
     ], previous);
@@ -4281,7 +4362,7 @@ function motifBurnoutRedirect(
   }
   if (playerName === 'Mahiru' && /午餐|吃飯|一個人|角落|坐在旁邊/.test(recent)) {
     return pickFreshConversationLine([
-      `那我先不問午餐了。\n\n我想去看看${scene}裡，誰的書包還放著，人卻不見了。`,
+      `那我先不問誰坐哪裡了。\n\n我想去看看${scene}裡，誰的書包還放著，人卻不見了。`,
       `也許今天不用問原因。\n\n先陪對方走一段路就好。`,
       `我有點怕自己太急著照顧人。\n\n如果他不想說，我也要學會不要追問。`,
     ], previous);
@@ -4289,7 +4370,7 @@ function motifBurnoutRedirect(
   if (playerName === 'Umi' && /停在這裡|不一定會更清楚|只會更累|先不用把它變成任務表/.test(recent)) {
     return pickFreshConversationLine([
       `嗯……那今天先取消一件事。\n\n${otherPlayerName}，你選，不要再讓別人替你加重量。`,
-      `我不想又替你們做結論。\n\n我比較想知道：等一下誰可以真的回房間休息？`,
+      `我不想又替你們做結論。\n\n我比較想知道：等一下誰可以先離開這個房間？`,
       `${otherPlayerName}，不用急著回答。\n\n你剛剛那句話不像隨口說的，所以我會把「少接一件事」當成真的選項。`,
     ], previous);
   }
@@ -4374,7 +4455,7 @@ function quietPauseFallback(playerName: string, otherPlayerName: string, core: s
   switch (playerName) {
     case 'Umi':
       return pickFreshConversationLine([
-        `……${core}。\n\n${otherPlayerName}，你今天看起來很累。`,
+        `……${core}。\n\n${otherPlayerName}，我先不把你判成累。我只想知道，剛剛哪一句你其實想留著？`,
         `嗯。\n\n這句先不要急著解釋。你現在需要的是一點空氣。`,
         `我在。\n\n但我不打算把你逼著立刻說清楚。`,
       ], previous);
@@ -4423,14 +4504,14 @@ function topicDriftFallback(
   switch (playerName) {
     case 'Umi':
       return pickFreshConversationLine([
-        `我們先不要一直追著同一個問題跑。\n\n${otherPlayerName}，你今天有好好吃飯嗎？`,
-        `先把大問題放下十秒。\n\n你今天有沒有哪一刻是真的放鬆的？`,
-        `我知道這題很重要。\n\n但你現在像是連呼吸都在 multitask，先慢一點。`,
+        `我們先不要一直追著同一個問題跑。\n\n${otherPlayerName}，今天校園裡有哪件小事讓你停了一下？`,
+        `先把大問題放下十秒。\n\n你剛剛是不是有一個名字不想提？`,
+        `我知道這題很重要。\n\n但今天先選一個很小的地方：週末你想待在哪裡？`,
       ], previous);
     case 'Mahiru':
       return pickFreshConversationLine([
         `說到這裡，我反而想問一件小事。\n\n你最近是不是比較常一個人待在${scene}？`,
-        `我想先問很小的事。\n\n今天午餐的時候，你旁邊有人坐嗎？`,
+        `我想先問很小的事。\n\n今天有人在你旁邊坐很久，卻一句話都沒說嗎？`,
         `我們不要急著叫它問題。\n\n先看誰最近比較常低著頭走過去。`,
       ], previous);
     case 'Ichinose':
@@ -4441,7 +4522,7 @@ function topicDriftFallback(
       ], previous);
     case 'Maomao':
       return pickFreshConversationLine([
-        `這題已經繞夠了。\n\n我比較想知道，最近誰在${scene}吃得最少。`,
+        `這題已經繞夠了。\n\n我比較想知道，最近誰在${scene}突然變得太正常。`,
         `先別談立場。\n\n你有沒有注意到，誰一直把袖口拉下來？`,
         `我更在意太正常的人。\n\n正常過頭通常有毒。`,
       ], previous);
@@ -4523,18 +4604,18 @@ function fallbackFreshLine(previous: LLMMessage[]) {
     .join('\n');
   const fallbacks = [
     '那就不要再加一句漂亮話了。\n\n去看一個具體的人：誰今天比平常更早離開？',
-    '換個方向。\n\n不問立場，只問生活：今晚誰其實沒有好好吃飯？',
+    '換個方向。\n\n不問立場，只問生活：今天誰其實一直在躲某個名字？',
     '這段先收小一點。\n\n下一步不是開會，是確認誰還願意坐下來。',
   ];
   return (
     fallbacks.find((line) => !sharedConversationPhrase(recent, normalizeSemanticText(line))) ??
-    '先做一件小事：確認誰真的需要休息。'
+    '先做一件小事：確認誰其實還想留下來。'
   );
 }
 
 function deterministicFallbackPressure(previous: LLMMessage[]) {
   const markerPattern =
-    /先不用把它變成任務表|今天先取消一件事|不想又替你們做結論|換一件小事|先不開會|普通的邀請|誰真的需要休息|少接一件事|誰還沒回宿舍|誰今天太安靜|誰的位置一直空著|誰正在退後一步/;
+    /先不用把它變成任務表|今天先取消一件事|不想又替你們做結論|換一件小事|先不開會|普通的邀請|誰其實還想留下來|少接一件事|誰還沒回宿舍|誰今天太安靜|誰的位置一直空著|誰正在退後一步/;
   return previous
     .slice(-8)
     .map((message) => stripConversationPrefix(message.content ?? ''))
@@ -4723,6 +4804,29 @@ export const queryPromptData = internalQuery({
       // older still-open promise behind them is the one worth surfacing.
       .filter((entry) => entry.text && !memory.commitmentIsFulfilled(entry.text))
       .slice(0, 2);
+    const promptSubjectName = displayConversationName(playerDescription.name);
+    const promptOtherName = displayConversationName(otherPlayerDescription.name);
+    const sleepNotes: PromptSleepNote[] = (
+      await ctx.db
+        .query('sleepNotes')
+        .withIndex('subjectPrompt', (q) =>
+          q
+            .eq('subjectName', promptSubjectName)
+            .eq('promptFacing', true)
+            .eq('reviewStatus', 'promoted'),
+        )
+        .order('desc')
+        .take(8)
+    )
+      .filter((row) => (!row.expiresAt || row.expiresAt > Date.now()) && row.participantNames.includes(promptOtherName))
+      .slice(0, 1)
+      .map((row) => ({
+        noteZh: row.noteZh,
+        usageHintZh: row.usageHintZh,
+        noteType: row.noteType,
+        createdAt: row.createdAt,
+        legacyArchive: row.legacyArchive,
+      }));
     const recentEvents = await ctx.db
       .query('worldEvents')
       .withIndex('worldId', (q) => q.eq('worldId', args.worldId))
@@ -4766,6 +4870,7 @@ export const queryPromptData = internalQuery({
       })),
       recentResidues,
       openCommitments,
+      sleepNotes,
       selfState: stateForProfile(selfProfile),
       otherState: stateForProfile(otherProfile),
       sceneContext: sceneLocation

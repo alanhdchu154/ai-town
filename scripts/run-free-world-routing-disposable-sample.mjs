@@ -261,8 +261,15 @@ function representativeSoulPrompt() {
 }
 
 function qwenModelName(model) {
-  const configured = model || 'qwen3-max';
+  const configured = model || 'qwen-plus';
   return configured.startsWith('qwen/') ? configured.slice('qwen/'.length) : configured;
+}
+
+function openAiCompatibleChatCompletionsUrl(baseUrl) {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  if (trimmed.endsWith('/chat/completions')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
 }
 
 function geminiModelName(model) {
@@ -271,8 +278,11 @@ function geminiModelName(model) {
 }
 
 async function assertOpenAiCompatibleReady(provider, key, configuredModel) {
-  const baseUrl = ((await convexEnvGet('UMI_MAHIRU_PILOT_BASE_URL')) || 'https://api.newcoin.top').replace(/\/+$/, '');
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+  const baseUrl = (
+    (await convexEnvGet('UMI_MAHIRU_PILOT_BASE_URL')) ||
+    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+  ).replace(/\/+$/, '');
+  const response = await fetch(openAiCompatibleChatCompletionsUrl(baseUrl), {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(30_000),

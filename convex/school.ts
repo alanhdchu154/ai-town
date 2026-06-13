@@ -26,8 +26,10 @@ import {
   commitmentFromMemoryDescription,
   commitmentIsExpired,
   commitmentIsFulfilled,
+  memoryAnchorTextForMessages,
   shouldExposeMemoryDescription,
 } from './agent/memory';
+import { repairConversationAddresseeText } from './aiTown/addresseeRepair';
 import { AlanProfile, GiisProfiles, RelationshipDimensions } from '../data/giisProfiles';
 import { ClassroomCenter, ClassroomWalkBounds, clampToClassroom } from '../data/classroomBounds';
 import {
@@ -6914,9 +6916,9 @@ async function simulateAutonomousSchoolLife(
           umi,
           'everydayCourtyardWeather',
           'Umi',
-          `海在${location.labelZh}停下來看了一下天氣，順手提醒幾個學生先去吃飯，不要把疲憊都包裝成理性討論。`,
-          '她把日常照顧看成治理的一部分：人如果沒吃飯，任何制度都會變得很尖銳。',
-          '先吃飯。欸，世界也需要血糖。',
+          `海在${location.labelZh}停下來看了一下天氣，順手提醒幾個學生先別把沉默包裝成理性討論。`,
+          '她把日常照顧看成治理的一部分：人如果一直退到旁邊，任何制度都會變得很尖銳。',
+          '先別急著講道理。欸，誰剛剛其實沒有加入進來？',
           'Alan 可能會發現，海的簡報不只是策略，也是在保護大家不要被過度思考耗乾。',
           5,
           '日常照顧會讓世界比較不容易被大議題吞掉。',
@@ -6952,24 +6954,24 @@ async function simulateAutonomousSchoolLife(
         ichinose,
         'everydayCafeteriaAwkwardness',
         'Ichinose',
-        `一之瀨在${location.labelZh}看著一桌沒收好的餐盤，淡淡吐槽：連午餐都吃得像會議，難怪大家累。`,
-        '她把過大的議題拉回普通細節，提醒大家世界是由日常維護撐起來的。',
-        'Alan，先把飯吃完。不是每個問題都需要結論。',
+        `一之瀨在${location.labelZh}看著社團桌上沒人認領的傳單，淡淡吐槽：連閒聊都像會議，難怪大家想逃。`,
+        '她把過大的議題拉回普通細節，提醒大家世界是由日常維護和小邊界撐起來的。',
+        'Alan，先別急著下結論。那張傳單為什麼沒人承認，比結論重要。',
         '如果 Alan 明天找一之瀨談，可以從她到底在刺哪個假裝沒事的人開始。',
         6,
-        '小混亂會累積成文化；好好吃飯也是讓世界不要失控的一部分。',
+        '小混亂會累積成文化；沒人承認的小事，也會變成明天的距離。',
       );
       if (activities.length < targetCount) {
         await addActivity(
           umi,
           'everydayCafeteriaOverwork',
           'Umi',
-          `海在${location.labelZh}發現天澤把一句玩笑推得太靠近痛點，便用眼神提醒她先吃一口飯。`,
+          `海在${location.labelZh}發現天澤把一句玩笑推得太靠近痛點，便把話題切到誰先退開半步。`,
           '測試不是欺負；真正危險的地方，是她差一點想繼續問。',
-          '先吃飯。你再問下去，就不是測試，是把人拆壞了。',
-          'Alan 如果明天回來，海可能會先問他是不是也忘了休息。',
+          '先停半步。你再問下去，就不是測試，是把人拆壞了。',
+          'Alan 如果明天回來，海可能會先問他今天看見誰退開了。',
           5,
-          '休息也是界線的一部分，不是所有測試都要在午餐時間推到底。',
+          '停手也是界線的一部分，不是所有測試都要在午間推到底。',
         );
       }
     } else if (location.id === 'studentCouncilRoom') {
@@ -6989,7 +6991,7 @@ async function simulateAutonomousSchoolLife(
           mahiru,
           'everydayPrincipalOfficeInvitation',
           'Mahiru',
-          `真晝被海請進${location.labelZh}後，先沒有問原因，只問對方今天有沒有吃午餐。`,
+          `真晝被海請進${location.labelZh}後，先沒有問原因，只問對方剛才是不是停在門口太久。`,
           '被邀請進正式空間的人不一定需要立刻解釋，也可能只需要先被放鬆下來。',
           '嗯……那我們先不要把它說成問題。',
           'Alan 可以把校長室當成海安排的一對一談話，不是任何人都能自行占用的會議室。',
@@ -7075,9 +7077,9 @@ async function simulateAutonomousSchoolLife(
       umi,
       'cafeteriaPaceGuard',
       'Umi',
-      `海在${location.labelZh}把今天的討論縮成三句話：誰沒吃飯、誰變安靜、誰把「我沒事」說得太快。`,
+      `海在${location.labelZh}把今天的討論縮成三句話：誰退開半步、誰變安靜、誰把「我沒事」說得太快。`,
       '她不是只整理任務，而是在把日常裡的情緒變化留給 Alan 看見。',
-      '校長，今天先不要開大議題。先確認大家有沒有好好吃飯。',
+      '校長，今天先不要開大議題。先確認誰其實沒有加入進來。',
       '下一步可以讓 Alan 先找一個變安靜的人聊，而不是處理整個校園。',
       7,
     );
@@ -7732,7 +7734,7 @@ function actionFromIntention(name: string, intention: string, locationZh: string
   if (name === 'Umi') {
     return {
       type: 'intentionTaskPlan',
-      descriptionZh: `海在${locationZh}整理校長簡報，把誰變安靜、誰沒吃飯、誰又說自己沒事放到同一張短表上。`,
+      descriptionZh: `海在${locationZh}整理校長簡報，把誰變安靜、誰退開半步、誰又說自己沒事放到同一張短表上。`,
       interpretationZh: '她把混亂討論轉成情緒、記憶與下一步的生活地圖。',
       reactionDialogueZh: '校長回來就不用再從零開始亂衝了。我會先把今天誰變了講清楚。',
       futureImplicationsZh: 'Alan 可以依照簡報理解今天的情緒變化，再選擇要關心、道歉或安靜陪一下。',
@@ -9242,6 +9244,366 @@ export const cleanupIncompleteArchivedConversations = mutation({
     };
   },
 });
+
+export const repairRecentConversationParticipantDrift = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+    conversationIds: v.optional(v.array(v.string())),
+    deleteUnrepairableMemories: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const limit = Math.max(1, Math.min(args.limit ?? 80, 200));
+    const requestedIds = new Set(
+      (args.conversationIds ?? [])
+        .map((id) => id.trim())
+        .filter(Boolean)
+        .map((id) => (id.startsWith('conversation-') ? id.slice('conversation-'.length) : id)),
+    );
+    const deleteUnrepairableMemories = args.deleteUnrepairableMemories === true;
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const allPlayerIds = [...descriptions.keys()];
+    const nameForPlayer = (id: string) => displayNameZh(descriptions.get(id)?.name ?? id);
+
+    const archivedConversations = await ctx.db
+      .query('archivedConversations')
+      .withIndex('ended', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(requestedIds.size ? 1000 : limit);
+
+    const targets = archivedConversations.filter((conversation) =>
+      requestedIds.size ? requestedIds.has(conversation.id) : true,
+    );
+    const targetConversationIds = new Set(targets.map((conversation) => conversation.id));
+    const edgesByConversationId = new Map<string, Doc<'participatedTogether'>[]>();
+    const memoriesByConversationId = new Map<string, Doc<'memories'>[]>();
+
+    for (const playerIdValue of allPlayerIds) {
+      const edges = await ctx.db
+        .query('participatedTogether')
+        .withIndex('playerHistory', (q) => q.eq('worldId', world._id).eq('player1', playerIdValue))
+        .collect();
+      for (const edge of edges) {
+        if (!targetConversationIds.has(edge.conversationId)) continue;
+        const bucket = edgesByConversationId.get(edge.conversationId) ?? [];
+        bucket.push(edge);
+        edgesByConversationId.set(edge.conversationId, bucket);
+      }
+
+      const memories = await ctx.db
+        .query('memories')
+        .withIndex('playerId', (q) => q.eq('playerId', playerIdValue))
+        .collect();
+      for (const memory of memories) {
+        if (memory.data.type !== 'conversation') continue;
+        if (!targetConversationIds.has(memory.data.conversationId)) continue;
+        const bucket = memoriesByConversationId.get(memory.data.conversationId) ?? [];
+        bucket.push(memory);
+        memoriesByConversationId.set(memory.data.conversationId, bucket);
+      }
+    }
+
+    const examples: any[] = [];
+    const unrepairableMemories: any[] = [];
+    let conversationsScanned = 0;
+    let conversationsAffected = 0;
+    let messagesRepaired = 0;
+    let memoriesRepaired = 0;
+    let memoriesDeleted = 0;
+    let staleEdgesDeleted = 0;
+    let missingEdgesInserted = 0;
+
+    for (const conversation of targets) {
+      conversationsScanned++;
+      const participantIds = conversation.participants;
+      if (participantIds.length !== 2) continue;
+      const participantSet = new Set(participantIds);
+      let affected = false;
+
+      const messages = (
+        await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) =>
+            q.eq('worldId', world._id).eq('conversationId', conversation.id),
+          )
+          .collect()
+      ).sort((left, right) => left._creationTime - right._creationTime);
+
+      for (const message of messages) {
+        if (!participantSet.has(message.author)) continue;
+        const otherId = participantIds.find((id) => id !== message.author);
+        if (!otherId) continue;
+        const repairedText = repairConversationAddresseeText(
+          message.text,
+          nameForPlayer(message.author),
+          nameForPlayer(otherId),
+        );
+        if (repairedText === message.text) continue;
+        affected = true;
+        messagesRepaired++;
+        if (examples.length < 20) {
+          examples.push({
+            type: 'message',
+            conversationId: conversation.id,
+            author: nameForPlayer(message.author),
+            before: message.text,
+            after: repairedText,
+          });
+        }
+        if (!dryRun) {
+          await ctx.db.patch(message._id, { text: repairedText });
+        }
+      }
+
+      const existingEdges = edgesByConversationId.get(conversation.id) ?? [];
+      const correctEdgeKeys = new Set<string>();
+      for (const player1 of participantIds) {
+        for (const player2 of participantIds) {
+          if (player1 !== player2) correctEdgeKeys.add(`${player1}|${player2}`);
+        }
+      }
+      const seenCorrectEdges = new Set<string>();
+      for (const edge of existingEdges) {
+        const key = `${edge.player1}|${edge.player2}`;
+        if (!correctEdgeKeys.has(key)) {
+          affected = true;
+          staleEdgesDeleted++;
+          if (examples.length < 20) {
+            examples.push({
+              type: 'participatedTogether',
+              action: 'delete_stale_edge',
+              conversationId: conversation.id,
+              player1: nameForPlayer(edge.player1),
+              player2: nameForPlayer(edge.player2),
+            });
+          }
+          if (!dryRun) await ctx.db.delete(edge._id);
+        } else {
+          seenCorrectEdges.add(key);
+        }
+      }
+      for (const key of correctEdgeKeys) {
+        if (seenCorrectEdges.has(key)) continue;
+        const [player1, player2] = key.split('|');
+        affected = true;
+        missingEdgesInserted++;
+        if (examples.length < 20) {
+          examples.push({
+            type: 'participatedTogether',
+            action: 'insert_missing_edge',
+            conversationId: conversation.id,
+            player1: nameForPlayer(player1),
+            player2: nameForPlayer(player2),
+          });
+        }
+        if (!dryRun) {
+          await ctx.db.insert('participatedTogether', {
+            worldId: world._id,
+            conversationId: conversation.id,
+            player1,
+            player2,
+            ended: conversation.ended,
+          });
+        }
+      }
+
+      const anchor =
+        memoryAnchorTextForMessages(messages.map((message) => ({ text: message.text }))) ??
+        messages.at(-1)?.text.trim() ??
+        '';
+      const happenedAt = messages[0]?._creationTime ?? conversation.created ?? conversation.ended;
+
+      for (const memory of memoriesByConversationId.get(conversation.id) ?? []) {
+        if (memory.data.type !== 'conversation') continue;
+        if (memory.data.conversationId !== conversation.id) continue;
+
+        if (!participantSet.has(memory.playerId)) {
+          affected = true;
+          unrepairableMemories.push({
+            conversationId: conversation.id,
+            owner: nameForPlayer(memory.playerId),
+            reason: 'memory_owner_not_in_archived_participants',
+            description: memory.description.slice(0, 180),
+          });
+          if (deleteUnrepairableMemories) {
+            memoriesDeleted++;
+            if (!dryRun) {
+              await ctx.db.delete(memory._id);
+              await ctx.db.delete(memory.embeddingId);
+            }
+          }
+          continue;
+        }
+
+        const otherId = participantIds.find((id) => id !== memory.playerId);
+        if (!otherId) continue;
+        const repairedDescription = repairConversationMemoryDescription(
+          memory.description,
+          nameForPlayer(memory.playerId),
+          nameForPlayer(otherId),
+          happenedAt,
+          anchor,
+        );
+        const repairedData = {
+          type: 'conversation' as const,
+          conversationId: conversation.id,
+          playerIds: [otherId],
+        };
+        const dataChanged =
+          memory.data.playerIds.length !== 1 || memory.data.playerIds[0] !== otherId;
+        const descriptionChanged =
+          memoryDescriptionHasParticipantDrift(memory.description, nameForPlayer(memory.playerId), nameForPlayer(otherId)) &&
+          repairedDescription !== memory.description;
+        if (!dataChanged && !descriptionChanged) continue;
+        affected = true;
+        memoriesRepaired++;
+        if (examples.length < 20) {
+          examples.push({
+            type: 'memory',
+            conversationId: conversation.id,
+            owner: nameForPlayer(memory.playerId),
+            before: memory.description.slice(0, 180),
+            after: repairedDescription.slice(0, 180),
+            embeddingNote: 'embedding_vector_not_rebuilt',
+          });
+        }
+        if (!dryRun) {
+          await ctx.db.patch(memory._id, {
+            description: repairedDescription,
+            data: repairedData,
+          });
+        }
+      }
+
+      if (affected) conversationsAffected++;
+    }
+
+    return {
+      dryRun,
+      conversationsScanned,
+      conversationsAffected,
+      messagesRepaired,
+      memoriesRepaired,
+      memoriesDeleted,
+      staleEdgesDeleted,
+      missingEdgesInserted,
+      unrepairableMemoryCount: unrepairableMemories.length,
+      unrepairableMemories: unrepairableMemories.slice(0, 20),
+      examples,
+    };
+  },
+});
+
+function repairConversationMemoryDescription(
+  description: string,
+  ownerName: string,
+  otherName: string,
+  happenedAt: number,
+  anchor: string,
+) {
+  const timestamp = new Intl.DateTimeFormat('zh-TW', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(happenedAt));
+  const safeAnchor = anchor.trim() || '這段對話留下了一個需要之後確認的小訊號。';
+  const repairedLine = `與 ${otherName} 在 ${timestamp} 的對話：${ownerName} 和 ${otherName} 進行了一段短暫對話；留下的情緒重點是：「${safeAnchor.slice(0, 96)}${safeAnchor.length > 96 ? '...' : ''}」`;
+  const lines = description.split('\n');
+  const traceIndex = lines.findIndex((line) => {
+    const trimmed = line.trim();
+    return (
+      trimmed &&
+      !trimmed.startsWith('記憶層級：') &&
+      !trimmed.startsWith('殘留：') &&
+      !trimmed.startsWith('Retention') &&
+      !trimmed.startsWith('Tags:')
+    );
+  });
+  if (traceIndex >= 0) {
+    const next = [...lines];
+    next[traceIndex] = repairedLine;
+    return stripDriftedResidueLines(next, ownerName, otherName).join('\n');
+  }
+  return stripDriftedResidueLines([repairedLine, ...lines], ownerName, otherName).join('\n');
+}
+
+function memoryDescriptionHasParticipantDrift(
+  description: string,
+  ownerName: string,
+  otherName: string,
+) {
+  const traceLine = description
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith('記憶層級：') && !line.startsWith('殘留：'));
+  const residueDrift = description
+    .split('\n')
+    .some((line) =>
+      line.trim().startsWith('殘留：') &&
+      lineMentionsNonParticipantName(line, new Set([ownerName, otherName, 'Alan'])),
+    );
+  if (residueDrift) return true;
+  if (!traceLine) return false;
+  const withMatch = traceLine.match(/^與\s+(.+?)\s+在\s+/);
+  if (withMatch && displayNameZh(withMatch[1]) !== otherName) return true;
+  const pairMatch = traceLine.match(/：(.+?)\s+和\s+(.+?)\s+進行/);
+  if (!pairMatch) return false;
+  const pair = new Set([displayNameZh(pairMatch[1]), displayNameZh(pairMatch[2])]);
+  return pair.size !== 2 || !pair.has(ownerName) || !pair.has(otherName);
+}
+
+function stripDriftedResidueLines(lines: string[], ownerName: string, otherName: string) {
+  const allowedNames = new Set([ownerName, otherName, 'Alan']);
+  let removedResidue = false;
+  const kept = lines.filter((line) => {
+    if (
+      line.trim().startsWith('殘留：') &&
+      lineMentionsNonParticipantName(line, allowedNames)
+    ) {
+      removedResidue = true;
+      return false;
+    }
+    return true;
+  });
+  if (!removedResidue) return kept;
+  return kept.map((line) => {
+    if (!line.trim().startsWith('記憶層級：')) return line;
+    return '記憶層級：今日經歷；標籤：ordinary；判斷：這是今天的經歷，先保留作為短期脈絡，不急著寫成人格設定。';
+  });
+}
+
+const PARTICIPANT_DRIFT_NAME_ALIASES = [
+  '海',
+  'Umi',
+  '朝凪海',
+  '天澤',
+  'Tianze',
+  '一之瀨',
+  'Ichinose',
+  '真晝',
+  'Mahiru',
+  '椎名真晝',
+  '貓貓',
+  'Maomao',
+  'CaoCao',
+  '曹操',
+  '祥子',
+  'Sakiko',
+  'Liu Bei',
+  '劉備',
+];
+
+function lineMentionsNonParticipantName(line: string, allowedNames: Set<string>) {
+  return PARTICIPANT_DRIFT_NAME_ALIASES.some((alias) => {
+    if (!line.includes(alias)) return false;
+    return !allowedNames.has(displayNameZh(alias));
+  });
+}
 
 export const cleanupArchivedConversationsById = mutation({
   args: {

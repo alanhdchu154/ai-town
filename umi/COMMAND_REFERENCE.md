@@ -4,7 +4,7 @@ A single page mapping every npm script, helper script, and shell loop in
 this repo to what it actually does and when to use it. If a command is
 not listed here it is either deprecated or you are using it wrong.
 
-Last updated: 2026-05-29.
+Last updated: 2026-06-12.
 
 ---
 
@@ -22,7 +22,7 @@ Last updated: 2026-05-29.
 
 | Command | What it measures | When to use |
 |---|---|---|
-| `npm run eval:soul-triad` | Umi / Mahiru / Tianze pilot: 30+ soul markers, memory continuity, slogan / echo / stage-direction penalties. Writes `evals/conversations/reports/soul-triad-latest.md`. **Prints fresh-sample warning if results < 3.** | **Canonical v0.1 eval.** Run after any fresh triad sample is collected. |
+| `npm run eval:soul-triad` | Current evidence-pilot eval for `海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子`: 30+ soul markers, memory continuity, slogan / echo / stage-direction penalties. Writes `evals/conversations/reports/soul-triad-latest.md`. **Prints fresh-sample warning if results < 3.** | **Canonical v0.1 eval.** Run after fresh pilot samples are collected. |
 | `npm run eval:conversation:recent` | General dialogue hygiene across all recent archived conversations (not pilot-specific). Supports `-- --since-last-change`. | Daytime sanity check; not for soul tuning decisions. |
 | `npm run eval:conversation` | Full historical conversation eval | Rare — when seeding a fresh corpus from scratch. |
 | `npm run eval:conversation:loop` | Long-running watch loop | Background daytime QA (rare). |
@@ -36,7 +36,7 @@ These set pilot env knobs at start and **always** unset them in a
 
 | Command | What it does | When to use |
 |---|---|---|
-| `npm run pilot:soul-triad:single-sample` | Opens `SOUL_TRIAD_COLOCATION_PILOT`, co-locates Umi / Mahiru / Tianze, collects one archived conversation, runs `eval:soul-triad`, removes pilot envs, stops the engine. Includes representative-cloud preflight (fails before world mutation if provider/key/quota bad). | **Canonical single-sample collection for v0.1.** |
+| `npm run pilot:soul-triad:single-sample` | Opens `SOUL_TRIAD_COLOCATION_PILOT`, co-locates a requested focus pair from the current evidence pilots, collects one conversation, runs `eval:soul-triad`, and removes pilot envs. Use `--require-archived=true` when collecting v0.1 evidence. Includes representative-cloud preflight (fails before world mutation if provider/key/quota bad). | **Canonical single-sample collection for v0.1.** |
 | `npm run pilot:soul-triad:single-sample:self-test` | Smoke-check the runner without touching the world. | Pre-flight before a real sample run. |
 | `npm run pilot:umi-mahiru:single-sample` | Pre-triad version. Umi ↔ Mahiru only. | Legacy. Prefer the triad version. |
 | `npm run pilot:local-qwen:disposable` | One-shot local-Qwen disposable probe. | Local-LLM smoke. |
@@ -48,7 +48,7 @@ These set pilot env knobs at start and **always** unset them in a
 | Command | What it does | When to use |
 |---|---|---|
 | `npm run underworld:observe` | Snapshot world state + recent events. **Never modifies code.** Writes `umi/reports/v01-approach-latest.md`. | Start every triage session here. |
-| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout. This is enough for a directional repair/eval read, not enough by itself to prove rolling or AM→PM continuity. | Daytime sample collection. |
+| `npm run underworld:observe:daytime-samples` | Observe with `--target-samples=3`, longer sample timeout, and `--require-archived=true`. Rotates current evidence-pilot pairs, prints fresh transcripts, and reports whether each fresh transcript created or failed to create an experience log. This is enough for a directional repair/eval read, not enough by itself to prove rolling or AM→PM continuity. | Daytime archived sample collection. |
 | `npm run underworld:observe:self-test` | Self-test the observe script without hitting Convex. | CI / pre-loop smoke. |
 | `npm run underworld:v01-goal-audit` | Audit v0.1 acceptance criteria from the latest observe; writes `umi/reports/v01-goal-audit-latest.md`. Exit nonzero on PENDING/FAIL by design. | After observe, to see how close v0.1 is. |
 | `npm run underworld:v01-daytime-check` | Chained `observe:daytime-samples && v01-goal-audit`. Collects a small scoped sample batch; it does not guarantee adjacent-window rolling continuity by itself. | **Canonical first daytime command.** |
@@ -72,6 +72,19 @@ These set pilot env knobs at start and **always** unset them in a
 | `npm run underworld:heartbeat` | Lightweight world heartbeat (keeps engine warm). | Background. |
 | `npm run underworld:harness:self-test` | Serial self-test of rolling + am-pm + life-signals + repair-gate + observe + goal-audit + Alan playtest artifact helper + soul-triad-single-sample. | Pre-loop / pre-window confidence. |
 | `npm run underworld:cleanup-fallback-pollution:dry-run` | Dry-run audit of fallback-tainted memories / archived conversations / events / notifications / profiles. Accepts `--scope`, `--include-archived-conversations`, `--apply=true`. **Destructive only with `--apply=true`** and Alan-approved evidence. | Periodic hygiene audit. |
+| `npm run underworld:state-audit` | Read-only local Convex sqlite growth audit. Reports active state size, scheduled-arg shapes, largest table groups, and latest payload samples to `umi/reports/state-growth-audit-latest.md`. | Daily health / before deciding whether state growth is safe. |
+| `npm run underworld:archive-continuity-export` | One-time/manual export-only recovery from the archived old state into `umi/exports/archive-continuity-latest/`. No import, no mutation, embeddings excluded by default. | After an emergency fresh-world recovery, before designing curated import. Do not put in rolling automation. |
+| `npm run underworld:continuity-package-audit` | Read-only audit of the exported continuity package. Flags fallback pollution, legacy character references, and candidate restoration boundaries. Writes `umi/reports/continuity-package-audit-latest.md`. | Before any legacy-memory import proposal. |
+| `npm run underworld:continuity-restore-candidates` | Read-only sampler that turns the exported continuity package into capped Tier 1 / review-only / rejected candidate packets under `umi/exports/curated-continuity-candidates-latest/`, with report `umi/reports/curated-continuity-candidates-latest.md`. | Before asking Alan/cc to approve what old continuity is worth restoring. |
+| `npm run underworld:legacy-continuity-import-plan` | Dry-run only plan that converts Tier 1 candidates into a default 12-row human-review packet for proposed `legacyContinuityEvidence` rows under `umi/exports/legacy-continuity-import-plan-latest/`. It skips first-pass food-care motifs, stage-direction leaks, repeated motif families, duplicate summaries, and non-first-restore kinds. It does not call Convex or write live memory. | After candidate review, before any Alan-approved importer exists. |
+| `npm run underworld:legacy-continuity-import` | Dry-run validator for the proposed `legacyContinuityEvidence` packet. It writes `umi/reports/legacy-continuity-import-latest.md` and `umi/exports/legacy-continuity-import-latest/`, but does not call Convex. `--write` is intentionally blocked until Alan explicitly approves live import. | After `underworld:legacy-continuity-import-plan`, to inspect exact rows that would be written later. |
+| `npm run underworld:sleep-consolidation` | Dry-run sleep/consolidation classifier over recent conversations. Buckets samples into long-term candidate, emotional-residue candidate, short-term context, forget/ignore, or human-review. Writes `umi/reports/sleep-consolidation-latest.md` and `umi/exports/sleep-consolidation-latest/`. **No Convex writes and no prompt-facing memory.** | After legacy evidence recovery, to study what the world would remember overnight before approving any live memory promotion path. |
+| `npm run underworld:sleep-consolidation:self-test` | Synthetic smoke test for the sleep classifier gates: long-term promise, residue, generic greeting, fallback leak, and stage-direction leak. | Before changing sleep-consolidation thresholds. |
+| `npm run underworld:sleep-notes-import` | Dry-run curated `sleepNotes` import from reviewed legacy evidence. Writes `umi/reports/sleep-notes-import-latest.md` and `umi/exports/sleep-notes-import-latest/`. | Inspect the tiny reviewed bridge from old continuity into the new prompt-readable layer. |
+| `npm run underworld:sleep-notes-import:self-test` | Synthetic smoke test for the curated importer validation. | Before changing the curated note list or gates. |
+| `npm run underworld:sleep-notes-import -- --write --approval=alan-approved-sleep-notes-2026-06-12` | Approved live write for curated `sleepNotes`. It caps rows, dedupes source/motif, and keeps legacy rows `freshEvalEligible=false`. | Rare. Only after Alan approval and cc/Codex review. Do not use for bulk archive recovery. |
+| `npm run underworld:experience-sleep-promote` | Dry-run bridge from bounded `experienceLogs` to tiny sleep-note candidates. Reads current pilot logs, prepares at most 1 candidate per pilot character, writes `umi/reports/experience-sleep-promotion-latest.md`, and inserts 0 rows unless explicit write approval is added. | After fresh evidence exists, to inspect whether residue could safely survive sleep. |
+| `npm run underworld:experience-sleep-promote:self-test` | Synthetic smoke test for the experience-log -> sleep-note promotion guard. | Before changing sleep-promotion thresholds. |
 | `bash umi/run_v01_approach_loop.sh` | Local long-running wrapper around `underworld:approach:v01` with persistent log at `umi/reports/v01-approach-loop.log`. Stop with Ctrl-C. | Overnight or unattended loops. |
 | `bash umi/soul_triad_hourly_eval_until_sleep.sh` | Hourly `eval:soul-triad` runs until configured sleep time. | Daytime evidence accumulation. |
 
@@ -103,7 +116,7 @@ prompts.
 
 | Command | What it does | When to use |
 |---|---|---|
-| `node scripts/test-qwen-key.mjs` | Smoke-test cloud Qwen API key against the proxy. | After rotating `UMI_MAHIRU_PILOT_API_KEY`. |
+| `node scripts/test-qwen-key.mjs` | Smoke-test the official Qwen / Model Studio API key. | After rotating `UMI_MAHIRU_PILOT_API_KEY`. |
 | `node scripts/repair-local-convex-state.mjs` | Repair local Convex state if engine wedged. | Last resort before `testing:wipeAllTables`. |
 | `python umi/orchestrator.py run umi/workload.md --dry-run` (npm: `umi:dry-run`) | Validate workload.md handoff structure without executing. | Before paging CC. |
 | `npm run umi:cc` / `umi:cc:write` | Drive CC against `umi/workload.md`. `:write` allows mutations. | Active CC handoff sessions. |

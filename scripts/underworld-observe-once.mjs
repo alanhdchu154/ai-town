@@ -22,7 +22,21 @@ const COMMAND_ENV = {
 const REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'v01-approach-latest.md');
 const AM_PM_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.md');
 const LIFE_SIGNALS_REPORT_PATH = join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md');
-const TRIAD_NAMES = new Set(['海', '真晝', '天澤', 'Umi', 'Mahiru', 'Tianze']);
+const EVIDENCE_PILOT_NAMES = new Set([
+  '海',
+  '真晝',
+  '貓貓',
+  '天澤',
+  '一之瀨',
+  '祥子',
+  'Umi',
+  'Mahiru',
+  'Mahiru Shiina',
+  'Maomao',
+  'Tianze',
+  'Ichinose',
+  'Sakiko',
+]);
 const POLICY_ENV_KEYS = [
   'AUTONOMOUS_CONVERSATION_LLM',
   'AUTONOMOUS_CONVERSATION_LLM_PAIRS',
@@ -45,9 +59,17 @@ const TARGET_SAMPLES = numberArg('target-samples', 1, 0, 3);
 const SAMPLE_TIMEOUT_MS = numberArg('sample-timeout-ms', DRY_RUN ? 1_000 : 180_000, 1_000, 300_000);
 const SAMPLE_POLL_MS = numberArg('sample-poll-ms', 7_000, 1_000, 30_000);
 const REQUIRE_ARCHIVED_SAMPLES = args.get('require-archived') === 'true';
-// Rotate the collected dyad across samples so Mahiru is not starved by the
-// Umi<->Tianze mutual-first-choice attractor. Disable with --no-focus-rotation.
-const FOCUS_ROTATION = ['Umi:Mahiru', 'Mahiru:Tianze', 'Umi:Tianze'];
+// Rotate the collected dyad across the current v0.1 evidence pilot so the
+// observe loop does not quietly fall back to the old Umi/Mahiru/Tianze triad.
+// Disable with --no-focus-rotation.
+const FOCUS_ROTATION = [
+  'Umi:Mahiru',
+  'Tianze:Ichinose',
+  'Ichinose:Maomao',
+  'Sakiko:Tianze',
+  'Mahiru:Maomao',
+  'Umi:Tianze',
+];
 const FOCUS_ROTATION_ENABLED = args.get('no-focus-rotation') !== 'true';
 const RUN_STARTED_AT = Date.now();
 const RUN_ISO = new Date(RUN_STARTED_AT).toISOString();
@@ -62,6 +84,7 @@ async function main() {
   const policyEnv = await collectPolicyEnv();
   const collection = await maybeCollectSamples(timing, health);
   const freshConversations = await fetchFreshTriadConversations(EVAL_SINCE_AT);
+  const experienceEvidence = await collectExperienceEvidence(health, freshConversations);
   printTranscripts(freshConversations);
 
   const evals = await runEvals();
@@ -81,6 +104,7 @@ async function main() {
     dayWindowLifeSignals,
     reports,
     fallbackAudit,
+    experienceEvidence,
   });
   const scores = estimateV01Scores({ findings, freshConversations, reports, health, fallbackAudit });
   const ccReview = await maybeRunCcReview({ findings, scores, freshConversations, reports });
@@ -97,6 +121,7 @@ async function main() {
     dayWindowLifeSignals,
     reports,
     fallbackAudit,
+    experienceEvidence,
     findings,
     scores,
     ccReview,
@@ -220,6 +245,37 @@ async function collectPolicyEnv() {
   };
 }
 
+async function collectExperienceEvidence(health, freshConversations = []) {
+  const worldId = health.defaultWorldStatus?.data?.worldId;
+  const [experienceLogs, sleepNotes] = await Promise.all([
+    worldId
+      ? convexRunSafe('agent/experienceLog:recentExperienceLogs', {
+          worldId,
+          limit: 24,
+        })
+      : Promise.resolve({ ok: false, data: [] }),
+    convexRunSafe('sleepNotes:sleepNotesSummary', {}),
+  ]);
+  const rows = Array.isArray(experienceLogs.data) ? experienceLogs.data : [];
+  const freshStatuses = freshConversations.map((conversation) =>
+    freshExperienceLogStatus(conversation, rows),
+  );
+  return {
+    ok: experienceLogs.ok && sleepNotes.ok,
+    experienceLogs: rows,
+    freshStatuses,
+    createdForFreshSamples: freshStatuses.filter((status) => status.created).length,
+    rejectedFreshSamples: freshStatuses.filter((status) => !status.created),
+    experienceLogCount: rows.length,
+    behaviorHintCount: rows.filter((row) => row.behaviorHint).length,
+    residueCount: rows.filter((row) => row.residue).length,
+    sleepNotes: sleepNotes.data,
+    sleepNoteCount: sleepNotes.data?.count ?? 0,
+    sleepNotePromoted: sleepNotes.data?.promoted ?? 0,
+    sleepNoteFreshEvalEligible: sleepNotes.data?.freshEvalEligible ?? 0,
+  };
+}
+
 async function convexEnvGetSafe(key) {
   const result = await runCommand('npx', ['convex', 'env', 'get', key], {
     timeout: 45_000,
@@ -313,6 +369,7 @@ function analyzeFindings({
   dayWindowLifeSignals,
   reports,
   fallbackAudit,
+  experienceEvidence,
 }) {
   const reportText = `${reports.soulTriad}\n${reports.recent}`;
   const statusCounts = statusCountsFromSoulReport(reports.soulTriad);
@@ -331,6 +388,8 @@ function analyzeFindings({
   const rubricDisagreement =
     statusCounts.FAIL === 0 && recentStatusCounts.FAIL > 0 && freshConversations.length > 0;
   const recentFailureReason = firstRecentFailureReason(reports.recent);
+  const experienceResidueObserved = (experienceEvidence?.residueCount ?? 0) > 0;
+  const behaviorEvidenceObserved = (experienceEvidence?.behaviorHintCount ?? 0) > 0;
 
   let topFailureCategory = 'none';
   if (!health.healthy) topFailureCategory = 'runtime_health';
@@ -405,6 +464,8 @@ function analyzeFindings({
     recentFailureReason,
     observedIssue,
     enoughFreshSamples: freshConversations.length >= 3,
+    experienceResidueObserved,
+    behaviorEvidenceObserved,
     nightQuiet: timing.isNight,
     nextSafestAction,
   };
@@ -526,6 +587,7 @@ async function writeReport({
   dayWindowLifeSignals,
   reports,
   fallbackAudit,
+  experienceEvidence,
   findings,
   scores,
   ccReview,
@@ -546,7 +608,7 @@ async function writeReport({
     '',
     '## Summary',
     '',
-    `- Fresh triad samples: ${freshConversations.length}`,
+    `- Fresh pilot samples: ${freshConversations.length}`,
     `- Soul PASS/WARN/FAIL: ${findings.statusCounts.PASS}/${findings.statusCounts.WARN}/${findings.statusCounts.FAIL}`,
     `- Recent PASS/WARN/FAIL: ${findings.recentStatusCounts.PASS}/${findings.recentStatusCounts.WARN}/${findings.recentStatusCounts.FAIL}`,
     `- Top failure category: ${findings.topFailureCategory}`,
@@ -564,6 +626,13 @@ async function writeReport({
     `- Fresh fallback markers: ${findings.freshFallbackMarkers}`,
     `- Stage-direction leak sum: ${findings.stageDirectionLeaks.toFixed(2)}`,
     `- Echo penalty sum: ${findings.echoPenalty.toFixed(2)}`,
+    `- Experience logs available: ${experienceEvidence.experienceLogCount}`,
+    `- Experience logs created for fresh samples: ${experienceEvidence.createdForFreshSamples}`,
+    `- Experience-log fresh rejections/statuses: ${experienceEvidence.rejectedFreshSamples.length}`,
+    `- Experience residue rows: ${experienceEvidence.residueCount}`,
+    `- Experience behavior hints: ${experienceEvidence.behaviorHintCount}`,
+    `- Sleep notes promoted: ${experienceEvidence.sleepNotePromoted}`,
+    `- Sleep notes fresh-eval eligible: ${experienceEvidence.sleepNoteFreshEvalEligible}`,
     `- CC review: ${ccReview.status}`,
     `- Code changed: no`,
     `- Next safest action: ${findings.nextSafestAction}`,
@@ -592,6 +661,20 @@ async function writeReport({
     '## Fresh Transcripts',
     '',
     ...transcriptLines(freshConversations),
+    '',
+    '## Experience / Sleep Evidence',
+    '',
+    `- experience log query: ${experienceEvidence.ok ? 'ok' : 'check'}`,
+    `- experience logs read: ${experienceEvidence.experienceLogCount}`,
+    `- residue-bearing logs: ${experienceEvidence.residueCount}`,
+    `- behavior-hint logs: ${experienceEvidence.behaviorHintCount}`,
+    `- sleepNotes count: ${experienceEvidence.sleepNoteCount}`,
+    `- sleepNotes promoted: ${experienceEvidence.sleepNotePromoted}`,
+    `- sleepNotes freshEvalEligible: ${experienceEvidence.sleepNoteFreshEvalEligible}`,
+    '',
+    ...freshExperienceStatusLines(experienceEvidence),
+    '',
+    ...experienceEvidenceLines(experienceEvidence),
     '',
     '## Health Checks',
     '',
@@ -779,6 +862,85 @@ function strongestMoment(conversations) {
     .flatMap((conversation) => conversation.transcriptMessages ?? [])
     .find((row) => /不是.*一個人|一起|明天|記得|停|累|責任|交接/.test(row.text));
   return message ? `- **${message.author}**: ${message.text}` : 'No fresh moment available yet.';
+}
+
+function experienceEvidenceLines(evidence) {
+  const rows = evidence.experienceLogs ?? [];
+  if (!rows.length) {
+    return ['- no experience logs yet'];
+  }
+  return rows.slice(0, 8).flatMap((row) => [
+    `- ${row.characterName} (${row.characterId ?? 'unknown'}) day ${row.day} (${row.importance}): ${row.emotionalResidue || row.residue || row.emotionalInterpretation || row.eventSummary}`,
+    row.behaviorHint ? `  - behavior hint: ${row.behaviorHint}` : '  - behavior hint: none',
+    `  - source conversation: ${row.sourceConversationId ?? row.conversationId ?? 'unknown'}`,
+  ]);
+}
+
+function freshExperienceStatusLines(evidence) {
+  const statuses = evidence.freshStatuses ?? [];
+  if (!statuses.length) return ['- fresh sample experience-log status: no fresh samples'];
+  return [
+    '- fresh sample experience-log status:',
+    ...statuses.map((status) =>
+      `  - ${status.id}: ${status.created ? `created (${status.logCount})` : `not written (${status.reason})`}`,
+    ),
+  ];
+}
+
+function freshExperienceLogStatus(conversation, rows) {
+  const id = canonicalConversationId(conversation.id);
+  const matchingRows = rows.filter((row) => canonicalConversationId(row.sourceConversationId ?? row.conversationId) === id);
+  if (matchingRows.length) {
+    return {
+      id: conversation.id,
+      created: true,
+      logCount: matchingRows.length,
+      reason: 'created',
+    };
+  }
+  return {
+    id: conversation.id,
+    created: false,
+    logCount: 0,
+    reason: inferExperienceLogRejectionReason(conversation),
+  };
+}
+
+function canonicalConversationId(value) {
+  return String(value ?? '')
+    .replace(/^active-conversation-/, '')
+    .replace(/^conversation-/, '');
+}
+
+function inferExperienceLogRejectionReason(conversation) {
+  const messages = conversation.transcriptMessages ?? [];
+  const text = messages.map((message) => message.text ?? '').join('\n');
+  if ((conversation.involvedCharacters ?? []).filter((name) => EVIDENCE_PILOT_NAMES.has(name)).length < 2) {
+    return 'non_current_pilot';
+  }
+  if (/\[ABORT_CONVERSATION\]|\[LEAVE\]|pilot LLM unavailable|fallback|無法提供|不能滿足/i.test(text)) {
+    return 'fallback_or_provider_marker';
+  }
+  if (hasObviousMotifLoop(messages)) return 'obvious_echo_or_motif_loop';
+  if (hasLikelyStageDirectionLeak(text)) return 'stage_direction_leak';
+  return 'not_written_or_capped_or_deduped';
+}
+
+function hasLikelyStageDirectionLeak(text) {
+  return /我(合上|看向|走到|靠回|拿起)|我放下(杯|茶|筆|手機|筷|叉|湯匙|紙|文件|筆電)|我把手機|（[^）]*(看向|走到|放下|拿起|合上)[^）]*）/.test(text);
+}
+
+function hasObviousMotifLoop(messages) {
+  const motifCounts = new Map();
+  const motifs = ['筷子', '起司', '叉子', '杯子', '紙', '筆', '手機', '清單', '簡報', '報名表'];
+  for (const message of messages) {
+    for (const motif of motifs) {
+      if ((message.text ?? '').includes(motif)) {
+        motifCounts.set(motif, (motifCounts.get(motif) ?? 0) + 1);
+      }
+    }
+  }
+  return [...motifCounts.values()].some((count) => count >= 4);
 }
 
 function weakestFailure(findings, conversations) {
@@ -1176,7 +1338,7 @@ function assertIncludes(values, expected, label) {
 
 function isTriadConversation(conversation) {
   const participants = conversation?.involvedCharacters ?? [];
-  return participants.filter((name) => TRIAD_NAMES.has(name)).length >= 2;
+  return participants.filter((name) => EVIDENCE_PILOT_NAMES.has(name)).length >= 2;
 }
 
 function statusCountsFromSoulReport(report) {

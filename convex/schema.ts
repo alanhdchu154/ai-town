@@ -272,6 +272,80 @@ export default defineSchema({
     .index('worldId', ['worldId', 'updatedAt'])
     .index('name', ['worldId', 'nameZh']),
 
+  legacyContinuityEvidence: defineTable({
+    legacyArchive: v.boolean(),
+    promptFacing: v.boolean(),
+    freshEvalEligible: v.boolean(),
+    reviewRequired: v.boolean(),
+    importedAt: v.number(),
+    importedBy: v.string(),
+    importRunId: v.string(),
+    sourceKind: v.string(),
+    sourceId: v.optional(v.string()),
+    sourceTableId: v.optional(v.string()),
+    sourceTs: v.optional(v.number()),
+    sourceCreatedAtIso: v.optional(v.string()),
+    sourceDbPath: v.optional(v.string()),
+    primaryConversationId: v.optional(v.string()),
+    conversationIds: v.optional(v.array(v.string())),
+    involvedNames: v.array(v.string()),
+    valueScore: v.number(),
+    suggestedRestoreShape: v.string(),
+    summaryZh: v.string(),
+    restoreReasonZh: v.string(),
+    risks: v.optional(v.array(v.string())),
+    residueDedupeKey: v.optional(v.string()),
+    motifFamilyKey: v.optional(v.string()),
+    approvalNoteZh: v.string(),
+  })
+    .index('promptFacing', ['promptFacing', 'importedAt'])
+    .index('source', ['sourceKind', 'sourceId'])
+    .index('conversation', ['primaryConversationId', 'importedAt'])
+    .index('importRun', ['importRunId']),
+
+  sleepNotes: defineTable({
+    sourceKind: v.union(
+      v.literal('legacyContinuityEvidence'),
+      v.literal('sleepConsolidation'),
+      v.literal('experienceLog'),
+      v.literal('manual'),
+    ),
+    sourceEvidenceId: v.string(),
+    sourceConversationId: v.optional(v.string()),
+    legacyArchive: v.boolean(),
+    promptFacing: v.boolean(),
+    freshEvalEligible: v.boolean(),
+    reviewStatus: v.union(
+      v.literal('review_only'),
+      v.literal('promoted'),
+      v.literal('rejected'),
+      v.literal('archived'),
+    ),
+    noteType: v.union(
+      v.literal('long_term_memory_candidate'),
+      v.literal('emotional_residue_candidate'),
+      v.literal('short_term_context'),
+      v.literal('relationship_trace'),
+    ),
+    subjectName: v.string(),
+    participantNames: v.array(v.string()),
+    noteZh: v.string(),
+    usageHintZh: v.string(),
+    riskTags: v.array(v.string()),
+    motifHash: v.string(),
+    importance: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    expiresAt: v.optional(v.number()),
+    promotedAt: v.optional(v.number()),
+    promotedBy: v.optional(v.string()),
+    approvalNoteZh: v.string(),
+  })
+    .index('subjectPrompt', ['subjectName', 'promptFacing', 'reviewStatus', 'createdAt'])
+    .index('source', ['sourceKind', 'sourceEvidenceId', 'subjectName'])
+    .index('motif', ['subjectName', 'motifHash'])
+    .index('status', ['reviewStatus', 'updatedAt']),
+
   ...agentTables,
   ...aiTownTables,
   ...engineTables,

@@ -354,12 +354,68 @@ function characterVoiceScore(testCase: ConversationEvalCase): MetricResult {
     rows.length ? unique(rows.flatMap((row) => defaultVoiceCues(row.author))) : defaultVoiceCues(testCase.target)
   );
   const searchText = rows.length ? rows.map((row) => row.body).join('\n') : testCase.sampleOutput;
-  const hits = expected.filter((keyword) => searchText.includes(keyword)).length;
+  const lexicalHits = expected.filter((keyword) => searchText.includes(keyword)).length;
+  const behaviorHits = characterVoiceBehaviorHits(rows, searchText, testCase.target);
+  const hits = lexicalHits + behaviorHits.length;
   const denominator = Math.min(expected.length, 3);
   const score = expected.length ? hits / denominator : 0.7;
   return metric('characterVoiceScore', clamp01(score), [
-    expected.length ? `matched ${hits}/${expected.length} character voice cue(s)` : 'no voice cues available',
+    expected.length
+      ? `matched ${lexicalHits}/${expected.length} lexical character voice cue(s)`
+      : 'no voice cues available',
+    behaviorHits.length ? `matched behavior voice cue(s): ${unique(behaviorHits).join(' / ')}` : '',
   ]);
+}
+
+function characterVoiceBehaviorHits(
+  rows: Array<{ author: string; body: string }>,
+  fallbackText: string,
+  fallbackTarget: string,
+) {
+  const checks = rows.length
+    ? rows
+    : [
+        {
+          author: displayNameZh(fallbackTarget),
+          body: fallbackText,
+        },
+      ];
+  return checks.flatMap((row) => behaviorVoiceCuesFor(displayNameZh(row.author), row.body));
+}
+
+function behaviorVoiceCuesFor(name: string, body: string) {
+  const cues: string[] = [];
+  if (name === '海') {
+    if (/先聽你說|我想先聽|這次.*聽你說|我得先離開|我先離開|少接|壓後|刪掉/.test(body)) {
+      cues.push('umi_reduce_overload_or_yield_focus');
+    }
+  }
+  if (name === '真晝') {
+    if (/要先.*嗎|要不要|可以不用|不用馬上|我只是|我先坐|我陪|不催|你.*(手|肩|聲音|名字|旁邊)/.test(body)) {
+      cues.push('mahiru_quiet_care_attention');
+    }
+  }
+  if (name === '天澤') {
+    if (/是.*還是|是在.*還是|比.*還|「[^」]{2,}」.*[？?]|收進口袋|推半步|再往前/.test(body)) {
+      cues.push('tianze_pressure_test_question');
+    }
+  }
+  if (name === '一之瀨') {
+    if (/你要.*說清楚|親口|拿走的是|讓步|條件|拒絕也是|乖/.test(body)) {
+      cues.push('ichinose_sweet_boundary');
+    }
+  }
+  if (name === '貓貓') {
+    if (/別信嘴|看手|先別下診斷|樣本|可疑|太正常|症狀/.test(body)) {
+      cues.push('maomao_diagnostic_care');
+    }
+  }
+  if (name === '祥子') {
+    if (/不用了.*謝謝|不需要|請|譜架|鉛筆影子|曲譜|排練|謝幕|站穩|好意/.test(body)) {
+      cues.push('sakiko_composed_refusal');
+    }
+  }
+  return cues;
 }
 
 function emotionalSpecificityScore(testCase: ConversationEvalCase): MetricResult {

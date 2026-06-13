@@ -50,6 +50,9 @@ export function CharacterPortrait({
           borderColor: accent,
           ['--portrait-tint' as string]: tint,
           ['--portrait-accent' as string]: accent,
+          ['--render-zoom' as string]: visual?.renderFraming?.zoom ?? 1,
+          ['--render-y' as string]: visual?.renderFraming?.y ?? 'center',
+          ['--render-offset-y' as string]: visual?.renderFraming?.offsetY ?? '0rem',
         }}
       >
         {portraitPath && !imageFailed ? (

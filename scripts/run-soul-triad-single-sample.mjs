@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Single-sample Umi x Mahiru x Tianze Qwen pilot runner.
+// Single-sample current evidence-pilot Qwen runner.
 //
 // This only applies temporary pilot-control Convex env vars. It assumes the
 // existing character-soul provider/key/model env is already configured on the
@@ -51,7 +51,8 @@ const PILOT_ENV = {
   SOUL_TRIAD_COLOCATION_PILOT: 'true',
   SOUL_TRIAD_FOCUS_PAIR: FOCUS_PAIR,
   AUTONOMOUS_CONVERSATION_LLM: 'true',
-  AUTONOMOUS_CONVERSATION_LLM_PAIRS: 'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose',
+  AUTONOMOUS_CONVERSATION_LLM_PAIRS:
+    'Umi:Mahiru,Umi:Tianze,Mahiru:Tianze,Tianze:Ichinose,Ichinose:Maomao,Mahiru:Maomao,Umi:Maomao,Sakiko:Tianze,Sakiko:Mahiru,Ichinose:Sakiko',
   UMI_MAHIRU_PILOT_TIMEOUT_MS: '60000',
   UMI_MAHIRU_PILOT_COOLDOWN_FAILURES: '1',
   UMI_MAHIRU_PILOT_COOLDOWN_MS: String(PROVIDER_COOLDOWN_MS),
@@ -179,12 +180,14 @@ function assertEqual(actual, expected, label) {
 function representativeSoulPrompt() {
   const soulContext = [
     'GIIS Underworld v0.1 cloud provider preflight.',
-    'Characters: 海(Umi), 真晝(Mahiru), 天澤(Tianze), 一之瀨(Ichinose).',
+    'Characters: 海(Umi), 真晝(Mahiru), 貓貓(Maomao), 天澤(Tianze), 一之瀨(Ichinose), 祥子(Sakiko).',
     'Goal: spoken dialogue only, Traditional Chinese, natural and short.',
     '海 organizes chaos for Alan but hides fatigue behind usefulness.',
     '真晝 notices quiet pain and checks emotional safety.',
+    '貓貓 diagnoses hidden motives and only shows care indirectly.',
     '天澤 pressure-tests weak rules with safe little-devil teasing and learns where to stop before harm.',
     '一之瀨 keeps a cute big-sister surface while turning warmth into boundary, debt, and safe intimate pressure.',
+    '祥子 protects dignity through composure, rehearsal, and small cracks she tries to hide.',
     'Avoid fallback/template slogans, stage directions, over-analysis, and exact echo.',
     'Emotion should show through tone, attention, and small behavior.',
     'Memory residue should be concrete, not a slogan.',
@@ -200,8 +203,15 @@ function representativeSoulPrompt() {
 }
 
 function qwenModelName(model) {
-  const configured = model || 'qwen3-max';
+  const configured = model || 'qwen-plus';
   return configured.startsWith('qwen/') ? configured.slice('qwen/'.length) : configured;
+}
+
+function openAiCompatibleChatCompletionsUrl(baseUrl) {
+  const trimmed = baseUrl.replace(/\/+$/, '');
+  if (trimmed.endsWith('/chat/completions')) return trimmed;
+  if (trimmed.endsWith('/v1')) return `${trimmed}/chat/completions`;
+  return `${trimmed}/v1/chat/completions`;
 }
 
 function geminiModelName(model) {
@@ -259,8 +269,11 @@ async function cloudProviderPreflight() {
   }
   const key = await convexEnvGet('UMI_MAHIRU_PILOT_API_KEY');
   if (!key) throw new Error(`cloud provider preflight failed: ${provider} key is not configured`);
-  const baseUrl = ((await convexEnvGet('UMI_MAHIRU_PILOT_BASE_URL')) || 'https://api.newcoin.top').replace(/\/+$/, '');
-  const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+  const baseUrl = (
+    (await convexEnvGet('UMI_MAHIRU_PILOT_BASE_URL')) ||
+    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+  ).replace(/\/+$/, '');
+  const response = await fetch(openAiCompatibleChatCompletionsUrl(baseUrl), {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(30_000),
@@ -299,7 +312,7 @@ function runSelfTest() {
     2,
     'cloud preflight uses system and user messages',
   );
-  assertEqual(qwenModelName('qwen/qwen3-max'), 'qwen3-max', 'qwen model prefix is stripped');
+  assertEqual(qwenModelName('qwen/qwen-plus'), 'qwen-plus', 'qwen model prefix is stripped');
   assertEqual(geminiModelName('gemini/gemini-2.5-flash'), 'gemini-2.5-flash', 'gemini model prefix is stripped');
   assertEqual(pairKey(['Umi', 'Tianze']), '天澤:海', 'English focus pair normalizes to Chinese pair key');
   assertEqual(

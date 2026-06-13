@@ -35,7 +35,19 @@ Small behavioral consequences (shorter replies, lingering longer, avoiding a roo
 
 ## Status
 
-**v0.1 closing · 2026-06-11.** Six of the eight completion-audit gates are green, including the two hardest: **the human gate passed** (a real Alan↔海 playtest recorded `PASS 5/5` — greeting, latest-sentence binding, correction binding, yesterday/today continuity, closing) and **rolling two-hour memory continuity passed** (23 callbacks across adjacent windows). The remaining two gates trace to one fresh-window life-signals run after the 2026-06-11 repeated-line fixes.
+**v0.1 human-review-ready · 2026-06-12.** The current completion audit is green:
+`npm run underworld:v01-completion-audit` reports **PASS: 0 fail / 0 pending /
+0 deferred / 8 pass**. The two hardest pieces are proven: **the human gate
+passed** (a real Alan↔海 playtest recorded `PASS 5/5` — greeting,
+latest-sentence binding, correction binding, yesterday/today continuity,
+closing) and **rolling two-hour memory continuity passed**.
+
+This is a v0.1 acceptance point, not a claim that every conversation is already
+beautiful. The 2026-06-12 closing pass also fixed two serious caveats found in
+fresh evidence: Alan chat writes now wake the world even if a test script left
+the engine `stoppedByDeveloper`, preventing Alan-only orphan timeline sessions;
+and the 海/真晝 hand / quoted-phrase motif loop is guarded by prompt and output
+tests.
 
 The headline v0.1 moments actually happened:
 
@@ -358,13 +370,17 @@ The observe step never modifies code. The repair gate only classifies small allo
 
 ## What's next
 
-**Now → v0.1 close.** Two gates remain, both fed by one clean fresh-window
-run after the 2026-06-11 repeated-line fixes (the canned repair pools that
-were repeating 「那你先說，哪一句是真心的？」 17x/day are gone; style is
-steered at the prompt level by motif-guard families instead):
+**v0.1 close.** Current state is human-review-ready. The formal machine gate is
+green; the remaining decision is Alan/product-owner acceptance after a small
+real playtest pass, especially direct Alan chat response reliability and whether
+the characters feel distinct enough in ordinary scenes.
 
-- `npm run underworld:observe` then `npm run underworld:v01-completion-audit` — all eight gates green ships v0.1.
-- The emotional capstone (not a formal gate): the **Friday 6/12 curry dinner** — does 海 surface the dated promise on the right day, unprompted?
+Useful closeout commands:
+
+- `npm run underworld:v01-completion-audit` — formal machine gate.
+- `npm run eval:conversation:recent -- --since-last-change` — dialogue hygiene
+  watch, not a hard v0.1 blocker by itself.
+- `npm run underworld:life-signals` — fresh-window ordinary-life signal check.
 
 **v0.2 — "Did yesterday change today?"** Plan approved 2026-06-11 (full detail in the roadmap):
 
@@ -372,7 +388,12 @@ steered at the prompt level by motif-guard families instead):
 - **約定頁**: an in-world promise calendar hosted by 海 inside a consolidated 校園手帳 — never a dev dashboard.
 - **Fulfillment detection**: honored promises warm relationships; missed ones leave disappointment residue.
 - **Gifts**: a gift becomes a persistent prop in the receiver's scene; effects flow through memory and mentions, never numeric affinity points.
+- **Daily life director**: ordinary school events every day (clubs, tests, rumors,
+  seating, small conflicts) so memory has something lived-in to attach to.
 - **Memory deepening**: behavioral drift (from tone to feet), per-character daily diaries, relationship drift in words not gauges, gossip with provenance (「聽海說的」).
+- **Archival reliability**: active conversation transcripts, timeline events,
+  experience logs, and orphan diagnostics must agree so playtest evidence is
+  durable, not just felt in the moment.
 
 Detailed plan and acceptance criteria: [docs/giis-v0.1-roadmap.md](docs/giis-v0.1-roadmap.md).
 

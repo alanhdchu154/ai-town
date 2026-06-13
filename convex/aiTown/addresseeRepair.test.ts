@@ -1,4 +1,7 @@
-import { repairConversationAddresseeText } from './addresseeRepair';
+import {
+  repairConversationAddresseeText,
+  wouldRepairConversationAddresseeText,
+} from './addresseeRepair';
 
 describe('conversation addressee repair', () => {
   test('repairs an embedded thanks-frame misaddress to the real addressee', () => {
@@ -19,6 +22,23 @@ describe('conversation addressee repair', () => {
         '一之瀨',
       ),
     ).toBe('謝謝一之瀨提醒，我先不把它講成規則。');
+  });
+
+  test('detects whether a line would require addressee repair', () => {
+    expect(
+      wouldRepairConversationAddresseeText(
+        '一之瀨姊，你剛才幫人改作業時——手停在半空三秒。',
+        '一之瀨',
+        '貓貓',
+      ),
+    ).toBe(true);
+    expect(
+      wouldRepairConversationAddresseeText(
+        '貓貓，你剛才看見什麼症狀？',
+        '一之瀨',
+        '貓貓',
+      ),
+    ).toBe(false);
   });
 
   test('does not rewrite ordinary third-person references', () => {
@@ -69,6 +89,50 @@ describe('conversation addressee repair', () => {
         'Tianze',
       ),
     ).toBe('你今天先不要再接新的清單，天澤？');
+  });
+
+  test('repairs self-titled leading addressee to the real conversation partner', () => {
+    expect(
+      repairConversationAddresseeText(
+        '一之瀨姊，你剛才幫人改作業時——手停在半空三秒。',
+        '一之瀨',
+        '貓貓',
+      ),
+    ).toBe('貓貓，你剛才幫人改作業時——手停在半空三秒。');
+  });
+
+  test('repairs titled self-addressee variants for other characters too', () => {
+    expect(
+      repairConversationAddresseeText(
+        '貓貓老師，你是不是又看見症狀了？',
+        '貓貓',
+        '真晝',
+      ),
+    ).toBe('真晝，你是不是又看見症狀了？');
+    expect(
+      repairConversationAddresseeText(
+        '你剛才是不是先眨了眼，一之瀨姊？',
+        '一之瀨',
+        '貓貓',
+      ),
+    ).toBe('你剛才是不是先眨了眼，貓貓？');
+  });
+
+  test('repairs possessive self-titled references from the speaker', () => {
+    expect(
+      repairConversationAddresseeText(
+        '欸，一之瀨姊姊的「幫」字，是從哪條規則裡借來的呀？',
+        '一之瀨',
+        '貓貓',
+      ),
+    ).toBe('欸，你的「幫」字，是從哪條規則裡借來的呀？');
+    expect(
+      repairConversationAddresseeText(
+        '貓貓老師的診斷，今天是不是又太快了？',
+        '貓貓',
+        '真晝',
+      ),
+    ).toBe('你的診斷，今天是不是又太快了？');
   });
 
   test('normalizes the observed Tianze typo only when Tianze is the conversation partner', () => {

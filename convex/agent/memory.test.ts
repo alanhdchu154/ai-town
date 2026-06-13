@@ -9,6 +9,7 @@ import {
   concreteCommitmentSummaryForMessages,
   hasMemoryPostProcessingDrift,
   memoryAnchorTextForMessages,
+  otherParticipantIdForConversation,
   resolveCommitmentDueAt,
   shouldExposeMemoryDescription,
   shouldPersistConversationMemoryShape,
@@ -85,6 +86,24 @@ describe('conversationHasRecallCorrection', () => {
     expect(
       conversationHasRecallCorrection([{ author: UMI, text: '你記錯了嗎？' }], UMI),
     ).toBe(false);
+  });
+});
+
+describe('otherParticipantIdForConversation', () => {
+  test('uses archived conversation participants before participatedTogether fallback', () => {
+    expect(
+      otherParticipantIdForConversation(
+        { participants: ['p:maomao', 'p:ichinose'] },
+        'p:maomao',
+        { player2: 'p:tianze' },
+      ),
+    ).toBe('p:ichinose');
+  });
+
+  test('falls back to participatedTogether only when participants are unavailable', () => {
+    expect(otherParticipantIdForConversation({}, 'p:maomao', { player2: 'p:tianze' })).toBe(
+      'p:tianze',
+    );
   });
 });
 

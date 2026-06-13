@@ -1,6 +1,7 @@
 # GIIS Underworld — Recent-Eval Rubric Reconciliation Proposal
 
-Status: proposal (awaiting Alan judgment on the two rubric questions in §6).
+Status: partially applied as harness hygiene on 2026-06-12; remaining broad rubric
+questions stay proposal-only.
 Scope: eval harness + rubric only. No prompt/dialogue change is proposed here —
 on purpose (see §5).
 
@@ -175,3 +176,46 @@ rewrite that would punish characterful mirroring. The smallest *correct*
 intervention is at the harness/rubric boundary (exclude an invalid fragment,
 stop conflating rhetorical mirroring with echo, stop hard-failing absent
 history) — not in the character prompts.
+
+## 2026-06-12 Addendum — cc Review + Narrow Harness Fix
+
+Alan reminded Umi/Codex to route technical review through cc instead of doing
+everything solo. cc reviewed the fresh 2026-06-12 morning samples read-only and
+agreed with the split diagnosis:
+
+- Primary issue: `characterVoiceScore` was too literal and under-credited
+  characterful behavior that did not use the whitelist words.
+- Secondary issue: the `湯匙` / breakfast / cup object loop was real and should
+  remain visible.
+- Recommendation: improve the eval's character-voice recognition before doing a
+  broad prompt rewrite, then treat repeated food/object loops as a separate
+  runtime prompt/data pressure problem.
+
+Applied narrow harness change:
+
+- `characterVoiceScore` now keeps lexical cue hits but also credits small,
+  per-character behavior-shaped cues for Umi, Mahiru, Tianze, Ichinose, Maomao,
+  and Sakiko.
+- The object-loop metric remains intact. The morning `湯匙 x5` sample still
+  fails after the harness change, so the eval did not become blindly permissive.
+
+Applied separate low-risk runtime pressure change after enough fresh evidence:
+
+- Removed or de-emphasized default food/rest care moves in the conversation
+  prompts and campus bulletin/briefing text, especially breakfast, bento, cup,
+  cutlery, and "Alan is tired" assumptions.
+- Replaced them with broader school-life cues: who stepped back, who did not
+  join, club notes, flyers, quiz mistakes, practice sheets, weekend plans,
+  awkward friendships, and scene-specific small events.
+
+Verification:
+
+- `npm test -- convex/agent/conversationMotifGuard.test.ts evals/conversations/metrics/conversation_metrics.test.ts`
+- `npx tsc --noEmit --pretty false`
+- `npm run build`
+
+Next proof needed:
+
+- Run a new observe pass after the runtime prompt/data change. Do not use the
+  old `2026-06-12T12:30:05.519Z` boundary as proof, because it includes
+  pre-change breakfast/object-loop samples.

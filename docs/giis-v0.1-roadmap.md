@@ -1,9 +1,216 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-11 (late morning — Alan/海 pass evidence + role-to-role mirror QA + v0.2 draft)
+Last updated: 2026-06-12 (20:30 CDT — v0.1 machine gate PASS, caveats patched)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-12 State Sustainability Reset
+
+Fresh-world recovery got the app moving again, but it is not the long-term
+answer. Underworld v0.1 now treats sustainable state retention as a product
+requirement: characters cannot be forced to forget themselves every 20 days.
+
+Accepted direction:
+
+- Preserve character memory, emotional residue, relationship continuity,
+  archived dialogue, daily state, and Alan-facing history.
+- Do not solve local DB growth by deleting the soul surface first.
+- Treat old runtime/scheduler/job history, processed inputs, soft-deleted world
+  versions, repeated full-world patches, and large local storage artifacts as
+  the cleanup candidates.
+- Recover the archived old world as continuity data before relying on fresh
+  world samples as the only history.
+
+Current evidence:
+
+- Old state was archived at
+  `/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town-archive-20260612T085455-pre-fresh-world`.
+- Copy-only diagnostics showed the archive was structurally readable, but a
+  compacted sandbox boot still failed to bind port 3210 within 60 seconds.
+- The largest bloat source was Convex internal scheduled job args, not
+  character memories.
+- cc review identified `agentDoSomething` scheduled args carrying full map and
+  character snapshots as the highest-leverage byte-rate source.
+
+Next state-health order:
+
+1. Slim `agentDoSomething` scheduled args to IDs only and load current context
+   inside the action. Completed 2026-06-12 09:32 CDT.
+2. Keep the read-only state audit in the loop:
+   `npm run underworld:state-audit`. Post-T1 active evidence shows newest
+   scheduled args are now small ID-only / conversation / run-step payloads,
+   while the old archive still has repeated 95-98 KiB map/player/agent snapshot
+   payloads near its final rows. The audit is live-DB lock tolerant as of
+   2026-06-12 10:12 CDT and last passed against the active backend with sqlite
+   45.9MB / state dir 86MB / 1,254 scheduled-arg rows scanned.
+3. Build export-only archive continuity recovery from the 18GB old state.
+   Completed first pass 2026-06-12: `npm run
+   underworld:archive-continuity-export` produced
+   `umi/exports/archive-continuity-latest/` with 56,525 exported continuity
+   rows in about 40 MiB, including archived conversations, messages, memories,
+   school timeline, notifications, participated-together rows, world-pressure
+   snapshots, Alan behavior profiles, and character descriptions. This is not
+   an import and must not count as fresh v0.1 evidence.
+4. Audit the export package for fallback pollution, stale renamed characters,
+   and which Alan/Umi/Mahiru/Tianze memories are worth curated restoration.
+   Current `npm run underworld:continuity-package-audit` verdict is
+   `REVIEW_REQUIRED`: 14 fallback/pollution-like hits and 8,066 legacy
+   CaoCao/Liu Bei-era hits require filtering/remap before import. Candidate
+   packet tooling now exists: `npm run underworld:continuity-restore-candidates`
+   writes capped Tier 1 / review-only / rejected candidate files, and
+   `npm run underworld:legacy-continuity-import-plan` writes a dry-run-only
+   `legacyContinuityEvidence` plan. cc reviewed the first 24-row packet and
+   found it too duplicated / motif-heavy, so the current plan defaults to 12
+   rows and skips food-care motifs, stage-direction leaks, repeated motif
+   families, duplicate summaries, and non-first-restore kinds. Nothing is
+   imported yet; Alan approval is still required before any live write.
+5. Design the live `legacyContinuityEvidence` table/read path only after the
+   dry-run plan is reviewed. First live import must be small, non-prompt-facing
+   by default, `legacyArchive: true`, and excluded from fresh v0.1 eval windows.
+   Schema and a dry-run validator are now implemented:
+   `npm run underworld:legacy-continuity-import` validates 12 rows and writes
+   `umi/reports/legacy-continuity-import-latest.md`. Alan approved the first
+   live evidence write at 15:19 CDT: 12 rows are now stored in
+   `legacyContinuityEvidence`, with 0 prompt-facing and 0 fresh-eval-eligible
+   rows. This table remains an isolated evidence vault, not character brain.
+6. Study sleep/consolidation before adding any live memory promotion.
+   Completed first dry-run 2026-06-12 15:40 CDT:
+   `npm run underworld:sleep-consolidation` reads recent conversations and
+   classifies them as `long_term_memory_candidate`,
+   `emotional_residue_candidate`, `short_term_context`, `forget_or_ignore`, or
+   `needs_human_review`. Latest report:
+   `umi/reports/sleep-consolidation-latest.md`; export:
+   `umi/exports/sleep-consolidation-latest/`. It checked 50 recent
+   conversations and produced 1 long-term candidate, 2 emotional-residue
+   candidates, 30 short-term context rows, 4 forget/ignore rows, and 13
+   human-review rows. Convex writes: 0. Prompt-facing writes: 0. This is the
+   beginning of the sleep system, not live brain rewiring. cc reviewed the
+   classifier at 15:44 CDT and Codex accepted the no-write fixes: low-signal
+   repeated noise fades, same-day duplicate motifs demote, object-prop churn is
+   family/repeat-based, and food/closing-line motifs cannot become long-term
+   candidates.
+7. Add a bounded `sleepNotes` read gate between legacy evidence and prompts.
+   Completed first pass 2026-06-12 16:09 CDT after cc read-only review:
+   `sleepNotes` is a separate table from `memories`, imports require explicit
+   approval, rows are capped/deduped, legacy rows must keep
+   `freshEvalEligible=false`, and prompts read at most one promoted note for the
+   current speaker/partner. First curated restore wrote exactly 2 rewritten
+   notes from old evidence: one for 海/真晝 and one for 真晝/天澤. Raw archived
+   conversations, debug summaries, memories, embeddings, and motif-heavy rows
+   are still not imported. Reports:
+   `umi/reports/20260612T205950Z-workload.md` and
+   `umi/reports/sleep-notes-import-latest.md`. The command is
+   `npm run underworld:sleep-notes-import` for dry-run and
+   `npm run underworld:sleep-notes-import -- --write --approval=alan-approved-sleep-notes-2026-06-12`
+   for the approved curated import.
+8. Add diff-before-patch behavior only where it is clearly no-op safe, then
+   study the bigger `worlds` / `engines` / `inputs` version churn separately.
+9. Replace age-only memory vacuum with soul-preserving retention and
+   cursor-aware runtime cleanup.
+10. Add daily state-size / growth-delta health reporting.
+
+Fresh reset is allowed only as emergency recovery with archive preservation. It
+is not a normal continuity strategy.
+
+## 2026-06-12 v0.1 Evidence Layer
+
+The current v0.1 proof is deliberately narrow:
+
+conversation -> emotional residue -> bounded experience log -> tiny sleep-note
+candidate -> later behavior check.
+
+Current evidence pilot:
+
+- `海`
+- `真晝`
+- `貓貓`
+- `天澤`
+- `一之瀨`
+- `祥子`
+
+Do not use Asuna, Mai, Liu Bei, CaoCao, or other legacy/absent characters as
+v0.1 experience-log evidence unless Alan explicitly changes the pilot set.
+
+Completed implementation:
+
+- `experienceLogs` is now the core bounded evidence layer for the six current
+  pilots only.
+- Runtime aliases normalize to the current pilot names: `Umi -> 海`,
+  `Mahiru / Mahiru Shiina / 椎名真晝 -> 真晝`, `Maomao -> 貓貓`,
+  `Tianze -> 天澤`, `Ichinose -> 一之瀨`, and `Sakiko -> 祥子`.
+- Raw legacy names such as `明日奈`, `麻衣`, `劉備`, and raw `曹操` are rejected
+  by the experience-log writer.
+- The writer only runs after `memory.ts` has loaded and accepted an archived
+  conversation; its internal call contract now requires
+  `sourceKind: archivedConversation`.
+- Guards reject fallback/provider abort markers, deterministic drift,
+  wrong-addressee output, stage-direction leakage, obvious echo/motif loops,
+  prompt/system leakage, and non-current pilot pairs.
+- Caps are enforced inside the Convex mutation: max 2 logs per character per
+  local day, max 1 log per source conversation per character, dedupe by event
+  prefix/residue prefix, and no embeddings.
+- `underworld:observe:daytime-samples` now requires archived samples and the
+  observe report compares fresh transcripts against experience-log rows.
+- `eval:soul-triad` now includes all six current evidence pilots rather than
+  silently filtering out `貓貓` or `祥子`.
+- `underworld:experience-sleep-promote` remains dry-run by default and prepares
+  at most one tiny candidate per pilot character; live write still requires
+  explicit approval.
+
+Latest evidence run:
+
+- World baseline: `underworld:runtime-preflight` PASS,
+  `underworld:afternoon-world-ready` resumed inactive -> running,
+  `underworld:state-audit` reported db 172.3MB / state 454MB, and
+  `school:debugState` returned the live six-character roster.
+- Fresh archived samples: 4.
+- Experience logs: 1 fresh conversation (`一之瀨 / 貓貓`) created 2 bounded logs.
+- Rejections/statuses: one sample was blocked as
+  `obvious_echo_or_motif_loop`; two were not written because of cap/dedupe or
+  no qualifying residue.
+- Sleep bridge dry-run: 12 logs read, 2 tiny candidates prepared, 0 writes.
+- Quality remains incomplete: recent eval was 0 PASS / 2 WARN / 2 FAIL due to
+  repeated everyday-object motifs and weak character voice in the fresh window.
+
+Next evidence question:
+
+Can a later clean conversation briefly and naturally reflect one specific
+experience-log residue without repeating the same object, slogan, or therapy
+style? If yes, the v0.1 loop is functioning. If not, fix only the smallest
+fresh-evidence-backed hygiene issue or write a proposal.
+
+Evening gate result (20:16 CDT): the current machine completion audit is now
+**PASS**: 0 fail / 0 pending / 0 deferred / 8 pass. The final push collected
+fresh archived 海/真晝 samples (`conversation-c:7038`, `conversation-c:7057`,
+and follow-up `conversation-c:7152`) after two non-海/真晝 focus attempts timed
+out without archived samples. Fresh-window `life-signals` is PASS /
+`life_signal_observed`, with 3 conversations, no repeated surface lines, no
+prop echo, and pilot expected action match rate 1.00. `eval:conversation:recent`
+is still not pretty (0 PASS / 2 WARN / 1 FAIL) and should remain a quality
+caveat, but it no longer blocks the current completion audit. Treat this as
+human-review-ready v0.1, not perfect v0.2 readiness.
+
+Closing caveat patch (20:30 CDT): two issues found after the PASS are now
+covered by code and tests.
+
+- Alan/海 orphan timeline: fresh diagnostics showed Alan-side messages at
+  20:06 while the default world was `stoppedByDeveloper` and engine-running
+  false. `messages.writeMessage` now schedules the post-write wake with an
+  explicit human-input force flag, so Alan typing into chat can wake a
+  developer-stopped world while passive wake attempts still respect the stop.
+- 海/真晝 motif relay: fresh samples c:7038 / c:7057 / c:7152 showed a
+  hand/quoted-phrase relay around `手還舉著`, `這句話`, `明天簡報第一行`,
+  and `收進口袋`. The motif guard now warns away from that family and the
+  output guard aborts the relay once it repeats, without banning ordinary body
+  noticing.
+
+Verification: targeted Jest
+`npm test -- --runTestsByPath convex/messagesWake.test.ts convex/agent/conversationMotifGuard.test.ts`
+passes 40/40, full Jest passes 233/233, `npm run build` passes with only the
+existing Vite chunk-size warning, `npm run underworld:harness:self-test` passes,
+and `npm run underworld:v01-completion-audit` remains **PASS** at 0 fail /
+0 pending / 0 deferred / 8 pass.
 
 ## 2026-06-10 Late Evening Session (Claude) — for Codex alignment
 
@@ -153,6 +360,21 @@ food-object variants. The next improvement should not be an endless list of
 food names; it should introduce a higher-level pair+scene policy for restaurant
 food-object loops, then prove it with several fresh samples across core pairs.
 
+Evening continuation (20:10 CDT): the higher-level restaurant policy is now
+implemented in the dialogue guard path. Compact and rich character prompts add
+a scene-aware restaurant rule only after prior turns already leaned on food,
+cutlery, eating, leftovers, or empty-seat cues; output repair now aborts generic
+food-object relay if the model tries to continue the same food/cutlery/eating
+move under a new food name. This is intentionally narrower than a prompt
+rewrite and broader than adding one-off words like `水煮蛋` / `布丁`. A narrowed
+cc read-only review flagged that the first output guard was broader than the
+scene-gated prompt, so the generic abort cue set was tightened to avoid
+blocking ordinary non-restaurant breakfast/tea chatter. Verification:
+`npm test -- convex/agent/conversationMotifGuard.test.ts` (34/34) and
+`npx tsc --noEmit --pretty false` pass. Current status is still **not complete**
+until a non-quiet-window fresh runtime window shows several core pairs avoid
+hard mirror/motif failures.
+
 ## v0.2 Draft Direction
 
 v0.2 should not be "more prompts." The likely product jump is making the world
@@ -217,6 +439,19 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 - Old conversations should affect later phrasing, initiative, avoidance, or
   small behavior.
 - Memory writes must avoid spam and must not persist fallback/abort pollution.
+- Do not make v0.1 "remember more" by dumping larger raw history into every
+  prompt. The immediate goal is **more relevant recall**, not more context:
+  select the right 1-3 memories/residues/commitments for the current partner,
+  scene, event thread, and character soul cue.
+- Deep soul should come from relevance and behavior, not long biographies.
+  Runtime prompts should remind a character of the current relational pressure
+  (for example Umi facing Alan vs. Umi facing Mahiru), then let the model speak
+  briefly. If a memory is not actionable in the current scene, leave it out.
+- Alan-facing chats should prioritize Alan-related commitments, corrections,
+  and emotional residues. NPC-to-NPC chats should prioritize the other speaker,
+  the current scene, today's event thread, and unresolved residues. The eval
+  question is "did the past surface naturally?", not "how many past facts were
+  included?"
 - v0.1 uses rolling two-hour continuity as the primary recent-memory proof:
   adjacent two-hour windows should show concrete residue -> callback or behavior
   change. AM -> PM remains a broader day-arc cross-check, not the only hard
@@ -228,11 +463,15 @@ conversation -> emotional residue -> memory continuity -> small behavioral conse
 - Next memory directions (not yet built), in priority order:
   1. **Commitment lifecycle** — mark a commitment fulfilled/expired once honored
      so stale promises stop resurfacing; let residue fade with age.
-  2. **Anti-confabulation** — when the human corrects an invented recall
+  2. **Memory relevance gate** — keep prompts small by ranking candidate recall
+     against current partner / scene / event / soul cue, then pass only the top
+     1-3 usable traces. This should be deterministic or lightly scored first;
+     do not add a high-frequency LLM summarizer just to decide every line.
+  3. **Anti-confabulation** — when the human corrects an invented recall
      (e.g. "不是，我說的是咖哩飯"), down-weight the false memory instead of letting
      the fabrication persist as canon. (Observed: 海 recalled a line she herself
      invented on 6/4.)
-  3. **Importance-weighted recall**, not recency-only — use the existing
+  4. **Importance-weighted recall**, not recency-only — use the existing
      `importance` field so a high-importance older memory can still surface.
 
 ### 4. Event Thread Continuity

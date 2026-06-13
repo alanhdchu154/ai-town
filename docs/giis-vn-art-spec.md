@@ -71,15 +71,18 @@ Character renders, per pilot × the 4 existing emotions:
 
 Backgrounds, Phase 1 (core scenes): `classroom` 教室, `courtyard` 中央庭院,
 `aiClubRoom` 餐廳, `studentCouncilRoom` 校長室 (Umi's briefing room), and
-`dormitory` 宿舍 (late-night quiet scenes). Optional day/night variants later.
+`dormitory` 宿舍 (late-night quiet scenes). Day/night variants landed on
+2026-06-11 as a bounded asset pass, without adding weather or event-specific
+background systems.
 
 Phase 1 target: 4 chars × 4 emotions = **16 renders** + **5 backgrounds**.
 Current landed spike: Umi=smiling, Mahiru=worried, Ichinose=serious,
 Tianze=serious, Maomao=serious, Sakiko=serious — 6 transparent default-emotion
-renders + 5 backgrounds (`classroom`, `courtyard`, `aiClubRoom`,
-`studentCouncilRoom`, `dormitory`). The first Tianze candidate drifted male and
-was removed; the current Tianze render is a corrected female pressure-test
-character aligned with the Tianze Ichika-inspired direction.
+renders + 5 base backgrounds (`classroom`, `courtyard`, `aiClubRoom`,
+`studentCouncilRoom`, `dormitory`) plus day/night variants for each base
+background. The first Tianze candidate drifted male and was removed; the
+current Tianze render is a corrected female pressure-test character aligned
+with the Tianze Ichika-inspired direction.
 
 ## 4. Image-generation spec
 
@@ -138,6 +141,8 @@ new dir for the larger VN renders:
 ```
 public/renders/<slug>-<emotion>.png      e.g. public/renders/umi-serious.png
 public/backgrounds/<sceneId>.png         e.g. public/backgrounds/studentCouncilRoom.png
+public/backgrounds/<sceneId>-day.png     e.g. public/backgrounds/studentCouncilRoom-day.png
+public/backgrounds/<sceneId>-night.png   e.g. public/backgrounds/studentCouncilRoom-night.png
 ```
 
 Then mirror the existing `portraitSet()` helper with a `renderSet(slug)` in
@@ -155,6 +160,9 @@ No Convex change. Current implementation takes the additive path:
 
 - `Game.tsx` defaults the main world panel to Scene Mode: generated background,
   large character portraits/standees, and scene-object hotspots.
+- Scene Mode selects `-day` backgrounds for 早晨 / 中午 / 下午 and `-night`
+  backgrounds for 晚上 / 深夜, falling back to the original no-suffix scene art
+  if the clock label is unavailable.
 - The original Pixi `Stage` remains behind the `地圖` toggle, so coordinate
   movement/debug behavior is preserved.
 - Conversation mode reuses the same current-scene backdrop and the larger
