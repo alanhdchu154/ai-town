@@ -113,10 +113,9 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }>();
   const [minuteTick, setMinuteTick] = useState(() => Math.floor(Date.now() / 60_000));
   const lastAlanFocusKey = useRef('');
-  // Camera-follow switch. When the user manually views a scene, following
-  // pauses (otherwise every Alan step yanks selectedSceneId + camera back to
-  // him — the per-second [GIIS focus] loop that made scene switching feel
-  // stuck). 「找到 Alan」 re-enables following.
+  // Camera-follow switch. It may refocus Alan inside the current scene, but it
+  // does not keep changing selectedSceneId after the initial lock; otherwise
+  // tiny position updates near room boundaries make the scene view flicker.
   const followAlanRef = useRef(true);
   const initialSceneAutoSelectRef = useRef(false);
   const previousMovingStateRef = useRef<Map<string, boolean>>(new Map());
@@ -222,12 +221,16 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     const isFirstFocus = !lastAlanFocusKey.current;
     lastAlanFocusKey.current = focusKey;
     const alanScene = nearestSchoolLocation(alanPlayerForFocus.position);
-    if (alanScene) setSelectedSceneId(alanScene.id);
-    focusOn(alanPlayerForFocus.position, isFirstFocus ? 1.35 : 1.25);
+    if (isFirstFocus && alanScene && alanScene.id !== selectedSceneId) {
+      setSelectedSceneId(alanScene.id);
+    }
+    if (isFirstFocus || !alanScene || alanScene.id === selectedSceneId) {
+      focusOn(alanPlayerForFocus.position, isFirstFocus ? 1.35 : 1.25);
+    }
     if (isFirstFocus) {
       setSceneMessage('鏡頭已聚焦 Alan 的校園位置。');
     }
-  }, [alanPlayerForFocus?.id, alanPlayerForFocus?.position?.x, alanPlayerForFocus?.position?.y]);
+  }, [alanPlayerForFocus?.id, alanPlayerForFocus?.position?.x, alanPlayerForFocus?.position?.y, selectedSceneId]);
 
   useEffect(() => {
     if (!game || alanPlayerForFocus?.position) return;
@@ -480,10 +483,16 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         : visibleSceneNames.length
           ? `場景中：${visibleSceneNames.join('、')}`
           : `${currentScene.labelZh}暫時安靜。`;
-  const sceneStageCharacters = scenePlayers
+  const sceneStagePlayers = alanPlayer && !scenePlayers.some((player) => player.id === alanPlayer.id)
+    ? [...scenePlayers, alanPlayer]
+    : scenePlayers;
+  const sceneStageCharacters = sceneStagePlayers
     .map((player) => {
       const name = game.playerDescriptions.get(player.id)?.name ?? player.id;
       const presence = campusSocialState?.emotions?.find((item: any) => item.name === name);
+      const playerScene = nearestSchoolLocation(player.position);
+      const isAlan = name === 'Alan';
+      const isOffSceneAlan = isAlan && !!playerScene && playerScene.id !== currentScene.id;
       const destination = player.pathfinding?.destination
         ? nearestSchoolLocation(player.pathfinding.destination)
         : undefined;
@@ -491,7 +500,9 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       const emotion = portraitEmotionFrom(presence?.currentEmotion);
       const statusZh = isTalking
         ? '正在對話中'
-        : player.pathfinding
+        : isOffSceneAlan
+          ? `在線：${playerScene.labelZh}`
+          : player.pathfinding
           ? `前往${destination?.labelZh ?? '目的地'}`
           : player.activity?.description ?? presence?.availabilityZh ?? '留在這個場景裡觀察今天的氣氛';
       const activityKind = activityKindForCharacterStatus({
@@ -508,7 +519,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         activityLabel: activityLabelFromStatus({
           name,
           statusZh,
-          sceneLabelZh: currentScene.labelZh,
+          sceneLabelZh: playerScene?.labelZh ?? currentScene.labelZh,
           activityKind,
           emotion,
         }),
@@ -519,16 +530,37 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         quietLineZh: presence?.quietLineZh,
         isTalking,
         isSelected: selectedPlayer?.id === player.id,
-        isAlan: name === 'Alan',
+        isAlan,
+        isOffScene: isOffSceneAlan,
       };
     })
-    .filter((character) => !character.isAlan)
     .sort((a, b) => {
       const aRank = a.isSelected ? 0 : a.isAlan ? 2 : 1;
       const bRank = b.isSelected ? 0 : b.isAlan ? 2 : 1;
       if (aRank !== bRank) return aRank - bRank;
       return a.displayName.localeCompare(b.displayName, 'zh-Hant');
     });
+  const alanPresenceCard: SceneStageCharacter | undefined = alanPlayer
+    ? undefined
+    : {
+        name: 'Alan',
+        displayName: 'Alan',
+        statusZh: playerIdentity?.status === 'away' ? '離校處理其他公司' : '尚未接手 Alan',
+        activityLabel: playerIdentity?.status === 'away' ? '離校中' : '未在線',
+        activityKind: 'observing',
+        activityIcon: '⌁',
+        emotion: 'neutral',
+        emotionLabel: playerIdentity?.status === 'away' ? '離線' : '待接手',
+        quietLineZh:
+          playerIdentity?.status === 'away'
+            ? 'Alan 目前沒有站在校園裡。'
+            : '接手 Alan 後，他會出現在世界裡。',
+        isTalking: false,
+        isSelected: false,
+        isAlan: true,
+        isOffScene: true,
+        isPresenceOnly: true,
+      };
   const occupiedGroups = sceneGroups.filter((group) => group.occupants.length > 0);
   const occupiedRoomLabels = occupiedGroups.map(
     (group) => `${group.location.labelZh} (${group.occupants.length})`,
@@ -784,7 +816,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     lastAlanFocusKey.current = '';
     if (alanPlayerForFocus) {
       const scene = nearestSchoolLocation(alanPlayerForFocus.position);
-      switchSceneAndFocus(scene, alanPlayerForFocus.position, '已找到 Alan，鏡頭會跟著他。', 1.55);
+      switchSceneAndFocus(scene, alanPlayerForFocus.position, '已找到 Alan，畫面停在他所在場景。', 1.55);
       return;
     }
     void enterCampus({})
@@ -1055,6 +1087,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
             <SceneStage
               scene={currentScene}
               characters={sceneStageCharacters}
+              alanPresence={alanPresenceCard}
               occupiedGroups={occupiedGroups.map(({ location, occupants }) => ({
                 id: location.id,
                 labelZh: location.labelZh,
@@ -1443,7 +1476,7 @@ function FloatingActionResult({
 }
 
 type SceneStageCharacter = {
-  id: GameId<'players'>;
+  id?: GameId<'players'>;
   name: string;
   displayName: string;
   statusZh: string;
@@ -1456,6 +1489,8 @@ type SceneStageCharacter = {
   isTalking: boolean;
   isSelected: boolean;
   isAlan: boolean;
+  isOffScene?: boolean;
+  isPresenceOnly?: boolean;
 };
 
 type SceneActivityKind =
@@ -1472,6 +1507,7 @@ type SceneActivityKind =
 function SceneStage({
   scene,
   characters,
+  alanPresence,
   occupiedGroups,
   periodLabel,
   onSelectCharacter,
@@ -1480,6 +1516,7 @@ function SceneStage({
 }: {
   scene: SchoolLocation;
   characters: SceneStageCharacter[];
+  alanPresence?: SceneStageCharacter;
   occupiedGroups: Array<{ id: SchoolLocationId; labelZh: string; count: number }>;
   periodLabel: string;
   onSelectCharacter: (id: GameId<'players'>) => void;
@@ -1488,7 +1525,8 @@ function SceneStage({
 }) {
   const hooks = sceneHooksForScene(scene);
   const nonEmptyOtherScenes = occupiedGroups.filter((group) => group.id !== scene.id && group.count > 0);
-  const hasCharacterFocus = characters.some((character) => character.isSelected || character.isTalking);
+  const stageCharacters = alanPresence ? [...characters, alanPresence] : characters;
+  const hasCharacterFocus = stageCharacters.some((character) => character.isSelected || character.isTalking);
   return (
     <section className="giis-scene-stage" aria-label={`${scene.labelZh}場景`}>
       <div className="giis-scene-stage-backdrop" />
@@ -1535,17 +1573,25 @@ function SceneStage({
           hasCharacterFocus ? 'has-focus' : ''
         }`}
       >
-        {characters.length ? (
-          characters.map((character) => (
+        {stageCharacters.length ? (
+          stageCharacters.map((character) => (
             <button
-              key={character.id}
+              key={character.id ?? 'alan-presence'}
               type="button"
               className={`giis-scene-standee ${character.isSelected ? 'is-selected' : ''} ${
                 character.isTalking ? 'is-talking' : ''
               } ${hasCharacterFocus && !character.isSelected && !character.isTalking ? 'is-background' : ''} ${
                 character.isAlan ? 'is-alan' : ''
+              } ${
+                character.isOffScene ? 'is-offscene' : ''
+              } ${
+                character.isPresenceOnly ? 'is-presence-only' : ''
               }`}
-              onClick={() => onSelectCharacter(character.id)}
+              onClick={() =>
+                character.id
+                  ? onSelectCharacter(character.id)
+                  : onHookClick(`${character.displayName}：${character.statusZh}`)
+              }
               title={character.quietLineZh ? `${character.statusZh}\n${character.quietLineZh}` : character.statusZh}
             >
               <CharacterPortrait name={character.name} size="lg" showName={false} emotion={character.emotion} />

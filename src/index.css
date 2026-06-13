@@ -4784,10 +4784,15 @@ body {
 }
 
 .giis-scene-object-layer {
-  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  inset: auto 1rem auto 1rem;
+  justify-content: center;
   pointer-events: none;
   position: absolute;
-  z-index: 3;
+  top: clamp(5.4rem, 9vh, 7rem);
+  z-index: 6;
 }
 
 .giis-scene-hotspot {
@@ -4803,13 +4808,11 @@ body {
   display: inline-flex;
   font-size: 0.75rem;
   font-weight: 800;
-  left: var(--hotspot-x);
   min-height: 1.8rem;
   padding: 0.24rem 0.58rem;
   pointer-events: auto;
-  position: absolute;
-  top: var(--hotspot-y);
-  transform: translate(-50%, -50%);
+  position: static;
+  transform: none;
 }
 
 .giis-scene-hotspot::before {
@@ -4824,7 +4827,7 @@ body {
 
 .giis-scene-hotspot:hover {
   background: rgba(15, 23, 42, 0.76);
-  transform: translate(-50%, -50%) scale(1.04);
+  transform: translateY(-1px);
 }
 
 .giis-scene-atmosphere-card {
@@ -4902,6 +4905,7 @@ body {
   display: grid;
   gap: 0.35rem;
   justify-items: center;
+  isolation: isolate;
   max-width: 100%;
   min-width: 0;
   padding: 0;
@@ -4925,6 +4929,8 @@ body {
   overflow: visible;
   padding: 0;
   place-items: start center;
+  position: relative;
+  z-index: 1;
 }
 
 .giis-scene-standee .character-portrait-vn::after,
@@ -5001,8 +5007,29 @@ body {
 }
 
 .giis-scene-standee.is-alan {
-  opacity: 0.82;
-  transform: scale(0.86);
+  opacity: 0.92;
+  transform: scale(0.9);
+}
+
+.giis-scene-standee.is-offscene {
+  opacity: 0.78;
+  transform: translateY(0.5rem) scale(0.82);
+}
+
+.giis-scene-standee.is-offscene .character-portrait-img,
+.giis-scene-standee.is-offscene .character-portrait-fallback {
+  filter:
+    saturate(0.72)
+    brightness(0.76)
+    drop-shadow(0 10px 14px rgba(0, 0, 0, 0.28));
+}
+
+.giis-scene-standee.is-presence-only {
+  cursor: help;
+}
+
+.giis-scene-standee.is-presence-only .giis-scene-standee-label {
+  border-style: dashed;
 }
 
 .giis-scene-standee-label {
@@ -5015,8 +5042,10 @@ body {
   max-width: 100%;
   min-height: 4.45rem;
   padding: 0.42rem 0.55rem;
+  position: relative;
   text-align: center;
   width: 100%;
+  z-index: 8;
 }
 
 .giis-scene-standee.is-selected .giis-scene-standee-label,
@@ -5523,6 +5552,28 @@ body {
     gap: 0.12rem;
     min-height: 3.45rem;
     padding: 0.32rem 0.4rem;
+  }
+
+  .giis-scene-object-layer {
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    justify-content: flex-start;
+    left: 0.65rem;
+    overflow-x: auto;
+    right: 0.65rem;
+    scrollbar-width: none;
+    top: 13.15rem;
+  }
+
+  .giis-scene-object-layer::-webkit-scrollbar {
+    display: none;
+  }
+
+  .giis-scene-hotspot {
+    flex: 0 0 auto;
+    font-size: 0.66rem;
+    min-height: 1.55rem;
+    padding: 0.18rem 0.42rem;
   }
 
   .giis-scene-standee-name-row {
