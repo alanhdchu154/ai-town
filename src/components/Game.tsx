@@ -1,11 +1,8 @@
-import { Component, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
-import PixiGame from './PixiGame.tsx';
 
-import { useElementSize } from 'usehooks-ts';
-import { Stage } from '@pixi/react';
-import { ConvexProvider, useConvex, useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import PlayerDetails from './PlayerDetails.tsx';
 import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
@@ -23,20 +20,12 @@ import { displayAgentName, displayTextWithNames } from '../../data/displayNames.
 import { CharacterPortrait } from './CharacterPortrait.tsx';
 import type { PortraitEmotion } from '../../data/characterVisuals.ts';
 import InteractButton from './buttons/InteractButton.tsx';
-import { ClassroomBounds, ClassroomCenter, ClassroomWalkBounds } from '../../data/classroomBounds.ts';
-
-const ROOM_PADDING_TILES = 0.5;
-const ROOM_VIEW_WIDTH_TILES =
-  ClassroomBounds.maxX - ClassroomBounds.minX + 1 + 2 * ROOM_PADDING_TILES;
-const ROOM_VIEW_HEIGHT_TILES =
-  ClassroomBounds.maxY - ClassroomBounds.minY + 1 + 2 * ROOM_PADDING_TILES;
-const ROOM_VIEW_ASPECT = ROOM_VIEW_WIDTH_TILES / ROOM_VIEW_HEIGHT_TILES;
+import { ClassroomCenter } from '../../data/classroomBounds.ts';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
 
 type RightPanelTab = 'action' | 'dialogue' | 'characters' | 'schedule' | 'debug';
 type CampusFeedFilter = '全部' | '未讀' | '今日焦點' | '傳聞' | '關係事件' | '對話' | '場景事件';
-type WorldViewMode = 'scene' | 'map';
 type CampusNotificationItem = {
   id: string;
   text: string;
@@ -94,16 +83,12 @@ type NotebookSoulTracesData = {
 };
 
 export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
-  const convex = useConvex();
   const [selectedElement, setSelectedElement] = useState<{
     kind: 'player';
     id: GameId<'players'>;
   }>();
   const [panelCollapsed, setPanelCollapsed] = useState(true);
   const [selectedSceneId, setSelectedSceneId] = useState<SchoolLocationId>('classroom');
-  const [worldViewMode, setWorldViewMode] = useState<WorldViewMode>(() =>
-    globalThis.localStorage?.getItem('giis:world-view-mode') === 'map' ? 'map' : 'scene',
-  );
   const [sceneMessage, setSceneMessage] = useState('');
   // 海的校園手帳: one front door for 今日 (Umi briefing + campus feed),
   // 日程 (schedule) and 約定 (commitments). Replaces the old 海/今日/日程 pills.
@@ -121,7 +106,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       return new Set();
     }
   });
-  const [focusRequest, setFocusRequest] = useState<{
+  const [, setFocusRequest] = useState<{
     x: number;
     y: number;
     scale?: number;
@@ -135,7 +120,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const followAlanRef = useRef(true);
   const initialSceneAutoSelectRef = useRef(false);
   const previousMovingStateRef = useRef<Map<string, boolean>>(new Map());
-  const [gameWrapperRef, { width, height }] = useElementSize();
   const userTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago',
     [],
@@ -184,10 +168,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     const interval = window.setInterval(updateTick, 15_000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    globalThis.localStorage?.setItem('giis:world-view-mode', worldViewMode);
-  }, [worldViewMode]);
 
   useEffect(() => {
     globalThis.localStorage?.setItem(
@@ -323,7 +303,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   useWorldHeartbeat();
 
   const worldState = useQuery(api.world.worldState, worldId ? { worldId } : 'skip');
-  const { historicalTime, timeManager } = useHistoricalTime(worldState?.engine);
+  const { timeManager } = useHistoricalTime(worldState?.engine);
 
   const scrollViewRef = useRef<HTMLDivElement>(null);
 
@@ -449,21 +429,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const selectedStatus = selectedPlayer?.pathfinding
     ? `正在前往${selectedDestination?.labelZh ?? '目的地'}`
     : selectedPlayer?.activity?.description ?? '正在觀察今天的校園心情';
-  const measuredWorldWidth = width ?? 0;
-  const measuredWorldHeight = height ?? 0;
-  // Let the canvas fill the whole world window. The bottom action bar and
-  // right panel float above it, so shrinking the canvas left a large dark
-  // backing plate that made the classroom feel boxed-in.
-  const stageWidth = Math.max(360, measuredWorldWidth);
-  const stageHeight = Math.max(320, measuredWorldHeight);
-  const alanDestination = alanPlayer?.pathfinding?.destination
-    ? nearestSchoolLocation(alanPlayer.pathfinding.destination)
-    : undefined;
-  const mapMovementHint = alanPlayer?.pathfinding
-    ? `Alan 正在前往${alanDestination?.labelZh ?? '目的地'}`
-    : isConversationMode
-      ? '對話中：先離開對話才能移動'
-      : '點地板移動 Alan';
   const periodLabel = clockState?.periodLabelZh ?? '讀取中';
   // Visual cue for time of day. Scene tone already shifts with period,
   // but a glyph in the topbar lets the player read it without parsing
@@ -486,12 +451,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const timeHoverLabel =
     clockState?.hoverLabelZh ?? `現實：${realClockLabel}\n世界：${worldClockLabel}`;
   const alanPlaceLabel = alanPlayer ? alanLocation?.labelZh ?? currentScene.labelZh : '離校處理其他公司';
-  const alanMovementHint =
-    worldViewMode === 'map'
-      ? mapMovementHint
-      : isConversationMode
-        ? '對話中：場景已鎖定。'
-        : '';
+  const alanMovementHint = isConversationMode ? '對話中：場景已鎖定。' : '';
   const sceneStagePlayers = alanPlayer && !scenePlayers.some((player) => player.id === alanPlayer.id)
     ? [...scenePlayers, alanPlayer]
     : scenePlayers;
@@ -550,18 +510,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       return a.displayName.localeCompare(b.displayName, 'zh-Hant');
     });
   const occupiedGroups = sceneGroups.filter((group) => group.occupants.length > 0);
-  const occupiedRoomLabels = occupiedGroups.map(
-    (group) => `${group.location.labelZh} (${group.occupants.length})`,
-  );
-  const emptyRoomTitle =
-    periodLabel === '深夜'
-      ? `${currentScene.labelZh}安靜下來了。`
-      : `「${currentScene.labelZh}」現在沒有人。`;
-  const emptyRoomDetail = occupiedRoomLabels.length
-    ? `大家在：${occupiedRoomLabels.join('、')}`
-    : periodLabel === '深夜'
-      ? '大多數人可能在休息或移動中。'
-      : '大家可能在移動，或正在處理自己的事。';
   const campusFeedItems: CampusNotificationItem[] = [
     ...(campusSocialState?.dailyFocus ?? []).map((item: any, index: number) => ({
       id: feedItemId('daily-focus', item, clockState?.clock?.day ?? 'unknown-day', index),
@@ -678,28 +626,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     );
     setQuickTextAction(undefined);
     setQuickText('');
-  };
-  const handleWorldPanelClick = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!(event.target instanceof HTMLCanvasElement)) return;
-    if (event.defaultPrevented) return;
-    const rect = event.target.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const xRatio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-    const yRatio = Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
-    const destination = {
-      x: Math.round(
-        ClassroomWalkBounds.minX + xRatio * (ClassroomWalkBounds.maxX - ClassroomWalkBounds.minX),
-      ),
-      y: Math.round(
-        ClassroomWalkBounds.minY + yRatio * (ClassroomWalkBounds.maxY - ClassroomWalkBounds.minY),
-      ),
-    };
-    void moveAlanTo({ destination })
-      .then((result) => setSceneMessage(result.descriptionZh))
-      .catch((error) => {
-        console.error('[GIIS floor click move failed]', error);
-        setSceneMessage('暫時無法移動 Alan。');
-      });
   };
   // View-only scene switch: moves the camera, never moves Alan. Used by the
   // 「大家在：…」 jump chips so "去看看誰在那" doesn't haul Alan across campus.
@@ -856,7 +782,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                   : 'scene-classroom'
         } ${shellPeriodClass} ${isConversationMode ? 'giis-conversation-active' : ''} ${
           panelCollapsed && !isConversationMode ? 'giis-panel-is-collapsed' : ''
-        } ${worldViewMode === 'scene' ? 'giis-scene-first' : 'giis-map-mode'}`}
+        } giis-scene-first`}
         style={sceneVisualStyle(currentScene.id, periodLabel)}
       >
         <div className="giis-topbar">
@@ -917,28 +843,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               ))}
             </select>
           </label>
-          <div className="giis-world-mode-toggle" role="tablist" aria-label="切換世界呈現">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={worldViewMode === 'scene'}
-              className={worldViewMode === 'scene' ? 'active' : ''}
-              onClick={() => setWorldViewMode('scene')}
-              title="用場景圖和角色立繪呈現目前地點"
-            >
-              場景
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={worldViewMode === 'map'}
-              className={worldViewMode === 'map' ? 'active' : ''}
-              onClick={() => setWorldViewMode('map')}
-              title="顯示原本可走動的地圖"
-            >
-              地圖
-            </button>
-          </div>
           <InteractButton />
           <button
             className="giis-presence-button giis-find-alan-button"
@@ -1080,85 +984,31 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
           )}
         </div>
 
-        <div className="giis-world-panel" ref={gameWrapperRef} onClick={handleWorldPanelClick}>
-          {worldViewMode === 'scene' ? (
-            <SceneStage
-              scene={currentScene}
-              characters={sceneStageCharacters}
-              occupiedGroups={occupiedGroups.map(({ location, occupants }) => ({
-                id: location.id,
-                labelZh: location.labelZh,
-                count: occupants.length,
-              }))}
-              periodLabel={periodLabel}
-              onSelectCharacter={(id) => {
-                const player = game.world.players.get(id);
-                const name = game.playerDescriptions.get(id)?.name ?? id;
-                setSelectedElement({ kind: 'player', id });
-                if (player) {
-                  const scene = nearestSchoolLocation(player.position);
-                  if (scene) setSelectedSceneId(scene.id);
-                }
-                setSceneMessage(`已選擇 ${displayAgentName(name)}。`);
-              }}
-              onViewScene={viewScene}
-              onHookClick={(message) => setSceneMessage(message)}
-            />
-          ) : (
-            <div className="giis-stage-wrapper" style={{ width: stageWidth, height: stageHeight }}>
-              <PixiStageErrorBoundary>
-                <Stage
-                  width={stageWidth}
-                  height={stageHeight}
-                  options={{ backgroundColor: sceneBackgroundColor(currentScene.id) }}
-                >
-                  {/* Re-propagate context because contexts are not shared between renderers.
-https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-531549215 */}
-                  <ConvexProvider client={convex}>
-                    <PixiGame
-                      game={game}
-                      worldId={worldId}
-                      engineId={engineId}
-                      width={stageWidth}
-                      height={stageHeight}
-                      sceneId={currentScene.id}
-                      visiblePlayerIds={scenePlayers.map((player) => player.id)}
-                      historicalTime={historicalTime}
-                      focusRequest={focusRequest}
-                      selectedPlayerId={selectedPlayer?.id}
-                      setSelectedElement={setSelectedElement}
-                    />
-                  </ConvexProvider>
-                </Stage>
-              </PixiStageErrorBoundary>
-            </div>
-          )}
+        <div className="giis-world-panel">
+          <SceneStage
+            scene={currentScene}
+            characters={sceneStageCharacters}
+            occupiedGroups={occupiedGroups.map(({ location, occupants }) => ({
+              id: location.id,
+              labelZh: location.labelZh,
+              count: occupants.length,
+            }))}
+            periodLabel={periodLabel}
+            onSelectCharacter={(id) => {
+              const player = game.world.players.get(id);
+              const name = game.playerDescriptions.get(id)?.name ?? id;
+              setSelectedElement({ kind: 'player', id });
+              if (player) {
+                const scene = nearestSchoolLocation(player.position);
+                if (scene) setSelectedSceneId(scene.id);
+              }
+              setSceneMessage(`已選擇 ${displayAgentName(name)}。`);
+            }}
+            onViewScene={viewScene}
+            onHookClick={(message) => setSceneMessage(message)}
+          />
           {alanMovementHint ? <div className="giis-move-hint">{alanMovementHint}</div> : null}
           {sceneMessage ? <div className="giis-scene-toast">{sceneMessage}</div> : null}
-          {/* Map mode only: in the new scene-stage mode the stage renders its
-              own 大家在 chips, so showing the cue too duplicates them. */}
-          {scenePlayers.length === 0 && worldViewMode === 'map' ? (
-            <div className="giis-empty-room-cue" aria-live="polite">
-              <b>{emptyRoomTitle}</b>
-              {occupiedGroups.length ? (
-                <span>
-                  大家在：
-                  {occupiedGroups.map(({ location, occupants }) => (
-                    <button
-                      key={location.id}
-                      className="giis-empty-room-jump"
-                      onClick={() => viewScene(location.id)}
-                      title={`切換視角到${location.labelZh}（不會移動 Alan）`}
-                    >
-                      {location.labelZh} ({occupants.length})
-                    </button>
-                  ))}
-                </span>
-              ) : (
-                <span>{emptyRoomDetail}</span>
-              )}
-            </div>
-          ) : null}
 
           {selectedName ? (
             <div className="giis-focus-card">
@@ -1371,37 +1221,6 @@ https://github.com/michalochman/react-pixi-fiber/issues/145#issuecomment-5315492
       </div>
     </>
   );
-}
-
-class PixiStageErrorBoundary extends Component<
-  { children: ReactNode },
-  { hasError: boolean; message?: string }
-> {
-  state = { hasError: false, message: undefined };
-
-  static getDerivedStateFromError(error: unknown) {
-    return {
-      hasError: true,
-      message: error instanceof Error ? error.message : 'Pixi renderer unavailable',
-    };
-  }
-
-  componentDidCatch(error: unknown) {
-    console.warn('[GIIS Pixi map unavailable]', error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="giis-map-fallback" role="status">
-          <b>地圖暫時無法顯示。</b>
-          <span>場景模式仍可使用；這通常是瀏覽器沒有提供 Pixi/WebGL renderer。</span>
-          {this.state.message ? <small>{this.state.message}</small> : null}
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 type QuickActionType =
@@ -1807,22 +1626,6 @@ const ACTION_TOOLTIPS: Record<QuickActionType, string> = {
   kick: '讓 Alan 對目標做出公開挑釁，角色會依個性解讀。',
   assignRole: '任命目標為助理校長，寫入記憶與世界事件。',
 };
-
-function sceneBackgroundColor(sceneId: SchoolLocationId) {
-  switch (sceneId) {
-    case 'courtyard':
-      return 0x10251f;
-    case 'aiClubRoom':
-      return 0x071923;
-    case 'studentCouncilRoom':
-      return 0x160d16;
-    case 'dormitory':
-      return 0x171326;
-    case 'classroom':
-    default:
-      return 0x111827;
-  }
-}
 
 function sceneTimeVariant(periodLabel: string) {
   if (periodLabel === '晚上' || periodLabel === '深夜') return 'night';

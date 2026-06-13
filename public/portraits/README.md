@@ -48,4 +48,4 @@ Prompt guidance for original, non-copyrighted portraits:
 - Ichinose: original anime-style full-body pink-haired former class leader with angelic demon aura, short side-swept bangs that leave the full face and both eyes clearly visible, rose/navy palette, warm possessive smile, weaponized kindness, yandere-like psychological pressure without fantasy horns, safe non-sexual character reference pose.
 - Mahiru: original anime-style full-body gentle student affairs assistant, soft cream/pink palette, kind expression, warm comforting aura, caring school counselor vibe, safe non-sexual character reference pose.
 - Maomao: original anime-style small diagnostic oddball, dark green/purple apothecary-school palette, cute deadpan eyes, clinical notebook or sleeve detail.
-- Sakiko: original anime-style stage-trained heiress, navy/white/blue rose palette, elegant posture, controlled smile with one visible crack.
+- Sakiko: original anime-style stage-trained heiress, pale blue-gray hair, blue-gold eyes, navy/white palette, elegant posture, controlled smile with one visible crack.

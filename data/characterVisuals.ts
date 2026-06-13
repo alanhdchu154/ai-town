@@ -153,8 +153,8 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     },
   },
   Sakiko: {
-    tint: 0xb8b1f0,
-    accent: 0x6b5bd6,
+    tint: 0x7799cc,
+    accent: 0x3f6fa8,
     label: '祥子',
     portraitPath: `${PORTRAIT_BASE}/sakiko.png`,
     portraitPaths: portraitSet('sakiko'),
@@ -169,10 +169,10 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     spritePath: `${SPRITE_BASE}/sakiko.png`,
     archetypeZh: '破碎舞台大小姐',
     artDirection:
-      'original anime-style full-body elegant broken stage heiress, long deep violet hair, refined purple and white school uniform, composed formal posture, one hand near a music-score folder, polished but fragile expression, beautiful controlled loneliness, safe non-sexual character reference pose',
+      'original anime-style full-body elegant broken stage heiress with Sakiko-inspired cold blue identity colors, long pale blue-gray hair, blue-gold eyes, refined navy and white school/stage uniform, black-blue ribbon, composed formal posture, one hand near a music-score folder, polished but fragile expression, beautiful controlled loneliness, safe non-sexual character reference pose',
     defaultEmotion: 'serious',
     avatar: ['..HHHH..', '.HSSSSH.', 'HSFSSFH.', 'HSSSSSH.', 'H2SSS2H.', '.HTTTH..', '..CCCC..'],
-    palette: { H: 0x37235f, S: 0xe8b993, F: 0x181425, T: 0x6b5bd6, C: 0xb8b1f0, '2': 0xffffff },
+    palette: { H: 0x7799cc, S: 0xe8b993, F: 0x101827, T: 0x3f6fa8, C: 0xd9e8f5, '2': 0xffffff },
   },
   'Mahiru': {
     tint: 0xffd6ec,

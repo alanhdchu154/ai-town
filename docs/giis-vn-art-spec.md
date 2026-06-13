@@ -6,10 +6,11 @@ Status: **Phase 1 visual spike + scene-first world view + core transparent stand
 This describes the full-VN-render visual direction Alan selected (big character
 renders, no top-down pixel crowd). A conservative frontend integration now
 prefers generated large renders for `CharacterPortrait size="lg"` and uses
-generated room backgrounds as the default Scene Mode world view. The original
-Pixi exploration map remains available through the in-app `地圖` toggle for
-movement/debug. This is still not a final locked production art sheet: only
-some pilot default-emotion renders exist.
+generated room backgrounds as the only Alan-facing world view. The original
+Pixi exploration map is no longer exposed in the main UI; bring it back only as
+a future debug-only route if coordinate inspection is needed. This is still not
+a final locked production art sheet: only some pilot default-emotion renders
+exist.
 
 Governance anchors: `docs/giis-ui-directions.md` (why a bigger conversation
 frame is north-star-aligned), `docs/soul/SOUL_PROGRESSION_PLAN.md` (Version
@@ -163,8 +164,8 @@ No Convex change. Current implementation takes the additive path:
 - Scene Mode selects `-day` backgrounds for 早晨 / 中午 / 下午 and `-night`
   backgrounds for 晚上 / 深夜, falling back to the original no-suffix scene art
   if the clock label is unavailable.
-- The original Pixi `Stage` remains behind the `地圖` toggle, so coordinate
-  movement/debug behavior is preserved.
+- The original Pixi `Stage` is not rendered in the main Alan-facing world view;
+  Scene Mode is the single v0.1 surface.
 - Conversation mode reuses the same current-scene backdrop and the larger
   `CharacterPortrait size="lg"` render preference.
 - Scene hotspots are currently non-mutating UI hooks that surface existing
@@ -177,7 +178,7 @@ from Convex.
 ## 7. Phasing
 
 - **Phase 1:** resolve §0; generate initial pilot renders + 5 core backgrounds;
-  land Scene Mode as the default world view while preserving Pixi map mode.
+  land Scene Mode as the single Alan-facing world view.
 - **Phase 2:** complete the remaining pilot emotion renders; add
   `talking`/`blush` expressions; emotion driven by residue/mood (ties into v0.2
   Behavioral Drift).

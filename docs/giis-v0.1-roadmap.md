@@ -23,8 +23,9 @@ Current contract:
   Alan's portrait. Other HUD text may still explain Alan's away status.
 - Alan's scene render uses a transparent-background asset; baked checkerboard
   or photo-card backgrounds are not acceptable for the stage.
-- The Pixi map remains available behind the `地圖` toggle, but Scene Mode polish
-  should optimize for readable stage composition first.
+- The Pixi map is no longer exposed in the Alan-facing v0.1 UI. Keep Scene Mode
+  as the only world surface unless a future debug-only route explicitly needs
+  the old coordinate map.
 
 ## 2026-06-12 Night — Memory Quality + 睡前回響 (Claude, with Alan)
 

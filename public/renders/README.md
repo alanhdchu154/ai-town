@@ -42,6 +42,8 @@ to that canvas and knee-up composition so Scene Mode uses one visual language.
 Maomao and Sakiko were then scale-balanced against the Umi / Tianze / Ichinose /
 Mahiru reference group so the perceived character size is closer, not just the
 PNG canvas size.
+Sakiko's current set is palette-corrected toward her recognizable cold
+blue-gray / navy identity colors rather than the earlier purple design drift.
 
 Core emotion switching is landed for all six stage characters across
 `neutral`, `smiling`, `worried`, and `serious`. Scene Mode reads
