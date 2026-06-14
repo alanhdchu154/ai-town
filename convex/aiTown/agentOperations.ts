@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internalAction, internalQuery } from '../_generated/server';
 import { WorldMap } from './worldMap';
-import { rememberConversation } from '../agent/memory';
+import { hasUnansweredHumanTailForMemory, rememberConversation } from '../agent/memory';
 import { GameId, agentId, conversationId, playerId } from './ids';
 import {
   continueConversationMessage,
@@ -102,12 +102,9 @@ export const agentRememberConversationPreflight = internalQuery({
             q.eq('worldId', args.worldId).eq('conversationId', args.conversationId),
           )
           .collect();
-        const lastMeaningful = messages
-          .filter((message) => message.text.trim().length > 0)
-          .sort((left, right) => left._creationTime - right._creationTime)
-          .at(-1);
-        archivedConversationHasUnansweredHumanTail = Boolean(
-          lastMeaningful && humanParticipantIds.has(lastMeaningful.author),
+        archivedConversationHasUnansweredHumanTail = hasUnansweredHumanTailForMemory(
+          messages,
+          humanParticipantIds as Set<string>,
         );
       }
     }

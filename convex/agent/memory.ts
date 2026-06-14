@@ -382,7 +382,17 @@ export function hasUnansweredHumanTailForMemory(
     .filter((message) => message.text.trim().length > 0)
     .sort((left, right) => (left._creationTime ?? 0) - (right._creationTime ?? 0));
   const last = meaningful.at(-1);
-  return Boolean(last && humanPlayerIds.has(last.author));
+  if (!last || !humanPlayerIds.has(last.author)) return false;
+  // Only skip when the character barely engaged — a pure / near-pure human
+  // ping-fest (e.g. "海 海 哈囉哈囉" that never got a real reply). A genuine
+  // back-and-forth that the human simply closed ("今天先這樣吧") still gets
+  // remembered: the trailing human line is just the goodbye, not an unanswered
+  // ping, and dropping a 27-message real conversation would make talking to
+  // Alan the one kind of chat the characters never remember.
+  const characterReplies = meaningful.filter(
+    (message) => !humanPlayerIds.has(message.author),
+  ).length;
+  return characterReplies < 2;
 }
 
 export function concreteCommitmentSummaryForMessages(
