@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-13 (soul memory live: cloud LLM + Alan residue + soul-grounded summary; CRITICAL residue-timeout bug fixed; always-alive for the weekend run)
+Last updated: 2026-06-13 22:25 CDT (weekend free run LIVE + VERIFIED — residue writes end-to-end; guard fix; split-brain recovery = stop→resume not kick; review Monday 6/15)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -59,15 +59,33 @@ qwen-turbo. Local fallback switched OLLAMA_MODEL → qwen2.5:14b (non-reasoning,
 no `<think>` leak, unlike qwen3:8b). Local latency is ~16s either way
 (hardware-bound model load), which is why the 30s timeout matters.
 
-**OPERATIONAL — agents stall on redeploy.** Every `convex env set/remove` or
-code save redeploys functions and bumps the engine generation; in this session
-~10 redeploys left all six agents idle (op=None but doing nothing) for 33
-minutes — the world steps physics but no one talks. Recovery: `npx convex run
-testing:kick '{}'` re-engages the operation scheduler (verified: ops resumed
-immediately). **For the weekend free run: do NOT edit files or env. Leave the
-dev stack alone.** keepDefaultWorldAlive keeps it from idling; the watcher only
-redeploys on a file change, so an untouched repo runs stably. If the world ever
-looks frozen (no new conversations for a long time), `testing:kick` is the fix.
+**OPERATIONAL — do NOT redeploy or kick over the weekend.** Every `convex env
+set/remove` or code save redeploys functions and bumps the engine generation;
+~10 redeploys this session left all six agents idle for 33 min, then spawned a
+**split-brain engine** — duplicate runStep loops fighting, repeated `Generation
+number mismatch` errors, conversations unable to complete. **Correction to an
+earlier note in this doc: `testing:kick` is NOT the fix — kick spawns ANOTHER
+duplicate loop and re-creates the mismatch (verified live).** The only clean
+recovery is ONE `testing:stop` → wait ~20s → `testing:resume` (single engine,
+0 mismatches). For the weekend free run: **leave files and env completely
+alone.** keepDefaultWorldAlive prevents idling; an untouched repo runs stably.
+
+**VERIFIED end-to-end (2026-06-13 22:14).** Forced a 海↔真晝 conversation via a
+`startConversation` input (no redeploy) and both characters wrote vivid,
+per-character residue — so conversation → cloud LLM → remember → residue all
+work now. (Forcing a test conversation without redeploy: `convex run
+aiTown/main:sendInput '{"worldId":"<id>","name":"startConversation","args":{"playerId":"p:0","invitee":"p:6"}}'`.)
+
+**Also fixed: unanswered-human-tail guard.** It dropped ANY conversation Alan
+closed (a real 27-msg Alan↔Tianze chat → memCount=0). Now skips only a true
+ping-fest (<2 character replies); real exchanges Alan ends are remembered.
+
+**Open for Monday (needs a redeploy — NOT this weekend):** residue reads too
+philosophical/aphoristic ("原來溫柔也能有重量") and slightly over-interprets
+(projected a fear onto 海 that the event did not contain). Tune the residue
+prompt toward grounded/observational, banning "原來X" aphorisms and invented
+hidden meanings — keep soul depth, stay anchored to what happened. Also still
+unconfirmed live: Alan↔character residue (logic + unit tests pass).
 
 ## 2026-06-13 Night Closeout / Next Morning Contract
 

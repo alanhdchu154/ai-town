@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-13 19:51 CDT
+Last updated: 2026-06-13 22:25 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -43,6 +43,42 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-13 22:25 CDT (Claude, with Alan): Soul-memory weekend run is LIVE and
+  VERIFIED. The world is intentionally left running unattended until Monday
+  2026-06-15; Alan reviews results then.
+  - **⚠️ CODEX / ANYONE OVER THE WEEKEND: do NOT edit files, set/remove env,
+    redeploy, kick, or restart the world.** Every `convex env set`/code save
+    redeploys functions and bumps the engine generation; ~10 such redeploys this
+    session put all six agents idle for 33 min and then spawned a split-brain
+    engine (duplicate runStep loops → repeated `Generation number mismatch`).
+    Recovery is ONE clean `testing:stop` → wait → `testing:resume` (NOT
+    `testing:kick` — kick spawns another duplicate loop and re-creates the
+    mismatch). The autonomous Codex automations that are observe/report-only or
+    just `npx convex run` (rolling continuity monitor, nightly-reflection SHADOW)
+    do NOT change files and are fine; anything that edits code/env is not.
+  - **Bugs fixed (committed dc53ad5..1c262e73):** (1) residue was silently empty
+    everywhere — `MEMORY_LLM_TIMEOUT_MS` defaulted to 10s but the local reasoning
+    model qwen3:8b takes ~17s, so every residue call timed out → deterministic
+    fallback → ''. Fixed: cloud qwen-plus primary (1.4s) + 30s timeout. (2)
+    unanswered-human-tail guard dropped ANY conversation Alan closed (a 27-msg
+    Alan↔Tianze chat → memCount=0); now only skips a true ping-fest (<2 character
+    replies). Both `hasUnansweredHumanTailForMemory` and the agentOperations
+    preflight share the fixed helper.
+  - **Verified end-to-end:** forced a 海↔真晝 conversation via a
+    `startConversation` input (no redeploy) — both characters wrote vivid,
+    per-character residue. So conversation → cloud LLM → remember → residue all
+    work. To force a test conversation without redeploy:
+    `convex run aiTown/main:sendInput '{"worldId":"<id>","name":"startConversation","args":{"playerId":"p:0","invitee":"p:6"}}'`.
+  - **Live env (deployment, not git):** `MEMORY_LLM_CLOUD=true`,
+    `MEMORY_LLM_TIMEOUT_MS=30000`, `UNDERWORLD_KEEP_WORLD_ALIVE=true`,
+    `OLLAMA_MODEL=qwen2.5:14b`; per-use-case cloud models default in code
+    (residue/summary/reflection → qwen-plus, importance → qwen-turbo).
+  - **Open (Monday, deliberate — needs a redeploy so NOT this weekend):** residue
+    reads too philosophical/aphoristic ("原來溫柔也能有重量") and slightly
+    over-interprets (projected a fear onto 海 that wasn't in the event). Tune the
+    residue prompt toward grounded/observational, no "原來X" aphorisms, no
+    inventing hidden meanings. Also still unconfirmed live: Alan↔character residue
+    (logic + unit tests pass; needs a real Alan chat that Alan doesn't end on).
 - 2026-06-13 19:51 CDT: Alan reported that mobile chat looked unable to send
   and asked for a new principal-office workflow. Root cause was not
   `writeMessage`: selecting a character in another scene left Alan in a

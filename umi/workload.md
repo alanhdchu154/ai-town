@@ -1,76 +1,37 @@
-# CC Workload - Underworld v0.1 Continuity Lanes Review
+# CC Workload — Weekend Free Run (HANDS OFF)
 
-Time anchor: 2026-06-13 12:10 CDT
+Time anchor: 2026-06-13 22:25 CDT (Saturday)
 Repo cwd: /Users/alanhdchu/ai-town
-Mode: Split-work, read-only architecture/product review.
-Model target: opus.
+Status: **HOLD. Do not touch the repo or the running world until Monday 2026-06-15.**
 
-Goal:
-Review Alan's proposed three continuity lanes and recommend how to arrange them
-without expanding GIIS Underworld beyond v0.1.
+## Active task
 
-Alan's proposed lanes:
-1. Character-to-character conversation creates subjective interpretation,
-   affects later development, and may gradually affect relationship tendency.
-2. Alan-to-character conversation creates that character's subjective
-   interpretation and later change. Example: Alan tells a character "I like
-   you"; the character reacts through their soul depth and carries a trace.
-3. Character soul causes small world events. Example: Tianze's 小惡魔 tendency
-   causes a vending-machine incident; the day has a shared topic, and others
-   react subjectively to that event.
+None. The soul-memory world is intentionally running unattended through the
+weekend so the six pilots accumulate real conversations + residue. Alan reviews
+results Monday.
 
-Current v0.1 state:
-- Current pilot roster: 海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子.
-- Experience logs require non-empty `llm_soul` residue.
-- ExperienceLog `eventSummary` should be owner-perspective, starting with
-  `對某某來說...`.
-- Ordinary memory can exist as `記住的片段` / `記住的是`, but is not v0.1
-  evidence by itself.
-- Sleep promotion rejects objective-shaped experienceLogs.
-- Observe reports subjective vs non-subjective experienceLog counts.
-- Sleep consolidation demotes ordinary `記住的片段` candidates to short-term
-  context with `ordinary_memory_fragment_not_residue`.
-- Current dry-run evidence: 24 existing experienceLogs are non-subjective /
-  legacy, 0 subjective eligible, fresh sample count below 3.
+## Hard rules until Monday (read WORKLOG 2026-06-13 22:25 entry for detail)
 
-Read first:
-- WORKLOG.md
-- docs/giis-v0.1-roadmap.md
-- convex/agent/conversation.ts
-- convex/agent/memory.ts
-- convex/agent/experienceLog.ts
-- scripts/underworld-observe-once.mjs
-- scripts/underworld-experience-sleep-promote.mjs
-- scripts/underworld-sleep-consolidation.mjs
+- **Do NOT edit files, set/remove env, redeploy, `testing:kick`, or restart.**
+  Any redeploy bumps the engine generation and can spawn a split-brain engine
+  (duplicate runStep loops → `Generation number mismatch` → conversations stop).
+- If the world genuinely looks frozen (no new conversations for a very long
+  time, confirmed via log + `school:debugAlanConversationState`), the ONLY safe
+  recovery is one `testing:stop` → wait ~20s → `testing:resume`. Never `kick`.
+- Observe/report-only automations and `npx convex run` checks are fine (they do
+  not change files). The nightly-reflection automation must stay SHADOW.
+- To sanity-check residue is writing, force a conversation with an input (no
+  redeploy):
+  `convex run aiTown/main:sendInput '{"worldId":"<id>","name":"startConversation","args":{"playerId":"p:0","invitee":"p:6"}}'`
+  then read `school:notebookSoulTraces` / `recentConversationEvalData`.
 
-Review questions:
-1. Which of the three lanes should be v0.1 core, which should be v0.1 shadow /
-   dry-run, and which should wait for v0.2?
-2. Does lane 3 require a new event system, or can it be represented for now as
-   a bounded daily campus incident seed / scenario topic without new schema?
-3. What is the smallest safe implementation path that lets us start collecting
-   data for lanes 1 and 2 immediately?
-4. How should reports distinguish:
-   - character-to-character residue;
-   - Alan-to-character residue;
-   - shared campus incident context;
-   - relationship tendency evidence;
-   - behavior change evidence?
-5. What must NOT be implemented yet because it risks DB growth, prompt bloat,
-   false continuity, or scope creep?
+## Monday backlog (deliberate, needs a redeploy)
 
-Constraints:
-- Read-only review only. Do not edit files.
-- Do not add new characters, factions, lore, large relationship graphs, or
-  major schema.
-- Do not treat old logs as fresh v0.1 evidence.
-- Keep v0.1 proof focused on conversation -> subjective residue -> bounded
-  experienceLog -> sleep/tomorrow -> small behavior change.
-- Lane 3 must stay small and school-life grounded if accepted at all.
+1. Tune residue prompt: too philosophical/aphoristic ("原來X"), slightly
+   over-interprets. Pull toward grounded/observational, ban invented meanings.
+2. Confirm Alan↔character residue live (logic + unit tests pass already).
+3. Consider real embeddings + nightly reflection `--write` only after the above.
 
-Expected output:
-- Findings first, ordered by severity.
-- Recommended lane assignment: v0.1 core / v0.1 shadow / v0.2.
-- Minimal code changes needed, if any.
-- Data-collection plan for the next 24 hours.
-- Risks and stop conditions.
+## Last completed handoff
+
+Continuity-lanes review (2026-06-13 12:10) — superseded by the weekend hold.
