@@ -14,6 +14,7 @@
 
 const PLAN = [
   '讀取最近 100–200 天 (worldClock day) 的 experienceLogs，依角色分組 (海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子)。',
+  '只納入主觀 experienceLogs：eventSummary 必須是「對某某來說...」；舊的「A與B：...」objective shape 只能作為 legacy/background，不能形成 belief。',
   '對每個角色，把同一天 + 同一對話夥伴的條目聚成 episode，避免日內噪音被當成趨勢。',
   '依 importance + beliefSeed + behaviorHint 算 episode 信號權重；丟掉只剩 eventSummary 的低訊號條目。',
   '抽取重複出現的 beliefSeed (例如「不是所有事都該自己一個人扛」) 並計算首次出現、近 14 天頻率、近 30 天頻率。',

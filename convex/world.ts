@@ -60,6 +60,34 @@ export const heartbeatWorld = mutation({
   },
 });
 
+// Keep-alive: opt-in via UNDERWORLD_KEEP_WORLD_ALIVE=true. AI Town stops a world
+// after IDLE_WORLD_TIMEOUT with no browser heartbeat, so without a viewer the
+// characters never talk. When Alan wants the world to live continuously (and
+// accepts the cost), a cron calls this every minute to refresh the default
+// world's heartbeat and resume it if it has gone inactive — the same restart
+// path heartbeatWorld uses. A world explicitly stoppedByDeveloper is left alone.
+export const keepDefaultWorldAlive = internalMutation({
+  handler: async (ctx) => {
+    if (process.env.UNDERWORLD_KEEP_WORLD_ALIVE !== 'true') return;
+    const worldStatus = await ctx.db
+      .query('worldStatus')
+      .filter((q) => q.eq(q.field('isDefault'), true))
+      .first();
+    if (!worldStatus) return;
+    if (worldStatus.status === 'stoppedByDeveloper') return;
+    const now = Date.now();
+    await ctx.db.patch(worldStatus._id, { lastViewed: now });
+    if (worldStatus.status === 'inactive') {
+      console.log(`Keep-alive: resuming inactive world ${worldStatus._id}`);
+      await ctx.db.patch(worldStatus._id, { status: 'running' });
+      await ctx.scheduler.runAfter(0, internal.school.ensureWorldProfiles, {
+        worldId: worldStatus.worldId,
+      });
+      await startEngine(ctx, worldStatus.worldId);
+    }
+  },
+});
+
 export const stopInactiveWorlds = internalMutation({
   handler: async (ctx) => {
     const cutoff = Date.now() - IDLE_WORLD_TIMEOUT;

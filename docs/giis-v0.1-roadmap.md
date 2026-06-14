@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-13 (night closeout — v0.1 machine gate PASS, free-world overnight observe, nightly reflection shadow only, subjective memory re-bedding parked as v0.2/paper idea)
+Last updated: 2026-06-13 (continuity lanes reset — lane 1 core, lane 2 shadow, lane 3 daily seed shadow / world-state writes deferred)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -36,6 +36,29 @@ Deferred idea: subjective memory re-bedding is preserved at
 `docs/paper/subjective-rebedding/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`. It is a future v0.2 / paper
 direction ("Yesterday mattered differently to each person"), not part of the
 current v0.1 implementation scope.
+
+## 2026-06-13 Continuity Lanes
+
+Alan's current product model has three lanes. v0.1 should keep them separated
+so the world can start collecting evidence without turning into a large
+civilization system.
+
+| Lane | v0.1 Status | Rule |
+| --- | --- | --- |
+| 1. Character-to-character conversation -> subjective residue -> later behavior | Core | This is the main v0.1 proof. Collect clean archived conversations, write bounded `experienceLogs` only from `llm_soul` residue, then compare later behavior against the residue. |
+| 2. Alan-to-character conversation -> that character's subjective interpretation | Shadow | Alan can be the other party conceptually, but do not make Alan a generated subject and do not promote Alan-facing residues into prompt-facing sleepNotes until dry-run evidence is clean. |
+| 3a. Shared campus-life incident/topic -> characters react differently | Thin shadow | Use a small daily campus seed / daily focus label only. No new schema, no durable world-state mutation, no global prompt spam. |
+| 3b. Character soul causes world-state changes | v0.2 | A character causing a vending-machine incident or changing prop state is a real world-write system. Defer until v0.1 proves residue -> tomorrow continuity. |
+
+Immediate diagnostic priority: observe reports must show why fresh samples did
+or did not become experience evidence. `underworld:observe` therefore reports a
+fresh experience-log rejection histogram such as `source_not_archived_yet`,
+`alan_pair_shadow_not_enabled`, `no_memory_trace_yet`,
+`ordinary_memory_fragment_not_residue`, `no_residue`, or
+`possible_cap_dedupe_or_not_archived_gate`.
+
+Do not implement lane 2 or lane 3 write behavior until lane 1's rejection
+reasons are visible and at least three fresh archived samples have been checked.
 
 ## Scene Mode UI Contract
 

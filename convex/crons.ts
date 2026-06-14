@@ -15,6 +15,10 @@ crons.interval(
 
 crons.interval('restart dead worlds', { seconds: 60 }, internal.world.restartDeadWorlds);
 
+// Opt-in (UNDERWORLD_KEEP_WORLD_ALIVE=true): keep the default world running
+// continuously even with no browser open, so the characters keep living/talking.
+crons.interval('keep default world alive', { seconds: 60 }, internal.world.keepDefaultWorldAlive);
+
 // Occasionally drop a small spontaneous campus event so school life has some
 // unscheduled texture even while no one is watching. Self-capped to a couple per
 // day, spaced out, in school:seedSpontaneousCampusEventTick.

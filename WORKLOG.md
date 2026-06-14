@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-13 00:06 CDT
+Last updated: 2026-06-13 19:51 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -33,9 +33,276 @@ historical evidence is needed.
 | 11 | Fresh 2026-06-12 conversations exposed two related but separate defects: conversation memory load could pair a player with the wrong `participatedTogether` fallback instead of the archived conversation's actual participant list, and the live message insert addressee repair path still missed titled self-addresses such as `一之瀨姊` / `貓貓老師` plus possessive self-reference like `一之瀨姊姊的...`. Targeted prevention fix is in code with tests. Recent-data cleanup ran against the latest 80 archived conversations: repaired 98 conversation memories, 6 message texts, and removed drifted residue lines by demoting those memories to ordinary when the residue mentioned nonparticipants; no memories/conversations were deleted, and final dry-run is 0 affected. Spot-checks: `conversation-c:6306` now shows 天澤 saying `不用了，祥子。` with 祥子/天澤 memories; `conversation-c:6057` now shows `欸，你的「幫」字...` with 貓貓/一之瀨 memories. | Codex | prevention_and_recent_cleanup_done |
 | 12 | v0.1 evidence layer is live and contributed to the machine PASS. `experienceLogs` accepts only the current evidence pilot (`海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子`), rejects legacy names, requires archived-conversation call contract, and enforces 2 logs per character/day plus 1 log per source conversation/character. The 20:00 observe collected 2 archived 海/真晝 samples and two other focus attempts timed out; a follow-up single 海/真晝 sample created `conversation-c:7152`, giving enough fresh samples for the completion audit. Fresh-window `life-signals` is PASS / `life_signal_observed`; recent eval remains imperfect at 0 PASS / 2 WARN / 1 FAIL. The fresh hand/quote relay caveat is now patched in `conversation.ts` and covered by `conversationMotifGuard.test.ts`; watch future samples rather than broad-rewriting prompts. | Umi / Codex / cc | machine_gate_pass_quality_caveat_patched |
 | 13 | Future paper / v0.2 research idea preserved at `docs/paper/SUBJECTIVE_MEMORY_REBEDDING_IDEA.md`: separate canonical event records from per-character subjective memory traces, so the same event can become different grounded emotional residues and future behaviors for Umi/Mahiru/Maomao/etc. This is explicitly deferred until v0.1 residue -> sleep/tomorrow continuity is stable and should not broaden current implementation scope. | Alan / Umi / cc | future_revisit_after_v01 |
+| 14 | Alan-facing character chat guard patched after 2026-06-13 morning playtest: 天澤 produced unfinished fragments (`欸——`, `你剛才那句...`, `你問這句的時候...`) and 真晝 drifted into passive food/body-cue loops. `conversation.ts` now adds character-specific Alan-facing prompt rules for 海 / 真晝 / 天澤 / 貓貓 / 一之瀨 / 祥子, removes the prompt allowance for `unfinished` replies, passes the runtime clock into sanitizer, and repairs only clear Alan-facing dangling fragments / unsupported body cues / repeated 真晝 food loops. Verification: targeted `conversationMotifGuard.test.ts` 38/38, `npx tsc --noEmit --pretty false`, `npm run build`, `npm run underworld:runtime-preflight`, and `curl -I http://127.0.0.1:5173/ai-town` HTTP 200. Next: Alan real-playtest these five characters; treat results as fresh evidence before further prompt tuning. | Alan / Umi / Codex | patched_watch_next_real_chat |
+| 15 | Free-world role-to-role conversation was temporarily caged by stale Convex env from an old triad single-sample pilot: `SOUL_TRIAD_COLOCATION_PILOT`, `SOUL_TRIAD_FOCUS_PAIR`, and `SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS`. Runtime was healthy (`world:defaultWorldStatus` running; `school:debugState` all six current characters awake; Saturday free-activity clock), but general NPC candidate selection was narrowed/excluded and post-fix eval initially saw no archived conversations. Codex removed those three env vars and resumed the running world. Evidence after removal: logs immediately created role-to-role conversations including `c:8625` 貓貓->海, `c:8635` 貓貓/一之瀨, `c:8644` 海/真晝, `c:8661` 貓貓/天澤, and active `c:8668` 一之瀨/祥子; `eval:conversation:recent -- --since-last-change` now checks 4 post-fix samples with 0 PASS / 2 WARN / 2 FAIL. This is no longer a "no one talks" problem; next evidence focus is quality: stage-direction leakage, food/object motif loops, weak character voice for 一之瀨/祥子/貓貓 samples, and whether enough clean archived samples produce experience logs. | Umi / Codex | stale_pilot_env_removed_free_world_talking_quality_watch |
+| 16 | Alan caught a false concrete commitment in `conversation-c:8563`: the transcript says Alan rejected curry (`先不要咖哩飯了`) and changed the plan to tomorrow breakfast, but memory stored `Alan答應明天（6/14 週日）為Umi準備咖哩飯`. Root cause was `concreteCommitmentSummaryForMessages` extracting the object from any curry mention in the acceptance window, including rejected/prior-commitment probe lines. Fix: `commitmentObjectFromText` now scans line-by-line from newest to oldest, ignores object rejection lines and question-only prior-commitment probes, and only returns curry when a positive offer/request/eating/preparing cue supports it. Added regression test for the Alan/海 breakfast case; targeted memory tests 37/37, typecheck, and build passed. The existing bad memory was not deleted but was marked corrected with importance 0 via `school:downweightFalseMemory`; no experienceLogs had been written for it. cc second-look was attempted read-only but unavailable due Claude session limit reset at 12pm. World was resumed and `world:defaultWorldStatus` is `running`. | Alan / Umi / Codex | false_commitment_downweighted_future_guard_patched_cc_unavailable |
+| 17 | Alan correctly flagged that the conversation wall showed ordinary memory summaries as `心裡留下的`, making objective same-text memory look like subjective residue. Fix separates layers: `ConversationWall` now labels true `殘留：...` rows as `心裡留下的`, but ordinary `memoryLineZh` rows as `記住的片段`; `school:memoryTraceFromDescription` now displays only the remembered anchor (`某某記住了：「...」`) instead of the full objective `與 X 在 DATE 的對話...` line. Future autonomous NPC↔NPC base summaries no longer use free LLM summarization by default; they use deterministic owner-perspective fallback that prefers what the other participant said, while subjective NPC emotion remains the bounded residue path. Added targeted test for other-participant fallback memory. Verification: `npm test -- --runTestsByPath convex/agent/memory.test.ts` 38/38, `npx tsc --noEmit --pretty false`, `npm run build`. Existing old rows are not rewritten; they will display more honestly but may still contain same-objective anchors until new conversations are written. | Alan / Umi / Codex | ordinary_memory_not_subjective_residue_display_and_future_writer_patched |
+| 18 | Alan found 一之瀨/祥子 repeated essentially the same lunch-box conversation at 10:09 (`conversation-c:8668`) and 10:15 (`conversation-c:8732`). Root cause: `participatedTogether` knew the pair had spoken, but compact autonomous start prompt only received a weak boolean (`You have spoken before`) and no content from the prior same-pair conversation; because the 10:09 row had no true residue, `recentResidues` was empty and the model restarted the same bento/helping motif. Fix: compact autonomous start prompts now include a short `Recent same-pair memory` hint built from the previous archived conversation's messages, elapsed minutes, final beat, and motif labels, with an explicit rule not to restart the same object/helping move unless genuinely acknowledging the previous refusal/boundary. This is prompt-only short-term continuity, not a schema or DB-write change. Verification: targeted conversation/memory Jest 77/77, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | same_pair_short_term_motif_guard_patched_watch_next_samples |
+| 19 | Alan approved making autopilot subjective residue / experienceLog formally soul-grounded instead of letting ordinary memory carry "soul." cc read-only review was attempted again but still blocked by Claude session limit (`resets 12pm America/Chicago`), so Codex implemented the bounded fallback. Experience logs now require a non-empty residue with `residueSource='llm_soul'`; clean ordinary memory rows with no residue return `no_residue`, and deterministic/provider-fallback residue returns `non_soul_residue`, so provider failure cannot create v0.1 evidence. `rememberConversation` now tags residue source after the soul-grounded LLM residue path and resets it to `none` if repeat/recall-correction gates clear the residue. ExperienceLog draft interpretation/behavior hints now use character-specific subjective handling for 海/真晝/天澤/一之瀨/貓貓/祥子 instead of generic summary-only wording. Tests cover no-residue rejection, deterministic-residue rejection, and same objective event producing different subjective drafts per character. Verification: targeted experience/memory/conversation Jest 103/103, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | experience_log_requires_llm_soul_residue |
+| 20 | Alan observed that 2026-06-13 is Saturday/weekend but autonomous characters were not naturally talking about weekend life. Diagnosis: calendar/weekend context existed in `schoolDayRhythmContext` and full prompts, but compact autonomous start/continue prompts mostly saw it as a buried `calendarHint` rather than a concrete conversation motive. Fix: compact autonomous prompts now add `週末生活錨點` / `週末場景 seed` lines when `clockContext.isWeekend` is true, steering openers or pivots toward free activity, homework, laundry, club practice, errands, walking, dorm choices, or private check-ins while avoiding saturated food/drink/utensil/rest/global-topic loops. Added regression test to ensure Saturday compact prompts include weekend life anchors and do not seed bento/teacup loops. Verification: targeted conversation/experience/memory Jest 104/104, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | compact_weekend_life_anchor_patched_watch_next_samples |
 
 ## Current State Snapshot
 
+- 2026-06-13 19:51 CDT: Alan reported that mobile chat looked unable to send
+  and asked for a new principal-office workflow. Root cause was not
+  `writeMessage`: selecting a character in another scene left Alan in a
+  different/offline/scheduled location, so the active conversation input never
+  appeared. Patch makes Alan's login/home/scheduled location the principal
+  office (`studentCouncilRoom` / `校長室`), makes scene dropdown changes
+  observation-only so Alan stays in the office, and changes cross-scene target
+  chat buttons from disabled `聊聊 X` into enabled `邀請 X` actions that start
+  the conversation and return the view to `校長室`. Mobile conversation input
+  CSS now keeps the chat form sticky at the bottom and fixes the small-screen
+  form grid so textarea + `送出` remain usable. Verification: `npm run build`,
+  `npx tsc --noEmit --pretty false`, `git diff --check -- convex/school.ts
+  src/components/Game.tsx src/index.css`, `curl -I http://localhost:5173/ai-town`
+  HTTP 200, `school:enterCampus` returned `scene: 校長室`, `school:debugState`
+  confirmed Alan at `校長室` `{ x: 13, y: 9 }`, and browser extension smoke
+  confirmed: login view starts at `校長室`, switching to `餐廳` keeps
+  `Alan 目前在：校長室`, `邀請 天澤` creates an active `校長室` conversation with
+  textarea + `送出`, and a test message sends/clears the textarea. Limitation:
+  the in-app `iab` browser endpoint was unavailable and temporary Playwright
+  package execution could not resolve `playwright`, so final smoke used Chrome
+  extension DOM rather than a true 390px screenshot; CSS/build covers the
+  mobile input layout change.
+- 2026-06-13 18:44 CDT: Alan asked that each life-signal check print the
+  underlying dialogue so repeated-life/motif WARNs can be reviewed without a
+  second Convex query. `scripts/underworld-life-signals.mjs` now adds
+  `## Conversation Samples` to `umi/reports/life-signals-latest.md`, selecting
+  repeated surface lines, prop/motif echoes, drift/shape flags, strongest life
+  signals, and recent samples, then printing bounded transcript excerpts for up
+  to 8 conversations. This is report-only/read-only and does not change Convex
+  state, prompts, or memory behavior. Verification:
+  `npm run underworld:life-signals:self-test`, `npm run underworld:life-signals`,
+  `npm run underworld:rolling-continuity:self-test`, `npm run
+  underworld:rolling-continuity`, and `git diff --check --
+  scripts/underworld-life-signals.mjs`. Latest refreshed life-signals report
+  still warns `life_signal_repeated`, now with visible transcript evidence.
+- 2026-06-13 16:15 CDT: Mobile UI pass after Alan flagged that the `對話` tab
+  was especially unfriendly. The conversation wall is now phone-shaped instead
+  of a squeezed desktop dashboard: compact 4-up metrics, clamped focus snippets,
+  horizontally scrollable filter chips, a full-height scrollable conversation
+  list, and card previews capped to the first three transcript lines on mobile.
+  Scene mobile polish moved the collapsed control-panel toggle away from the
+  bottom character/status cards and padded the scene character carousel so cards
+  are not hidden under the right-side toggle. Conversation drawer mobile history
+  bodies now scroll instead of clipping. Also corrected stale UI copy from
+  `地圖` to `場景`, and fixed the day/night frontend mapping so `白天` uses day
+  backgrounds/icons instead of falling back to night-looking base scenes.
+  Verification: `npx tsc --noEmit --pretty false`, `npm run build`,
+  `git diff --check -- src/index.css src/components/PlayerDetails.tsx
+  src/components/Game.tsx`, and Playwright mobile visual QA at 390x844,
+  375x667, and 430x932. Final screenshot:
+  `tmp/visual-qa/mobile-small-conversation-tab-final.png`.
+- 2026-06-13 15:01 CDT: v0.1 evidence collection is now ready to distinguish
+  ordinary memory from true experience-log evidence. Runtime baseline is healthy:
+  `underworld:runtime-preflight` passed, `underworld:afternoon-world-ready`
+  reported `noop_running`, and `world:defaultWorldStatus` showed the default
+  world `running`. Codex ran `underworld:observe:daytime-samples`; it collected
+  one archived 海/真晝 sample (`conversation-c:10313`) but the later focused
+  pairs timed out/cleaned up, so no repair-gate decision was made. While
+  debugging, fresh natural conversations archived (`c:10430`, `c:10511`,
+  `c:10499`), but the latest observe report correctly marks their
+  experience-log status as `ordinary_memory_fragment_not_residue`; they are
+  ordinary subjective memory fragments, not soul residue, so they did not write
+  experienceLogs. Fixes landed: legacy objective `experienceLogs` no longer
+  count against the v0.1 subjective cap/dedupe/spam window, and observe now
+  reports ordinary memory fragments separately from true residue instead of
+  guessing `possible_cap_dedupe_or_recent_not_loaded`. Runtime env was aligned
+  for data collection by setting `MEMORY_LLM_TIMEOUT_MS=60000` and
+  `UNDERWORLD_RESIDUE_LLM=true` on the local Convex deployment; this gives the
+  cloud soul-residue writer enough time to produce `llm_soul` residue without
+  lowering the experience-log safety gate. Current state: data collection can
+  run, but there are still 0 fresh subjective-shaped experienceLogs; wait for a
+  clean conversation that produces `llm_soul` residue before claiming the
+  experience-log bridge is proven. Verification:
+  `npm run underworld:observe:self-test`, `npm run underworld:observe --
+  --dry-run --target-samples=0 --cc=skip --since-created-at=1781380664352`,
+  `npm run underworld:experience-sleep-promote`, `npm test --
+  --runTestsByPath convex/agent/experienceLog.test.ts` (27/27),
+  `npx tsc --noEmit --pretty false`, `npm run build`, and `git diff --check`.
+- 2026-06-13 12:22 CDT: cc read-only review is available at
+  `umi/reports/20260613T171934Z-workload.md` and shaped the current continuity
+  lane plan. Accepted recommendation: Lane 1 (character-to-character
+  conversation -> subjective residue -> later behavior) is v0.1 core and
+  already wired; Lane 2 (Alan-to-character -> character subjective
+  interpretation) should be v0.1 shadow only and must not promote to
+  prompt-facing sleepNotes yet; Lane 3 splits into 3a shared campus daily topic
+  as thin shadow and 3b character-soul-caused world-state writes as v0.2.
+  `docs/giis-v0.1-roadmap.md` now records this lane assignment. cc's strongest
+  point was that lane 1 is opaque without rejection reasons, so Codex added an
+  observe-only diagnostic histogram in `scripts/underworld-observe-once.mjs`.
+  Fresh samples now report reasons such as `source_not_archived_yet`,
+  `alan_pair_shadow_not_enabled`, `ordinary_memory_fragment_not_residue`, and
+  `possible_cap_dedupe_or_not_archived_gate`. Dry-run after the patch found 2
+  fresh active samples and correctly reported `source_not_archived_yet=2`, so
+  the current blocker is not the subjective gate itself; those samples have not
+  archived yet. Verification: `npm run underworld:observe:self-test`,
+  `npx tsc --noEmit --pretty false`, `npm run underworld:observe -- --dry-run
+  --target-samples=0`, `npm run build`, and `git diff --check`.
+- 2026-06-13 12:00 CDT: Propagated Alan's "主觀認定才算 v0.1
+  evidence" rule through downstream reporting / sleep gates, not only the
+  writer. `underworld:experience-sleep-promote` now promotes only
+  subjective-shaped experience logs whose `eventSummary` starts with
+  `對某某來說...`; old objective `A與B：...` rows and generic "短暫對話 /
+  留下一段短記憶" rows are ineligible. `underworld:observe` now reports
+  subjective vs non-subjective experience log counts and marks fresh matching
+  rows with `non_subjective_experience_log_shape` instead of counting them as
+  evidence. `underworld:sleep-consolidation` now reports the same boundary and
+  demotes ordinary `記住的片段` candidates to short-term context with
+  `ordinary_memory_fragment_not_residue`, so sleep dry-runs no longer pretend a
+  raw remembered fragment is emotional residue. Current dry-run evidence:
+  `underworld:experience-sleep-promote` read 24 experienceLogs, found 0
+  subjective-shaped eligible logs, prepared 0 rows, and wrote nothing;
+  `underworld:sleep-consolidation` read 50 conversations, classified 1
+  emotional-residue candidate, 25 short-term context rows, 24 human-review
+  rows, and wrote nothing; `underworld:observe -- --dry-run --target-samples=0`
+  found 2 fresh active samples, so v0.1 scoring remains `sample_pending` until
+  at least 3 fresh samples exist. Verification:
+  `npm run underworld:sleep-consolidation -- --self-test`,
+  `npm run underworld:experience-sleep-promote:self-test`,
+  `npm run underworld:observe:self-test`, `npm run
+  underworld:experience-sleep-promote`, `npm run
+  underworld:sleep-consolidation`, `npm test -- --runTestsByPath
+  convex/agent/experienceLog.test.ts convex/agent/memory.test.ts` (65/65),
+  `npx tsc --noEmit --pretty false`, `npm run build`, `npm run
+  underworld:observe -- --dry-run --target-samples=0`, and `git diff --check`.
+  Next: let the running world create fresh conversations; only logs with
+  `llm_soul` residue and owner-perspective `對某某來說...` shape should count
+  for data collection.
+- 2026-06-13 11:51 CDT: Alan correctly tightened the v0.1 semantics:
+  `experienceLogs` must be subjective lived experience, not an objective event
+  summary or a quote. Codex kept the existing safety gates (`llm_soul` residue
+  required, no fallback/deterministic residue, hard caps) and changed the draft
+  shape so `eventSummary` is now an owner-perspective experience summary
+  (`對海來說...`, `對真晝來說...`) rather than `A與B：objective summary`.
+  `emotionalInterpretation`, `beliefSeed`, and `behaviorHint` remain
+  character-specific and now more explicitly follow each active pilot's soul
+  lens: 海/usefulness-responsibility, 真晝/unspoken quiet care,
+  天澤/boundary-testing, 一之瀨/permissioned kindness, 貓貓/diagnostic restraint,
+  祥子/composure-boundary. Tests now assert the same objective event produces
+  different subjective experience summaries and does not copy the raw line
+  `今天只整理三件事`. Verification: `npm test -- --runTestsByPath
+  convex/agent/experienceLog.test.ts convex/agent/memory.test.ts` 65/65,
+  `npx tsc --noEmit --pretty false`, `npm run build`, and `git diff --check`
+  for touched files.
+- 2026-06-13 11:47 CDT: Alan asked whether the conversation wall's remembered
+  items were truly subjective. Fresh query evidence showed they were not all
+  subjective: many ordinary conversation memories still displayed direct line
+  anchors, e.g. `綠蘿葉子有點蔫...`, `譜子我收下了`, or `啊……是嗎？`, while
+  true `殘留：...` rows were separate. Fix keeps the v0.1 evidence split but
+  makes future ordinary fallback memory more honest and more character-specific:
+  autonomous conversation summaries now write `記住的主觀判斷是：「...」` using
+  owner/other signals instead of storing a raw quote as `留下的情緒重點`. The
+  conversation wall displays new rows as `某某記住的是：...`; legacy raw-anchor
+  rows display as `某某記住的片段：「...」` rather than pretending to be
+  subjective. `experienceLog` remains the real v0.1 evidence layer and still
+  requires soul-grounded LLM residue. Verification: `npm test --
+  --runTestsByPath convex/agent/memory.test.ts` 39/39, `npx tsc --noEmit
+  --pretty false`, `npm run build`, `git diff --check` for touched files, and
+  a live `school:recentConversationEvalData` spot-check showing the new
+  `記住的是` / legacy `記住的片段` split.
+- 2026-06-13 10:20 CDT: Patched conversation-wall / memory semantics after Alan
+  flagged 一之瀨/祥子 showing identical objective memory under `心裡留下的`.
+  The issue was not a true subjective residue; those rows had no `殘留：...`
+  line and were ordinary conversation memory summaries. UI now labels true
+  residue as `心裡留下的` and ordinary memory as `記住的片段`. `school.ts`
+  extracts only the remembered anchor for ordinary rows (`某某記住了：「...」`)
+  instead of showing the full objective memory header. Future autonomous
+  NPC↔NPC memory summaries no longer use free LLM summary by default; they use
+  deterministic owner-perspective anchors, preferring what the other participant
+  said. True subjective emotion remains the bounded residue path. Existing old
+  rows are not rewritten, but the wall no longer presents them as subjective
+  residue. Verification: `npm test -- --runTestsByPath
+  convex/agent/memory.test.ts` 38/38, `npx tsc --noEmit --pretty false`, and
+  `npm run build`.
+- 2026-06-13 10:27 CDT: Patched the same-pair short-term continuity gap after
+  Alan noticed 一之瀨/祥子 replaying the same lunch-box/helping conversation at
+  10:09 and 10:15. Diagnosis: they were not fully amnesic; the pair history
+  existed, but compact autonomous start prompts only saw "you have spoken
+  before" and not the prior conversation content. Since the first sample did
+  not produce true residue, no residue prompt discouraged the repeat. Fix:
+  compact autonomous start prompts now receive a tiny previous same-pair hint
+  from the last archived conversation's messages, including minutes ago, first
+  / final beat, and motif labels, plus a hard instruction not to restart the
+  same object/helping move. No schema or DB writes changed. Verification:
+  `npm test -- --runTestsByPath convex/agent/conversationMotifGuard.test.ts
+  convex/agent/memory.test.ts` 77/77, `npx tsc --noEmit --pretty false`,
+  `npm run build`, and `git diff --check`.
+- 2026-06-13 10:32 CDT: Implemented the v0.1 evidence-layer split Alan asked
+  for: ordinary conversation memory can still exist as a remembered fragment,
+  but it can no longer become experienceLog evidence unless the conversation
+  produced non-empty soul-grounded LLM residue. `memory.ts` now tags residue
+  source as `llm_soul`, `deterministic`, or `none`; repeat-pattern and
+  recall-correction gates reset the source to `none` when they clear residue.
+  `experienceLog.ts` rejects `no_residue` and `non_soul_residue`, and gives the
+  six active pilot characters character-specific interpretation/behavior hints
+  from the residue. This means provider failure / deterministic fallback may
+  still leave ordinary memory if clean, but cannot become v0.1 continuity
+  evidence. cc review was attempted but blocked by session limit, so this is a
+  Codex-accepted bounded fix. Verification: `npm test -- --runTestsByPath
+  convex/agent/experienceLog.test.ts convex/agent/memory.test.ts
+  convex/agent/conversationMotifGuard.test.ts` 103/103, `npx tsc --noEmit
+  --pretty false`, `npm run build`, `git diff --check`.
+- 2026-06-13 10:37 CDT: Patched the weekend-life gap after Alan noticed that
+  today is Saturday but nobody was talking about weekend topics. Root cause:
+  calendar/weekend context existed, but compact autonomous prompts treated it
+  as a buried date hint instead of a concrete life motive. `conversation.ts`
+  now adds `週末生活錨點` and scene-specific `週末場景 seed` lines for compact
+  start/continue prompts when `clockContext.isWeekend` is true, with examples
+  like free activity, homework, laundry, club practice, errands, walking, dorm
+  choices, and private check-ins. The seed filters out food/drink/utensil
+  surfaces so weekend talk does not collapse back into bento/tea loops.
+  Verification: `npm test -- --runTestsByPath
+  convex/agent/conversationMotifGuard.test.ts convex/agent/experienceLog.test.ts
+  convex/agent/memory.test.ts` 104/104, `npx tsc --noEmit --pretty false`,
+  `npm run build`, `git diff --check`.
+- 2026-06-13 10:14 CDT: Fixed Alan/海 false commitment extraction from
+  `conversation-c:8563`. The actual transcript changed away from curry
+  (`先不要咖哩飯了`) to tomorrow breakfast, but the memory writer stored a
+  concrete curry commitment because the acceptance-window parser saw curry
+  anywhere in the nearby text and then saw later acceptance lines. Codex patched
+  `convex/agent/memory.ts` so commitment object extraction ignores rejected
+  object lines and question-only prior-commitment probes, and requires a
+  positive offer/request/eating/preparing cue. Added regression coverage in
+  `convex/agent/memory.test.ts`. The one bad memory was marked corrected /
+  importance 0 with `school:downweightFalseMemory`; `experienceLogs` were empty
+  for that conversation, so the v0.1 evidence layer was not polluted. cc
+  read-only second-look was attempted but blocked by Claude session limit; do
+  not record cc approval for this patch. Verification: `npm test --
+  --runTestsByPath convex/agent/memory.test.ts`, `npx tsc --noEmit --pretty
+  false`, `npm run build`, `school:debugAlanConversationState`, and
+  `world:defaultWorldStatus` running after `testing:resume`.
+- 2026-06-13 10:09 CDT: Investigated why role-to-role conversations were not
+  visible in the conversation tab. Runtime was not asleep or dead:
+  `world:defaultWorldStatus` was `running`, `school:debugState` showed all six
+  current characters awake, and `school:worldClock` showed Saturday free
+  activity. Root cause was stale Convex env from an earlier single-sample triad
+  pilot (`SOUL_TRIAD_COLOCATION_PILOT`, `SOUL_TRIAD_FOCUS_PAIR`, and
+  `SOUL_TRIAD_SINGLE_SAMPLE_AFTER_MS`), which effectively narrowed autonomous
+  candidate selection and made the world look like it had stopped talking. Codex
+  removed those three env vars and ran `testing:resume`; logs then showed fresh
+  NPC conversations starting/continuing/remembing, including 貓貓/海,
+  貓貓/一之瀨, 海/真晝, 貓貓/天澤, and 一之瀨/祥子. Fresh recent eval now sees 4
+  post-fix samples: 0 PASS / 2 WARN / 2 FAIL. Conversation visibility is back,
+  but quality is not solved: report flags motif/mirror repetition, stage-action
+  leakage in 海/真晝, and weak character-voice cues in 貓貓/一之瀨 and 一之瀨/祥子.
+  Do not re-enable triad pilot envs unless explicitly running a bounded pilot.
+- 2026-06-13 10:04 CDT: Patched Alan-facing chat quality after Alan's fresh
+  天澤 / 真晝 / 海 playtest. Root cause was prompt-level permission for
+  "unfinished" replies plus lack of character-specific Alan-facing binding:
+  天澤 collapsed into incomplete reaction fragments, 真晝 became too passive
+  and repeated food/body cues, and 海 was directionally smooth but over-prop-y.
+  Fix: `conversation.ts` now gives Alan-facing character rules to 海 / 真晝 /
+  天澤 / 貓貓 / 一之瀨 / 祥子, requires complete spoken replies, uses the
+  America/Chicago runtime clock for date/weekend questions, and only repairs
+  clear broken shapes instead of replacing ordinary imperfect lines. Targeted
+  tests cover Tianze dangling fragments and Mahiru restaurant/food-loop repair.
+  Runtime check also passed: `underworld:runtime-preflight` PASS and
+  `/ai-town` HTTP 200. Verification: `npm test -- --runTestsByPath
+  convex/agent/conversationMotifGuard.test.ts`, `npx tsc --noEmit --pretty
+  false`, `npm run build`, `npm run underworld:runtime-preflight`, and `curl -I
+  http://127.0.0.1:5173/ai-town`.
 - 2026-06-13 00:06 CDT: Midnight closeout after Alan asked for cc contribution
   summary, roadmap alignment, and commit prep. cc's useful night contributions
   were: (1) caught scope creep / schema-coupling risk in the orphan-wake +

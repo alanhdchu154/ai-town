@@ -23,6 +23,7 @@ import InteractButton from './buttons/InteractButton.tsx';
 import { ClassroomCenter } from '../../data/classroomBounds.ts';
 
 export const SHOW_DEBUG_UI = !!import.meta.env.VITE_SHOW_DEBUG_UI;
+const ALAN_HOME_SCENE_ID: SchoolLocationId = 'studentCouncilRoom';
 
 type RightPanelTab = 'action' | 'dialogue' | 'characters' | 'schedule' | 'debug';
 type CampusFeedFilter = '全部' | '未讀' | '今日焦點' | '傳聞' | '關係事件' | '對話' | '場景事件';
@@ -431,7 +432,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         ? '🌆'
         : periodLabel === '早晨'
           ? '🌅'
-          : periodLabel === '下午'
+          : periodLabel === '白天' || periodLabel === '下午'
             ? '☀️'
             : periodLabel === '中午'
               ? '🌞'
@@ -596,6 +597,27 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       );
       return;
     }
+    if (actionType === 'chat' && selectedName && selectedName !== 'Alan') {
+      if (!humanPlayer) {
+        setSceneMessage(`先接手 Alan，再邀請 ${displayAgentName(selectedName)} 來校長室。`);
+        return;
+      }
+      if (humanConversation) {
+        setSceneMessage('正在對話中。請先結束目前對話，再邀請下一位角色。');
+        return;
+      }
+      const principalOffice = SchoolLocations.find((location) => location.id === ALAN_HOME_SCENE_ID);
+      if (principalOffice) {
+        followAlanRef.current = false;
+        setSelectedSceneId(principalOffice.id);
+        window.setTimeout(() => focusOn(principalOffice.position, 1.28), 60);
+      }
+      setSceneMessage(
+        targetDistanceStatus === '不在同場景'
+          ? `已邀請 ${displayAgentName(selectedName)} 來校長室，對方正在靠近。`
+          : `Alan 正在和 ${displayAgentName(selectedName)} 開始對話。`,
+      );
+    }
     setQuickTextAction(undefined);
     setQuickText('');
     window.dispatchEvent(
@@ -636,11 +658,11 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       setSceneMessage('正在對話中。請先離開目前對話，再切換場景。');
       return;
     }
-    // Keep the camera on the DESTINATION while Alan travels; following him
-    // mid-walk snaps the view back to his old room (the 「選教室卻到餐廳」 bug).
+    // Scene switching is now an observation camera. Alan's home base is the
+    // principal office; choosing another scene should not haul him away before
+    // the player decides who to invite.
     followAlanRef.current = false;
     setSelectedSceneId(nextId);
-    const destination = nextScene.spawnPoints[0] ?? nextScene.position;
     if (!humanPlayer) {
       focusOn(nextScene.position, 1.2);
       setSceneMessage(
@@ -648,16 +670,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       );
       return;
     }
-    void moveAlanTo({ destination })
-      .then((result) => {
-        setSceneMessage(result.descriptionZh || `Alan 前往：${nextScene.labelZh}。`);
-      })
-      .catch((error) => {
-        console.error('[GIIS scene travel failed]', error);
-        setSceneMessage(`無法前往：${nextScene.labelZh}`);
-      });
     focusOn(nextScene.position, 1.2);
-    setSceneMessage(`Alan 前往：${nextScene.labelZh}。此處有 ${nextGroup?.occupants.length ?? 0} 位角色。`);
+    setSceneMessage(
+      `切換觀察視角到：${nextScene.labelZh}。Alan 留在校長室，可邀請角色來談。此處有 ${nextGroup?.occupants.length ?? 0} 位角色。`,
+    );
     if (import.meta.env.DEV) {
       requestAnimationFrame(() => {
         console.debug('[GIIS timing]', {
@@ -745,7 +761,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     { label: '進入', state: humanPlayer ? 'done' : 'active' },
     { label: '選人', state: selectedName ? 'done' : humanPlayer ? 'active' : 'pending' },
     {
-      label: '靠近',
+      label: targetDistanceStatus === '不在同場景' ? '邀請' : '靠近',
       state:
         !selectedName
           ? 'pending'
@@ -815,7 +831,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               isConversationMode
                 ? '正在對話中，先離開對話才能切換場景。'
                 : humanPlayer
-                  ? '前往其他場景（會把 Alan 一起移過去）'
+                  ? '切換觀察視角；Alan 會留在校長室。'
                   : '切換觀察視角；Alan 離校中，不會自動上線。'
             }
           >
@@ -1030,15 +1046,17 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 {targetDistanceStatus === '不在同場景' ? (
                   <button
                     className="giis-action-pill giis-action-pill-primary"
-                    title={`前往 ${displayAgentName(selectedName)} 所在的場景`}
-                    onClick={focusSelectedTarget}
+                    title={`邀請 ${displayAgentName(selectedName)} 來校長室對話`}
+                    disabled={!humanPlayer}
+                    onClick={() => runQuickAction('chat')}
                   >
-                    前往 {displayAgentName(selectedName)}
+                    邀請 {displayAgentName(selectedName)}
                   </button>
                 ) : (
                   <button
                     className="giis-action-pill giis-action-pill-primary"
                     title={ACTION_TOOLTIPS.chat}
+                    disabled={!humanPlayer}
                     onClick={() => {
                       // Immediate feedback: starting a conversation involves
                       // walking over + engine accept, which can take ~10s with
@@ -1121,11 +1139,17 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 <span className="giis-action-divider" aria-hidden="true" />
                 <button
                   className="giis-action-pill giis-action-pill-primary"
-                  title={ACTION_TOOLTIPS.chat}
+                  title={
+                    targetDistanceStatus === '不在同場景'
+                      ? `邀請 ${displayAgentName(selectedName)} 來校長室對話`
+                      : ACTION_TOOLTIPS.chat
+                  }
                   onClick={() => runQuickAction('chat')}
-                  disabled={!targetDistanceStatus || targetDistanceStatus === '不在同場景'}
+                  disabled={!humanPlayer || !targetDistanceStatus || targetDistanceStatus === '找不到角色'}
                 >
-                  聊聊 {displayAgentName(selectedName)}
+                  {targetDistanceStatus === '不在同場景'
+                    ? `邀請 ${displayAgentName(selectedName)}`
+                    : `聊聊 ${displayAgentName(selectedName)}`}
                 </button>
               </>
             ) : null}
@@ -1616,7 +1640,9 @@ const ACTION_TOOLTIPS: Record<QuickActionType, string> = {
 
 function sceneTimeVariant(periodLabel: string) {
   if (periodLabel === '晚上' || periodLabel === '深夜') return 'night';
-  if (periodLabel === '早晨' || periodLabel === '中午' || periodLabel === '下午') return 'day';
+  if (periodLabel === '早晨' || periodLabel === '白天' || periodLabel === '中午' || periodLabel === '下午') {
+    return 'day';
+  }
   return undefined;
 }
 

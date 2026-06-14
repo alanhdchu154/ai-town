@@ -57,7 +57,12 @@ if (WRITE) {
   });
 }
 
-writeOutputs({ rows, writeResult, logsRead: experienceLogs.length });
+writeOutputs({
+  rows,
+  writeResult,
+  logsRead: experienceLogs.length,
+  subjectiveLogsRead: experienceLogs.filter(isSubjectiveExperienceLog).length,
+});
 console.log(
   `[experience-sleep-promote] mode=${WRITE ? 'write' : 'dry-run'} logs=${experienceLogs.length} rows=${rows.length} inserted=${writeResult?.inserted ?? 0} skipped=${writeResult?.skipped ?? 0}`,
 );
@@ -104,8 +109,20 @@ function buildSleepNoteRows(logs, now) {
 
 function meaningfulForSleep(log) {
   if (!log?.characterName || !PILOT_SUBJECTS.has(log.characterName)) return false;
+  if (!isSubjectiveExperienceLog(log)) return false;
   if (log.importance === 'low') return false;
   return Boolean(log.residue || log.behaviorHint || log.beliefSeed);
+}
+
+function isSubjectiveExperienceLog(log) {
+  const summary = cleanText(log?.eventSummary);
+  if (!summary || !log?.characterName) return false;
+  if (!summary.startsWith(`對${log.characterName}來說`)) return false;
+  if (/^[^：]{1,12}與[^：]{1,12}：/.test(summary)) return false;
+  if (/留下了一段短記憶|進行了一段短暫對話|短暫對話|objective|event summary/i.test(summary)) {
+    return false;
+  }
+  return true;
 }
 
 function rankLog(log) {
@@ -173,7 +190,7 @@ async function convexRun(functionName, payload) {
   return JSON.parse(trimmed.slice(jsonStart));
 }
 
-function writeOutputs({ rows, writeResult, logsRead }) {
+function writeOutputs({ rows, writeResult, logsRead, subjectiveLogsRead }) {
   mkdirSync(OUT_DIR, { recursive: true });
   mkdirSync(dirname(REPORT_PATH), { recursive: true });
   writeFileSync(join(OUT_DIR, 'sleep-note-promotions.jsonl'), rows.map((row) => JSON.stringify(row)).join('\n') + (rows.length ? '\n' : ''));
@@ -184,6 +201,7 @@ function writeOutputs({ rows, writeResult, logsRead }) {
         generatedAt: new Date().toISOString(),
         mode: WRITE ? 'write' : 'dry-run',
         logsRead,
+        subjectiveLogsRead,
         rows: rows.length,
         writeResult,
       },
@@ -191,16 +209,17 @@ function writeOutputs({ rows, writeResult, logsRead }) {
       2,
     ),
   );
-  writeFileSync(REPORT_PATH, buildReport({ rows, writeResult, logsRead }), 'utf8');
+  writeFileSync(REPORT_PATH, buildReport({ rows, writeResult, logsRead, subjectiveLogsRead }), 'utf8');
 }
 
-function buildReport({ rows, writeResult, logsRead }) {
+function buildReport({ rows, writeResult, logsRead, subjectiveLogsRead }) {
   const lines = [
     '# Underworld Experience Sleep Promotion',
     '',
     `Generated: ${new Date().toISOString()}`,
     `Mode: ${WRITE ? 'write' : 'dry-run'}`,
     `Experience logs read: ${logsRead}`,
+    `Subjective-shaped logs eligible: ${subjectiveLogsRead}`,
     `Rows prepared: ${rows.length}`,
     `Inserted: ${writeResult?.inserted ?? 0}`,
     `Skipped: ${writeResult?.skipped ?? 0}`,
@@ -218,6 +237,7 @@ function buildReport({ rows, writeResult, logsRead }) {
   lines.push('## Policy');
   lines.push('');
   lines.push('- At most one promoted sleep note per pilot character per local day.');
+  lines.push('- Only subjective-shaped experience logs (`對某某來說...`) may promote.');
   lines.push('- No raw transcripts, memories, profiles, or embeddings are written.');
   lines.push('- Promoted notes from current experience logs are fresh eval evidence.');
   lines.push('- Legacy / old-world sleep notes remain freshEvalEligible=false in the legacy import path.');
@@ -226,6 +246,19 @@ function buildReport({ rows, writeResult, logsRead }) {
 
 function runSelfTest() {
   const now = Date.UTC(2026, 5, 12, 21, 0, 0);
+  if (!isSubjectiveExperienceLog(sampleLog('海', 'high', '海記得真晝沒有催她。', '下次少接一件事。'))) {
+    console.error('[experience-sleep-promote:self-test] FAIL subjective log was not eligible');
+    process.exit(1);
+  }
+  if (
+    isSubjectiveExperienceLog({
+      ...sampleLog('海', 'high', '海記得真晝沒有催她。', '下次少接一件事。'),
+      eventSummary: '海與真晝：兩人留下了一段短記憶。',
+    })
+  ) {
+    console.error('[experience-sleep-promote:self-test] FAIL objective-shaped log was eligible');
+    process.exit(1);
+  }
   const rows = buildSleepNoteRows(
     [
       sampleLog('海', 'high', '海記得真晝沒有催她，只是讓她先停一下。', '下次先少接一件事。'),
@@ -236,6 +269,10 @@ function runSelfTest() {
       sampleLog('貓貓', 'medium', '貓貓記得真晝沒有把沉默當成沒事。', '下次先看停頓，不急著診斷。'),
       sampleLog('祥子', 'medium', '祥子記得天澤沒有把她的停頓說破。', '下次先守住姿態，再決定要不要說真話。'),
       sampleLog('明日奈', 'high', '明日奈不是目前 live evidence pilot。', ''),
+      {
+        ...sampleLog('海', 'high', '海記得真晝沒有催她。', '下次少接一件事。'),
+        eventSummary: '海與真晝：兩人留下了一段短記憶。',
+      },
     ],
     now,
   );
@@ -271,7 +308,7 @@ function sampleLog(characterName, importance, residue, behaviorHint) {
   return {
     characterName,
     otherCharacterName: '真晝',
-    eventSummary: `${characterName} 和 真晝 留下了一段短記憶。`,
+    eventSummary: `對${characterName}來說，真晝留下的是一個需要明天再確認的反應。`,
     emotionalInterpretation: `${characterName} 心裡留下了一點餘波。`,
     residue,
     beliefSeed: '',

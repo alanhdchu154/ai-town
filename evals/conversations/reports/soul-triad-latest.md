@@ -1,15 +1,25 @@
 # Soul Triad Conversation Harness
 
-Generated: 2026-06-13T01:15:20.564Z
+Generated: 2026-06-13T20:00:36.271Z
 
 | Conversation | Participants | Messages | Status | Score | Other aware | Private self | Memory residue | Memory continuity | Behavior | Emotion behavior | Emotion tone | Attention shift | Relationship residue | Over labeling penalty | Tianze pressure | Ichinose debt | Umi Alan anchor | Expression unique | Comfort unique | Burden unique | Imperfect style | Indirectness | Lifecycle flow | Greeting boilerplate penalty | Emotional slogan penalty | Human aftertaste | Echo similarity penalty | Role penalty | System penalty | Over articulation penalty | Therapy empathy penalty | Template penalty | Stage direction leak penalty | Echo penalty |
 |---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-conversation-c:7152 | 海 / 真晝 | 4 | PASS | 1.00 | 1.00 | 0.50 | 0.50 | 0.50 | 0.50 | 0.78 | 0.90 | 0.75 | 0.90 | 0.00 | 0.50 | 0.50 | 0.50 | 1.00 | 1.00 | 1.00 | 1.00 | 0.70 | 0.98 | 0.00 | 0.00 | 1.00 | 0.10 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
+conversation-c:10511 | 海 / 真晝 | 6 | PASS | 1.00 | 1.00 | 0.00 | 1.00 | 0.50 | 0.00 | 0.58 | 0.90 | 0.33 | 0.90 | 0.00 | 0.50 | 0.50 | 0.50 | 0.75 | 0.50 | 0.50 | 0.67 | 0.70 | 0.98 | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
+conversation-c:10499 | 一之瀨 / 祥子 | 4 | PASS | 1.00 | 0.50 | 0.00 | 0.50 | 0.50 | 0.00 | 0.58 | 0.90 | 0.00 | 0.55 | 0.00 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | 0.00 | 0.67 | 0.70 | 0.98 | 0.00 | 0.00 | 1.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00 | 0.00
 
-## conversation-c:7152
+## conversation-c:10511
 
-- **海**: 你手還在抖，先別急著整理明天的事。
-- **真晝**: 你手還在抖……要不要先坐這邊？
-- **海**: 這支筆我先幫你按停——你剛才說沒事時，眼睛往右下方看了兩秒。
-- **真晝**: 你手還在抖……我陪你坐五分鐘，不說話也沒關係。
+- **海**: 你剛才幫祥子改完那三份報告，手還在抖吧？
+- **真晝**: 你剛才說話時，喉嚨動了兩次才出聲。
+- **海**: 先不用回。
+- **真晝**: 你剛才說完那句，手指一直按在筆蓋上沒鬆開。
+- **海**: 筆蓋太涼了，我剛才沒察覺。
+- **真晝**: 手還涼著，就先別寫了。
+
+## conversation-c:10499
+
+- **一之瀨**: 你今天排練到幾點？
+- **祥子**: 七點半。
+- **一之瀨**: 七點半啊……我剛把社團桌位旁的椅子留給你了。
+- **祥子**: 謝謝你留位子……我待會過去時，會順手把琴譜放在那張椅子上。
 

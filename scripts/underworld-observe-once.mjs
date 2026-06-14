@@ -37,6 +37,22 @@ const EVIDENCE_PILOT_NAMES = new Set([
   'Ichinose',
   'Sakiko',
 ]);
+const EVIDENCE_PILOT_CANONICAL = new Set(['海', '真晝', '貓貓', '天澤', '一之瀨', '祥子']);
+const EVIDENCE_PILOT_NAME_BY_RAW = new Map([
+  ['海', '海'],
+  ['Umi', '海'],
+  ['真晝', '真晝'],
+  ['Mahiru', '真晝'],
+  ['Mahiru Shiina', '真晝'],
+  ['貓貓', '貓貓'],
+  ['Maomao', '貓貓'],
+  ['天澤', '天澤'],
+  ['Tianze', '天澤'],
+  ['一之瀨', '一之瀨'],
+  ['Ichinose', '一之瀨'],
+  ['祥子', '祥子'],
+  ['Sakiko', '祥子'],
+]);
 const POLICY_ENV_KEYS = [
   'AUTONOMOUS_CONVERSATION_LLM',
   'AUTONOMOUS_CONVERSATION_LLM_PAIRS',
@@ -260,13 +276,17 @@ async function collectExperienceEvidence(health, freshConversations = []) {
   const freshStatuses = freshConversations.map((conversation) =>
     freshExperienceLogStatus(conversation, rows),
   );
+  const rejectionReasonHistogram = reasonHistogram(freshStatuses);
   return {
     ok: experienceLogs.ok && sleepNotes.ok,
     experienceLogs: rows,
     freshStatuses,
     createdForFreshSamples: freshStatuses.filter((status) => status.created).length,
     rejectedFreshSamples: freshStatuses.filter((status) => !status.created),
+    rejectionReasonHistogram,
     experienceLogCount: rows.length,
+    subjectiveExperienceLogCount: rows.filter(isSubjectiveExperienceLogRow).length,
+    nonSubjectiveExperienceLogCount: rows.filter((row) => !isSubjectiveExperienceLogRow(row)).length,
     behaviorHintCount: rows.filter((row) => row.behaviorHint).length,
     residueCount: rows.filter((row) => row.residue).length,
     sleepNotes: sleepNotes.data,
@@ -627,8 +647,11 @@ async function writeReport({
     `- Stage-direction leak sum: ${findings.stageDirectionLeaks.toFixed(2)}`,
     `- Echo penalty sum: ${findings.echoPenalty.toFixed(2)}`,
     `- Experience logs available: ${experienceEvidence.experienceLogCount}`,
+    `- Subjective-shaped experience logs: ${experienceEvidence.subjectiveExperienceLogCount}`,
+    `- Non-subjective/legacy experience logs: ${experienceEvidence.nonSubjectiveExperienceLogCount}`,
     `- Experience logs created for fresh samples: ${experienceEvidence.createdForFreshSamples}`,
     `- Experience-log fresh rejections/statuses: ${experienceEvidence.rejectedFreshSamples.length}`,
+    `- Experience-log rejection reasons: ${formatReasonHistogram(experienceEvidence.rejectionReasonHistogram)}`,
     `- Experience residue rows: ${experienceEvidence.residueCount}`,
     `- Experience behavior hints: ${experienceEvidence.behaviorHintCount}`,
     `- Sleep notes promoted: ${experienceEvidence.sleepNotePromoted}`,
@@ -666,6 +689,8 @@ async function writeReport({
     '',
     `- experience log query: ${experienceEvidence.ok ? 'ok' : 'check'}`,
     `- experience logs read: ${experienceEvidence.experienceLogCount}`,
+    `- subjective-shaped logs: ${experienceEvidence.subjectiveExperienceLogCount}`,
+    `- non-subjective/legacy logs: ${experienceEvidence.nonSubjectiveExperienceLogCount}`,
     `- residue-bearing logs: ${experienceEvidence.residueCount}`,
     `- behavior-hint logs: ${experienceEvidence.behaviorHintCount}`,
     `- sleepNotes count: ${experienceEvidence.sleepNoteCount}`,
@@ -673,6 +698,7 @@ async function writeReport({
     `- sleepNotes freshEvalEligible: ${experienceEvidence.sleepNoteFreshEvalEligible}`,
     '',
     ...freshExperienceStatusLines(experienceEvidence),
+    ...freshExperienceRejectionHistogramLines(experienceEvidence),
     '',
     ...experienceEvidenceLines(experienceEvidence),
     '',
@@ -870,10 +896,23 @@ function experienceEvidenceLines(evidence) {
     return ['- no experience logs yet'];
   }
   return rows.slice(0, 8).flatMap((row) => [
-    `- ${row.characterName} (${row.characterId ?? 'unknown'}) day ${row.day} (${row.importance}): ${row.emotionalResidue || row.residue || row.emotionalInterpretation || row.eventSummary}`,
+    `- ${row.characterName} (${row.characterId ?? 'unknown'}) day ${row.day} (${row.importance}; subjective=${isSubjectiveExperienceLogRow(row) ? 'yes' : 'no'}): ${row.eventSummary}`,
+    row.emotionalResidue || row.residue ? `  - residue: ${row.emotionalResidue || row.residue}` : '  - residue: none',
+    row.emotionalInterpretation ? `  - interpretation: ${row.emotionalInterpretation}` : '  - interpretation: none',
     row.behaviorHint ? `  - behavior hint: ${row.behaviorHint}` : '  - behavior hint: none',
     `  - source conversation: ${row.sourceConversationId ?? row.conversationId ?? 'unknown'}`,
   ]);
+}
+
+function isSubjectiveExperienceLogRow(row) {
+  const summary = String(row?.eventSummary ?? '').trim();
+  if (!summary || !row?.characterName) return false;
+  if (!summary.startsWith(`對${row.characterName}來說`)) return false;
+  if (/^[^：]{1,12}與[^：]{1,12}：/.test(summary)) return false;
+  if (/留下了一段短記憶|進行了一段短暫對話|短暫對話|objective|event summary/i.test(summary)) {
+    return false;
+  }
+  return true;
 }
 
 function freshExperienceStatusLines(evidence) {
@@ -887,10 +926,45 @@ function freshExperienceStatusLines(evidence) {
   ];
 }
 
+function freshExperienceRejectionHistogramLines(evidence) {
+  const histogram = evidence.rejectionReasonHistogram ?? {};
+  const entries = Object.entries(histogram).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (!entries.length) return ['- rejection reason histogram: none'];
+  return [
+    '- rejection reason histogram:',
+    ...entries.map(([reason, count]) => `  - ${reason}: ${count}`),
+  ];
+}
+
+function reasonHistogram(statuses) {
+  return statuses
+    .filter((status) => !status.created)
+    .reduce((histogram, status) => {
+      const reason = status.reason ?? 'unknown';
+      histogram[reason] = (histogram[reason] ?? 0) + 1;
+      return histogram;
+    }, {});
+}
+
+function formatReasonHistogram(histogram = {}) {
+  const entries = Object.entries(histogram).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (!entries.length) return 'none';
+  return entries.map(([reason, count]) => `${reason}=${count}`).join(', ');
+}
+
 function freshExperienceLogStatus(conversation, rows) {
   const id = canonicalConversationId(conversation.id);
   const matchingRows = rows.filter((row) => canonicalConversationId(row.sourceConversationId ?? row.conversationId) === id);
   if (matchingRows.length) {
+    const nonSubjective = matchingRows.filter((row) => !isSubjectiveExperienceLogRow(row)).length;
+    if (nonSubjective) {
+      return {
+        id: conversation.id,
+        created: false,
+        logCount: matchingRows.length,
+        reason: 'non_subjective_experience_log_shape',
+      };
+    }
     return {
       id: conversation.id,
       created: true,
@@ -915,7 +989,19 @@ function canonicalConversationId(value) {
 function inferExperienceLogRejectionReason(conversation) {
   const messages = conversation.transcriptMessages ?? [];
   const text = messages.map((message) => message.text ?? '').join('\n');
-  if ((conversation.involvedCharacters ?? []).filter((name) => EVIDENCE_PILOT_NAMES.has(name)).length < 2) {
+  const participants = conversation.involvedCharacters ?? [];
+  const canonicalPilots = participants.map(canonicalEvidencePilotName).filter(Boolean);
+  const hasAlan = participants.includes('Alan');
+  if (conversation.diagnosticKind === 'active_conversation_not_archived') {
+    return 'source_not_archived_yet';
+  }
+  if (conversation.diagnosticKind === 'human_chat_not_archived') {
+    return hasAlan ? 'alan_chat_not_archived' : 'source_not_archived_yet';
+  }
+  if (hasAlan && canonicalPilots.length >= 1) {
+    return 'alan_pair_shadow_not_enabled';
+  }
+  if (canonicalPilots.length < 2) {
     return 'non_current_pilot';
   }
   if (/\[ABORT_CONVERSATION\]|\[LEAVE\]|pilot LLM unavailable|fallback|無法提供|不能滿足/i.test(text)) {
@@ -923,7 +1009,39 @@ function inferExperienceLogRejectionReason(conversation) {
   }
   if (hasObviousMotifLoop(messages)) return 'obvious_echo_or_motif_loop';
   if (hasLikelyStageDirectionLeak(text)) return 'stage_direction_leak';
-  return 'not_written_or_capped_or_deduped';
+  const memoryTraceReason = inferMemoryTraceExperienceReason(conversation.memoryTraces ?? []);
+  if (memoryTraceReason) return memoryTraceReason;
+  if (conversation.outcomeQuality === 'repeated_noise') return 'repeated_noise_or_motif_loop';
+  return 'possible_cap_dedupe_or_not_archived_gate';
+}
+
+function canonicalEvidencePilotName(name) {
+  const trimmed = String(name ?? '').trim();
+  const canonical = EVIDENCE_PILOT_NAME_BY_RAW.get(trimmed);
+  return canonical && EVIDENCE_PILOT_CANONICAL.has(canonical) ? canonical : null;
+}
+
+function inferMemoryTraceExperienceReason(memoryTraces) {
+  if (!Array.isArray(memoryTraces) || !memoryTraces.length) return 'no_memory_trace_yet';
+  const traceText = memoryTraces
+    .map((trace) => Object.values(trace ?? {}).join(' '))
+    .join('\n');
+  if (/residueSource['":\s]+deterministic|non_soul_residue|deterministic/i.test(traceText)) {
+    return 'non_soul_residue';
+  }
+  if (/residueSource['":\s]+none|no_residue/i.test(traceText)) {
+    return 'no_residue';
+  }
+  if (/殘留|心裡留下|llm_soul|還記得/.test(traceText)) {
+    return 'possible_cap_dedupe_or_recent_not_loaded';
+  }
+  if (/記住的片段|記住了：|ordinary_memory_fragment_not_residue/.test(traceText)) {
+    return 'ordinary_memory_fragment_not_residue';
+  }
+  if (/記住的是/.test(traceText)) {
+    return 'ordinary_memory_fragment_not_residue';
+  }
+  return 'no_soul_residue_trace';
 }
 
 function hasLikelyStageDirectionLeak(text) {
@@ -1320,6 +1438,52 @@ function runSelfTest() {
     overclaimedEchoFindings.repairConfidenceBlockers,
     'recent_failure_reason_category_mismatch',
     'overclaimed echo recent-reason blocker',
+  );
+  assertEqual(
+    inferExperienceLogRejectionReason({
+      diagnosticKind: 'active_conversation_not_archived',
+      involvedCharacters: ['海', '真晝'],
+      transcriptMessages: [{ author: '海', text: '今天我只整理三件事。' }],
+    }),
+    'source_not_archived_yet',
+    'active conversations are not archival evidence yet',
+  );
+  assertEqual(
+    inferExperienceLogRejectionReason({
+      diagnosticKind: 'human_chat_not_archived',
+      involvedCharacters: ['Alan', '海'],
+      transcriptMessages: [{ author: 'Alan', text: '我喜歡你' }],
+    }),
+    'alan_chat_not_archived',
+    'Alan chat must archive before lane-2 evidence',
+  );
+  assertEqual(
+    inferExperienceLogRejectionReason({
+      involvedCharacters: ['Alan', '海'],
+      transcriptMessages: [{ author: 'Alan', text: '我喜歡你' }, { author: '海', text: '嗯，我聽見了。' }],
+      memoryTraces: [{ memoryLineZh: '海記住的是：Alan 的喜歡不是任務。' }],
+    }),
+    'alan_pair_shadow_not_enabled',
+    'Alan pair is shadow-only until explicitly enabled',
+  );
+  assertEqual(
+    inferExperienceLogRejectionReason({
+      involvedCharacters: ['一之瀨', '真晝'],
+      transcriptMessages: [{ author: '一之瀨', text: '你剛才幫天澤收作業時，筆盒蓋子還掀著呢……' }],
+      memoryTraces: [{ memoryLineZh: '一之瀨記住的片段：「筆盒蓋子還掀著」' }],
+    }),
+    'ordinary_memory_fragment_not_residue',
+    'ordinary memory fragment is not subjective evidence',
+  );
+  assertEqual(
+    formatReasonHistogram(reasonHistogram([
+      { created: false, reason: 'no_residue' },
+      { created: false, reason: 'no_residue' },
+      { created: false, reason: 'source_not_archived_yet' },
+      { created: true, reason: 'created' },
+    ])),
+    'no_residue=2, source_not_archived_yet=1',
+    'rejection reason histogram excludes created rows',
   );
   console.log('[underworld-observe:self-test] PASS');
 }

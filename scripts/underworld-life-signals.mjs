@@ -895,6 +895,7 @@ function decideStatus(summary) {
 }
 
 async function writeReport({ data, window, queryWindow, conversations, analyses, repeatedLines, summary, status }) {
+  const conversationSamples = conversationSamplesForReport(conversations, analyses, repeatedLines);
   const report = [
     '# GIIS Underworld Life Signals Report',
     '',
@@ -1033,8 +1034,17 @@ async function writeReport({ data, window, queryWindow, conversations, analyses,
         .map(
           (item) =>
             `- ${item.id} · ${item.timeLabel} · ${item.participants.join(' / ')} · messages ${item.messageCount} · speakers ${item.speakerCount} · life ${item.netLifeScore.toFixed(2)} · admin ${item.adminCues.join('、') || 'none'} · hygiene ${item.hygieneCues.join('、') || 'none'} · post ${item.postProcessingDriftCues.join('、') || 'none'} · shape ${item.shapeScore.toFixed(2)}\n  - ${item.postProcessingDriftLine || item.driftLine || item.bestLine || 'No clear line.'}`,
-        ),
+      ),
       'No drift signal found.',
+    ),
+    '',
+    '## Conversation Samples',
+    '',
+    'Selected evidence conversations are printed so each life-signal check can be reviewed without a separate Convex query.',
+    '',
+    listOrNone(
+      conversationSamples.map((sample) => formatConversationSample(sample)),
+      'No conversation transcript samples available.',
     ),
     '',
     '## Policy',
@@ -1049,6 +1059,80 @@ async function writeReport({ data, window, queryWindow, conversations, analyses,
 
   await mkdir(dirname(REPORT_PATH), { recursive: true });
   await writeFile(REPORT_PATH, report);
+}
+
+function conversationSamplesForReport(conversations, analyses, repeatedLines) {
+  const analysisById = new Map(analyses.map((analysis) => [analysis.id, analysis]));
+  const samples = [];
+  const seen = new Set();
+  const add = (conversationId, reason) => {
+    if (!conversationId || seen.has(conversationId) || samples.length >= 8) return;
+    const conversation = conversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    seen.add(conversationId);
+    samples.push({
+      reason,
+      conversation,
+      analysis: analysisById.get(conversationId),
+    });
+  };
+
+  for (const repeated of repeatedLines.slice(0, 3)) {
+    for (const conversationId of repeated.conversationIds.slice(0, 2)) {
+      add(conversationId, `repeated surface line: ${repeated.author ?? 'unknown'} "${repeated.text}"`);
+    }
+  }
+
+  for (const analysis of analyses.filter((item) => item.propEchoes.length).slice(0, 3)) {
+    add(analysis.id, `repeated prop/motif: ${analysis.propEchoes.map((echo) => `${echo.cue} ${echo.count}x`).join('、')}`);
+  }
+
+  for (const analysis of analyses.filter((item) => item.postProcessingDriftCues.length).slice(0, 2)) {
+    add(analysis.id, `post-processing drift: ${analysis.postProcessingDriftCues.join('、')}`);
+  }
+
+  for (const analysis of analyses.filter((item) => item.shapeScore >= 0.35).slice(0, 2)) {
+    add(analysis.id, 'conversation shape flag');
+  }
+
+  for (const analysis of [...analyses].sort((a, b) => a.netLifeScore - b.netLifeScore).slice(0, 2)) {
+    add(analysis.id, 'weak/drift sample');
+  }
+
+  for (const analysis of [...analyses].filter((item) => item.netLifeScore > 0).sort((a, b) => b.netLifeScore - a.netLifeScore).slice(0, 2)) {
+    add(analysis.id, 'strong life-signal sample');
+  }
+
+  for (const conversation of conversations.slice(0, 3)) {
+    add(conversation.id, 'recent sample');
+  }
+
+  return samples;
+}
+
+function formatConversationSample({ reason, conversation, analysis }) {
+  const header = [
+    `- ${conversation.id} · ${analysis?.timeLabel ?? conversation.timestampLabelZh ?? localTimeLabel(conversation.createdAt, TIME_ZONE)} · ${(conversation.involvedCharacters ?? []).join(' / ') || 'unknown participants'}`,
+    `  - reason: ${reason}`,
+    analysis
+      ? `  - signals: life=${analysis.netLifeScore.toFixed(2)} messages=${analysis.messageCount} speakers=${analysis.speakerCount} cues=${analysis.lifeCues.join('、') || 'none'}`
+      : undefined,
+    '  - transcript:',
+    '```text',
+    formatTranscriptForReport(conversation),
+    '```',
+  ].filter(Boolean);
+  return header.join('\n');
+}
+
+function formatTranscriptForReport(conversation) {
+  const lines = (conversation.transcriptMessages ?? [])
+    .slice(0, MESSAGES_PER_CONVERSATION)
+    .map((message) => `${message.author ?? 'unknown'}: ${trim(String(message.text ?? '').replace(/```/g, "'''"), 220)}`);
+  if (!lines.length) return '(no transcript messages)';
+  const omitted = (conversation.transcriptMessages?.length ?? 0) - lines.length;
+  if (omitted > 0) lines.push(`... (${omitted} more messages omitted)`);
+  return lines.join('\n');
 }
 
 function findRepeatedLines(conversations) {

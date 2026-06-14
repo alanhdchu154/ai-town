@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { Id } from '../_generated/dataModel';
+import { Doc, Id } from '../_generated/dataModel';
 import { ActionCtx, internalQuery } from '../_generated/server';
 import { LLMMessage, chatCompletion } from '../util/llm';
 import * as memory from './memory';
@@ -213,7 +213,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, agent, otherAgent, lastConversation, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, agent, otherAgent, lastConversation, lastConversationHint, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -251,6 +251,7 @@ export async function startConversationMessage(
         agent,
         otherAgent: otherAgent ?? null,
         lastConversation,
+        lastConversationHint,
         recentEvents,
         recentResidues,
         sleepNotes,
@@ -270,6 +271,7 @@ export async function startConversationMessage(
         ...(humanInConversation
           ? [
               `Human opening rule: Alan is present. Greet him first in one natural sentence, then offer one small ordinary topic for the current scene. Do not open with a report, big thesis, or whole-school analysis.`,
+              ...alanFacingCharacterPromptLines(player.name, undefined, clockContext),
             ]
           : []),
         ...(companionMode ? [] : relatedMemoriesPrompt(memories)),
@@ -324,6 +326,7 @@ export async function startConversationMessage(
     otherPlayer.name,
     undefined,
     [],
+    clockContext,
   );
   if (pilotPair && isGeneratedFallbackText(trimmed)) {
     return '[ABORT_CONVERSATION] pilot generated fallback text';
@@ -432,6 +435,7 @@ export async function continueConversationMessage(
               `If Alan greets you, calls your name, or asks a casual life question, greet back naturally and stay in ordinary school life. Do not jump to whole-school analysis unless Alan asks.`,
               `Yesterday/today memory rule: use "剛才" or "今天" only for evidence from the current America/Chicago calendar day; use "昨天" only when the memory/residue is explicitly labeled yesterday. If there is no transcript or memory evidence, do not invent precise callbacks like "昨天深夜你一直沒回" or dated project details.`,
               `Human chat rhythm: do not make every turn a question. If Alan asked for a concrete thing, agree/refuse/modify it in your own character style first; end with a small action, quiet reaction, or partial decision unless a follow-up is truly needed.`,
+              ...alanFacingCharacterPromptLines(player.name, lastHumanInput, clockContext),
             ]
           : []),
         ...(companionMode && companionIntent && !companionNeedsMemoryContext(companionIntent)
@@ -448,7 +452,7 @@ export async function continueConversationMessage(
           ? `Respond as Alan's desktop companion: warm, direct, emotionally grounded, and practical. Ask at most one focused follow-up question (skip it entirely if Alan was just greeting, correcting, or making a one-line statement). Length must match Alan's input: 1-2 sentences if Alan was brief; 1-3 short paragraphs otherwise.`
           : `If the conversation is stalling, shift topics by asking a concrete question, introducing a human observation, mentioning a memory, or naming a small personal cost.`,
         topicShiftPrompt(player.name, sceneContext, companionMode),
-        `Rhythm check before answering: the reply may be short, awkward, quiet, tired, teasing, or unfinished. Do not force insight if a simple human response fits better.`,
+        `Rhythm check before answering: the reply may be short, awkward, quiet, tired, teasing, or hesitant, but it must be a complete spoken reply. Do not end on a dangling quote, comma, "的時候", "那句", or a setup without payoff. Do not force insight if a simple human response fits better.`,
         `Soul check before answering: include at most one of these if natural: a concrete school-life detail, a personal fear, a small hesitation, a cost, a quiet silence, or a decision to stop.`,
         `Do not sound like a meeting note. Avoid labels like "main plot", "conversationOutcome", "形成意圖", or repeated thesis statements.`,
         companionMode
@@ -518,6 +522,7 @@ export async function continueConversationMessage(
     otherPlayer.name,
     lastAlanInput,
     previous,
+    clockContext,
   );
   if (isRepetitiveResponse(trimmed, previous)) {
     if (pilotPair) {
@@ -620,6 +625,7 @@ export async function leaveConversationMessage(
     otherPlayer.name,
     undefined,
     previous,
+    undefined,
   );
   if (pilotPair && isVerboseUmiMahiruPilotExit(trimmed)) {
     return '[ABORT_CONVERSATION] pilot verbose exit';
@@ -866,7 +872,7 @@ function openaiCompatibleModelName(model: string | undefined) {
   return configured.startsWith('qwen/') ? configured.slice('qwen/'.length) : configured;
 }
 
-async function pilotCloudCompletion(
+export async function pilotCloudCompletion(
   request: Parameters<typeof chatCompletion>[0],
   humanFacing = false,
 ): Promise<{ content: string; retries: number; ms: number }> {
@@ -1078,6 +1084,13 @@ type PromptResidue = {
   createdAt: number;
 };
 
+type PromptLastConversationHint = {
+  minutesAgo: number;
+  topicZh: string;
+  finalBeatZh: string;
+  motifLabels: string[];
+};
+
 type PromptSleepNote = {
   noteZh: string;
   usageHintZh: string;
@@ -1098,6 +1111,7 @@ function compactAutonomousStartPrompt({
   agent,
   otherAgent,
   lastConversation,
+  lastConversationHint,
   recentEvents,
   recentResidues,
   sleepNotes,
@@ -1111,6 +1125,7 @@ function compactAutonomousStartPrompt({
   agent: PromptAgent;
   otherAgent: PromptAgent;
   lastConversation: { created: number } | null;
+  lastConversationHint?: PromptLastConversationHint | null;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
   sleepNotes?: PromptSleepNote[];
@@ -1151,17 +1166,58 @@ function compactAutonomousStartPrompt({
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
+    ...weekendLifePromptLines(clockContext, sceneContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
     `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
+    ...recentPairContinuityPromptLines(lastConversationHint),
     ...propDiversityPromptLines(undefined, recentResidues, playerName, otherPlayerName, sceneContext),
     ...sleepNotePromptLines(sleepNotes, otherPlayerName),
     'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
   ].filter(Boolean);
+}
+
+function recentPairContinuityPromptLines(hint?: PromptLastConversationHint | null) {
+  if (!hint || hint.minutesAgo > 90) return [];
+  const motifs = hint.motifLabels.length ? ` Motifs already used: ${hint.motifLabels.join('、')}.` : '';
+  return [
+    `Recent same-pair memory: ${hint.minutesAgo} minutes ago you already talked about ${clipPromptText(hint.topicZh, 90)}; the last beat was "${clipPromptText(hint.finalBeatZh, 80)}".${motifs}`,
+    'Do not restart that same object/helping move as if it is new. Either briefly acknowledge the previous refusal/boundary, change topic to a different concrete life detail, or choose not to approach.',
+  ];
+}
+
+export function recentPairContinuityPromptLinesForTest(hint?: PromptLastConversationHint | null) {
+  return recentPairContinuityPromptLines(hint);
+}
+
+function buildLastConversationHintFromTexts(
+  texts: string[],
+  endedAt: number,
+  now = Date.now(),
+): PromptLastConversationHint | null {
+  const meaningful = texts.map((text) => stripConversationPrefix(text).trim()).filter(Boolean);
+  if (meaningful.length < 2) return null;
+  const combined = meaningful.join('\n');
+  const first = meaningful[0];
+  const final = meaningful.at(-1) ?? first;
+  return {
+    minutesAgo: Math.max(0, Math.round((now - endedAt) / 60_000)),
+    topicZh: [first, final].filter(Boolean).join(' / '),
+    finalBeatZh: final,
+    motifLabels: conversationMotifLabels(combined).slice(0, 4),
+  };
+}
+
+export function buildLastConversationHintFromTextsForTest(
+  texts: string[],
+  endedAt: number,
+  now: number,
+) {
+  return buildLastConversationHintFromTexts(texts, endedAt, now);
 }
 
 function compactAutonomousContinuePromptBase({
@@ -1229,6 +1285,7 @@ function compactAutonomousContinuePromptBase({
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
+    ...weekendLifePromptLines(clockContext, sceneContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
     ...sleepNotePromptLines(sleepNotes, otherPlayerName),
@@ -1323,6 +1380,73 @@ function compactCharacterVoicePrompt(playerName: string, sceneContext?: SceneCon
       return `For 天澤 in ${scene}: be playful, dangerous, and little-devil teasing in a safe way. Ask one pressure-test question, make someone blush with a too-accurate line, expose a weak rule, or stop just before the joke becomes cruel; never use explicit exposure or humiliation.`;
     default:
       return `For ${displayConversationName(playerName)} in ${scene}: answer from a small visible moment, not an abstract thesis.`;
+  }
+}
+
+function alanFacingCharacterPromptLines(
+  playerName: string,
+  lastInput?: string,
+  clockContext?: ClockContext,
+) {
+  const self = displayConversationName(playerName);
+  const input = normalizeTraditionalZh(lastInput ?? '');
+  const dateHint =
+    clockContext?.weekdayZh || clockContext?.schoolDayTypeZh
+      ? `Today anchor for Alan chat: ${clockContext.dateLabelZh ?? '今天'} ${clockContext.weekdayZh ?? ''} ${clockContext.schoolDayTypeZh ?? ''}; use this for weekend/date questions.`
+      : '';
+  const base = [
+    'Alan-facing character rule: answer Alan\'s latest message first in ordinary speech. Do not replace the answer with body-language narration, hidden analysis, or a dramatic scene setup.',
+    'Alan-facing hygiene: do not invent precise physical cues like shaking hands, stopped breathing, shoes, door handles, or old club posters unless Alan just mentioned them or they are in memory/context.',
+    'If Alan corrects a fact about the world, accept the correction plainly and continue from the corrected fact. Do not defend the hallucinated object or turn it into lore.',
+    'Use at most one concrete school-life object in the reply. If the conversation has already used food/cup/hand/door/prop imagery, switch to a plain answer or a small decision.',
+    'Never end with an unfinished setup such as "你剛才那句...", "你問這句的時候...", "你說 X 的時候," or a dangling quote. A teasing pause is okay; an incomplete sentence is not.',
+    ...(dateHint ? [dateHint] : []),
+  ];
+  switch (self) {
+    case '天澤':
+      return [
+        ...base,
+        '天澤 / Alan: answer first, then one safe teasing pressure-test. Teasing should still be useful: a clear yes/no, a tiny challenge, or a suggested next place.',
+        '天澤 / Alan ban list for this mode: do not repeat "你剛才那句", "你問這句的時候", "呼吸停了半秒", "手按在門把", "低頭盯著鞋尖", or half-finished blush setups.',
+        /(?:星期|禮拜|週幾|周幾|幾月|幾號|今天)/.test(input)
+          ? 'Alan asked about date/time. Answer the actual date/weekend anchor directly before teasing.'
+          : '',
+        /(?:幹嘛|做什麼|去哪|走吧|約|害羞|喜歡)/.test(input)
+          ? 'Alan is inviting or teasing. Give one concrete response like where to go, whether you accept, or what boundary you set; do not only observe his reaction.'
+          : '',
+      ].filter(Boolean);
+    case '真晝':
+      return [
+        ...base,
+        '真晝 / Alan: be gentle but not passive. Give one concrete care action, correction, or preference; do not answer only with "嗯", "好", or one repeated food object.',
+        '真晝 / Alan: do not assume Alan is shaking, exhausted, or emotionally unsafe unless Alan says so. Notice softly, but avoid fake medical/body cues.',
+        /(?:餐廳|restaurant|吃|早餐|飯|蛋|咖哩|咖喱)/.test(input)
+          ? 'Alan is talking about food or the restaurant. Use the corrected restaurant context and do not trap the scene in egg/toast/utensil loops.'
+          : '',
+      ].filter(Boolean);
+    case '海':
+      return [
+        ...base,
+        '海 / Alan: keep casual chats ordinary and responsive. Do not default to "Alan is tired" unless he says it. Plans should be plain before they become poetic.',
+        '海 / Alan: use at most one prop (tea, toast, blanket, poster, window, curry). If Alan corrects memory or world facts, say you are not sure and accept his correction.',
+      ];
+    case '貓貓':
+      return [
+        ...base,
+        '貓貓 / Alan: answer first, then one dry symptom or observation. Keep it short and cute-deadpan; do not write a diagnosis wall or strategist speech.',
+      ];
+    case '一之瀨':
+      return [
+        ...base,
+        '一之瀨 / Alan: be warm and bounded. Answer first, then one soft condition or playful boundary; do not loop on debt/price/kindness slogans.',
+      ];
+    case '祥子':
+      return [
+        ...base,
+        '祥子 / Alan: restrained but intelligible. Answer first with one controlled sentence; no theatrical monologue, no rehearsal-schedule dump, no unfinished dramatic fragment.',
+      ];
+    default:
+      return base;
   }
 }
 
@@ -1783,6 +1907,25 @@ export function sanitizePilotLineForTest(
   );
 }
 
+export function sanitizeConversationContentForTest(
+  line: string,
+  playerName: string,
+  otherPlayerName: string,
+  lastInput: string | undefined,
+  previousTexts: string[] = [],
+  companionMode = false,
+) {
+  return sanitizeConversationContent(
+    line,
+    companionMode,
+    playerName,
+    otherPlayerName,
+    lastInput,
+    previousTexts.map((content) => ({ role: 'user' as const, content })),
+    undefined,
+  );
+}
+
 export function hasFreeWorldQualityLeakForTest(line: string) {
   return hasFreeWorldQualityLeak(line);
 }
@@ -1923,6 +2066,12 @@ function repeatedMotifLabels(previousText: string, residueText: string) {
     const residueCount = family.cues.reduce((sum, cue) => sum + countTextOccurrences(residueText, cue), 0);
     return previousCount >= 2 || residueCount >= 2 || previousCount + residueCount >= 3;
   }).map((family) => family.label);
+}
+
+function conversationMotifLabels(text: string) {
+  return CONVERSATION_MOTIF_FAMILIES.filter((family) =>
+    family.cues.some((cue) => countTextOccurrences(text, cue) > 0),
+  ).map((family) => family.label);
 }
 
 function responseMoveLabel(line: string) {
@@ -2217,6 +2366,25 @@ function dayAnchorPromptLine(clockContext?: ClockContext): string {
   return `日期錨點（最高優先，不可違背）：今天是${today}，${clockContext.schoolDayTypeZh ?? '上課日'}。${clockContext.calendarHintZh ?? ''} 不要自行編造今天星期幾或是不是週末／假日，只能依這一行；除非這一行明確說今天或明天是週末，否則不要說「明天是週末」「快放假了」這類話。`;
 }
 
+function weekendLifePromptLines(clockContext?: ClockContext, sceneContext?: SceneContext): string[] {
+  if (!clockContext?.isWeekend) return [];
+  const scene = sceneContext?.labelZh ?? '校園';
+  const topics = sceneEverydayTopics(sceneContext)
+    .filter((topic) => !/便當|餐盤|飯|午餐|早餐|茶|杯|水|吐司|麵包|果汁/.test(topic))
+    .slice(0, 6);
+  return [
+    `週末生活錨點：今天是${clockContext.weekdayZh || '週末'}，沒有正式課堂。角色不必上課，應自然想到自由活動、補作業、洗衣、社團練習、散步、小差事、回不回宿舍、誰終於有空私下聊。`,
+    `週末場景 seed（${scene}）：${topics.join('、') || '自由活動、私下聊天、補作業、散步、社團練習'}。如果沒有更強的記憶或殘留牽引，開場或轉折優先選一個週末生活題，不要又回到食物、飲料、餐具、累不累或全校大議題。`,
+  ];
+}
+
+export function weekendLifePromptLinesForTest(
+  clockContext?: Partial<ClockContext>,
+  sceneContext?: SceneContext,
+) {
+  return weekendLifePromptLines(clockContext as ClockContext | undefined, sceneContext);
+}
+
 // Shared guards for the compact autonomous prompts: (c) break the
 // every-line-is-a-question tic, and (a) do not fabricate recall without evidence.
 const COMPACT_RHYTHM_AND_RECALL_GUARDS = [
@@ -2359,6 +2527,7 @@ function sanitizeConversationContent(
   otherPlayerName: string,
   lastInput?: string,
   previous: LLMMessage[] = [],
+  clockContext?: ClockContext,
 ) {
   const withoutSeparatorArtifacts = stripSeparatorArtifacts(content);
   if (characterSoulPilotPair(playerName, otherPlayerName)) {
@@ -2372,6 +2541,8 @@ function sanitizeConversationContent(
   const normalized = normalizeTraditionalZh(withoutSeparatorArtifacts)
     .replace(/^剛才\s*Alan\s*說[:：]\s*「[^」]+」[，,。]?\s*/g, '')
     .trim();
+  const rawAlanFacingDangling =
+    displayConversationName(otherPlayerName) === 'Alan' && hasAlanFacingDanglingFragment(normalized);
   const { line: cleaned, strippedStageDirection } = stripStageDirectionsFromDialogue(normalized);
   if (!cleaned) {
     return companionMode
@@ -2396,14 +2567,102 @@ function sanitizeConversationContent(
       sanitizedPreview: cleaned.slice(0, 180),
     });
   }
+  const alanFacingRepaired = repairAlanFacingCharacterLine(
+    addressed,
+    playerName,
+    otherPlayerName,
+    lastInput,
+    previous,
+    clockContext,
+    rawAlanFacingDangling,
+  );
+  const responsiveLine = alanFacingRepaired ?? addressed;
   if (companionMode && repeatsCompanionFallback(addressed, previous)) {
     return '[ABORT_CONVERSATION] companion repetitive fallback';
   }
-  if (companionMode && hasCompanionSemanticDrift(addressed, lastInput)) {
+  if (companionMode && hasCompanionSemanticDrift(responsiveLine, lastInput)) {
     return '[ABORT_CONVERSATION] companion semantic drift';
   }
-  if (!companionMode) return repairedFreeWorld;
-  return addressed;
+  if (!companionMode) return responsiveLine === addressed ? repairedFreeWorld : responsiveLine;
+  return responsiveLine;
+}
+
+function repairAlanFacingCharacterLine(
+  line: string,
+  playerName: string,
+  otherPlayerName: string,
+  lastInput?: string,
+  previous: LLMMessage[] = [],
+  clockContext?: ClockContext,
+  forceDanglingRepair = false,
+) {
+  if (displayConversationName(otherPlayerName) !== 'Alan') return undefined;
+  const self = displayConversationName(playerName);
+  const normalizedLine = normalizeTraditionalZh(singleSpokenBeat(line)).trim();
+  const input = normalizeTraditionalZh(lastInput ?? '');
+  const recent = previous
+    .slice(-6)
+    .map((message) => stripConversationPrefix(message.content ?? ''))
+    .join('\n');
+  const badDangling = forceDanglingRepair || hasAlanFacingDanglingFragment(normalizedLine);
+  const unsupportedBodyCue =
+    self !== '貓貓' &&
+    /(?:呼吸停了半秒|手還按在門把|手按在門把|低頭盯著鞋尖|手在發抖|手好像抖|鞋尖)/.test(normalizedLine);
+  const mahiruFoodCues = ['蛋', '玉子燒', '湯匙', '吐司', '餐盤', '便當', '杯', '茶', '早餐'];
+  const mahiruFoodHits = mahiruFoodCues.filter((cue) => normalizedLine.includes(cue)).length;
+  const recentMahiruFoodHits = mahiruFoodCues.filter((cue) => recent.includes(cue)).length;
+  const repeatedFoodLoop =
+    self === '真晝' &&
+    /(?:吃|早餐|飯|蛋|餐廳|咖哩|咖喱)/.test(input) &&
+    ((foodObjectRelayExhausted(normalizedLine, recent) && mahiruFoodHits >= 1) ||
+      (mahiruFoodHits >= 2 && recentMahiruFoodHits >= 1));
+
+  if (!badDangling && !unsupportedBodyCue && !repeatedFoodLoop) return undefined;
+
+  if (self === '天澤') {
+    if (/(?:星期|禮拜|週幾|周幾|幾月|幾號|今天)/.test(input)) {
+      const weekday = clockContext?.weekdayZh ? `今天是${clockContext.weekdayZh}` : '今天我不亂猜星期幾';
+      return `${weekday}。怎麼，想拿週末當藉口約我？`;
+    }
+    if (/(?:幹嘛|做什麼|去哪)/.test(input)) {
+      return '我想去餐廳晃一圈。你要跟，還是只是問問？';
+    }
+    if (/(?:走吧|約|約會|害羞|喜歡)/.test(input)) {
+      return '可以啊，先走到餐廳。再往前一步，就看你敢不敢。';
+    }
+    return '欸，話說一半不好玩。你到底想讓我承認什麼？';
+  }
+  if (self === '真晝') {
+    if (/(?:餐廳|restaurant)/.test(input)) {
+      return '嗯，是餐廳。我剛才說錯了，我們去那邊吃。';
+    }
+    if (/(?:吃|早餐|飯|蛋|咖哩|咖喱)/.test(input)) {
+      return '不只一顆蛋。我再拿一份熱的，你慢慢吃。';
+    }
+    return '嗯，我聽到了。那我先不猜你的狀態，陪你把這句話說完。';
+  }
+  if (self === '海') {
+    return '嗯，我先照你說的來。今天不用多加戲，我們把眼前這件事做好。';
+  }
+  if (self === '貓貓') {
+    return '可以。先回答你：我在看哪個人最像沒睡醒。';
+  }
+  if (self === '一之瀨') {
+    return '可以喔。但你要先說清楚，這次你想要我陪你到哪裡。';
+  }
+  if (self === '祥子') {
+    return '可以。只是請別把我的停頓聽成拒絕。';
+  }
+  return '嗯，我先回答你。這件事可以慢慢說。';
+}
+
+function hasAlanFacingDanglingFragment(line: string) {
+  const normalized = normalizeTraditionalZh(line).trim();
+  if (!normalized) return false;
+  if (/[，,、—-]\s*$/.test(normalized)) return true;
+  if ((normalized.match(/「/g)?.length ?? 0) !== (normalized.match(/」/g)?.length ?? 0)) return true;
+  if (/^(?:欸|嗯|啊|……|\.{2,}|…+)[，,、—-]?$/.test(normalized)) return true;
+  return /(?:你(?:剛才)?(?:問|說).*?(?:的時候|那句)|你剛才那句|你問這句|你說「[^」]{1,24}」的時候|呼吸停了半秒|低頭盯著自己的鞋尖|手還按在門把上沒鬆開)(?:[，,。]?|\s*)$/.test(normalized);
 }
 
 function repairFreeWorldSoulLine(
@@ -4740,7 +4999,8 @@ export const queryPromptData = internalQuery({
       .order('desc')
       .first();
 
-    let lastConversation = null;
+    let lastConversation: Doc<'archivedConversations'> | null = null;
+    let lastConversationHint: PromptLastConversationHint | null = null;
     if (lastTogether) {
       lastConversation = await ctx.db
         .query('archivedConversations')
@@ -4751,6 +5011,20 @@ export const queryPromptData = internalQuery({
       if (!lastConversation) {
         console.warn(
           `Missing archived conversation ${lastTogether.conversationId} referenced by participatedTogether; continuing without previous-conversation prompt.`,
+        );
+      } else {
+        const archivedConversation = lastConversation;
+        const lastMessages = await ctx.db
+          .query('messages')
+          .withIndex('conversationId', (q) =>
+            q.eq('worldId', args.worldId).eq('conversationId', archivedConversation.id),
+          )
+          .collect();
+        lastConversationHint = buildLastConversationHintFromTexts(
+          lastMessages
+            .sort((left, right) => left._creationTime - right._creationTime)
+            .map((message) => message.text),
+          archivedConversation.ended,
         );
       }
     }
@@ -4862,6 +5136,7 @@ export const queryPromptData = internalQuery({
         ...otherAgent,
       },
       lastConversation,
+      lastConversationHint,
       recentEvents: recentEvents.map((event) => ({
         descriptionZh: event.descriptionZh,
         interpretationZh: event.interpretationZh,

@@ -2,6 +2,7 @@ import {
   EXPERIENCE_LOG_PER_DAY_CAP,
   EXPERIENCE_LOG_PILOT_NAMES,
   draftConversationExperienceLog,
+  isSubjectiveExperienceLogEvidence,
   isRepeatedResidueSpam,
   isSimilarExperienceLog,
   pilotExperienceLogName,
@@ -173,6 +174,7 @@ describe('fallback / drift rejection', () => {
       otherPlayerName: '椎名真晝',
       summary: REAL_SUMMARY,
       residue: '海還記得真晝沒有只要她繼續有用，而是把問題留在她自己身上。',
+      residueSource: 'llm_soul',
       messages: [
         { text: REAL_SUMMARY },
         { text: '兩個人在交誼廳的角落聊到很晚。' },
@@ -193,7 +195,81 @@ describe('fallback / drift rejection', () => {
     expect(draft.behaviorHint.length).toBeLessThanOrEqual(80);
     // Residue + a belief seed should classify the entry as high importance.
     expect(draft.importance).toBe('high');
-    expect(draft.eventSummary.startsWith('海與真晝')).toBe(true);
+    expect(draft.eventSummary.startsWith('對海來說')).toBe(true);
+    expect(draft.eventSummary).toContain('真晝');
+  });
+
+  test('ordinary clean memory without residue cannot become experience log', () => {
+    const result = draftConversationExperienceLog({
+      playerName: 'Ichinose',
+      otherPlayerName: 'Sakiko',
+      summary: '一之瀨提醒祥子便當盒蓋子沒扣緊，祥子說自己來就好。',
+      residue: '',
+      residueSource: 'none',
+      messages: [
+        { author: '一之瀨', text: '你今天的便當盒蓋子沒扣緊喔……要我幫你壓一下嗎？' },
+        { author: '祥子', text: '謝謝，我自己來就好。' },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no_residue');
+  });
+
+  test('deterministic fallback residue cannot become v0.1 experience evidence', () => {
+    const result = draftConversationExperienceLog({
+      playerName: 'Umi',
+      otherPlayerName: 'Mahiru',
+      summary: REAL_SUMMARY,
+      residue: '海還記得真晝沒有催她。',
+      residueSource: 'deterministic',
+      messages: [
+        { author: '海', text: '今天我只整理三件事。' },
+        { author: '真晝', text: '好。那我不催你。' },
+      ],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('non_soul_residue');
+  });
+
+  test('same objective event can produce different subjective drafts per character', () => {
+    const umi = draftConversationExperienceLog({
+      playerName: 'Umi',
+      otherPlayerName: 'Mahiru',
+      summary: '海說今天只整理三件事，真晝沒有催她，只問她自己有沒有休息。',
+      residue: '海還記得真晝沒有只要她繼續有用。',
+      residueSource: 'llm_soul',
+      messages: [
+        { author: '海', text: '今天我只整理三件事。' },
+        { author: '真晝', text: '那你自己有休息嗎？' },
+      ],
+    });
+    const mahiru = draftConversationExperienceLog({
+      playerName: 'Mahiru',
+      otherPlayerName: 'Umi',
+      summary: '海說今天只整理三件事，真晝沒有催她，只問她自己有沒有休息。',
+      residue: '真晝還記得海把疲憊藏進少整理一件事裡。',
+      residueSource: 'llm_soul',
+      messages: [
+        { author: '海', text: '今天我只整理三件事。' },
+        { author: '真晝', text: '那你自己有休息嗎？' },
+      ],
+    });
+
+    expect(umi.ok).toBe(true);
+    expect(mahiru.ok).toBe(true);
+    if (!umi.ok || !mahiru.ok) return;
+    expect(umi.draft.characterName).toBe('海');
+    expect(mahiru.draft.characterName).toBe('真晝');
+    expect(umi.draft.eventSummary).not.toBe(mahiru.draft.eventSummary);
+    expect(umi.draft.eventSummary).toContain('對海來說');
+    expect(mahiru.draft.eventSummary).toContain('對真晝來說');
+    expect(umi.draft.eventSummary).not.toContain('今天只整理三件事');
+    expect(mahiru.draft.eventSummary).not.toContain('今天只整理三件事');
+    expect(umi.draft.emotionalInterpretation).not.toBe(mahiru.draft.emotionalInterpretation);
+    expect(umi.draft.beliefSeed).not.toBe(mahiru.draft.beliefSeed);
+    expect(umi.draft.behaviorHint).not.toBe(mahiru.draft.behaviorHint);
   });
 
   test('benign parentheticals do not count as stage-direction leakage', () => {
@@ -202,6 +278,7 @@ describe('fallback / drift rejection', () => {
       otherPlayerName: 'Mahiru',
       summary: REAL_SUMMARY,
       residue: '海記得真晝沒有催她。',
+      residueSource: 'llm_soul',
       messages: [
         { text: '（笑）明天早上我們去看鯊魚，好嗎？' },
         { text: '好。那我不催你。' },
@@ -226,6 +303,24 @@ describe('fallback / drift rejection', () => {
 describe('per-character / day cap and dedupe', () => {
   test('cap constant is small enough to prevent DB explosion', () => {
     expect(EXPERIENCE_LOG_PER_DAY_CAP).toBe(2);
+  });
+
+  test('legacy objective rows do not count as v0.1 subjective evidence rows', () => {
+    expect(isSubjectiveExperienceLogEvidence({
+      characterName: '海',
+      eventSummary: '海與真晝：Umi 和 Mahiru 進行了一段短暫對話；留下的情緒重點是：「杯子空了。」',
+      residue: '海還記得真晝沒有催她。',
+    })).toBe(false);
+    expect(isSubjectiveExperienceLogEvidence({
+      characterName: '海',
+      eventSummary: '對海來說，真晝碰到的是她把擔心整理成任務時漏出的疲態。',
+      residue: '',
+    })).toBe(false);
+    expect(isSubjectiveExperienceLogEvidence({
+      characterName: '海',
+      eventSummary: '對海來說，真晝碰到的是她把擔心整理成任務時漏出的疲態。',
+      residue: '海還記得真晝沒有只要她繼續有用。',
+    })).toBe(true);
   });
 
   test('identical event summary prefix from the same pair counts as duplicate', () => {

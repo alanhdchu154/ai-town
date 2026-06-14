@@ -1,134 +1,164 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="900" viewBox="0 0 1180 900" font-family="'PingFang TC','Microsoft JhengHei','Noto Sans TC','Hiragino Sans',sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1200" viewBox="0 0 1420 1200" font-family="'PingFang TC','Microsoft JhengHei','Noto Sans TC','Hiragino Sans',sans-serif">
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
-    </marker>
-    <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#5eead4"/>
-    </marker>
-    <marker id="arrowGold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="#fcd34d"/>
-    </marker>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker>
+    <marker id="at" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5eead4"/></marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fcd34d"/></marker>
   </defs>
+  <rect x="0" y="0" width="1420" height="1200" fill="#0f172a"/>
 
-  <rect x="0" y="0" width="1180" height="900" fill="#0f172a"/>
+  <text x="40" y="46" fill="#f8fafc" font-size="27" font-weight="800">GIIS Underworld — 一段對話如何變成靈魂記憶（詳版）</text>
+  <text x="40" y="74" fill="#94a3b8" font-size="14">外部、客觀的對話 → 穿過每個角色的五層靈魂 → 主觀摘要 + 情緒殘留 → 回頭改變未來行為。同一件事，每個人記得不一樣。記憶 LLM 目前跑本地 qwen3:8b。</text>
 
-  <!-- Title -->
-  <text x="40" y="48" fill="#f8fafc" font-size="28" font-weight="800">GIIS Underworld — 靈魂五層 × 對話如何被記住</text>
-  <text x="40" y="78" fill="#94a3b8" font-size="15">一段外部、客觀的對話，穿過每個角色的五層靈魂，變成「主觀記憶 + 情緒殘留」，再回頭改變未來的行為。同一件事，每個人記得不一樣。</text>
+  <!-- ===== top: two conversation kinds ===== -->
+  <rect x="60" y="98" width="400" height="64" rx="12" fill="#0c2a45" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="80" y="124" fill="#7dd3fc" font-size="13" font-weight="800">Alan ↔ 角色（你跟她們聊）</text>
+  <text x="80" y="146" fill="#cbd5e1" font-size="12.5">人類在場。摘要+殘留都會生（殘留＝角色對你的痕）。</text>
 
-  <!-- ============ LEFT LANE: the remember pipeline ============ -->
+  <rect x="486" y="98" width="400" height="64" rx="12" fill="#0c2a45" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="506" y="124" fill="#7dd3fc" font-size="13" font-weight="800">角色 ↔ 角色（六人彼此 · 自主對話）</text>
+  <text x="506" y="146" fill="#cbd5e1" font-size="12.5">世界裡沒有路人，任兩個都是 soul pilot 對。</text>
 
-  <!-- N1: conversation -->
-  <rect x="60" y="110" width="560" height="80" rx="14" fill="#0c2a45" stroke="#7dd3fc" stroke-width="1.5"/>
-  <text x="80" y="140" fill="#7dd3fc" font-size="13" font-weight="800">① 一段對話（外部 · 客觀事件）</text>
-  <text x="80" y="164" fill="#e2e8f0" font-size="14">真晝：「你手還在抖，先別急著整理明天的事。」</text>
-  <text x="80" y="183" fill="#cbd5e1" font-size="13">海：「……嗯。我剛才其實在想你今天還沒吃飯。」</text>
+  <path d="M260,162 L360,196" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
+  <path d="M686,162 L586,196" fill="none" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
+  <text x="473" y="186" fill="#64748b" font-size="12" text-anchor="middle">每段對話，每個角色各自跑一次</text>
+  <text x="473" y="203" fill="#64748b" font-size="12" text-anchor="middle">rememberConversation → 同一事件，各自的記憶</text>
 
-  <line x1="340" y1="190" x2="340" y2="236" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
-  <text x="350" y="218" fill="#64748b" font-size="12">值不值得記？ conversationEligibleForLLM</text>
+  <!-- ===== main pipeline (left column) ===== -->
+  <!-- step 1 gates -->
+  <rect x="60" y="222" width="560" height="60" rx="12" fill="#3b1212" stroke="#fca5a5" stroke-width="1.4"/>
+  <text x="80" y="246" fill="#fca5a5" font-size="12.5" font-weight="800">① 入口守門</text>
+  <text x="80" y="267" fill="#fecaca" font-size="12">值得用 LLM 記嗎 · 不是「半句沒答的人類尾巴」· 沒有 fallback/drift 污染</text>
+  <line x1="340" y1="282" x2="340" y2="312" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
 
-  <!-- N2: subjective summary -->
-  <rect x="60" y="238" width="560" height="96" rx="14" fill="#10243a" stroke="#5eead4" stroke-width="1.5"/>
-  <text x="80" y="266" fill="#5eead4" font-size="13" font-weight="800">② 主觀摘要（LLM · 第一人稱）</text>
-  <text x="80" y="288" fill="#e2e8f0" font-size="13">從「我」的視角寫：哪個瞬間觸動我 · 什麼情緒（被看見/愧疚…）</text>
-  <text x="80" y="307" fill="#e2e8f0" font-size="13">· 我對真晝的看法變了沒 · 接下來我想做什麼（= Drift 的種子）</text>
-  <text x="80" y="326" fill="#94a3b8" font-size="12">同一段對話，海與真晝各跑一次 → 兩份不同的主觀記憶</text>
+  <!-- step 2 summary -->
+  <rect x="60" y="314" width="560" height="98" rx="12" fill="#10243a" stroke="#5eead4" stroke-width="1.6"/>
+  <text x="80" y="338" fill="#5eead4" font-size="12.5" font-weight="800">② 主觀摘要（LLM）</text>
+  <rect x="500" y="322" width="108" height="20" rx="6" fill="#134e4a" stroke="#5eead4" stroke-width="1"/>
+  <text x="554" y="336" fill="#a7f3d0" font-size="11" font-weight="700" text-anchor="middle">新：靈魂化</text>
+  <text x="80" y="360" fill="#e2e8f0" font-size="12.5">注入「我的 Private Self（恐懼/渴望/核心價值）」→ 用我的靈魂讀這段。</text>
+  <text x="80" y="379" fill="#e2e8f0" font-size="12.5">輸出 2–4 句第一人稱：那個瞬間 · 我的情緒 · 碰到我什麼恐懼/渴望 ·</text>
+  <text x="80" y="398" fill="#e2e8f0" font-size="12.5">對 ta 看法變了沒 · 下次想做/留意什麼（＝ Drift 的種子）。</text>
+  <line x1="340" y1="412" x2="340" y2="440" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
 
-  <line x1="340" y1="334" x2="340" y2="374" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- step 3 residue -->
+  <rect x="60" y="442" width="560" height="124" rx="12" fill="#0f3b38" stroke="#5eead4" stroke-width="2"/>
+  <text x="80" y="466" fill="#5eead4" font-size="12.5" font-weight="800">③ 情緒殘留（LLM）＝ 交會點</text>
+  <rect x="78" y="476" width="252" height="46" rx="8" fill="#3b1f6e" stroke="#c4b5fd" stroke-width="1.2"/>
+  <text x="92" y="494" fill="#c4b5fd" font-size="11.5" font-weight="700">我的 Private Self</text>
+  <text x="92" y="512" fill="#e9d5ff" font-size="11.5">藏起的恐懼／渴望（我的鏡頭）</text>
+  <text x="338" y="503" fill="#5eead4" font-size="18" font-weight="800">×</text>
+  <rect x="356" y="476" width="246" height="46" rx="8" fill="#5c2710" stroke="#fdba74" stroke-width="1.2"/>
+  <text x="370" y="494" fill="#fdba74" font-size="11.5" font-weight="700">對方的 Public Self</text>
+  <text x="370" y="512" fill="#fde4c7" font-size="11.5">角色/樣子/說話方式（只看得到表面）</text>
+  <text x="80" y="540" fill="#a7f3d0" font-size="12">→ 一句痕（「海還記得天澤其實有在留意她」）或「無」。</text>
+  <text x="80" y="557" fill="#94a3b8" font-size="11.5">資格 residueEligible：我是 pilot 且（對方是 pilot 或 Alan）。沒碰到 → 無。</text>
+  <line x1="340" y1="566" x2="340" y2="594" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
 
-  <!-- N3: residue intersection -->
-  <rect x="60" y="376" width="560" height="150" rx="14" fill="#0f3b38" stroke="#5eead4" stroke-width="2"/>
-  <text x="80" y="403" fill="#5eead4" font-size="13" font-weight="800">③ 情緒殘留 = 交會點</text>
-  <!-- two inputs -->
-  <rect x="78" y="414" width="248" height="58" rx="9" fill="#3b1f6e" stroke="#c4b5fd" stroke-width="1.3"/>
-  <text x="92" y="434" fill="#c4b5fd" font-size="12" font-weight="700">我的 Private Self</text>
-  <text x="92" y="453" fill="#e9d5ff" font-size="12">隱藏恐懼：怕自己只剩「有用」</text>
-  <text x="92" y="468" fill="#e9d5ff" font-size="12">渴望：被當成人，不是工具</text>
+  <!-- step 4 residue guards -->
+  <rect x="60" y="596" width="560" height="58" rx="12" fill="#3b1212" stroke="#fca5a5" stroke-width="1.4"/>
+  <text x="80" y="619" fill="#fca5a5" font-size="12.5" font-weight="800">④ 殘留守門（過不了就丟）</text>
+  <text x="80" y="640" fill="#fecaca" font-size="11.5">口號 · 系統語 · 舞台動作 · 「人類玩家」meta · 被對方糾正 · 同對重複</text>
+  <line x1="340" y1="654" x2="340" y2="682" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
 
-  <rect x="354" y="414" width="248" height="58" rx="9" fill="#5c2710" stroke="#fdba74" stroke-width="1.3"/>
-  <text x="368" y="434" fill="#fdba74" font-size="12" font-weight="700">真晝的 Public Self</text>
-  <text x="368" y="453" fill="#fde4c7" font-size="12">她的角色 / 平常的樣子 /</text>
-  <text x="368" y="468" fill="#fde4c7" font-size="12">說話方式（你只看得到表面）</text>
+  <!-- step 5 retention -->
+  <rect x="60" y="684" width="560" height="58" rx="12" fill="#0f3320" stroke="#86efac" stroke-width="1.4"/>
+  <text x="80" y="707" fill="#86efac" font-size="12.5" font-weight="800">⑤ 保留分級（寫入當下就決定）</text>
+  <text x="80" y="728" fill="#dcfce7" font-size="11.5">classifyMemoryRetention → 今日經歷 / 長期候選 / 長期洞察 + 重要度</text>
+  <line x1="340" y1="742" x2="340" y2="770" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#a)"/>
 
-  <text x="282" y="445" fill="#5eead4" font-size="20" font-weight="800">×</text>
-  <text x="80" y="503" fill="#a7f3d0" font-size="13" font-weight="700">→ 「海還記得真晝沒有逼她說，只是先陪著。」</text>
-  <text x="80" y="520" fill="#94a3b8" font-size="12">沒碰到恐懼/渴望、也沒改變看法 → 輸出「無」（prompt 自帶共鳴閘門）</text>
+  <!-- step 6 write -->
+  <rect x="60" y="772" width="560" height="64" rx="12" fill="#0f3320" stroke="#86efac" stroke-width="1.6"/>
+  <text x="80" y="796" fill="#86efac" font-size="12.5" font-weight="800">⑥ 寫入記憶</text>
+  <text x="80" y="818" fill="#dcfce7" font-size="12.5">主觀摘要 + 情緒殘留（殘留：…）+ embedding 向量</text>
 
-  <line x1="340" y1="526" x2="340" y2="558" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- fallback callout -->
+  <rect x="650" y="314" width="300" height="252" rx="12" fill="#1e293b" stroke="#94a3b8" stroke-width="1.3" stroke-dasharray="4 3"/>
+  <text x="668" y="340" fill="#cbd5e1" font-size="12.5" font-weight="800">LLM 掛掉時的安全網</text>
+  <text x="668" y="364" fill="#94a3b8" font-size="11.5">記憶 LLM = 本地 qwen3:8b。</text>
+  <text x="668" y="383" fill="#94a3b8" font-size="11.5">它超時/掛掉 → 不亂編，改用</text>
+  <text x="668" y="402" fill="#94a3b8" font-size="11.5">deterministic owner 視角：</text>
+  <text x="668" y="424" fill="#cbd5e1" font-size="11.5">· 摘要 → subjectiveMemory</text>
+  <text x="682" y="441" fill="#94a3b8" font-size="11.5">Judgment（按角色＋cue）</text>
+  <text x="668" y="463" fill="#cbd5e1" font-size="11.5">· 殘留 → 手寫分支</text>
+  <text x="682" y="480" fill="#94a3b8" font-size="11.5">（只有海/真晝/天澤有；</text>
+  <text x="682" y="497" fill="#94a3b8" font-size="11.5">其餘三人此時無殘留）</text>
+  <text x="668" y="523" fill="#fcd34d" font-size="11">建議：要更好的殘留 →</text>
+  <text x="668" y="540" fill="#94a3b8" font-size="11">把記憶 LLM 換成雲端 qwen-plus</text>
+  <text x="668" y="557" fill="#94a3b8" font-size="11">（對話用的那顆），本地當 fallback。</text>
 
-  <!-- N4: guards -->
-  <rect x="60" y="560" width="560" height="64" rx="14" fill="#3b1212" stroke="#fca5a5" stroke-width="1.5"/>
-  <text x="80" y="586" fill="#fca5a5" font-size="13" font-weight="800">④ 守門（過不了就丟掉）</text>
-  <text x="80" y="608" fill="#fecaca" font-size="12.5">口號 · 系統語 · 舞台動作 · 被對方糾正(防幻覺固化) · 同對重複(防變樣板) · 限長</text>
+  <!-- ===== downstream ===== -->
+  <path d="M200,836 C200,862 200,866 200,884" fill="none" stroke="#5eead4" stroke-width="1.5" marker-end="url(#at)"/>
+  <path d="M420,836 C420,862 460,866 470,884" fill="none" stroke="#fcd34d" stroke-width="1.5" marker-end="url(#ag)"/>
 
-  <line x1="340" y1="624" x2="340" y2="660" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <!-- A: memory + retrieval -->
+  <rect x="60" y="886" width="360" height="96" rx="12" fill="#0f3320" stroke="#86efac" stroke-width="1.4"/>
+  <text x="80" y="910" fill="#86efac" font-size="12.5" font-weight="800">A · 角色記憶 + 召回</text>
+  <text x="80" y="932" fill="#dcfce7" font-size="12">vector search 把過去的痕拉回</text>
+  <text x="80" y="951" fill="#dcfce7" font-size="12">當前對話 → 影響她下次怎麼開口</text>
+  <text x="80" y="970" fill="#94a3b8" font-size="11.5">校園手帳「對話牆」可並排讀</text>
+  <path d="M60,934 C26,934 26,250 56,250" fill="none" stroke="#5eead4" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#at)"/>
+  <text x="20" y="600" fill="#5eead4" font-size="11.5" transform="rotate(-90 20 600)">召回 retrieval（影響下次）</text>
 
-  <!-- N5: memory store -->
-  <rect x="60" y="662" width="560" height="86" rx="14" fill="#0f3320" stroke="#86efac" stroke-width="1.5"/>
-  <text x="80" y="690" fill="#86efac" font-size="13" font-weight="800">⑤ 存成記憶</text>
-  <text x="80" y="713" fill="#dcfce7" font-size="13">主觀摘要 + 情緒殘留（殘留：…）+ embedding 向量</text>
-  <text x="80" y="732" fill="#94a3b8" font-size="12">校園手帳「對話牆」可讀：同一段對話 → 每個人心裡留下的，並排對照</text>
+  <!-- B: experienceLog -->
+  <rect x="470" y="886" width="360" height="96" rx="12" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.4"/>
+  <text x="490" y="910" fill="#fcd34d" font-size="12.5" font-weight="800">B · experienceLog（lane-1 研究證據）</text>
+  <text x="490" y="932" fill="#fef3c7" font-size="12">只收 residueSource = llm_soul 的殘留</text>
+  <text x="490" y="951" fill="#fef3c7" font-size="12">且只收 pilot↔pilot（Alan 配對被擋）</text>
+  <text x="490" y="970" fill="#94a3b8" font-size="11.5">→ 跟 Alan 聊有靈魂痕，但不污染研究資料</text>
 
-  <!-- retrieval loop back to N1 -->
-  <path d="M60,705 C20,705 20,150 56,150" fill="none" stroke="#5eead4" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrowTeal)"/>
-  <text x="14" y="430" fill="#5eead4" font-size="12" transform="rotate(-90 14 430)">召回 retrieval（vector search）→ 影響下次怎麼開口</text>
+  <line x1="240" y1="982" x2="240" y2="1012" stroke="#fcd34d" stroke-width="1.5" marker-end="url(#ag)"/>
 
-  <!-- reflection + drift band -->
-  <line x1="340" y1="748" x2="340" y2="784" stroke="#fcd34d" stroke-width="1.6" marker-end="url(#arrowGold)"/>
-  <rect x="60" y="786" width="270" height="86" rx="13" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.5"/>
-  <text x="76" y="812" fill="#fcd34d" font-size="13" font-weight="800">⑥ 睡前回響（每日 · SHADOW）</text>
-  <text x="76" y="834" fill="#fef3c7" font-size="12.5">把一天的記憶 consolidate</text>
-  <text x="76" y="852" fill="#fef3c7" font-size="12.5">成少數「長期洞察」</text>
+  <!-- C: nightly reflection + drift -->
+  <rect x="60" y="1014" width="360" height="92" rx="12" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.4"/>
+  <text x="80" y="1038" fill="#fcd34d" font-size="12.5" font-weight="800">C · 睡前回響（每日 · SHADOW）</text>
+  <text x="80" y="1060" fill="#fef3c7" font-size="12">回顧當天記憶 → 提煉成少數長期洞察</text>
+  <text x="80" y="1080" fill="#94a3b8" font-size="11.5">目前只預覽不寫入；驗證品質後再開 --write</text>
+  <line x1="420" y1="1060" x2="448" y2="1060" stroke="#fcd34d" stroke-width="1.5" marker-end="url(#ag)"/>
+  <rect x="450" y="1014" width="380" height="92" rx="12" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.6"/>
+  <text x="470" y="1038" fill="#fcd34d" font-size="12.5" font-weight="800">D · Behavioral Drift（行為漂移）</text>
+  <text x="470" y="1060" fill="#fef3c7" font-size="12">明天她更主動 / 更迴避 / 更願意被照顧</text>
+  <text x="470" y="1080" fill="#fef3c7" font-size="12">— 記憶與情緒慢慢改變行動。世界因此活著。</text>
 
-  <line x1="330" y1="829" x2="356" y2="829" stroke="#fcd34d" stroke-width="1.6" marker-end="url(#arrowGold)"/>
-  <rect x="358" y="786" width="262" height="86" rx="13" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.5"/>
-  <text x="374" y="812" fill="#fcd34d" font-size="13" font-weight="800">⑦ Behavioral Drift</text>
-  <text x="374" y="834" fill="#fef3c7" font-size="12.5">明天她更主動 / 更迴避 /</text>
-  <text x="374" y="852" fill="#fef3c7" font-size="12.5">更願意被照顧 — 行為慢慢變</text>
+  <!-- ===== right panel: five layers ===== -->
+  <text x="1000" y="120" fill="#f8fafc" font-size="17" font-weight="800">五層靈魂（六位都寫好；Alan 也有）</text>
 
-  <!-- ============ RIGHT PANEL: five-layer soul ============ -->
-  <text x="700" y="100" fill="#f8fafc" font-size="17" font-weight="800">五層靈魂（每個角色都被寫好）</text>
+  <rect x="1000" y="136" width="380" height="118" rx="12" fill="#2a1407" stroke="#fdba74" stroke-width="1.5"/>
+  <text x="1018" y="162" fill="#fdba74" font-size="13.5" font-weight="800">1 · Public Self 公開自我</text>
+  <text x="1018" y="186" fill="#fde4c7" font-size="12">角色、語氣、社交習慣、怎麼幫人。別人只看得到這層。</text>
+  <text x="1018" y="212" fill="#fdba74" font-size="11.5">→ 把「對方的這層」餵進我的殘留（③ 右）</text>
+  <text x="1018" y="233" fill="#94a3b8" font-size="11">＊Alan 的這層含「人類玩家」meta → 已加守門</text>
 
-  <!-- Public -->
-  <rect x="700" y="118" width="440" height="118" rx="12" fill="#2a1407" stroke="#fdba74" stroke-width="1.5"/>
-  <text x="718" y="144" fill="#fdba74" font-size="14" font-weight="800">1 · Public Self 公開自我</text>
-  <text x="718" y="168" fill="#fde4c7" font-size="12.5">表面行為：角色、語氣、社交習慣、怎麼幫人。</text>
-  <text x="718" y="189" fill="#fde4c7" font-size="12.5">別人只看得到這層。</text>
-  <text x="718" y="216" fill="#fdba74" font-size="12">→ 餵入「對方的這層」，形成我的殘留（見 ③ 右側）</text>
+  <rect x="1000" y="264" width="380" height="124" rx="12" fill="#23104a" stroke="#c4b5fd" stroke-width="1.5"/>
+  <text x="1018" y="290" fill="#c4b5fd" font-size="13.5" font-weight="800">2 · Private Self 私密自我</text>
+  <text x="1018" y="314" fill="#e9d5ff" font-size="12">藏起的恐懼、脆弱、未滿足的渴望。不直接說，只洩漏。</text>
+  <text x="1018" y="340" fill="#c4b5fd" font-size="11.5">→ 是「我」讀對話的鏡頭：</text>
+  <text x="1018" y="360" fill="#c4b5fd" font-size="11.5">　現在 摘要(②) 和 殘留(③) 都用它</text>
+  <text x="1018" y="381" fill="#94a3b8" font-size="11">＊你看不到別人的這層，只看得到表面</text>
 
-  <!-- Private -->
-  <rect x="700" y="246" width="440" height="118" rx="12" fill="#23104a" stroke="#c4b5fd" stroke-width="1.5"/>
-  <text x="718" y="272" fill="#c4b5fd" font-size="14" font-weight="800">2 · Private Self 私密自我</text>
-  <text x="718" y="296" fill="#e9d5ff" font-size="12.5">藏起的恐懼、脆弱、未滿足的渴望。</text>
-  <text x="718" y="317" fill="#e9d5ff" font-size="12.5">不直接說出口，只從小選擇洩漏。</text>
-  <text x="718" y="344" fill="#c4b5fd" font-size="12">→ 是「我」讀整段對話的鏡頭（見 ③ 左側）</text>
+  <rect x="1000" y="398" width="380" height="96" rx="12" fill="#0c2a45" stroke="#7dd3fc" stroke-width="1.5"/>
+  <text x="1018" y="424" fill="#7dd3fc" font-size="13.5" font-weight="800">3 · Relational Self 關係自我</text>
+  <text x="1018" y="448" fill="#dbeafe" font-size="12">對不同人有不同的在乎方式。</text>
+  <text x="1018" y="470" fill="#dbeafe" font-size="12">→ 同樣的恐懼，對海 vs 對天澤留下不同的痕。</text>
 
-  <!-- Relational -->
-  <rect x="700" y="374" width="440" height="96" rx="12" fill="#0c2a45" stroke="#7dd3fc" stroke-width="1.5"/>
-  <text x="718" y="400" fill="#7dd3fc" font-size="14" font-weight="800">3 · Relational Self 關係自我</text>
-  <text x="718" y="424" fill="#dbeafe" font-size="12.5">對不同人有不同的在乎方式。</text>
-  <text x="718" y="445" fill="#dbeafe" font-size="12.5">→ 同樣的恐懼，對海 / 對天澤會留下不同的痕。</text>
+  <rect x="1000" y="504" width="380" height="96" rx="12" fill="#0f3b38" stroke="#5eead4" stroke-width="1.8"/>
+  <text x="1018" y="530" fill="#5eead4" font-size="13.5" font-weight="800">4 · Emotional Residue 情緒殘留</text>
+  <text x="1018" y="554" fill="#a7f3d0" font-size="12">事件過後留在心裡的那道痕：小、選擇性、有情緒。</text>
+  <text x="1018" y="576" fill="#a7f3d0" font-size="12">→ ③ 的產物，存進記憶（⑥）。</text>
 
-  <!-- Residue -->
-  <rect x="700" y="480" width="440" height="96" rx="12" fill="#0f3b38" stroke="#5eead4" stroke-width="1.8"/>
-  <text x="718" y="506" fill="#5eead4" font-size="14" font-weight="800">4 · Emotional Residue 情緒殘留</text>
-  <text x="718" y="530" fill="#a7f3d0" font-size="12.5">事件過後留在心裡的那道痕（小、選擇性、有情緒）。</text>
-  <text x="718" y="551" fill="#a7f3d0" font-size="12.5">→ 就是 ③ 的產物，存進記憶（⑤）。</text>
+  <rect x="1000" y="610" width="380" height="96" rx="12" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.5"/>
+  <text x="1018" y="636" fill="#fcd34d" font-size="13.5" font-weight="800">5 · Behavioral Drift 行為漂移</text>
+  <text x="1018" y="660" fill="#fef3c7" font-size="12">情緒與記憶慢慢改變行動、沉默、主動。</text>
+  <text x="1018" y="682" fill="#fef3c7" font-size="12">→ 就是 D，讓世界感覺活著。</text>
 
-  <!-- Drift -->
-  <rect x="700" y="586" width="440" height="96" rx="12" fill="#3a2a0c" stroke="#fcd34d" stroke-width="1.5"/>
-  <text x="718" y="612" fill="#fcd34d" font-size="14" font-weight="800">5 · Behavioral Drift 行為漂移</text>
-  <text x="718" y="636" fill="#fef3c7" font-size="12.5">情緒與記憶，慢慢改變行動、沉默、主動。</text>
-  <text x="718" y="657" fill="#fef3c7" font-size="12.5">→ 就是 ⑦，讓世界感覺活著。</text>
+  <!-- read note -->
+  <rect x="1000" y="724" width="380" height="150" rx="12" fill="#0b1220" stroke="#334155" stroke-width="1.2"/>
+  <text x="1018" y="750" fill="#cbd5e1" font-size="12.5" font-weight="800">一句話讀法</text>
+  <text x="1018" y="774" fill="#94a3b8" font-size="11.5">摘要 = 我用「自己的恐懼/渴望」這副鏡頭，</text>
+  <text x="1018" y="792" fill="#94a3b8" font-size="11.5">　　　 重述這次對我而言重要的事。</text>
+  <text x="1018" y="814" fill="#94a3b8" font-size="11.5">殘留 = 「對方的表面」×「我的深處」的交會痕。</text>
+  <text x="1018" y="836" fill="#94a3b8" font-size="11.5">兩者都用 Private Self；殘留多用一層對方 Public。</text>
+  <text x="1018" y="860" fill="#64748b" font-size="10.5">memory.ts: buildSubjectiveSummaryPrompt / buildResiduePrompt / residueEligible</text>
 
-  <!-- key note -->
-  <text x="700" y="716" fill="#94a3b8" font-size="12.5" font-weight="700">讀法：</text>
-  <text x="700" y="737" fill="#94a3b8" font-size="12.5">情緒殘留 = 「對方的 Public Self（表面行為）」 × 「我的</text>
-  <text x="700" y="755" fill="#94a3b8" font-size="12.5">Private Self（恐懼/渴望）」的交會點。看不到別人的內裡，</text>
-  <text x="700" y="773" fill="#94a3b8" font-size="12.5">只能用對方的表面 × 自己的深處，去長出一道屬於我的痕。</text>
-
-  <text x="700" y="812" fill="#64748b" font-size="11.5">外部 = 客觀事件（藍）｜主觀記憶 + 殘留（青）｜守門（紅）｜長期化 + 行為改變（金）</text>
-  <text x="700" y="831" fill="#64748b" font-size="11.5">參考：docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md · convex/agent/memory.ts</text>
-  <text x="700" y="850" fill="#64748b" font-size="11.5">（buildResiduePrompt / llmResidueSentence / rememberConversation）</text>
+  <text x="60" y="1150" fill="#64748b" font-size="11.5">配色：藍=外部客觀對話 ｜ 紫=Private Self ｜ 橘=Public Self ｜ 青=LLM 主觀記憶/殘留 ｜ 紅=守門 ｜ 綠=保留/寫入 ｜ 金=長期化/行為改變 ｜ 灰虛線=fallback</text>
+  <text x="60" y="1172" fill="#64748b" font-size="11.5">參考：docs/soul/UNDERWORLD_SOUL_ARCHITECTURE.md · convex/agent/memory.ts（rememberConversation）· convex/agent/experienceLog.ts</text>
 </svg>

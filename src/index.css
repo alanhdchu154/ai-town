@@ -4160,20 +4160,61 @@ body {
   }
 
   .giis-conversation-wall {
+    align-content: stretch;
+    gap: 0.6rem;
     height: min(93vh, 980px);
     margin-top: 2.8rem;
+    min-height: 0;
     padding: 0.75rem;
   }
 
-  .giis-wall-metrics,
+  .giis-wall-metrics {
+    gap: 0.42rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .giis-wall-metric {
+    align-items: center;
+    border-radius: 7px;
+    min-height: 3.05rem;
+    padding: 0.42rem 0.46rem;
+  }
+
+  .giis-wall-metric span {
+    font-size: 0.64rem;
+  }
+
+  .giis-wall-metric b {
+    font-size: 1rem;
+  }
+
   .giis-wall-focus-row,
   .giis-wall-grid {
     grid-template-columns: 1fr;
   }
 
+  .giis-wall-focus-row {
+    gap: 0.42rem;
+  }
+
+  .giis-wall-focus-row > div {
+    border-radius: 7px;
+    min-height: 0;
+    padding: 0.48rem 0.55rem;
+  }
+
+  .giis-wall-focus-row p {
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    font-size: 0.78rem;
+    overflow: hidden;
+  }
+
   .giis-wall-controls {
     align-items: stretch;
     flex-direction: column;
+    gap: 0.5rem;
   }
 
   .giis-wall-segments,
@@ -4181,8 +4222,46 @@ body {
     width: 100%;
   }
 
+  .giis-wall-segments {
+    gap: 0.38rem;
+    overflow-x: auto;
+    padding-bottom: 0.05rem;
+    scrollbar-width: none;
+  }
+
+  .giis-wall-segments::-webkit-scrollbar {
+    display: none;
+  }
+
   .giis-wall-segments button {
-    flex: 1 1 0;
+    flex: 0 0 auto;
+    min-width: 5.1rem;
+    white-space: nowrap;
+  }
+
+  .giis-wall-grid {
+    min-height: 18rem;
+  }
+
+  .giis-conversation-card {
+    gap: 0.52rem;
+    padding: 0.7rem;
+  }
+
+  .giis-conversation-card header {
+    align-items: center;
+  }
+
+  .giis-conversation-card h3 {
+    font-size: 0.9rem;
+  }
+
+  .giis-conversation-card ol {
+    gap: 0.42rem;
+  }
+
+  .giis-conversation-card ol li:nth-child(n + 4) {
+    display: none;
   }
 }
 
@@ -5729,8 +5808,21 @@ body {
     .giis-side-conversation-panel-active
     .giis-chat-input-form {
     align-items: stretch;
-    display: grid;
+    display: block;
     gap: 0.4rem;
+    margin-top: 0.45rem;
+    padding: 0.45rem;
+    position: sticky;
+    bottom: 0;
+    z-index: 4;
+  }
+
+  .giis-live-room-shell.giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-chat-input-line {
+    align-items: stretch;
+    display: grid;
+    gap: 0.42rem;
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
@@ -5740,6 +5832,14 @@ body {
     font-size: 0.9rem;
     min-height: 3.1rem;
     min-width: 0;
+  }
+
+  .giis-live-room-shell.giis-conversation-active
+    .giis-side-conversation-panel-active
+    .giis-send-button {
+    min-height: 3.1rem;
+    min-width: 3.5rem;
+    padding: 0.35rem 0.58rem;
   }
 
   .giis-live-room-shell.giis-conversation-active
@@ -5830,5 +5930,178 @@ body {
   .giis-conversation-active .giis-side-conversation-panel-active .bubble p {
     font-size: 1.06rem;
     line-height: 1.85;
+  }
+}
+
+/* Final mobile pass: keep the scene readable and make the conversation views
+   feel like phone-native inboxes instead of squeezed desktop dashboards. */
+@media (max-width: 900px) {
+  .giis-conversation-wall {
+    align-content: stretch;
+    box-sizing: border-box;
+    gap: 0.58rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto auto minmax(18rem, 1fr);
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    padding: max(0.72rem, env(safe-area-inset-top)) 0.72rem max(0.72rem, env(safe-area-inset-bottom));
+  }
+
+  .giis-conversation-wall-header {
+    align-items: center;
+    min-height: 2.6rem;
+  }
+
+  .giis-conversation-wall-header h2 {
+    font-size: clamp(1.05rem, 5.4vw, 1.45rem);
+  }
+
+  .giis-wall-kicker {
+    font-size: 0.62rem;
+    margin-bottom: 0.08rem;
+  }
+
+  .giis-wall-world-button {
+    min-height: 2rem;
+    padding: 0.28rem 0.56rem;
+  }
+
+  .giis-wall-metrics {
+    gap: 0.42rem;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .giis-wall-metric {
+    border-radius: 7px;
+    min-height: 2.85rem;
+    padding: 0.36rem 0.4rem;
+  }
+
+  .giis-wall-metric span {
+    font-size: 0.62rem;
+  }
+
+  .giis-wall-metric b {
+    font-size: 1rem;
+  }
+
+  .giis-wall-focus-row {
+    gap: 0.42rem;
+    grid-template-columns: 1fr;
+  }
+
+  .giis-wall-focus-row > div {
+    border-radius: 7px;
+    min-height: 0;
+    padding: 0.46rem 0.54rem;
+  }
+
+  .giis-wall-focus-row span {
+    font-size: 0.64rem;
+    margin-bottom: 0.16rem;
+  }
+
+  .giis-wall-focus-row p {
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    display: -webkit-box;
+    font-size: 0.76rem;
+    line-height: 1.32;
+    overflow: hidden;
+  }
+
+  .giis-wall-controls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.48rem;
+  }
+
+  .giis-wall-segments {
+    display: flex;
+    gap: 0.38rem;
+    overflow-x: auto;
+    padding-bottom: 0.08rem;
+    scrollbar-width: none;
+    width: 100%;
+  }
+
+  .giis-wall-segments::-webkit-scrollbar {
+    display: none;
+  }
+
+  .giis-wall-segments button {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding-inline: 0.64rem;
+    white-space: nowrap;
+  }
+
+  .giis-wall-controls select {
+    width: 100%;
+  }
+
+  .giis-wall-grid {
+    gap: 0.62rem;
+    grid-template-columns: 1fr;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 0 0.1rem 0.35rem 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .giis-conversation-card {
+    gap: 0.52rem;
+    padding: 0.68rem;
+  }
+
+  .giis-conversation-card header {
+    align-items: center;
+  }
+
+  .giis-conversation-card h3 {
+    font-size: 0.9rem;
+  }
+
+  .giis-conversation-card ol {
+    gap: 0.42rem;
+  }
+
+  .giis-conversation-card ol li:nth-child(n + 4) {
+    display: none;
+  }
+
+  .giis-live-room-shell .giis-utility-panel-collapsed {
+    bottom: auto;
+    right: 0.55rem;
+    top: 10.6rem;
+  }
+
+  .giis-scene-character-row {
+    padding-right: 4.35rem;
+  }
+
+  .giis-live-room-shell.giis-conversation-active .giis-side-conversation-panel-active .giis-side-conversation-body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .giis-live-room-shell.giis-conversation-active .giis-side-conversation-panel-active .giis-side-conversation-body .chats,
+  .giis-live-room-shell.giis-conversation-active .giis-side-conversation-panel-active .giis-side-conversation-body .giis-conversation-log {
+    min-height: 0;
+    padding-bottom: 0.5rem;
+  }
+
+  .giis-live-room-shell.giis-conversation-active .giis-thread-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .giis-live-room-shell.giis-conversation-active .giis-thread-transcript-inline {
+    max-height: 44dvh;
   }
 }

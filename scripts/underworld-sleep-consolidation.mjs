@@ -241,11 +241,16 @@ function motifKey(candidate) {
 function demoteCandidate(candidate, bucket, risk) {
   const risks = [...new Set([...candidate.risks, risk])];
   const reasons = [...candidate.reasons, `demoted:${risk}`];
+  const possibleMemoryZh =
+    risk === 'ordinary_memory_fragment_not_residue'
+      ? downgradeOrdinaryMemoryCandidate(candidate.possibleMemoryZh)
+      : candidate.possibleMemoryZh;
   return {
     ...candidate,
     bucket,
     risks,
     reasons,
+    possibleMemoryZh,
     sleepAction: sleepActionForBucket(bucket),
     requiresApprovalBeforeWrite: bucket !== 'forget_or_ignore',
     summaryZh: `${candidate.summaryZh}；分類調整：${risk} -> ${bucket}`,
@@ -264,7 +269,21 @@ function normalizeCandidate(candidate) {
   if (next.risks.includes('food_care_motif') && next.bucket === 'long_term_memory_candidate') {
     next = demoteCandidate(next, 'short_term_context', 'food_care_motif');
   }
+  if (next.bucket === 'emotional_residue_candidate' && isOrdinaryMemoryFragment(next.possibleMemoryZh)) {
+    next = demoteCandidate(next, 'short_term_context', 'ordinary_memory_fragment_not_residue');
+  }
   return next;
+}
+
+function isOrdinaryMemoryFragment(text) {
+  return /記住的片段|記住了：/.test(String(text ?? ''));
+}
+
+function downgradeOrdinaryMemoryCandidate(text) {
+  if (!text) return text;
+  return String(text)
+    .replace(/留下了具體餘波/g, '今天留下了可短期觀察的片段')
+    .replace(/心裡留下的/g, '記住的片段');
 }
 
 function buildSummaryZh({ bucket, conversation, messages, participants, reasons, risks }) {
@@ -379,6 +398,8 @@ function buildReport(payload) {
   lines.push(`- Recent experience logs read: ${payload.experienceLogs.count ?? 'unknown'}`);
   lines.push(`- Residue-bearing logs: ${payload.experienceLogs.residueCount ?? 'unknown'}`);
   lines.push(`- Behavior-hint logs: ${payload.experienceLogs.behaviorHintCount ?? 'unknown'}`);
+  lines.push(`- Subjective-shaped experience logs: ${payload.experienceLogs.subjectiveShapeCount ?? 'unknown'}`);
+  lines.push(`- Non-subjective/legacy experience logs: ${payload.experienceLogs.nonSubjectiveShapeCount ?? 'unknown'}`);
   lines.push('- Policy: experience logs are raw material for sleep review, not personality updates.');
   lines.push('');
   lines.push('## Top Candidates');
@@ -498,15 +519,29 @@ function normalizeExperienceSummary(summary) {
     count: rows.length,
     residueCount: rows.filter((row) => row.residue).length,
     behaviorHintCount: rows.filter((row) => row.behaviorHint).length,
+    subjectiveShapeCount: rows.filter(isSubjectiveExperienceLogRow).length,
+    nonSubjectiveShapeCount: rows.filter((row) => !isSubjectiveExperienceLogRow(row)).length,
     latest: rows.slice(0, 8).map((row) => ({
       characterName: row.characterName,
       day: row.day,
       importance: row.importance,
+      eventSummary: row.eventSummary,
       residue: row.residue,
       behaviorHint: row.behaviorHint,
       conversationId: row.conversationId,
     })),
   };
+}
+
+function isSubjectiveExperienceLogRow(row) {
+  const summary = String(row?.eventSummary ?? '').trim();
+  if (!summary || !row?.characterName) return false;
+  if (!summary.startsWith(`對${row.characterName}來說`)) return false;
+  if (/^[^：]{1,12}與[^：]{1,12}：/.test(summary)) return false;
+  if (/留下了一段短記憶|進行了一段短暫對話|短暫對話|objective|event summary/i.test(summary)) {
+    return false;
+  }
+  return true;
 }
 
 function parseJson(stdout) {
@@ -719,6 +754,20 @@ function runSelfTest() {
         transcriptMessages: [
           { author: '真晝', text: '你剛才一直整理 Alan 的事，可是你自己呢？' },
           { author: '海', text: '今天我只整理三件事。其他的，明天再說。' },
+        ],
+      },
+    },
+    {
+      name: 'ordinary memory fragment is not residue',
+      expected: 'short_term_context',
+      conversation: {
+        id: 'test-ordinary-fragment',
+        involvedCharacters: ['一之瀨', '真晝'],
+        memoryTraces: [{ memoryLineZh: '一之瀨記住的片段：「筆盒蓋子還掀著」' }],
+        transcriptMessages: [
+          { author: '一之瀨', text: '你剛才幫天澤收作業時，筆盒蓋子還掀著呢……' },
+          { author: '真晝', text: '啊……是嗎？' },
+          { author: '一之瀨', text: '我只是想確認他有好好收完。' },
         ],
       },
     },

@@ -28,6 +28,7 @@ import {
   commitmentIsFulfilled,
   memoryAnchorTextForMessages,
   shouldExposeMemoryDescription,
+  subjectiveMemoryJudgmentFromAnchor,
 } from './agent/memory';
 import { repairConversationAddresseeText } from './aiTown/addresseeRepair';
 import { AlanProfile, GiisProfiles, RelationshipDimensions } from '../data/giisProfiles';
@@ -51,6 +52,7 @@ const DEFAULT_CLOCK = {
   semester: 1,
   timeSpeed: Number(process.env.TIME_SPEED) || 60,
 };
+const ALAN_HOME_LOCATION_ID = 'studentCouncilRoom';
 // GIIS Underworld v0.1 canonical start: 2026-05-19 00:00 in Alan's
 // America/Chicago timezone. Day labels are intentionally project-relative:
 // 5/19/2026 = 第 1 天, 5/20/2026 = 第 2 天.
@@ -918,7 +920,7 @@ function residueFromMemoryDescription(description: string) {
     .trim() ?? '';
 }
 
-function memoryTraceFromDescription(description: string) {
+function memoryTraceFromDescription(description: string, ownerName?: string) {
   if (hasSchoolMemoryPostProcessingDrift(description)) return '';
   const line = description
     .split('\n')
@@ -933,7 +935,32 @@ function memoryTraceFromDescription(description: string) {
     );
   if (!line) return '';
   const naturalized = naturalizeSchoolText(line) ?? displayTextZh(line);
+  const subjective = naturalized.match(/記住的主觀判斷是：「([\s\S]*?)」/);
+  if (subjective?.[1]) {
+    const text = stripRedundantMemoryOwnerPrefix(
+      trimZhSentence(subjective[1]).slice(0, 120),
+      ownerName,
+    );
+    return ownerName ? `${ownerName}記住的是：${text}` : `記住的是：${text}`;
+  }
+  const anchor = naturalized.match(/留下的情緒重點是：「([\s\S]*?)」/);
+  if (anchor?.[1]) {
+    const text = trimZhSentence(anchor[1]).slice(0, 96);
+    return ownerName ? `${ownerName}記住的片段：「${text}」` : `記住的片段：「${text}」`;
+  }
   return trimZhSentence(naturalized).slice(0, 120);
+}
+
+function stripRedundantMemoryOwnerPrefix(text: string, ownerName?: string) {
+  if (!ownerName) return text;
+  const prefixes = [
+    `${ownerName}記得`,
+    `${ownerName}覺得`,
+    `${ownerName}留意到`,
+    `${ownerName}把`,
+  ];
+  const match = prefixes.find((prefix) => text.startsWith(prefix));
+  return match ? text.slice(match.length).trim() : text;
 }
 
 function hasSchoolMemoryPostProcessingDrift(description: string) {
@@ -2868,7 +2895,7 @@ async function ensureAlanPlayer(
     id: (existingDescription?.playerId as PlayerDoc['id']) ?? nextPlayerId(world.players),
     human: DEFAULT_NAME,
     lastInput: Date.now(),
-    position: clampToClassroom(sceneSpawnPointWithPresence(schoolLocationForClock(clock).id, 0, DEFAULT_NAME)),
+    position: clampToClassroom(sceneSpawnPointWithPresence(ALAN_HOME_LOCATION_ID, 0, DEFAULT_NAME)),
     facing: { dx: 0, dy: 1 },
     speed: 0,
   } as PlayerDoc;
@@ -2896,7 +2923,7 @@ function targetLocationForRepairedPlayer(name: string, clock: Clock, index: numb
 
 function scheduledLocationForName(name: string, clock: Clock): Parameters<typeof sceneSpawnPoint>[0] {
   const defaultLocation = schoolLocationForClock(clock).id;
-  if (name === 'Alan') return defaultLocation;
+  if (name === 'Alan') return ALAN_HOME_LOCATION_ID;
   if (
     process.env.UMI_MAHIRU_COLOCATION_PILOT === 'true' &&
     (name === 'Umi' || name === 'Mahiru')
@@ -5753,7 +5780,7 @@ export const enterCampus = mutation({
               human: DEFAULT_NAME,
               lastInput: now,
               position: clampToClassroom(
-                sceneSpawnPointWithPresence(schoolLocationForClock(clock).id, 0, DEFAULT_NAME),
+                sceneSpawnPointWithPresence(ALAN_HOME_LOCATION_ID, 0, DEFAULT_NAME),
               ),
               speed: 0,
               activity: undefined,
@@ -5797,7 +5824,7 @@ export const enterCampus = mutation({
       descriptionZh: 'Alan 回到校園。玩家行動現在會以 Alan 的身分發生。',
       playerId: alan.id,
       clock,
-      scene: schoolLocationForClock(clock).labelZh,
+      scene: SchoolLocations.find((location) => location.id === ALAN_HOME_LOCATION_ID)?.labelZh ?? '校長室',
       rosterNames: [...refreshedDescriptions.values()].map((description) => description.name),
     };
   },
@@ -6778,7 +6805,7 @@ export const enterCampusForTest = internalMutation({
               human: DEFAULT_NAME,
               lastInput: now,
               position: clampToClassroom(
-                sceneSpawnPointWithPresence(schoolLocationForClock(clock).id, 0, DEFAULT_NAME),
+                sceneSpawnPointWithPresence(ALAN_HOME_LOCATION_ID, 0, DEFAULT_NAME),
               ),
               speed: 0,
               activity: undefined,
@@ -8521,7 +8548,7 @@ export const recentConversationEvalData = query({
           const conversationId = String(memory.data.conversationId);
           if (memoryByConversationId.has(conversationId)) continue;
           const residueLine = residueFromMemoryDescription(memory.description);
-          const memoryLine = memoryTraceFromDescription(memory.description);
+          const memoryLine = memoryTraceFromDescription(memory.description, nameByPlayerId(participantId));
           if (!residueLine && !memoryLine) continue;
           memoryByConversationId.set(conversationId, {
             memoryLineZh: memoryLine || undefined,
@@ -9604,7 +9631,8 @@ function repairConversationMemoryDescription(
     minute: '2-digit',
   }).format(new Date(happenedAt));
   const safeAnchor = anchor.trim() || '這段對話留下了一個需要之後確認的小訊號。';
-  const repairedLine = `與 ${otherName} 在 ${timestamp} 的對話：${ownerName} 和 ${otherName} 進行了一段短暫對話；留下的情緒重點是：「${safeAnchor.slice(0, 96)}${safeAnchor.length > 96 ? '...' : ''}」`;
+  const subjectiveJudgment = subjectiveMemoryJudgmentFromAnchor(ownerName, otherName, safeAnchor);
+  const repairedLine = `與 ${otherName} 在 ${timestamp} 的對話：${ownerName} 和 ${otherName} 進行了一段短暫對話；記住的主觀判斷是：「${subjectiveJudgment.slice(0, 96)}${subjectiveJudgment.length > 96 ? '...' : ''}」`;
   const lines = description.split('\n');
   const traceIndex = lines.findIndex((line) => {
     const trimmed = line.trim();

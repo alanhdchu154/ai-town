@@ -12,7 +12,7 @@ import {
   reflectionLlmEnabled,
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
-import { conversationEligibleForLLM } from './conversation';
+import { conversationEligibleForLLM, pilotCloudCompletion } from './conversation';
 import { pilotExperienceLogName } from './experienceLog';
 import {
   hasFirstPersonStageDirectionLeak,
@@ -156,15 +156,15 @@ function formatRetentionDecision(decision: MemoryRetentionDecision) {
 }
 
 function deterministicConversationSummary(
-  player: { name: string },
-  otherPlayer: { name: string },
+  player: { id?: string; name: string },
+  otherPlayer: { id?: string; name: string },
   messages: Doc<'messages'>[],
   options?: { saidAt?: number },
 ) {
-  const anchorText = memoryAnchorTextForMessages(messages);
+  const judgment = subjectiveMemoryJudgmentForMessages(player, otherPlayer, messages);
   const commitment = concreteCommitmentSummaryForMessages(player, otherPlayer, messages, options);
-  const preview = anchorText
-    ? `留下的情緒重點是：「${anchorText.slice(0, 96)}${anchorText.length > 96 ? '...' : ''}」`
+  const preview = judgment
+    ? `記住的主觀判斷是：「${judgment.slice(0, 96)}${judgment.length > 96 ? '...' : ''}」`
     : '這段對話沒有留下明確訊息。';
   return [commitment, `${player.name} 和 ${otherPlayer.name} 進行了一段短暫對話；${preview}`]
     .filter(Boolean)
@@ -193,6 +193,184 @@ export function memoryAnchorTextForMessages(messages: Array<{ text: string }>) {
   const best = scored[0];
   if (best.score <= 0) return candidates.at(-1)?.text ?? '';
   return best.text;
+}
+
+export function subjectiveMemoryAnchorTextForMessages(
+  messages: Array<{ author?: string; text: string }>,
+  preferredAuthorId?: string,
+) {
+  const preferredMessages = preferredAuthorId
+    ? messages.filter((message) => message.author === preferredAuthorId)
+    : [];
+  return memoryAnchorTextForMessages(preferredMessages) || memoryAnchorTextForMessages(messages);
+}
+
+function textForAuthor(messages: Array<{ author?: string; text: string }>, authorId?: string) {
+  if (!authorId) return '';
+  return messages
+    .filter((message) => message.author === authorId)
+    .map((message) => message.text)
+    .join('\n');
+}
+
+function hasAnyCue(text: string, cues: string[]) {
+  return cues.some((cue) => text.includes(cue));
+}
+
+function trimSubjectiveJudgment(text: string) {
+  return text.trim().replace(/[。！？!?]+$/u, '');
+}
+
+function everydayObjectCue(text: string) {
+  const cues = [
+    '便當',
+    '盒蓋',
+    '餐盤',
+    '杯',
+    '茶',
+    '紅茶',
+    '牛奶',
+    '咖哩',
+    '早餐',
+    '吐司',
+    '譜子',
+    '排練',
+    '傳單',
+    '筆盒',
+    '螢光筆',
+    '磁鐵',
+    '口袋',
+    '窗',
+    '椅',
+    '綠蘿',
+    '花盆',
+    '紙袋',
+    '袖口',
+    '紙巾',
+    '藥盒',
+    '清單',
+    '簡報',
+  ];
+  return cues.find((cue) => text.includes(cue)) ?? '';
+}
+
+function subjectiveMemoryJudgmentFromSignals(
+  ownerName: string,
+  otherName: string,
+  allText: string,
+  otherText: string,
+) {
+  const owner = displayResidueName(ownerName);
+  const other = displayResidueName(otherName);
+  const object = everydayObjectCue(allText);
+  const boundary = hasAnyCue(otherText || allText, [
+    '自己來',
+    '不用',
+    '不要',
+    '不了',
+    '我得去',
+    '先離開',
+    '等一下',
+    '不必',
+    '別',
+  ]);
+  const strain = hasAnyCue(allText, [
+    '抖',
+    '累',
+    '休息',
+    '指節',
+    '泛白',
+    '沒說',
+    '安靜',
+    '空椅',
+    '皺',
+    '涼',
+    '沒吃',
+    '藥',
+    '失手',
+    '快灑',
+  ]);
+  const care = hasAnyCue(allText, [
+    '幫',
+    '一起',
+    '陪',
+    '留',
+    '收',
+    '壓',
+    '扣',
+    '準備',
+    '帶',
+    '問',
+    '看見',
+    '注意',
+    '記得',
+    '等',
+    '謝謝',
+    '交給',
+  ]);
+  const responsibility = hasAnyCue(allText, ['Alan', '校長', '簡報', '責任', '清單', '交接', '會議']);
+
+  if (owner === '海') {
+    if (responsibility && strain) return `${other}看見了海把擔心整理成任務時漏出的疲態。`;
+    if (care && boundary) return `${other}的靠近讓海意識到，有些幫忙需要先問距離。`;
+    if (care) return `${other}不是只把海當成整理事情的人，也注意到她身邊的小事。`;
+    return `${other}讓海把這段對話先放進心裡，而不是立刻整理成下一件事。`;
+  }
+  if (owner === '真晝') {
+    if (strain) return `${other}說得很輕，但還有一點沒有真正放鬆。`;
+    if (boundary) return `${other}把距離守得很安靜，暫時不適合追問。`;
+    return `${other}在${object || '這件小事'}裡藏著一點沒說完的反應。`;
+  }
+  if (owner === '天澤') {
+    if (boundary) return `${other}沒有照著他的節奏走，邊界比答案更明顯。`;
+    if (strain) return `${other}的停頓像一個壓力點，而不是單純的回答。`;
+    return `${other}在${object || '這段對話'}裡露出了一個可以下次再測的反應。`;
+  }
+  if (owner === '一之瀨') {
+    if (boundary) return `${other}接受靠近前，還需要先守住一點自己的距離。`;
+    if (care) return `${other}的回應像是在提醒她：好意可以靠近，但不能替對方決定。`;
+    return `${other}對${object || '這件小事'}的反應，可能比話本身更重要。`;
+  }
+  if (owner === '貓貓') {
+    if (strain) return `${other}身上的小徵象不太對，值得下次再確認。`;
+    if (care) return `${other}的好意像是症狀旁邊的線索，還不能直接當成結論。`;
+    return `${object || '這件小事'}背後可能還有沒被說清楚的原因。`;
+  }
+  if (owner === '祥子') {
+    if (boundary) return `${other}靠得很近，但她還想先自己把距離扣好。`;
+    if (strain) return `${other}的注意差點打亂她維持住的鎮定。`;
+    if (care) return `${other}的好意碰到了她不太想立刻打開的地方。`;
+    return `${other}讓${object || '這段對話'}停在一個還不用解釋的位置。`;
+  }
+  if (boundary) return `${other}在這段對話裡守住了一點距離。`;
+  if (strain) return `${other}有一個沒有明說的壓力反應。`;
+  if (care) return `${other}用很小的方式靠近了一點。`;
+  return `${other}在這段對話裡留下了一個需要下次再確認的反應。`;
+}
+
+export function subjectiveMemoryJudgmentForMessages(
+  player: { id?: string; name: string },
+  otherPlayer: { id?: string; name: string },
+  messages: Array<{ author?: string; text: string }>,
+) {
+  const allText = messages.map((message) => message.text.trim()).filter(Boolean).join('\n');
+  if (!allText) return '';
+  const otherText = textForAuthor(messages, otherPlayer.id) || allText;
+  return trimSubjectiveJudgment(
+    subjectiveMemoryJudgmentFromSignals(player.name, otherPlayer.name, allText, otherText),
+  ).slice(0, 120);
+}
+
+export function subjectiveMemoryJudgmentFromAnchor(
+  ownerName: string,
+  otherName: string,
+  anchor: string,
+) {
+  const text = anchor.trim();
+  if (!text) return `${displayResidueName(otherName)}在這段對話裡留下了一個需要之後確認的小訊號。`;
+  return trimSubjectiveJudgment(
+    subjectiveMemoryJudgmentFromSignals(ownerName, otherName, text, text),
+  ).slice(0, 120);
 }
 
 export function hasUnansweredHumanTailForMemory(
@@ -391,8 +569,36 @@ function looksLikeCommitmentResponse(text: string) {
 }
 
 function commitmentObjectFromText(text: string) {
-  if (/咖哩(?:飯)?/.test(text)) return '咖哩飯';
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of [...lines].reverse()) {
+    if (!/咖哩(?:飯)?/.test(line)) continue;
+    if (lineRejectsCommitmentObject(line)) continue;
+    if (lineAsksOnlyAboutPriorCommitment(line)) continue;
+    if (lineSupportsCommitmentObject(line)) return '咖哩飯';
+  }
   return '';
+}
+
+function lineRejectsCommitmentObject(line: string) {
+  return /(?:先不要|不要|不用|不吃|不能|不必|算了|先別|改天|下次).{0,16}咖哩(?:飯)?|咖哩(?:飯)?.{0,16}(?:先不要|不要|不用|不吃|不能|不必|算了|先別|改天|下次)/.test(
+    line,
+  );
+}
+
+function lineAsksOnlyAboutPriorCommitment(line: string) {
+  return /咖哩(?:飯)?的約定/.test(line) && /[？?嗎]/.test(line) && !COMMITMENT_OFFER_PATTERN.test(line);
+}
+
+function lineSupportsCommitmentObject(line: string) {
+  return (
+    COMMITMENT_OFFER_PATTERN.test(line) ||
+    /(?:想吃|要吃|一起吃|給我吃|做給我|煮給我|準備|帶).{0,18}咖哩(?:飯)?|咖哩(?:飯)?.{0,18}(?:想吃|要吃|一起吃|給我吃|做給我|煮給我|準備|帶)/.test(
+      line,
+    )
+  );
 }
 
 function commitmentTimeFromText(text: string) {
@@ -522,6 +728,65 @@ function pilotResiduePair(playerName: string, otherPlayerName: string) {
   return RESIDUE_PILOT_NAMES.has(self) && RESIDUE_PILOT_NAMES.has(other) && self !== other;
 }
 
+// Who leaves a residue from this conversation. The speaker carries the trace, so
+// they must be a soul pilot. The other party is either another pilot (pilot↔pilot)
+// OR the human, Alan (pilot↔Alan): in this world it is only Alan + the six, and a
+// conversation with Alan should leave a soul-trace in the character too —
+// otherwise talking to Alan would be the one kind of conversation that never
+// touches anyone's soul. (Alan himself has no agent, so only the character side
+// writes a residue: 海 carries what talking to Alan left in her, grounded on
+// Alan's authored Public Self.)
+export function residueEligible(
+  player: { name: string },
+  otherPlayer: { name: string; human?: string },
+) {
+  const self = displayResidueName(player.name);
+  if (!RESIDUE_PILOT_NAMES.has(self)) return false;
+  if (otherPlayer.human) return true;
+  const other = displayResidueName(otherPlayer.name);
+  return RESIDUE_PILOT_NAMES.has(other) && self !== other;
+}
+
+// The first-person summary prompt, now grounded on the character's own Private
+// Self (their authored hidden fear/desire + core values). The summary is no
+// longer just "what happened to me, felt"; it is read THROUGH the character's
+// soul, so the same exchange is remembered differently depending on what each
+// person privately fears or wants — the depth that used to live only in the
+// residue now also shapes the everyday memory. Falls back to a plain
+// first-person prompt when the speaker has no authored profile.
+export function buildSubjectiveSummaryPrompt(
+  selfName: string,
+  otherName: string,
+  profile?: {
+    coreValues: string[];
+    stakes: { hiddenFear: string; hiddenDesire: string };
+  } | null,
+) {
+  const soul = profile
+    ? [
+        `底下是你私密的內裡——讓它決定你「注意到什麼、感覺到什麼」，但永遠不要引用它，也不要直接說出來：`,
+        `隱藏的恐懼：${profile.stakes.hiddenFear}`,
+        `隱藏的渴望：${profile.stakes.hiddenDesire}`,
+        `核心價值：${profile.coreValues.join('、')}`,
+        ``,
+      ]
+    : [];
+  return [
+    `You are ${selfName}.`,
+    ...soul,
+    `You just finished a conversation with ${otherName}.`,
+    `Write a short first-person memory of it in Traditional Chinese, the way ${selfName} would privately`,
+    `remember it later — a felt memory, not a report. In 2 to 4 sentences, using "我":`,
+    `- the one concrete moment that actually mattered to me (not every line);`,
+    `- how it actually made me feel — be specific (e.g. 被看見 / 被當成工具 / 鬆了一口氣 / 有點不安 / 愧疚 / 還抱著期待), not just whether I liked it;`,
+    `- whether it touched what I privately fear or want, and whether it changed how I feel about ${otherName} (更靠近 / 更有戒心 / 更信任 / 更擔心 / 沒什麼變);`,
+    `- one thing I now want to do, or watch for, next time I see them.`,
+    `Stay strictly inside what was actually said in this conversation. Do not invent facts, places, objects,`,
+    `plans, or anything ${otherName} did not actually say. Do not quote or restate the soul lines above. If`,
+    `little of emotional weight happened, it is fine to keep the memory brief and plain rather than inflating it.`,
+  ].join('\n');
+}
+
 function normalizeResidueText(text: string) {
   return text
     .toLowerCase()
@@ -616,12 +881,12 @@ const RESIDUE_MIN_MESSAGES = 4;
 
 function deterministicResidueSentence(
   player: { name: string },
-  otherPlayer: { name: string },
+  otherPlayer: { name: string; human?: string },
   messages: Doc<'messages'>[],
   summary: string,
   allowShortAutonomousSoulMemory = false,
 ) {
-  if (!emotionalResidueEnabled() || !pilotResiduePair(player.name, otherPlayer.name)) return '';
+  if (!emotionalResidueEnabled() || !residueEligible(player, otherPlayer)) return '';
   if (messages.length < RESIDUE_MIN_MESSAGES && !allowShortAutonomousSoulMemory) return '';
   const self = displayResidueName(player.name);
   const other = displayResidueName(otherPlayer.name);
@@ -737,7 +1002,11 @@ export function sanitizeLlmResidue(raw: string, self: string): string | null {
   if (
     hasSloganLikeResidue(text) ||
     hasDialogueSystemPhraseLeak(text) ||
-    hasDialogueStageDirectionLeak(text)
+    hasDialogueStageDirectionLeak(text) ||
+    // Fiction-break guard: Alan's authored Public Self literally calls him a
+    // 「人類玩家」building 「AI worlds」. Grounding a character's residue on that
+    // must not let the meta language leak into the in-world trace.
+    /人類玩家|玩家|AI\s*world|AI\s*社群|模擬|程式|NPC|角色設定/i.test(text)
   ) {
     return '';
   }
@@ -751,11 +1020,11 @@ export function sanitizeLlmResidue(raw: string, self: string): string | null {
 async function llmResidueSentence(
   ctx: ActionCtx,
   player: { id?: string; name: string },
-  otherPlayer: { id?: string; name: string },
+  otherPlayer: { id?: string; name: string; human?: string },
   messages: Doc<'messages'>[],
   allowShortAutonomousSoulMemory = false,
 ): Promise<string | null> {
-  if (!emotionalResidueEnabled() || !pilotResiduePair(player.name, otherPlayer.name)) return null;
+  if (!emotionalResidueEnabled() || !residueEligible(player, otherPlayer)) return null;
   if (messages.length < RESIDUE_MIN_MESSAGES && !allowShortAutonomousSoulMemory) return null;
   if (process.env.UNDERWORLD_RESIDUE_LLM === 'false') return null;
   const profile = giisProfileForName(player.name);
@@ -1084,16 +1353,11 @@ export async function rememberConversation(
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
-      content: `You are ${player.name}. You just finished a conversation with ${otherPlayer.name}.
-Write a short first-person memory of it in Traditional Chinese, the way ${player.name} would privately
-remember it later — a felt memory, not a report. In 2 to 4 sentences, using "我":
-- the one concrete moment that actually mattered to me (not every line);
-- how it actually made me feel — be specific (e.g. 被看見 / 被當成工具 / 鬆了一口氣 / 有點不安 / 愧疚 / 還抱著期待), not just whether I liked it;
-- whether it changed how I feel about ${otherPlayer.name} (更靠近 / 更有戒心 / 更信任 / 更擔心 / 沒什麼變);
-- one thing I now want to do, or watch for, next time I see them.
-Stay strictly inside what was actually said in this conversation. Do not invent facts, places, objects,
-plans, or anything ${otherPlayer.name} did not actually say. If little of emotional weight happened, it is
-fine to keep the memory brief and plain rather than inflating it.`,
+      content: buildSubjectiveSummaryPrompt(
+        player.name,
+        otherPlayer.name,
+        giisProfileForName(player.name),
+      ),
     },
   ];
   const authors = new Set<GameId<'players'>>();
@@ -1108,19 +1372,21 @@ fine to keep the memory brief and plain rather than inflating it.`,
   }
   llmMessages.push({ role: 'user', content: 'Summary:' });
   const summaryStart = Date.now();
-  // Subjective first-person memory. The same event should be remembered
-  // differently by each participant ("I liked / disliked this"), so the
-  // conversations that most need a distinct voice — Alan-facing chats and the
-  // pilot residue pairs — get the LLM first-person summary even when the
-  // global default is the cheap deterministic template. NPC-eligible
-  // autonomous small talk keeps the template to bound provider cost. The
-  // early conversationEligibleForLLM gate already removed pure-template
-  // NPC↔NPC chatter, and safeMemoryCompletion falls back to the template on
-  // any provider error/timeout, so this never blocks a memory write.
+  // Soul-pilot pairs (海↔真晝↔天澤↔一之瀨↔貓貓↔祥子) and Alan-facing chats get the
+  // LLM first-person summary so the memory actually reads THIS conversation, in
+  // each participant's own voice. The earlier worry — "the LLM writes the same
+  // objective line for both" — was a symptom of the shallow old prompt; the
+  // deepened prompt above forces a per-perspective answer (the one moment that
+  // mattered to ME, MY emotion, how it shifted how I see THEM, what I want
+  // next), so 海 and 天澤 diverge by what each actually took away, not just by a
+  // hand-written owner template. The deterministic owner-perspective summary
+  // (subjectiveMemoryJudgmentForMessages, via fallbackSummary) stays as the
+  // safety net when the provider errors/times out, and other autonomous NPC
+  // chatter can opt into the LLM summary with MEMORY_AUTONOMOUS_LLM_SUMMARY=true.
   const useSubjectiveLlmSummary =
-    !MEMORY_LLM_DETERMINISTIC ||
     humanInConversation ||
-    pilotResiduePair(player.name, otherPlayer.name);
+    pilotResiduePair(player.name, otherPlayer.name) ||
+    (process.env.MEMORY_AUTONOMOUS_LLM_SUMMARY === 'true' && !MEMORY_LLM_DETERMINISTIC);
   const content = useSubjectiveLlmSummary
     ? await safeMemoryCompletion(
         {
@@ -1168,6 +1434,7 @@ fine to keep the memory brief and plain rather than inflating it.`,
     messages,
     allowShortAutonomousSoulMemory,
   );
+  let residueSource: 'llm_soul' | 'deterministic' | 'none' = 'none';
   const candidateResidue =
     llmResidue !== null
       ? llmResidue
@@ -1178,6 +1445,11 @@ fine to keep the memory brief and plain rather than inflating it.`,
           content,
           allowShortAutonomousSoulMemory,
         );
+  if (llmResidue !== null && candidateResidue) {
+    residueSource = 'llm_soul';
+  } else if (llmResidue === null && candidateResidue) {
+    residueSource = 'deterministic';
+  }
   let residue = candidateResidue;
   // Repeat-pattern gate applies only to autonomous (character↔character)
   // residues, where a repeated opening prefix becomes a template the next prompt
@@ -1210,6 +1482,7 @@ fine to keep the memory brief and plain rather than inflating it.`,
         prefix: newPrefix,
       });
       residue = '';
+      residueSource = 'none';
     }
   }
   // Anti-confabulation: if the other party corrected the speaker's recall in this
@@ -1226,6 +1499,7 @@ fine to keep the memory brief and plain rather than inflating it.`,
       otherPlayer: otherPlayer.name,
     });
     residue = '';
+    residueSource = 'none';
   }
   // Retroactive anti-confabulation: the correction also means an OLDER memory
   // likely holds the original fabrication (the 6/4 「世界變得太聰明」 case kept
@@ -1314,6 +1588,7 @@ fine to keep the memory brief and plain rather than inflating it.`,
       otherPlayerName: otherPlayer.name,
       summary: content,
       residue,
+      residueSource,
       messageTexts: messages.map((message) => message.text),
       messages: messages.map((message) => {
         const author = message.author === player.id ? player : otherPlayer;
@@ -1881,11 +2156,40 @@ export async function computeReflectionInsights(
   };
 }
 
+// Memory summary/residue completion. When MEMORY_LLM_CLOUD=true, the same
+// strong cloud model the conversations use (qwen-plus, via the pilot cloud
+// path) writes the memory too — so the summary/residue is as good as the
+// dialogue it remembers, instead of the weaker local model. The cloud call is
+// made humanFacing=true so it bypasses the autonomous daily quota (memory must
+// not starve live conversations) and only respects the (0ms) failure cooldown.
+// On cloud failure it falls back to the local model (chatCompletion), and on
+// that failure to the deterministic template — three tiers, so a provider blip
+// never blocks a memory write.
 async function safeMemoryCompletion(
   request: Parameters<typeof chatCompletion>[0],
   fallback: string,
 ) {
   const start = Date.now();
+  if (process.env.MEMORY_LLM_CLOUD === 'true') {
+    try {
+      const { content } = await pilotCloudCompletion(
+        { ...request, model: process.env.MEMORY_LLM_CLOUD_MODEL ?? 'qwen-plus' },
+        true,
+      );
+      if (typeof content === 'string' && content.trim()) {
+        logGiisTiming({
+          action: 'memoryLLM',
+          phase: 'llmCallTime',
+          ms: Date.now() - start,
+          usedFallback: false,
+          provider: 'cloud',
+        });
+        return content;
+      }
+    } catch (error) {
+      console.debug('Memory cloud LLM failed; falling back to local model', error);
+    }
+  }
   try {
     const { content } = await chatCompletion(request);
     logGiisTiming({

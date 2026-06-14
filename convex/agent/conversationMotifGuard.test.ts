@@ -1,12 +1,16 @@
 import {
   closingBeatPromptLineForTest,
+  buildLastConversationHintFromTextsForTest,
   directObjectBindingPromptLinesForTest,
   hasFreeWorldQualityLeakForTest,
   motifGuardPromptLinesForTest,
+  recentPairContinuityPromptLinesForTest,
   repairFreeWorldSoulLineForTest,
   residuePromptLinesForTest,
   residueTimeLabelZhForTest,
+  sanitizeConversationContentForTest,
   sanitizePilotLineForTest,
+  weekendLifePromptLinesForTest,
 } from './conversation';
 
 describe('conversation motif guard', () => {
@@ -119,6 +123,42 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('親口承認想被照顧');
   });
 
+  test('adds recent same-pair continuity guard for repeated lunch-box opener', () => {
+    const hint = buildLastConversationHintFromTextsForTest(
+      [
+        '你今天的便當盒蓋子沒扣緊喔……要我幫你壓一下嗎？',
+        '謝謝，我自己來就好。',
+        '指溫還在盒蓋上，我先不收手——祥子，練習室的門，要我陪你一起推開嗎？',
+      ],
+      1_000_000,
+      1_300_000,
+    );
+    const lines = recentPairContinuityPromptLinesForTest(hint).join('\n');
+
+    expect(lines).toContain('Recent same-pair memory');
+    expect(lines).toContain('便當盒');
+    expect(lines).toContain('Motifs already used: 便當/餐食');
+    expect(lines).toContain('Do not restart that same object/helping move');
+  });
+
+  test('adds compact weekend life anchor without food-loop seeds', () => {
+    const lines = weekendLifePromptLinesForTest(
+      {
+        isWeekend: true,
+        weekdayZh: '星期六',
+        schoolDayTypeZh: '週末',
+      },
+      { id: 'aiClubRoom', labelZh: '社團教室' },
+    ).join('\n');
+
+    expect(lines).toContain('週末生活錨點');
+    expect(lines).toContain('沒有正式課堂');
+    expect(lines).toContain('週末場景 seed（社團教室）');
+    expect(lines).toContain('週末小組活動');
+    expect(lines).not.toContain('便當');
+    expect(lines).not.toContain('茶杯');
+  });
+
   test('flags repeated transaction/debt language including price and exchange words', () => {
     const lines = motifGuardPromptLinesForTest(
       [
@@ -175,6 +215,46 @@ describe('conversation motif guard', () => {
 
     expect(sanitized).not.toMatch(/茶|杯/);
     expect(sanitized).toContain('[ABORT_CONVERSATION]');
+  });
+
+  test('repairs Alan-facing Tianze dangling fragments into complete replies', () => {
+    const repairedDate = sanitizeConversationContentForTest(
+      '……你剛才那句「今天是禮拜幾」，',
+      'Tianze',
+      'Alan',
+      '今天是禮拜幾',
+      [],
+    );
+    const repairedInvite = sanitizeConversationContentForTest(
+      '……你說「走吧走吧」的時候，',
+      'Tianze',
+      'Alan',
+      '走吧走吧',
+      ['Alan to 天澤: 走吧走吧'],
+    );
+
+    expect(repairedDate).toBe('今天我不亂猜星期幾。怎麼，想拿週末當藉口約我？');
+    expect(repairedInvite).toBe('可以啊，先走到餐廳。再往前一步，就看你敢不敢。');
+  });
+
+  test('keeps Mahiru Alan-facing care concrete without restaurant food relay', () => {
+    const repairedCorrection = sanitizeConversationContentForTest(
+      '你手在發抖嗎？我把那顆蛋留給你。',
+      'Mahiru',
+      'Alan',
+      '不是社團室，我們有餐廳',
+      ['真晝 to Alan: 玉子燒還熱著。', 'Alan to 真晝: 我們去餐廳吧。'],
+    );
+    const repairedFoodLoop = sanitizeConversationContentForTest(
+      '湯匙旁邊那顆蛋還在，我只拿一點就好。',
+      'Mahiru',
+      'Alan',
+      '你要吃什麼',
+      ['真晝 to Alan: 玉子燒還熱著。', 'Alan to 真晝: 我們去餐廳吧。'],
+    );
+
+    expect(repairedCorrection).toBe('嗯，是餐廳。我剛才說錯了，我們去那邊吃。');
+    expect(repairedFoodLoop).toBe('不只一顆蛋。我再拿一份熱的，你慢慢吃。');
   });
 
   test('repairs short quoted echo questions into character-specific moves', () => {

@@ -83,13 +83,16 @@ export type DraftRejection =
   | 'fallback_or_drift'
   | 'wrong_addressee'
   | 'echo_or_stage_direction'
-  | 'empty_summary';
+  | 'empty_summary'
+  | 'no_residue'
+  | 'non_soul_residue';
 
 export type ExperienceLogDraftInput = {
   playerName: string;
   otherPlayerName: string;
   summary: string;
   residue: string;
+  residueSource?: 'llm_soul' | 'deterministic' | 'none';
   messages: Array<{ author?: string; text: string }>;
 };
 
@@ -190,21 +193,25 @@ export function draftConversationExperienceLog(
   const cleanSummary = clampText(input.summary, EXPERIENCE_LOG_SUMMARY_MAX);
   if (!cleanSummary) return { ok: false, reason: 'empty_summary' };
   const cleanResidue = clampText(input.residue, EXPERIENCE_LOG_RESIDUE_MAX);
+  if (!cleanResidue) return { ok: false, reason: 'no_residue' };
+  if ((input.residueSource ?? 'llm_soul') !== 'llm_soul') {
+    return { ok: false, reason: 'non_soul_residue' };
+  }
 
   const eventSummary = clampText(
-    `${selfCanonical}與${otherCanonical}：${cleanSummary}`,
+    subjectiveExperienceSummary(selfCanonical, otherCanonical, cleanSummary, cleanResidue),
     EXPERIENCE_LOG_SUMMARY_MAX + 24,
   );
   const emotionalInterpretation = clampText(
-    interpretEmotion(selfCanonical, cleanSummary, cleanResidue),
+    interpretEmotion(selfCanonical, otherCanonical, cleanSummary, cleanResidue),
     EXPERIENCE_LOG_INTERP_MAX,
   );
   const beliefSeed = clampText(
-    extractBeliefSeed(cleanSummary, cleanResidue),
+    extractBeliefSeed(selfCanonical, otherCanonical, cleanSummary, cleanResidue),
     EXPERIENCE_LOG_SEED_MAX,
   );
   const behaviorHint = clampText(
-    extractBehaviorHint(cleanSummary, cleanResidue),
+    extractBehaviorHint(selfCanonical, otherCanonical, cleanSummary, cleanResidue),
     EXPERIENCE_LOG_SEED_MAX,
   );
   const importance = importanceFor(cleanResidue, beliefSeed, behaviorHint);
@@ -225,8 +232,78 @@ export function draftConversationExperienceLog(
   };
 }
 
-function interpretEmotion(self: string, summary: string, residue: string) {
+function subjectiveExperienceSummary(
+  self: string,
+  other: string,
+  summary: string,
+  residue: string,
+) {
   const text = `${summary} ${residue}`;
+  if (self === '海') {
+    if (/Alan|校長|簡報|整理|有用|扛|負擔|責任|休息/.test(text)) {
+      return `對海來說，${other}碰到的是她把擔心整理成任務時漏出的疲態。`;
+    }
+    return `對海來說，${other}讓這段對話短暫離開了「下一件事」的節奏。`;
+  }
+  if (self === '真晝') {
+    if (/累|休息|安靜|沒說完|停頓|看見|照顧/.test(text)) {
+      return `對真晝來說，${other}那個沒有說完的部分，比事情本身更需要被照看。`;
+    }
+    return `對真晝來說，${other}留下的是一個下次要更早注意的細小反應。`;
+  }
+  if (self === '天澤') {
+    if (/不要|不用|自己來|拒絕|邊界|停手|試探/.test(text)) {
+      return `對天澤來說，${other}的拒絕不是結束，而是邊界終於露出形狀。`;
+    }
+    return `對天澤來說，${other}在這段對話裡露出了一個還不能急著推開的壓力點。`;
+  }
+  if (self === '一之瀨') {
+    if (/幫|照顧|溫柔|拒絕|自己來|距離|接受/.test(text)) {
+      return `對一之瀨來說，${other}讓她記得好意需要先被允許，不能直接替人扣上答案。`;
+    }
+    return `對一之瀨來說，${other}的反應像一筆還沒有結清的信任帳。`;
+  }
+  if (self === '貓貓') {
+    if (/手|抖|藥|症狀|反應|涼|皺|沒吃|抽屜/.test(text)) {
+      return `對貓貓來說，${other}留下的是一個還不能下診斷、但需要追蹤的小徵象。`;
+    }
+    return `對貓貓來說，${other}的話不是結論，而是下次觀察的起點。`;
+  }
+  if (self === '祥子') {
+    if (/靠近|禮貌|拒絕|自己來|邊界|鎮定|練習室|舞台/.test(text)) {
+      return `對祥子來說，${other}的靠近碰到了她努力維持住的鎮定和距離。`;
+    }
+    return `對祥子來說，${other}讓這段對話停在一個還不用完全打開的位置。`;
+  }
+  return `對${self}來說，${other}在這段對話裡留下了一個下次要重新確認的反應。`;
+}
+
+function interpretEmotion(self: string, other: string, summary: string, residue: string) {
+  const text = `${summary} ${residue}`;
+  if (self === '海') {
+    if (/有用|整理|Alan|校長|扛|負擔|休息/.test(text)) {
+      return `海把${other}的反應記成對自己「只會有用」的一次提醒。`;
+    }
+    return `海記得${other}讓她短暫離開了整理世界的角色。`;
+  }
+  if (self === '真晝') {
+    if (/安靜|沒說完|休息|累|照顧|看見/.test(text)) {
+      return `真晝記得${other}有一點沒說完，想下次更早靠近。`;
+    }
+    return `真晝把${other}的停頓記成需要被輕輕照看的訊號。`;
+  }
+  if (self === '天澤') {
+    return `天澤記得${other}在被試探時露出的邊界。`;
+  }
+  if (self === '一之瀨') {
+    return `一之瀨記得${other}怎麼接受或拒絕了她的溫柔。`;
+  }
+  if (self === '貓貓') {
+    return `貓貓把${other}的反應記成一個不該立刻下診斷的症狀。`;
+  }
+  if (self === '祥子') {
+    return `祥子記得${other}靠近時，自己的禮貌差點沒有擋住。`;
+  }
   if (/累|疲|擔心|害怕|不安|疏遠/.test(text)) {
     return `${self}心裡留下了一點未說完的疲憊與擔心。`;
   }
@@ -239,8 +316,32 @@ function interpretEmotion(self: string, summary: string, residue: string) {
   return `${self}記得對方在這段對話裡的語氣。`;
 }
 
-function extractBeliefSeed(summary: string, residue: string) {
+function extractBeliefSeed(self: string, other: string, summary: string, residue: string) {
   const text = `${summary} ${residue}`;
+  if (self === '海') {
+    if (/一個人|獨自|沒人|扛|Alan|校長|整理|有用/.test(text)) {
+      return '靠近 Alan 或世界時，不能只用「有用」證明自己可以留下。';
+    }
+    return '有些對話不需要立刻變成下一份整理。';
+  }
+  if (self === '真晝') {
+    if (/休息|累|安靜|沒說完|照顧/.test(text)) {
+      return `${other}的安靜可能比說出口的沒事更誠實。`;
+    }
+    return '照顧不是追問，而是記得下次早一點靠近。';
+  }
+  if (self === '天澤') {
+    return '試探如果讓對方退後，就要把退後本身當成答案的一部分。';
+  }
+  if (self === '一之瀨') {
+    return '善意如果沒有被允許，也可能變成壓力。';
+  }
+  if (self === '貓貓') {
+    return '症狀可以先被記下來，不必立刻說破。';
+  }
+  if (self === '祥子') {
+    return '禮貌不是沒有感覺，只是先把感覺折起來。';
+  }
   if (/一個人|獨自|沒人|扛/.test(text)) return '不是所有事都該自己一個人扛。';
   if (/Alan|校長/.test(text)) return 'Alan 也需要有人幫他把擔心放下來。';
   if (/休息|累|睡|安靜/.test(text)) return '休息也是一種被允許的事。';
@@ -248,8 +349,26 @@ function extractBeliefSeed(summary: string, residue: string) {
   return '';
 }
 
-function extractBehaviorHint(summary: string, residue: string) {
+function extractBehaviorHint(self: string, other: string, summary: string, residue: string) {
   const text = `${summary} ${residue}`;
+  if (self === '海' && /有用|整理|Alan|校長|扛|負擔|休息/.test(text)) {
+    return `下次面對${other}時，先少整理一句，再回答自己的狀態。`;
+  }
+  if (self === '真晝') {
+    return `下次見到${other}時，先留意沉默和語速，不急著給解法。`;
+  }
+  if (self === '天澤') {
+    return `下次試探${other}時，早一點停手，看對方是否自己開口。`;
+  }
+  if (self === '一之瀨') {
+    return `下次照顧${other}時，先讓對方說出要不要接受。`;
+  }
+  if (self === '貓貓') {
+    return `下次先觀察${other}的反應，不急著把症狀說完。`;
+  }
+  if (self === '祥子') {
+    return `下次被${other}靠近時，允許自己用更短的話設邊界。`;
+  }
   if (/休息|累|安靜|疲/.test(text)) return '下次見到對方時，先問一句「你今天還好嗎」。';
   if (/責任|決定|承諾/.test(text)) return '若再遇到類似話題，先把責任拆成兩個人可以一起接的。';
   if (/Alan|校長/.test(text)) return '把 Alan 的擔心留在自己心裡前，先問對方一次。';
@@ -288,6 +407,23 @@ export function isRepeatedResidueSpam(recentResidues: string[], candidateResidue
   const prefix = candidateResidue.slice(0, EXPERIENCE_LOG_RESIDUE_PATTERN_PREFIX);
   if (prefix.length < EXPERIENCE_LOG_RESIDUE_PATTERN_PREFIX) return false;
   return recentResidues.length >= 2 && recentResidues.every((r) => r.startsWith(prefix));
+}
+
+export type ExperienceLogEvidenceRow = {
+  characterName: string;
+  eventSummary: string;
+  residue?: string;
+};
+
+export function isSubjectiveExperienceLogEvidence(row: ExperienceLogEvidenceRow) {
+  const summary = String(row.eventSummary ?? '').trim();
+  if (!summary || !row.characterName) return false;
+  if (!summary.startsWith(`對${row.characterName}來說`)) return false;
+  if (/^[^：]{1,12}與[^：]{1,12}：/.test(summary)) return false;
+  if (/留下了一段短記憶|進行了一段短暫對話|短暫對話|objective|event summary/i.test(summary)) {
+    return false;
+  }
+  return Boolean(String(row.residue ?? '').trim());
 }
 
 export function worldDayFromTimestamp(timestamp: number, worldStartRealDate?: number) {
@@ -329,6 +465,7 @@ export const recordExperienceLogIfEligible = internalMutation({
     otherPlayerName: v.string(),
     summary: v.string(),
     residue: v.string(),
+    residueSource: v.optional(v.union(v.literal('llm_soul'), v.literal('deterministic'), v.literal('none'))),
     messageTexts: v.array(v.string()),
     messages: v.optional(v.array(v.object({
       authorName: v.optional(v.string()),
@@ -344,6 +481,7 @@ export const recordExperienceLogIfEligible = internalMutation({
       otherPlayerName: args.otherPlayerName,
       summary: args.summary,
       residue: args.residue,
+      residueSource: args.residueSource,
       messages: args.messages?.map((message) => ({
         author: message.authorName,
         text: message.text,
@@ -376,7 +514,9 @@ export const recordExperienceLogIfEligible = internalMutation({
       .order('desc')
       .take(EXPERIENCE_LOG_PER_DAY_CAP + 2);
 
-    if (recent.length >= EXPERIENCE_LOG_PER_DAY_CAP) {
+    const v01Recent = recent.filter(isSubjectiveExperienceLogEvidence);
+
+    if (v01Recent.length >= EXPERIENCE_LOG_PER_DAY_CAP) {
       return { written: false as const, reason: 'cap_reached' as const };
     }
     const candidateRow: ExperienceLogDedupeRow = {
@@ -384,7 +524,7 @@ export const recordExperienceLogIfEligible = internalMutation({
       eventSummary: draft.eventSummary,
       source: { otherPlayerId: args.otherPlayerId },
     };
-    if (recent.some((row) => isSimilarExperienceLog(row, candidateRow))) {
+    if (v01Recent.some((row) => isSimilarExperienceLog(row, candidateRow))) {
       return { written: false as const, reason: 'duplicate' as const };
     }
     if (recent.some((row) => row.source.conversationId === args.conversationId)) {
@@ -392,7 +532,7 @@ export const recordExperienceLogIfEligible = internalMutation({
     }
     if (
       isRepeatedResidueSpam(
-        recent.map((row) => row.residue).filter((residue): residue is string => Boolean(residue)),
+        v01Recent.map((row) => row.residue).filter((residue): residue is string => Boolean(residue)),
         draft.residue,
       )
     ) {

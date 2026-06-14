@@ -318,7 +318,10 @@ function ConversationTracePreview({ conversation }: { conversation: Conversation
     <div className="giis-wall-trace giis-wall-soul-compare">
       {traces.map((trace) => (
         <div key={trace.characterName}>
-          <span>{displayWallName(trace.characterName)}心裡留下的</span>
+          <span>
+            {displayWallName(trace.characterName)}
+            {trace.residueLineZh ? '心裡留下的' : '記住的片段'}
+          </span>
           {trace.residueLineZh ? (
             <p className="giis-wall-residue-line">{displayWallText(trace.residueLineZh)}</p>
           ) : (

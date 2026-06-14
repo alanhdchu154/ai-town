@@ -3,6 +3,8 @@ import {
   RECALL_CORRECTED_MARKER,
   buildReflectionPrompt,
   buildResiduePrompt,
+  buildSubjectiveSummaryPrompt,
+  residueEligible,
   sanitizeLlmResidue,
   localDayKey,
   claimedRecallFragmentsFromMessages,
@@ -19,6 +21,8 @@ import {
   resolveCommitmentDueAt,
   shouldExposeMemoryDescription,
   shouldPersistConversationMemoryShape,
+  subjectiveMemoryAnchorTextForMessages,
+  subjectiveMemoryJudgmentForMessages,
 } from './memory';
 
 describe('recall-corrected memory downweighting', () => {
@@ -276,6 +280,38 @@ describe('memory post-processing hygiene', () => {
     expect(curryCommitment).toBe('具體承諾：天澤答應明天為Alan準備咖哩飯');
   });
 
+  test('does not turn rejected curry into a later breakfast commitment', () => {
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:0', name: 'Umi' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        {
+          author: 'p:0',
+          text: '…那咖哩飯的約定，今天要重新排進日程嗎？',
+        },
+        { author: 'p:human', text: '先不要咖哩飯了！我們明天一起吃早餐嗎' },
+        {
+          author: 'p:0',
+          text: '好啊。我會把鬧鐘調早十分鐘。……你明天想吃什麼？',
+        },
+        { author: 'p:human', text: '你準備什麼就吃什麼吧？你有建議嗎' },
+        {
+          author: 'p:0',
+          text: '要不，我們把吐司烤脆一點，再淋點蜂蜜？',
+        },
+        { author: 'p:human', text: '好！就交給你了～' },
+        {
+          author: 'p:0',
+          text: '我會把吐司烤得剛好脆，蜂蜜淋得不多不少。',
+        },
+        { author: 'p:human', text: '好，那我們就說好了！' },
+      ],
+      { saidAt: Date.UTC(2026, 5, 13, 14, 45, 0) },
+    );
+
+    expect(commitment).toBe('');
+  });
+
   test('keeps the promiser as the offerer when the other party only accepts', () => {
     // Real 一之瀨 case (c:94554): she offers to cook, Alan closes with "好".
     // Without offer detection the commitment direction inverts to Alan cooking.
@@ -425,6 +461,48 @@ describe('memory post-processing hygiene', () => {
     expect(anchor).toContain('不想一個人');
     expect(anchor).toContain('扛');
   });
+
+  test('prefers what the other participant said for subjective fallback memory', () => {
+    const messages = [
+      { author: 'p:ichinose', text: '你今天的便當盒蓋子沒扣緊喔……要我幫你壓一下嗎？' },
+      { author: 'p:sakiko', text: '謝謝，我自己來就好。' },
+      { author: 'p:ichinose', text: '嗯…那我幫你按住盒子邊緣，你來扣？' },
+      { author: 'p:sakiko', text: '盒蓋邊緣還留著你的指溫……我得去練習室了。' },
+    ];
+
+    expect(subjectiveMemoryAnchorTextForMessages(messages, 'p:sakiko')).toContain('指溫');
+    expect(subjectiveMemoryAnchorTextForMessages(messages, 'p:ichinose')).toContain('便當盒');
+  });
+
+  test('turns ordinary fallback memory into owner-specific subjective judgment, not raw quotes', () => {
+    const messages = [
+      { author: 'p:ichinose', text: '你今天的便當盒蓋子沒扣緊喔……要我幫你壓一下嗎？' },
+      { author: 'p:sakiko', text: '謝謝，我自己來就好。' },
+      { author: 'p:ichinose', text: '嗯…那我幫你按住盒子邊緣，你來扣？' },
+      { author: 'p:sakiko', text: '盒蓋邊緣還留著你的指溫……我得去練習室了。' },
+    ];
+
+    const ichinoseJudgment = subjectiveMemoryJudgmentForMessages(
+      { id: 'p:ichinose', name: '一之瀨' },
+      { id: 'p:sakiko', name: '祥子' },
+      messages,
+    );
+    const sakikoJudgment = subjectiveMemoryJudgmentForMessages(
+      { id: 'p:sakiko', name: '祥子' },
+      { id: 'p:ichinose', name: '一之瀨' },
+      messages,
+    );
+
+    expect(ichinoseJudgment).toContain('祥子');
+    expect(ichinoseJudgment).toContain('距離');
+    expect(sakikoJudgment).toContain('一之瀨');
+    expect(sakikoJudgment).not.toBe(ichinoseJudgment);
+    for (const judgment of [ichinoseJudgment, sakikoJudgment]) {
+      expect(judgment).not.toContain('便當盒蓋子沒扣緊');
+      expect(judgment).not.toContain('盒蓋邊緣還留著你的指溫');
+      expect(judgment).not.toContain('「');
+    }
+  });
 });
 
 describe('nightly reflection (睡前回響)', () => {
@@ -497,6 +575,31 @@ describe('soul-grounded LLM residue', () => {
     expect(prompt).toMatch(/就只輸出：無/);
   });
 
+  it('grounds the first-person summary on the speaker Private Self', () => {
+    const grounded = buildSubjectiveSummaryPrompt('海', 'Alan', profile);
+    expect(grounded).toContain('You are 海');
+    expect(grounded).toContain('隱藏的恐懼：');
+    expect(grounded).toContain(profile.stakes.hiddenFear);
+    expect(grounded).toMatch(/touched what I privately fear or want/);
+    // Without a profile it still produces a valid plain first-person prompt.
+    const plain = buildSubjectiveSummaryPrompt('海', 'Alan', null);
+    expect(plain).toContain('You are 海');
+    expect(plain).not.toContain('隱藏的恐懼：');
+  });
+
+  it('lets a pilot carry a residue from talking to a pilot OR to the human Alan', () => {
+    // pilot ↔ pilot
+    expect(residueEligible({ name: '海' }, { name: '天澤' })).toBe(true);
+    // pilot ↔ Alan (human): the character still carries a soul-trace from Alan.
+    expect(residueEligible({ name: '海' }, { name: 'Alan', human: 'p:alan' })).toBe(true);
+    // Alan has no agent, so the human side never writes a residue.
+    expect(residueEligible({ name: 'Alan' }, { name: '海' })).toBe(false);
+    // a non-pilot other who is not human earns no residue.
+    expect(residueEligible({ name: '海' }, { name: '路人' })).toBe(false);
+    // self must differ from other.
+    expect(residueEligible({ name: '海' }, { name: '海' })).toBe(false);
+  });
+
   it('distinguishes provider failure (null) from an honest empty trace (無)', () => {
     // The exact sentinel safeMemoryCompletion falls back to on a provider error.
     expect(sanitizeLlmResidue('__RESIDUE_LLM_FAILED__', '海')).toBeNull();
@@ -520,5 +623,7 @@ describe('soul-grounded LLM residue', () => {
   it('drops slogan-like or stage-direction residue rather than saving it', () => {
     expect(sanitizeLlmResidue('海還記得這個文明需要更多數據與效率。', '海')).toBe('');
     expect(sanitizeLlmResidue('我合上抽屜，順手把窗也拉嚴了一點。', '海')).toBe('');
+    // Fiction-break guard: Alan's persona ("人類玩家") must not leak into a trace.
+    expect(sanitizeLlmResidue('海還記得 Alan 終究是個忙著搭 AI world 的人類玩家。', '海')).toBe('');
   });
 });

@@ -1544,7 +1544,7 @@ function ConversationPanel({
                   ? unavailableReason
                   : canStart
                   ? `Alan 可以直接找 ${targetDisplayName} 說話。`
-                  : '先在地圖或角色卡選一位角色，右側會顯示對話狀態。'}
+                  : '先在場景或角色卡選一位角色，這裡會顯示對話狀態。'}
               </p>
             </div>
           )}
