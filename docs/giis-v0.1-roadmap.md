@@ -1,9 +1,52 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-13 (continuity lanes reset — lane 1 core, lane 2 shadow, lane 3 daily seed shadow / world-state writes deferred)
+Last updated: 2026-06-13 (soul memory live: cloud LLM + Alan residue + soul-grounded summary; CRITICAL residue-timeout bug fixed; always-alive for the weekend run)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-13 Weekend Run — Soul Memory Live + Critical Fix (Claude, with Alan)
+
+The world is set to run unattended through the weekend; Alan reviews results in
+a day. Before letting it run, a careful live check found a real bug that would
+have wasted the run.
+
+**CRITICAL BUG FOUND & FIXED — residue was silently empty.** Summaries were rich
+and per-character, but EVERY conversation stored an empty 殘留. Root cause: the
+residue is a second sequential LLM call, and `MEMORY_LLM_TIMEOUT_MS` defaulted to
+**10s** while the local model **qwen3:8b is a reasoning model that takes ~17s**
+(it emits thinking tokens first). So every residue call timed out →
+`RESIDUE_LLM_FAILED` → null → deterministic fallback → '' (the new three pilots
+have no deterministic branch; the old three are gated by resonance). Verified by
+running the exact residue prompt against both cloud qwen-plus (1.4s, great
+residue) and local qwen3:8b (16.9s, great residue), and confirming the sanitizer
+keeps the output — so the timeout was the sole killer. Fix: `MEMORY_LLM_CLOUD=true`
+(cloud primary, 1.4s) + `MEMORY_LLM_TIMEOUT_MS=30000` (local fallback now fits).
+
+**Live env settings for this run (NOT in git — set on the Convex deployment):**
+
+- `MEMORY_LLM_CLOUD=true`, `MEMORY_LLM_CLOUD_MODEL=qwen-plus` — memory
+  summary/residue runs on the same cloud model the conversations use, via the
+  pilot cloud path (humanFacing → bypasses the autonomous daily quota), with
+  local qwen3:8b then deterministic template as the two fallbacks.
+- `MEMORY_LLM_TIMEOUT_MS=30000` — so the slow local reasoning model fallback does
+  not time out.
+- `UNDERWORLD_KEEP_WORLD_ALIVE=true` — keepDefaultWorldAlive cron keeps the world
+  running 24/7 with no browser open (Alan accepts the cost).
+- Kill switches: set any of the above to false to stop cloud spend / always-on.
+
+**What is now live (this session):** soul-grounded subjective summary (injects
+the speaker's own Private Self); soul-grounded LLM residue for all six pilots
+(my Private Self × the other's Public Self); Alan↔character now leaves a residue
+in the character (rejected from experienceLog so it does not pollute lane-1);
+心跡 consolidated into the 對話牆; cloud memory LLM; always-alive world.
+
+**How Alan verifies after the run:** open 對話牆 → 試點/有殘留 filter, or run
+`npx convex run school:notebookSoulTraces '{}'`. Recent pilot conversations
+should now show a 殘留 line (they were empty before the timeout fix). Watch that
+residues read grounded and per-character, not generic. If cloud gets throttled
+it silently degrades to local (still fine at 30s); if quality drops, check
+whether it fell back.
 
 ## 2026-06-13 Night Closeout / Next Morning Contract
 
