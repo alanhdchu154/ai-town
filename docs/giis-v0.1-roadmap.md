@@ -48,6 +48,27 @@ residues read grounded and per-character, not generic. If cloud gets throttled
 it silently degrades to local (still fine at 30s); if quality drops, check
 whether it fell back.
 
+**Per-use-case model routing (memoryCloudModel).** The official Qwen endpoint
+serves qwen-max/plus/turbo/flash/qwen3-235b. Tested on real transcripts:
+qwen-plus writes the most vivid, concrete emotional residue/summary; **qwen-max
+is more conservative/abstract and even returned 無 where qwen-plus found a real
+trace**, so the flagship is the wrong tool for evocative writing. Current
+routing (env-overridable via MEMORY_{RESIDUE,SUMMARY,REFLECTION,IMPORTANCE}_CLOUD_MODEL):
+residue/summary/reflection → qwen-plus; importance (0–9 mechanical score) →
+qwen-turbo. Local fallback switched OLLAMA_MODEL → qwen2.5:14b (non-reasoning, so
+no `<think>` leak, unlike qwen3:8b). Local latency is ~16s either way
+(hardware-bound model load), which is why the 30s timeout matters.
+
+**OPERATIONAL — agents stall on redeploy.** Every `convex env set/remove` or
+code save redeploys functions and bumps the engine generation; in this session
+~10 redeploys left all six agents idle (op=None but doing nothing) for 33
+minutes — the world steps physics but no one talks. Recovery: `npx convex run
+testing:kick '{}'` re-engages the operation scheduler (verified: ops resumed
+immediately). **For the weekend free run: do NOT edit files or env. Leave the
+dev stack alone.** keepDefaultWorldAlive keeps it from idling; the watcher only
+redeploys on a file change, so an untouched repo runs stably. If the world ever
+looks frozen (no new conversations for a long time), `testing:kick` is the fix.
+
 ## 2026-06-13 Night Closeout / Next Morning Contract
 
 Current stance: **do not expand tonight**. The world is running, v0.1 machine

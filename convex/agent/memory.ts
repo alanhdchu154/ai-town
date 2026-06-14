@@ -1050,6 +1050,7 @@ async function llmResidueSentence(
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },
     RESIDUE_LLM_FAILED,
+    memoryCloudModel('residue'),
   );
   return sanitizeLlmResidue(raw, self);
 }
@@ -1395,6 +1396,7 @@ export async function rememberConversation(
           timeoutMs: MEMORY_LLM_TIMEOUT_MS,
         },
         fallbackSummary,
+        memoryCloudModel('summary'),
       )
     : fallbackSummary;
   // Use the conversation's logical start (`created`) rather than the DB row's
@@ -1949,6 +1951,7 @@ async function calculateImportance(description: string) {
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },
     '5',
+    memoryCloudModel('importance'),
   );
 
   let importance = parseFloat(importanceRaw);
@@ -2129,6 +2132,7 @@ export async function computeReflectionInsights(
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },
     '[]',
+    memoryCloudModel('reflection'),
   );
 
   let insights: { insight: string; statementIds: number[] }[] = [];
@@ -2165,15 +2169,43 @@ export async function computeReflectionInsights(
 // On cloud failure it falls back to the local model (chatCompletion), and on
 // that failure to the deterministic template — three tiers, so a provider blip
 // never blocks a memory write.
+// Per-use-case cloud model. Each memory task has a different quality/cost
+// profile, and the official Qwen endpoint serves the whole family, so pick the
+// right tool. Empirically (tested on real transcripts): qwen-plus writes the
+// most vivid, concrete emotional residue/summary; qwen-max is more conservative
+// and abstract (it even returned 無 where qwen-plus found a real trace), so the
+// flagship is NOT the right tool for evocative emotional writing. The only task
+// that should drop to a cheaper model is the 0–9 importance score, which is
+// purely mechanical. All overridable by env if Alan wants to experiment.
+type MemoryCloudUseCase = 'summary' | 'residue' | 'reflection' | 'importance';
+function memoryCloudModel(useCase: MemoryCloudUseCase) {
+  const base = process.env.MEMORY_LLM_CLOUD_MODEL;
+  switch (useCase) {
+    case 'residue':
+      return process.env.MEMORY_RESIDUE_CLOUD_MODEL ?? base ?? 'qwen-plus';
+    case 'reflection':
+      return process.env.MEMORY_REFLECTION_CLOUD_MODEL ?? base ?? 'qwen-plus';
+    case 'importance':
+      return process.env.MEMORY_IMPORTANCE_CLOUD_MODEL ?? base ?? 'qwen-turbo';
+    case 'summary':
+    default:
+      return process.env.MEMORY_SUMMARY_CLOUD_MODEL ?? base ?? 'qwen-plus';
+  }
+}
+
 async function safeMemoryCompletion(
   request: Parameters<typeof chatCompletion>[0],
   fallback: string,
+  cloudModel?: string,
 ) {
   const start = Date.now();
   if (process.env.MEMORY_LLM_CLOUD === 'true') {
     try {
+      // Only the cloud call gets the cloud model name; the local fallback
+      // (chatCompletion below) keeps the request's own / OLLAMA_MODEL so a
+      // cloud-only model name never gets sent to Ollama.
       const { content } = await pilotCloudCompletion(
-        { ...request, model: process.env.MEMORY_LLM_CLOUD_MODEL ?? 'qwen-plus' },
+        { ...request, model: cloudModel ?? process.env.MEMORY_LLM_CLOUD_MODEL ?? 'qwen-plus' },
         true,
       );
       if (typeof content === 'string' && content.trim()) {
