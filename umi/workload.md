@@ -1,37 +1,88 @@
-# CC Workload — Weekend Free Run (HANDS OFF)
+# CC Workload — Underworld Runtime Stale-Conversation Guard Review
 
-Time anchor: 2026-06-13 22:25 CDT (Saturday)
+Time anchor: 2026-06-14 21:05 CDT
 Repo cwd: /Users/alanhdchu/ai-town
-Status: **HOLD. Do not touch the repo or the running world until Monday 2026-06-15.**
+Model target: opus
+Mode: read-only review / diagnosis first
 
-## Active task
+## Context
 
-None. The soul-memory world is intentionally running unattended through the
-weekend so the six pilots accumulate real conversations + residue. Alan reviews
-results Monday.
+Alan overrode the weekend "hands off" plan after Underworld was found half-stuck.
+The frontend and Convex queries were alive, but role-to-role conversation flow
+stopped around 10:59-11:00 CDT. Two active unarchived conversations were stale:
 
-## Hard rules until Monday (read WORKLOG 2026-06-13 22:25 entry for detail)
+- 海 / 一之瀨
+- 祥子 / 貓貓
 
-- **Do NOT edit files, set/remove env, redeploy, `testing:kick`, or restart.**
-  Any redeploy bumps the engine generation and can spawn a split-brain engine
-  (duplicate runStep loops → `Generation number mismatch` → conversations stop).
-- If the world genuinely looks frozen (no new conversations for a very long
-  time, confirmed via log + `school:debugAlanConversationState`), the ONLY safe
-  recovery is one `testing:stop` → wait ~20s → `testing:resume`. Never `kick`.
-- Observe/report-only automations and `npx convex run` checks are fine (they do
-  not change files). The nightly-reflection automation must stay SHADOW.
-- To sanity-check residue is writing, force a conversation with an input (no
-  redeploy):
-  `convex run aiTown/main:sendInput '{"worldId":"<id>","name":"startConversation","args":{"playerId":"p:0","invitee":"p:6"}}'`
-  then read `school:notebookSoulTraces` / `recentConversationEvalData`.
+Codex ran:
 
-## Monday backlog (deliberate, needs a redeploy)
+- `testing:stop` -> wait -> `testing:resume`
+- `testing:repairDefaultWorldRunState {"target":"running"}`
+- Alan-approved cleanup:
+  `school:cleanupActiveConversationsByCharacterNamesForTest {"dryRun":false,"targetNames":["海","一之瀨","祥子","貓貓"]}`
 
-1. Tune residue prompt: too philosophical/aphoristic ("原來X"), slightly
-   over-interprets. Pull toward grounded/observational, ban invented meanings.
-2. Confirm Alan↔character residue live (logic + unit tests pass already).
-3. Consider real embeddings + nightly reflection `--write` only after the above.
+The cleanup removed 2 active conversations, 10 unarchived messages, and 1
+in-progress agent operation. No archived memory / experienceLog was mutated.
 
-## Last completed handoff
+Post-cleanup: active stale conversations are gone, but `debugInputQueue` still
+shows latest agent inputs around 10:59-11:00. The next repair should be code-level
+guarding for Monday/Tuesday runs, not prompt/soul tuning.
 
-Continuity-lanes review (2026-06-13 12:10) — superseded by the weekend hold.
+## Task
+
+Review the smallest safe implementation plan for:
+
+1. Freshness-aware runtime preflight:
+   - detect stale latest agent input / no fresh conversation input despite
+     `worldStatus.status === "running"`.
+   - do not rely only on `worldStatus`.
+
+2. Stale active conversation watchdog:
+   - detect active autonomous conversations whose last message is older than a
+     threshold.
+   - default to dry-run/report.
+   - if applied, abort/clear stale active conversation state without writing
+     memory, residue, experienceLog, worldEvent, notification, or profile update.
+
+3. Rollout:
+   - tonight implement guard/reporting.
+   - Monday/Tuesday run data collection.
+   - Wednesday judge v0.1.
+
+## Read First
+
+- `WORKLOG.md`
+- `convex/aiTown/agent.ts`
+- `convex/aiTown/main.ts`
+- `convex/aiTown/conversation.ts`
+- `convex/aiTown/agentInputs.ts`
+- `convex/world.ts`
+- `convex/school.ts` around:
+  - `debugInputQueue`
+  - `cleanupActiveConversationsByCharacterNamesForTest`
+  - `debugAlanConversationState`
+- `scripts/underworld-runtime-preflight.mjs`
+- `scripts/underworld-state-growth-audit.mjs`
+
+## Constraints
+
+- No broad architecture rewrite.
+- No prompt/soul/memory semantic changes.
+- No provider/model migration.
+- No destructive cleanup beyond a narrowly gated stale active conversation abort.
+- No `testing:kick` recommendation unless you can prove it is safer than the
+  known stop/resume path.
+- Prefer report-first / dry-run defaults.
+
+## Expected Output
+
+Findings-first, concise:
+
+1. Is the diagnosis plausible?
+2. What is the smallest safe code change?
+3. Which files should Codex modify?
+4. What tests/checks are necessary?
+5. What should remain proposal-only?
+6. Any edge cases that could corrupt memory or create duplicate runStep loops?
+
+Do not edit files in this pass.
