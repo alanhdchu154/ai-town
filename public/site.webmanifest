@@ -1,0 +1,24 @@
+{
+  "name": "Underworld",
+  "short_name": "UW",
+  "description": "Alan's living AI school world.",
+  "start_url": "/ai-town",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b1024",
+  "theme_color": "#0b1024",
+  "icons": [
+    {
+      "src": "/icons/underworld-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/underworld-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

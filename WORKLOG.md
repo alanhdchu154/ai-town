@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-15 08:24 CDT
+Last updated: 2026-06-15 11:48 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -47,6 +47,22 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-15 11:48 CDT: Added a polished mobile home-screen icon for
+  Underworld/UW, then corrected the direction to match Alan's expectation that
+  the app icon should show Umi rather than only the school entrance. Active icon
+  is now a square Umi-face app icon: close-up short navy hair, pink-purple eyes,
+  gray cardigan / blue bow, warm night principal-office glow, and teal/violet AI
+  halo. Saved the project-bound source and resized variants under `public/icons/`
+  (`underworld-icon-1024.png`, `underworld-icon-512.png`,
+  `underworld-icon-192.png`, `apple-touch-icon.png`, `favicon-32.png`). The
+  earlier doorway concept is preserved as `underworld-doorway-icon-1024.png`.
+  Added `public/site.webmanifest` with `name=Underworld`, `short_name=UW`,
+  `start_url=/ai-town`, standalone display, and 192/512 icons. Updated
+  `index.html` with PNG favicon, Apple touch icon, manifest, theme color, Apple
+  mobile web app metadata, title `Underworld`, and updated description.
+  Verification: `npm run build`, `file public/icons/*.png`, `sips` dimension
+  checks, and HTTP 200 for `/site.webmanifest`, `/icons/apple-touch-icon.png`,
+  and `/icons/underworld-icon-512.png`.
 - 2026-06-15 08:24 CDT: Underworld was half-collapsed this morning: Vite/Convex
   and `/ai-town` were up, but the agent loop had no fresh input for about 2h17m
   and stored `worldClock` was still around 05:59 while real Chicago time was
