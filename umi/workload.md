@@ -1,88 +1,106 @@
-# CC Workload — Underworld Runtime Stale-Conversation Guard Review
+# CC Workload — Underworld Media Pipeline v1 Feasibility Review
 
-Time anchor: 2026-06-14 21:05 CDT
-Repo cwd: /Users/alanhdchu/ai-town
+Time anchor: 2026-06-15 America/Chicago
+Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: read-only review / diagnosis first
+Mode: read-only feasibility / architecture review
 
 ## Context
 
-Alan overrode the weekend "hands off" plan after Underworld was found half-stuck.
-The frontend and Convex queries were alive, but role-to-role conversation flow
-stopped around 10:59-11:00 CDT. Two active unarchived conversations were stale:
+Alan wants an Underworld Media Pipeline v1. The goal is not generic AI
+education. The goal is documenting and studying the emergence of AI society.
 
-- 海 / 一之瀨
-- 祥子 / 貓貓
+Requested categories:
 
-Codex ran:
+- Category A Shorts, 30-60s, single question + surprising answer.
+- Category B Story Episodes, 5-15m, narrative documentary.
+- Category C Research Episodes, 5-20m, paper + Underworld implementation +
+  findings.
 
-- `testing:stop` -> wait -> `testing:resume`
-- `testing:repairDefaultWorldRunState {"target":"running"}`
-- Alan-approved cleanup:
-  `school:cleanupActiveConversationsByCharacterNamesForTest {"dryRun":false,"targetNames":["海","一之瀨","祥子","貓貓"]}`
+Requested folder:
 
-The cleanup removed 2 active conversations, 10 unarchived messages, and 1
-in-progress agent operation. No archived memory / experienceLog was mutated.
+```text
+media/
+  topics/
+  scripts/
+  shorts/
+  longform/
+  papers/
+  generated/
+  uploads/
+```
 
-Post-cleanup: active stale conversations are gone, but `debugInputQueue` still
-shows latest agent inputs around 10:59-11:00. The next repair should be code-level
-guarding for Monday/Tuesday runs, not prompt/soul tuning.
+Requested agents:
+
+- Topic Agent: generate ranked video ideas from current Underworld status,
+  existing logs, recent experiments.
+- Research Agent: collect papers/references/experiments into a research package.
+- Script Agent: generate Shorts / long-form scripts.
+- Asset Agent: generate image prompts, thumbnail prompts, visual suggestions.
+- Upload Agent: generate title, description, tags, and prepare upload package.
+
+Important constraint:
+No automatic publishing yet. Human review required.
+
+## Umi First Look
+
+Current Underworld direction is v0.1 evidence collection, not broad civilization
+feature expansion. The media pipeline should be read-only over runtime/project
+evidence and should not mutate Convex, prompt state, memory, experienceLogs,
+sleepNotes, or YouTube privacy.
+
+Useful source paths already exist:
+
+- `WORKLOG.md`
+- `docs/giis-v0.1-roadmap.md`
+- `evals/conversations/reports/latest.md`
+- `umi/reports/life-signals-latest.md`
+- `umi/reports/rolling-continuity-latest.md`
+- `umi/reports/v01-completion-audit-latest.md`
+- `docs/paper/README.md`
+- `docs/paper/emotional-residue/release/ALAN_HANDOFF.md`
+- `docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md`
+
+Current risk:
+2026-06-15 life-signals report is still `sample_pending` with fewer than three
+daytime conversations. The media pipeline must not turn sparse evidence into
+strong claims like "AI society emerged" or "AI citizens formed real trust."
 
 ## Task
 
-Review the smallest safe implementation plan for:
+Read only. Do not edit files.
 
-1. Freshness-aware runtime preflight:
-   - detect stale latest agent input / no fresh conversation input despite
-     `worldStatus.status === "running"`.
-   - do not rely only on `worldStatus`.
+Assess the feasibility of adding the requested `media/` scaffold and lightweight
+pipeline docs/scripts.
 
-2. Stale active conversation watchdog:
-   - detect active autonomous conversations whose last message is older than a
-     threshold.
-   - default to dry-run/report.
-   - if applied, abort/clear stale active conversation state without writing
-     memory, residue, experienceLog, worldEvent, notification, or profile update.
+Please answer:
 
-3. Rollout:
-   - tonight implement guard/reporting.
-   - Monday/Tuesday run data collection.
-   - Wednesday judge v0.1.
-
-## Read First
-
-- `WORKLOG.md`
-- `convex/aiTown/agent.ts`
-- `convex/aiTown/main.ts`
-- `convex/aiTown/conversation.ts`
-- `convex/aiTown/agentInputs.ts`
-- `convex/world.ts`
-- `convex/school.ts` around:
-  - `debugInputQueue`
-  - `cleanupActiveConversationsByCharacterNamesForTest`
-  - `debugAlanConversationState`
-- `scripts/underworld-runtime-preflight.mjs`
-- `scripts/underworld-state-growth-audit.mjs`
+1. Is the requested v1 feasible without touching runtime behavior?
+2. What should v1 include versus defer?
+3. Which files/folders should Codex create now?
+4. What source reports should Topic Agent read first?
+5. What safety gates are required before any upload package?
+6. What would be dangerous over-automation?
+7. Should this live in `/Users/alanhdchu/ai-town/media/`, or in
+   `/Users/alanhdchu/umi-central/content/`, or both?
 
 ## Constraints
 
-- No broad architecture rewrite.
-- No prompt/soul/memory semantic changes.
-- No provider/model migration.
-- No destructive cleanup beyond a narrowly gated stale active conversation abort.
-- No `testing:kick` recommendation unless you can prove it is safer than the
-  known stop/resume path.
-- Prefer report-first / dry-run defaults.
+- No runtime mutation.
+- No Convex writes.
+- No prompt/memory/soul changes.
+- No automatic publishing.
+- No public upload from this pipeline.
+- No claims of validation from sparse synthetic/internal evidence.
+- Keep v1 markdown/JSON/scriptable and lightweight.
+- Prefer generated packages that a human can review.
 
 ## Expected Output
 
 Findings-first, concise:
 
-1. Is the diagnosis plausible?
-2. What is the smallest safe code change?
-3. Which files should Codex modify?
-4. What tests/checks are necessary?
-5. What should remain proposal-only?
-6. Any edge cases that could corrupt memory or create duplicate runStep loops?
-
-Do not edit files in this pass.
+- Feasibility verdict.
+- Recommended v1 shape.
+- Minimal file scaffold.
+- Risks and mitigations.
+- Smallest next implementation step.

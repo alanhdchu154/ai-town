@@ -131,6 +131,7 @@ async function writeReport(results, runtimeHealth) {
     `Status: ${runtimeHealth.status}`,
     `Mode: ${runtimeHealth.mode}`,
     `Latest input age: ${formatAge(runtimeHealth.latestInputAgeMs)}`,
+    `Stored worldClock age: ${formatAge(runtimeHealth.storedWorldClockAgeMs)}`,
     `Due pending inputs: ${runtimeHealth.duePendingInputCount}`,
     `Oldest due pending input age: ${formatAge(runtimeHealth.oldestDuePendingInputAgeMs)}`,
     `Active conversations: ${runtimeHealth.activeConversationCount}`,
@@ -173,6 +174,7 @@ function evaluateRuntimeHealth(result) {
     status: 'WARN',
     mode: 'unknown',
     latestInputAgeMs: undefined,
+    storedWorldClockAgeMs: undefined,
     duePendingInputCount: undefined,
     oldestDuePendingInputAgeMs: undefined,
     activeConversationCount: undefined,
@@ -187,9 +189,13 @@ function evaluateRuntimeHealth(result) {
   if (!payload) {
     return { ...empty, status: 'FAIL', issues: ['runtime_health_json_parse_failed'] };
   }
-  const hour = Number(payload.worldClock?.hour ?? new Date().getHours());
+  const hour = realLocalHour(payload.now ?? Date.now(), payload.worldClock?.timeZone ?? 'America/Chicago');
   const mode = hour >= 6 && hour < 22 ? 'day' : 'night';
   const issues = [];
+  const storedWorldClockAgeMs =
+    payload.worldClock?.lastUpdated !== undefined
+      ? Math.max(0, (payload.now ?? Date.now()) - payload.worldClock.lastUpdated)
+      : undefined;
   if (payload.worldStatus === 'running' && payload.engineRunning !== true) {
     issues.push('world_status_running_but_engine_not_running');
   }
@@ -197,6 +203,9 @@ function evaluateRuntimeHealth(result) {
     issues.push(`stale_active_conversations=${payload.staleActiveConversationCount}`);
   }
   if (mode === 'day' && payload.worldStatus === 'running') {
+    if (storedWorldClockAgeMs !== undefined && storedWorldClockAgeMs > (payload.staleAfterMs ?? 120 * 60_000)) {
+      issues.push(`stored_world_clock_stale=${formatAge(storedWorldClockAgeMs)}`);
+    }
     if (!payload.latestInput) {
       issues.push('daytime_running_world_has_no_agent_inputs');
     } else if ((payload.latestInput.ageMs ?? 0) > (payload.staleAfterMs ?? 120 * 60_000)) {
@@ -217,6 +226,7 @@ function evaluateRuntimeHealth(result) {
     status: issues.length > 0 ? 'FAIL' : 'PASS',
     mode,
     latestInputAgeMs: payload.latestInput?.ageMs,
+    storedWorldClockAgeMs,
     duePendingInputCount: payload.duePendingInputCount,
     oldestDuePendingInputAgeMs: payload.oldestDuePendingInputAgeMs,
     activeConversationCount: payload.activeConversationCount,
@@ -268,7 +278,8 @@ function runSelfTest() {
     stdout: JSON.stringify({
       worldStatus: 'running',
       engineRunning: true,
-      worldClock: { hour: 14 },
+      now: Date.UTC(2026, 5, 15, 19, 0, 0),
+      worldClock: { hour: 5, lastUpdated: Date.UTC(2026, 5, 15, 10, 0, 0) },
       latestInput: { ageMs: 130 * 60_000 },
       duePendingInputCount: 0,
       oldestDuePendingInputAgeMs: 0,
@@ -277,8 +288,20 @@ function runSelfTest() {
       staleActiveConversationCount: 0,
     }),
   });
-  if (health.status !== 'FAIL' || !health.issues[0]?.includes('daytime_agent_input_stale')) {
+  if (health.status !== 'FAIL' || !health.issues.some((issue) => issue.includes('daytime_agent_input_stale'))) {
     throw new Error('self-test expected stale daytime input failure');
   }
+  if (!health.issues.some((issue) => issue.includes('stored_world_clock_stale'))) {
+    throw new Error('self-test expected stale stored worldClock failure');
+  }
   console.log('[underworld-runtime-preflight:self-test] PASS');
+}
+
+function realLocalHour(timestampMs, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(timestampMs));
+  return Number(parts.find((part) => part.type === 'hour')?.value ?? new Date(timestampMs).getHours());
 }

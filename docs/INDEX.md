@@ -36,6 +36,21 @@ Paper B *Subjective Memory Re-Bedding* (future, v0.2+) under `paper/subjective-r
 > Do not move/rename files inside a paper folder — `scripts/paper/` audits and
 > `acceptance_hashes.py` hardcode and hash these exact paths.
 
+## Media pipeline
+
+`../media/` is the Underworld Media Pipeline v1. It creates reviewable YouTube
+content packages from Underworld evidence. It must not mutate runtime state or
+publish automatically.
+
+| Document | Purpose |
+|---|---|
+| [../media/README.md](../media/README.md) | Pipeline purpose, category definitions, folder map, and evidence boundary. |
+| [../media/agents.md](../media/agents.md) | Topic / Research / Script / Asset / Upload agent contracts. |
+| [../media/watcher.md](../media/watcher.md) | Underworld Field Notes Watcher role for playtest-note style content scouting. |
+| [../media/review_gate.md](../media/review_gate.md) | Human review gate before rendering, upload, or public release. |
+| [../media/topics/watcher-inbox.md](../media/topics/watcher-inbox.md) | Current watcher inbox for interesting Underworld moments. |
+| [../media/topics/2026-06-15-underworld-media-v1-topic-seeds.md](../media/topics/2026-06-15-underworld-media-v1-topic-seeds.md) | First topic seeds and claim-risk notes. |
+
 ## Soul / character architecture
 
 | Document | Purpose |
