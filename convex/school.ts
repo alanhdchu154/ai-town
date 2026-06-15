@@ -616,6 +616,112 @@ export const debugInputQueue = query({
   },
 });
 
+export const activeConversationRuntimeHealth = query({
+  args: {
+    inputLimit: v.optional(v.number()),
+    staleAfterMs: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const engine = await ctx.db.get(worldStatus.engineId);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const now = Date.now();
+    const staleAfterMs = Math.max(60_000, args.staleAfterMs ?? 120 * 60_000);
+    const inputLimit = Math.max(1, Math.min(args.inputLimit ?? 5, 20));
+    const latestInputs = await ctx.db
+      .query('inputs')
+      .withIndex('byInputNumber', (q) => q.eq('engineId', worldStatus.engineId))
+      .order('desc')
+      .take(inputLimit);
+    const latestInput = latestInputs[0];
+    const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
+    const playerById = new Map(world.players.map((player) => [player.id, player]));
+    const processedInputNumber = engine?.processedInputNumber ?? -1;
+    const currentEngineTime = engine?.currentTime ?? now;
+    const duePendingInputs = latestInputs.filter(
+      (input) =>
+        input.number > processedInputNumber &&
+        input.returnValue === undefined &&
+        input.received <= currentEngineTime,
+    );
+    const activeConversations = world.conversations.map((conversation) => {
+      const participantIds = conversation.participants.map((participant) => participant.playerId);
+      const participantNames = participantIds.map(nameForPlayer);
+      const latestConversationTime = Math.max(
+        conversation.created,
+        conversation.lastMessage?.timestamp ?? 0,
+        ...conversation.participants.map((participant) =>
+          Math.max(
+            participant.invited,
+            participant.status.kind === 'participating' ? participant.status.started : 0,
+          ),
+        ),
+      );
+      const ageMs = Math.max(0, now - latestConversationTime);
+      const hasHuman = participantIds.some((id) => playerById.get(id)?.human);
+      return {
+        conversationId: conversation.id,
+        participantNames,
+        numMessages: conversation.numMessages,
+        created: conversation.created,
+        lastMessageAt: conversation.lastMessage?.timestamp,
+        latestConversationTime,
+        ageMs,
+        stale: ageMs > staleAfterMs,
+        hasHuman,
+        isTyping: conversation.isTyping
+          ? {
+              playerName: nameForPlayer(conversation.isTyping.playerId),
+              since: conversation.isTyping.since,
+              ageMs: Math.max(0, now - conversation.isTyping.since),
+            }
+          : undefined,
+      };
+    });
+    const worldClock = worldStatus.worldClock ?? DEFAULT_CLOCK;
+    return {
+      now,
+      worldId: worldStatus.worldId,
+      engineId: worldStatus.engineId,
+      worldStatus: worldStatus.status,
+      engineRunning: engine?.running ?? false,
+      generationNumber: engine?.generationNumber,
+      processedInputNumber,
+      currentEngineTime,
+      worldClock,
+      latestInput: latestInput
+        ? {
+            id: latestInput._id,
+            number: latestInput.number,
+            name: latestInput.name,
+            received: latestInput.received,
+            ageMs: Math.max(0, now - latestInput.received),
+            completed: latestInput.returnValue !== undefined,
+          }
+        : undefined,
+      latestInputs: latestInputs.map((input) => ({
+        id: input._id,
+        number: input.number,
+        name: input.name,
+        received: input.received,
+        ageMs: Math.max(0, now - input.received),
+        completed: input.returnValue !== undefined,
+      })),
+      duePendingInputCount: duePendingInputs.length,
+      oldestDuePendingInputAgeMs:
+        duePendingInputs.length > 0
+          ? Math.max(...duePendingInputs.map((input) => Math.max(0, now - input.received)))
+          : 0,
+      activeConversationCount: activeConversations.length,
+      staleActiveConversationCount: activeConversations.filter(
+        (conversation) => conversation.stale && !conversation.hasHuman,
+      ).length,
+      activeConversations,
+      staleAfterMs,
+    };
+  },
+});
+
 async function descriptionsByPlayer(db: DatabaseReader, worldId: Id<'worlds'>) {
   const descriptions = await db
     .query('playerDescriptions')
@@ -10023,6 +10129,121 @@ export const cleanupActiveConversationsByCharacterNamesForTest = mutation({
       clearedAgentOps: patchedAgents.filter((agent, index) =>
         world.agents[index]?.inProgressOperation && !agent.inProgressOperation,
       ).length,
+    };
+  },
+});
+
+export const cleanupStaleActiveConversations = mutation({
+  args: {
+    dryRun: v.optional(v.boolean()),
+    staleAfterMs: v.optional(v.number()),
+    maxConversations: v.optional(v.number()),
+    includeHuman: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const dryRun = args.dryRun !== false;
+    const staleAfterMs = Math.max(60_000, args.staleAfterMs ?? 120 * 60_000);
+    const maxConversations = Math.max(1, Math.min(args.maxConversations ?? 5, 20));
+    const includeHuman = args.includeHuman === true;
+    const now = Date.now();
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const playerById = new Map(world.players.map((player) => [player.id, player]));
+    const nameForPlayer = (id: string) => descriptions.get(id)?.name ?? id;
+    const staleConversationIds = new Set<string>();
+    const messageIdsToDelete = new Set<Id<'messages'>>();
+    const affectedPlayerIds = new Set<string>();
+    const removedConversations: Array<{
+      conversationId: string;
+      participantNames: string[];
+      numMessages: number;
+      ageMs: number;
+      messageDocs: number;
+      hasHuman: boolean;
+    }> = [];
+
+    for (const conversation of world.conversations) {
+      if (removedConversations.length >= maxConversations) break;
+      const participantIds = conversation.participants.map((participant) => participant.playerId);
+      const hasHuman = participantIds.some((id) => playerById.get(id)?.human);
+      if (hasHuman && !includeHuman) continue;
+      const latestConversationTime = Math.max(
+        conversation.created,
+        conversation.lastMessage?.timestamp ?? 0,
+        ...conversation.participants.map((participant) =>
+          Math.max(
+            participant.invited,
+            participant.status.kind === 'participating' ? participant.status.started : 0,
+          ),
+        ),
+      );
+      const ageMs = Math.max(0, now - latestConversationTime);
+      if (ageMs <= staleAfterMs) continue;
+
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      staleConversationIds.add(conversation.id);
+      for (const participantId of participantIds) affectedPlayerIds.add(participantId);
+      for (const message of messages) messageIdsToDelete.add(message._id);
+      removedConversations.push({
+        conversationId: conversation.id,
+        participantNames: participantIds.map(nameForPlayer),
+        numMessages: conversation.numMessages,
+        ageMs,
+        messageDocs: messages.length,
+        hasHuman,
+      });
+    }
+
+    const patchedAgents = world.agents.map((agent) => {
+      if (!affectedPlayerIds.has(agent.playerId)) return agent;
+      const nextAgent = { ...agent };
+      if (
+        agent.inProgressOperation?.name === 'agentGenerateMessage' ||
+        agent.inProgressOperation?.name === 'agentInviteToConversation'
+      ) {
+        delete nextAgent.inProgressOperation;
+      }
+      if (agent.toRemember && staleConversationIds.has(agent.toRemember)) {
+        delete nextAgent.toRemember;
+      }
+      delete nextAgent.lastInviteAttempt;
+      return nextAgent;
+    });
+
+    if (!dryRun && staleConversationIds.size > 0) {
+      await ctx.db.patch(world._id, {
+        conversations: world.conversations.filter(
+          (conversation) => !staleConversationIds.has(conversation.id),
+        ),
+        agents: patchedAgents,
+      });
+      for (const messageId of messageIdsToDelete) await ctx.db.delete(messageId);
+    }
+
+    return {
+      worldId: world._id,
+      dryRun,
+      staleAfterMs,
+      includeHuman,
+      activeConversationDocs: staleConversationIds.size,
+      messageDocs: messageIdsToDelete.size,
+      clearedAgentOps: patchedAgents.filter((agent, index) =>
+        world.agents[index]?.inProgressOperation && !agent.inProgressOperation,
+      ).length,
+      removedConversations,
+      safety: {
+        archived: false,
+        wroteMemory: false,
+        wroteExperienceLog: false,
+        wroteWorldEvent: false,
+        wroteNotification: false,
+        reason: 'stale_active_conversation_abort',
+      },
     };
   },
 });
