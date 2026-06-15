@@ -1,9 +1,61 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-13 22:25 CDT (weekend free run LIVE + VERIFIED — residue writes end-to-end; guard fix; split-brain recovery = stop→resume not kick; review Monday 6/15)
+Last updated: 2026-06-14 21:14 CDT (runtime freshness guard live after Sunday stall; run Monday/Tuesday, review Wednesday)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-14 Runtime Guard Reset — Monday/Tuesday Run, Wednesday Review
+
+Alan explicitly approved starting repairs Sunday night rather than waiting for
+the broken weekend run to continue. The weekend freeze note below is historical:
+it correctly warned that repeated redeploy/kick can create split-brain
+`runStep` loops, but it no longer blocks this targeted runtime-health fix.
+
+What happened:
+
+- `/ai-town` and Convex queries were alive, but role-to-role conversation flow
+  stopped around 10:59-11:00 CDT.
+- Two stale active unarchived conversations (`海/一之瀨`, `祥子/貓貓`) blocked
+  natural flow and were cleared with Alan approval.
+- The old preflight only checked whether Convex functions responded, so it
+  incorrectly passed during a half-stuck world.
+
+What is live now:
+
+- **ROOT-CAUSE FIX (Claude, 21:32):** the stall's cause was found, not just
+  detected. A hung `agentGenerateMessage` (cloud LLM call) blocks every agent via
+  the global conversation single-flight until its operation backstop — which
+  defaulted to **10 minutes** (`AGENT_GENERATE_MESSAGE_TIMEOUT_MS` 600_000). One
+  hung call froze the whole world for 10 min; persistent cloud trouble compounded
+  it into hours (~400 `Timing out` reaps in the log). Fixed
+  `convex/aiTown/agent.ts` to default the backstop to **120s** (the single-flight
+  floor) — a hang now clears in 2 min and others move on. Verified by a clean
+  stop→resume + a forced conversation that engaged immediately and wrote residue.
+  Codex's guards below are the detection/cleanup safety net; this is prevention.
+- `school:activeConversationRuntimeHealth` reports latest input age, processed
+  input position, due-but-unprocessed input backlog, active conversations, and
+  stale active conversations.
+- `npm run underworld:runtime-preflight` now fails on stale daytime agent input,
+  stale active conversations, or due pending input backlog.
+- `npm run underworld:stale-watchdog` is dry-run/report-only by default.
+  Applying cleanup requires both human approval and
+  `UNDERWORLD_STALE_WATCHDOG_ALLOW_DIRECT_WRITE=true`.
+- The dev stack was restarted once to load these guards; current verification:
+  `/ai-town` HTTP 200, runtime preflight PASS, stale watchdog dry-run stale=0,
+  due pending inputs=0, typecheck/build PASS.
+
+Run plan:
+
+1. Monday 2026-06-15: observe/report only. Do not tune prompts unless repeated
+   fresh evidence shows a low-risk hygiene failure.
+2. Tuesday 2026-06-16: continue natural collection; watch experienceLogs,
+   sleepNotes, same-pair continuity, and motif loops.
+3. Wednesday 2026-06-17: judge whether v0.1 evidence exists: conversation ->
+   subjective residue -> bounded experience log -> sleep/tomorrow continuity ->
+   small behavior change.
+
+Do not count 2026-06-14 afternoon/evening as complete continuity data.
 
 ## 2026-06-13 Weekend Run — Soul Memory Live + Critical Fix (Claude, with Alan)
 

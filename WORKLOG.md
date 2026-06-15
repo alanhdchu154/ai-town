@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-14 21:00 CDT
+Last updated: 2026-06-14 21:14 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -40,46 +40,43 @@ historical evidence is needed.
 | 18 | Alan found 一之瀨/祥子 repeated essentially the same lunch-box conversation at 10:09 (`conversation-c:8668`) and 10:15 (`conversation-c:8732`). Root cause: `participatedTogether` knew the pair had spoken, but compact autonomous start prompt only received a weak boolean (`You have spoken before`) and no content from the prior same-pair conversation; because the 10:09 row had no true residue, `recentResidues` was empty and the model restarted the same bento/helping motif. Fix: compact autonomous start prompts now include a short `Recent same-pair memory` hint built from the previous archived conversation's messages, elapsed minutes, final beat, and motif labels, with an explicit rule not to restart the same object/helping move unless genuinely acknowledging the previous refusal/boundary. This is prompt-only short-term continuity, not a schema or DB-write change. Verification: targeted conversation/memory Jest 77/77, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | same_pair_short_term_motif_guard_patched_watch_next_samples |
 | 19 | Alan approved making autopilot subjective residue / experienceLog formally soul-grounded instead of letting ordinary memory carry "soul." cc read-only review was attempted again but still blocked by Claude session limit (`resets 12pm America/Chicago`), so Codex implemented the bounded fallback. Experience logs now require a non-empty residue with `residueSource='llm_soul'`; clean ordinary memory rows with no residue return `no_residue`, and deterministic/provider-fallback residue returns `non_soul_residue`, so provider failure cannot create v0.1 evidence. `rememberConversation` now tags residue source after the soul-grounded LLM residue path and resets it to `none` if repeat/recall-correction gates clear the residue. ExperienceLog draft interpretation/behavior hints now use character-specific subjective handling for 海/真晝/天澤/一之瀨/貓貓/祥子 instead of generic summary-only wording. Tests cover no-residue rejection, deterministic-residue rejection, and same objective event producing different subjective drafts per character. Verification: targeted experience/memory/conversation Jest 103/103, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | experience_log_requires_llm_soul_residue |
 | 20 | Alan observed that 2026-06-13 is Saturday/weekend but autonomous characters were not naturally talking about weekend life. Diagnosis: calendar/weekend context existed in `schoolDayRhythmContext` and full prompts, but compact autonomous start/continue prompts mostly saw it as a buried `calendarHint` rather than a concrete conversation motive. Fix: compact autonomous prompts now add `週末生活錨點` / `週末場景 seed` lines when `clockContext.isWeekend` is true, steering openers or pivots toward free activity, homework, laundry, club practice, errands, walking, dorm choices, or private check-ins while avoiding saturated food/drink/utensil/rest/global-topic loops. Added regression test to ensure Saturday compact prompts include weekend life anchors and do not seed bento/teacup loops. Verification: targeted conversation/experience/memory Jest 104/104, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | compact_weekend_life_anchor_patched_watch_next_samples |
-| 21 | 2026-06-14 evening incident: Alan reported Underworld felt hung. Triage showed `/ai-town` HTTP 200 and `underworld:runtime-preflight` PASS, but role-to-role conversation flow had effectively stopped around 10:59-11:00 CDT. `debugInputQueue` latest processed inputs were still morning `agentFinishSendingMessage` / `finishDoSomething` events, while `recentConversationEvalData` showed two stale active unarchived conversations (`海/一之瀨`, `祥子/貓貓`). Codex followed the safe weekend recovery path once (`testing:stop` -> wait -> `testing:resume`) and then patched run state with `testing:repairDefaultWorldRunState {"target":"running"}`; no `testing:kick`, env change, redeploy, or code edit. Alan approved clearing the stale active conversations; `school:cleanupActiveConversationsByCharacterNamesForTest {"dryRun":false,"targetNames":["海","一之瀨","祥子","貓貓"]}` removed 2 active conversations, 10 unarchived messages, and 1 in-progress agent op. Post-cleanup, active conversations are gone, but no new agent inputs had appeared yet; next action is either wait for the existing scheduler to resume or, if still stale, use a controlled dead-engine repair / dev-stack restart with explicit approval. Treat 2026-06-14 afternoon as missing natural-conversation data; do not claim a full-day weekend continuity run. | Alan / Umi / Codex | stale_active_conversations_cleared_engine_loop_still_watch |
+| 21 | 2026-06-14 evening incident: Alan reported Underworld felt hung. Triage showed `/ai-town` HTTP 200 and old `underworld:runtime-preflight` PASS, but role-to-role conversation flow had stopped around 10:59-11:00 CDT. `debugInputQueue` latest processed inputs were still morning events, while `recentConversationEvalData` showed two stale active unarchived conversations (`海/一之瀨`, `祥子/貓貓`). Alan approved clearing them; `school:cleanupActiveConversationsByCharacterNamesForTest {"dryRun":false,"targetNames":["海","一之瀨","祥子","貓貓"]}` removed 2 active conversations, 10 unarchived messages, and 1 in-progress agent op. Alan then explicitly approved starting repairs tonight instead of waiting. Codex coordinated a cc read-only review, implemented `school:activeConversationRuntimeHealth`, `school:cleanupStaleActiveConversations`, `scripts/underworld-stale-conversation-watchdog.mjs`, and extended `underworld:runtime-preflight` so it fails on stale daytime agent inputs, stale active conversations, and due-but-unprocessed input backlog. The dev stack was restarted once in `underworld-mobile` screen to load the new functions. Post-restart evidence: `/ai-town` HTTP 200, `underworld:runtime-preflight` PASS, `underworld:stale-watchdog` dry-run stale=0/messages=0, runtime health due pending inputs=0, processedInputNumber advanced beyond the morning stall, typecheck/build passed. Treat 2026-06-14 afternoon as missing natural-conversation data; next plan is Monday/Tuesday observe-only collection and Wednesday v0.1 evidence review. | Alan / Umi / Codex / cc | runtime_freshness_guard_live_monday_tuesday_run_wednesday_review |
 
 ## Current State Snapshot
 
-- 2026-06-13 22:25 CDT (Claude, with Alan): Soul-memory weekend run is LIVE and
-  VERIFIED. The world is intentionally left running unattended until Monday
-  2026-06-15; Alan reviews results then.
-  - **⚠️ CODEX / ANYONE OVER THE WEEKEND: do NOT edit files, set/remove env,
-    redeploy, kick, or restart the world.** Every `convex env set`/code save
-    redeploys functions and bumps the engine generation; ~10 such redeploys this
-    session put all six agents idle for 33 min and then spawned a split-brain
-    engine (duplicate runStep loops → repeated `Generation number mismatch`).
-    Recovery is ONE clean `testing:stop` → wait → `testing:resume` (NOT
-    `testing:kick` — kick spawns another duplicate loop and re-creates the
-    mismatch). The autonomous Codex automations that are observe/report-only or
-    just `npx convex run` (rolling continuity monitor, nightly-reflection SHADOW)
-    do NOT change files and are fine; anything that edits code/env is not.
-  - **Bugs fixed (committed dc53ad5..1c262e73):** (1) residue was silently empty
-    everywhere — `MEMORY_LLM_TIMEOUT_MS` defaulted to 10s but the local reasoning
-    model qwen3:8b takes ~17s, so every residue call timed out → deterministic
-    fallback → ''. Fixed: cloud qwen-plus primary (1.4s) + 30s timeout. (2)
-    unanswered-human-tail guard dropped ANY conversation Alan closed (a 27-msg
-    Alan↔Tianze chat → memCount=0); now only skips a true ping-fest (<2 character
-    replies). Both `hasUnansweredHumanTailForMemory` and the agentOperations
-    preflight share the fixed helper.
-  - **Verified end-to-end:** forced a 海↔真晝 conversation via a
-    `startConversation` input (no redeploy) — both characters wrote vivid,
-    per-character residue. So conversation → cloud LLM → remember → residue all
-    work. To force a test conversation without redeploy:
-    `convex run aiTown/main:sendInput '{"worldId":"<id>","name":"startConversation","args":{"playerId":"p:0","invitee":"p:6"}}'`.
-  - **Live env (deployment, not git):** `MEMORY_LLM_CLOUD=true`,
-    `MEMORY_LLM_TIMEOUT_MS=30000`, `UNDERWORLD_KEEP_WORLD_ALIVE=true`,
-    `OLLAMA_MODEL=qwen2.5:14b`; per-use-case cloud models default in code
-    (residue/summary/reflection → qwen-plus, importance → qwen-turbo).
-  - **Open (Monday, deliberate — needs a redeploy so NOT this weekend):** residue
-    reads too philosophical/aphoristic ("原來溫柔也能有重量") and slightly
-    over-interprets (projected a fear onto 海 that wasn't in the event). Tune the
-    residue prompt toward grounded/observational, no "原來X" aphorisms, no
-    inventing hidden meanings. Also still unconfirmed live: Alan↔character residue
-    (logic + unit tests pass; needs a real Alan chat that Alan doesn't end on).
+- 2026-06-14 21:32 CDT (Claude, with Alan): ROOT CAUSE of the recurring world
+  stall found and fixed (complements Codex's detection guards — which detect +
+  allow manual cleanup but did not prevent the stall). Mechanism: a single
+  `agentGenerateMessage` (a cloud LLM call) that hangs blocks EVERY agent via the
+  global conversation single-flight until the operation times out — and that
+  backstop defaulted to **10 minutes** (`AGENT_GENERATE_MESSAGE_TIMEOUT_MS`
+  600_000 in `convex/aiTown/agent.ts`). So one hung cloud call froze the whole
+  world for 10 min; under persistent cloud trouble (Sunday, with the doubled
+  MEMORY_LLM_CLOUD load) repeated hangs compounded into the multi-hour stall. The
+  log showed ~400 `Timing out` operation reaps. Fix: lowered the backstop default
+  to **120s** (the single-flight floor) so a hang clears in 2 min, not 10, and
+  the other agents move on. A message generation taking 10 min is never
+  legitimate (the conversation LLM call itself times out in ~30-60s). Verified:
+  tsc clean, clean `stop`->`resume` (0 mismatches), forced 海<->真晝 conversation
+  engaged immediately and wrote per-character residue. This is the prevention
+  layer; Codex's `runtime-preflight` + `stale-watchdog` remain the
+  detection/manual-cleanup safety net. **Still recommended for the Mon/Tue run:**
+  run `underworld:runtime-preflight` every ~2h (Codex's continuity automation can
+  fold this in) so any residual stall is caught fast, not silently for hours.
+- 2026-06-14 21:14 CDT (Alan / Codex / cc): The old weekend "do not edit or
+  restart" guard is now historical. Alan explicitly approved fixing the runtime
+  stall tonight, then running Monday/Tuesday and reviewing Wednesday. The live
+  world was half-stuck from about 10:59-11:00 CDT until the evening recovery:
+  frontend and Convex queries were alive, but role-to-role agent flow had no
+  fresh processed inputs. Stale active conversations were cleared with Alan
+  approval, the dev stack was restarted once, and new runtime guards are live.
+  `underworld:runtime-preflight` now checks real runtime freshness, stale active
+  conversations, and due-but-unprocessed input backlog; `underworld:stale-watchdog`
+  is dry-run by default and direct write requires explicit env + human approval.
+  Current verified state: `/ai-town` HTTP 200, runtime preflight PASS, stale
+  watchdog dry-run stale=0/messages=0, due pending inputs=0, typecheck/build
+  PASS. Do not count 2026-06-14 afternoon/evening as complete continuity data;
+  use Monday/Tuesday natural samples, then judge v0.1 evidence Wednesday.
 - 2026-06-13 19:51 CDT: Alan reported that mobile chat looked unable to send
   and asked for a new principal-office workflow. Root cause was not
   `writeMessage`: selecting a character in another scene left Alan in a

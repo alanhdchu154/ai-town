@@ -175,7 +175,13 @@ function agentActionSingleFlightEnabled() {
 
 function actionTimeoutMs(operationName?: string) {
   if (operationName === 'agentGenerateMessage') {
-    return envNumber('AGENT_GENERATE_MESSAGE_TIMEOUT_MS', 600_000, ACTION_TIMEOUT, 30 * 60_000);
+    // A single message generation that has not returned in 2 minutes is hung,
+    // not slow: the conversation LLM call itself times out in ~30-60s. The old
+    // 10-minute default meant one hung cloud call froze the WHOLE world (every
+    // agent waits behind the global conversation single-flight) for 10 minutes
+    // — repeated hangs compounded into the 2026-06-14 multi-hour stall. Cap the
+    // backstop at the single-flight floor so a hang clears fast and others move.
+    return envNumber('AGENT_GENERATE_MESSAGE_TIMEOUT_MS', 120_000, ACTION_TIMEOUT, 30 * 60_000);
   }
   return envNumber('AGENT_ACTION_TIMEOUT_MS', ACTION_TIMEOUT, 10_000, 30 * 60_000);
 }
