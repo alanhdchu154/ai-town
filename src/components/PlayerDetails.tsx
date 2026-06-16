@@ -431,15 +431,19 @@ export default function PlayerDetails({
   useEffect(() => {
     if (playerDescription?.name && playerDescription.name !== 'Alan') {
       setTargetName(playerDescription.name);
-      void refreshSchoolState();
+      if (!humanConversation) {
+        void refreshSchoolState();
+      }
     }
-  }, [playerDescription?.name, refreshSchoolState]);
+  }, [playerDescription?.name, refreshSchoolState, humanConversation]);
   useEffect(() => {
+    if (humanConversation) return;
     void refreshSchoolState();
-  }, [refreshSchoolState]);
+  }, [refreshSchoolState, humanConversation]);
   useEffect(() => {
+    if (humanConversation) return;
     void refreshObservation();
-  }, [refreshObservation]);
+  }, [refreshObservation, humanConversation]);
   const targetProfile = liveSchoolState?.find((p: { name: string }) => p.name === targetName);
   const schoolProfile = liveSchoolState?.find(
     (p: { name: string }) => p.name === playerDescription?.name,

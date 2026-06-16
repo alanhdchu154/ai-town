@@ -4,7 +4,7 @@ import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
 import { World } from '../../convex/aiTown/world.ts';
 import { WorldMap } from '../../convex/aiTown/worldMap.ts';
 import { Id } from '../../convex/_generated/dataModel';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { parseMap } from '../../convex/util/object.ts';
@@ -21,24 +21,45 @@ export type ServerGame = {
 export function useServerGame(worldId: Id<'worlds'> | undefined): ServerGame | undefined {
   const worldState = useQuery(api.world.worldState, worldId ? { worldId } : 'skip');
   const descriptions = useQuery(api.world.gameDescriptions, worldId ? { worldId } : 'skip');
+  const lastGoodRef = useRef<{
+    worldId: Id<'worlds'>;
+    worldState: NonNullable<typeof worldState>;
+    descriptions: NonNullable<typeof descriptions>;
+  }>();
+  useEffect(() => {
+    if (!worldId) {
+      lastGoodRef.current = undefined;
+      return;
+    }
+    if (worldState !== undefined && descriptions !== undefined) {
+      lastGoodRef.current = { worldId, worldState, descriptions };
+    }
+  }, [worldId, worldState, descriptions]);
+  const cachedGame = lastGoodRef.current;
+  let stableWorldState = worldState;
+  let stableDescriptions = descriptions;
+  if (cachedGame && cachedGame.worldId === worldId) {
+    stableWorldState ??= cachedGame.worldState;
+    stableDescriptions ??= cachedGame.descriptions;
+  }
   const game = useMemo(() => {
-    if (!worldState || !descriptions) {
+    if (!stableWorldState || !stableDescriptions) {
       return undefined;
     }
     return {
-      world: new World(worldState.world),
+      world: new World(stableWorldState.world),
       agentDescriptions: parseMap(
-        descriptions.agentDescriptions,
+        stableDescriptions.agentDescriptions,
         AgentDescription,
         (p) => p.agentId,
       ),
       playerDescriptions: parseMap(
-        descriptions.playerDescriptions,
+        stableDescriptions.playerDescriptions,
         PlayerDescription,
         (p) => p.playerId,
       ),
-      worldMap: new WorldMap(descriptions.worldMap),
+      worldMap: new WorldMap(stableDescriptions.worldMap),
     };
-  }, [worldState, descriptions]);
+  }, [stableWorldState, stableDescriptions]);
   return game;
 }

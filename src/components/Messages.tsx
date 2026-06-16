@@ -41,10 +41,27 @@ export function Messages({
 }) {
   const humanPlayerId = humanPlayer?.id;
   const descriptions = useQuery(api.world.gameDescriptions, { worldId });
-  const messages = useQuery(api.messages.listMessages, {
+  const liveMessages = useQuery(api.messages.listMessages, {
     worldId,
     conversationId: conversation.doc.id,
   });
+  const lastGoodMessagesRef = useRef<{
+    conversationId: string;
+    messages: NonNullable<typeof liveMessages>;
+  }>();
+  useEffect(() => {
+    if (liveMessages !== undefined) {
+      lastGoodMessagesRef.current = {
+        conversationId: conversation.doc.id,
+        messages: liveMessages,
+      };
+    }
+  }, [liveMessages, conversation.doc.id]);
+  const messages =
+    liveMessages ??
+    (lastGoodMessagesRef.current?.conversationId === conversation.doc.id
+      ? lastGoodMessagesRef.current.messages
+      : undefined);
   const [pendingMessages, setPendingMessages] = useState<PendingChatMessage[]>([]);
   const [awaitingReply, setAwaitingReply] = useState<{
     since: number;
