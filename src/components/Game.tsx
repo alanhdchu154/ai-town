@@ -120,10 +120,16 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
 
   const worldStatus = useQuery(api.world.defaultWorldStatus);
   const clockState = useQuery(api.school.worldClock, { timeZone: userTimeZone, tick: minuteTick });
-  const campusSocialState = useQuery(api.school.campusSocialState, { timeZone: userTimeZone });
-  const umiBriefing = useQuery(api.school.umiBriefing, { timeZone: userTimeZone });
-  const notebookCommitments = useQuery(api.school.notebookCommitments);
-  const notebookReflections = useQuery(api.school.notebookReflections);
+  const shouldLoadNotebookCommitments = notebookOpen && notebookTab === '約定';
+  const shouldLoadNotebookReflections = notebookOpen && notebookTab === '回響';
+  const notebookCommitments = useQuery(
+    api.school.notebookCommitments,
+    shouldLoadNotebookCommitments ? undefined : 'skip',
+  );
+  const notebookReflections = useQuery(
+    api.school.notebookReflections,
+    shouldLoadNotebookReflections ? undefined : 'skip',
+  );
   const playerIdentity = useQuery(api.school.currentPlayerIdentity);
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
@@ -131,6 +137,31 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const humanTokenIdentifier = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
 
   const game = useServerGame(worldId);
+  const players = useMemo(() => (game ? [...game.world.players.values()] : []), [game]);
+  const humanPlayer = game
+    ? players.find((player) => player.human === humanTokenIdentifier)
+    : undefined;
+  const humanConversation = humanPlayer && game ? game.world.playerConversation(humanPlayer) : undefined;
+  const isConversationMode = !!humanPlayer && !!humanConversation;
+  const shouldLoadCampusContext = !isConversationMode || notebookOpen;
+  const campusSocialStateLive = useQuery(
+    api.school.campusSocialState,
+    shouldLoadCampusContext ? { timeZone: userTimeZone } : 'skip',
+  );
+  const umiBriefingLive = useQuery(
+    api.school.umiBriefing,
+    shouldLoadCampusContext ? { timeZone: userTimeZone } : 'skip',
+  );
+  const campusSocialStateCacheRef = useRef<any>();
+  const umiBriefingCacheRef = useRef<any>();
+  useEffect(() => {
+    if (campusSocialStateLive) campusSocialStateCacheRef.current = campusSocialStateLive;
+  }, [campusSocialStateLive]);
+  useEffect(() => {
+    if (umiBriefingLive) umiBriefingCacheRef.current = umiBriefingLive;
+  }, [umiBriefingLive]);
+  const campusSocialState = campusSocialStateLive ?? campusSocialStateCacheRef.current;
+  const umiBriefing = umiBriefingLive ?? umiBriefingCacheRef.current;
   const movementStateKey = useMemo(() => {
     if (!game) return '';
     return [...game.world.players.values()]
@@ -353,9 +384,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   if (!worldId || !engineId || !game) {
     return null;
   }
-  const players = [...game.world.players.values()];
-  const humanPlayer = players.find((player) => player.human === humanTokenIdentifier);
-  const humanConversation = humanPlayer ? game.world.playerConversation(humanPlayer) : undefined;
   const currentScene =
     SchoolLocations.find((location) => location.id === selectedSceneId) ?? SchoolLocations[0];
   const sceneGroups = SchoolLocations.map((location) => {
@@ -395,7 +423,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const conversationTargets = conversationPlayerIds
     .map((conversationPlayerId) => game.world.players.get(conversationPlayerId))
     .filter(Boolean);
-  const isConversationMode = !!humanPlayer && !!humanConversation;
   const selectedPlayer =
     (selectedElement?.id ? game.world.players.get(selectedElement.id) : undefined) ?? conversationTargets[0];
   const selectedName = selectedPlayer
@@ -1466,9 +1493,10 @@ function SceneStage({
       </aside>
 
       <div
-        className={`giis-scene-character-row giis-scene-character-count-${Math.min(characters.length, 4)} ${
+        className={`giis-scene-character-row giis-scene-character-count-${Math.min(stageCharacters.length, 6)} ${
           hasCharacterFocus ? 'has-focus' : ''
         }`}
+        data-scene-count={stageCharacters.length}
       >
         {stageCharacters.length ? (
           stageCharacters.map((character) => (

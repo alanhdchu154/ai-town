@@ -378,10 +378,16 @@ export default function PlayerDetails({
     },
     [players, game.playerDescriptions, setSelectedElement],
   );
-  const campusTimeline = useQuery(api.school.campusTimeline, {
-    timeZone: userTimeZone,
-    characterName: targetName || undefined,
-  });
+  const shouldLoadCampusTimeline = activeTab !== 'dialogue' || !humanConversation;
+  const campusTimeline = useQuery(
+    api.school.campusTimeline,
+    shouldLoadCampusTimeline
+      ? {
+          timeZone: userTimeZone,
+          characterName: targetName || undefined,
+        }
+      : 'skip',
+  );
   const liveSchoolState = useMemo(
     () =>
       (schoolState ?? []).map((profile: any) => {
@@ -799,6 +805,13 @@ export default function PlayerDetails({
         const playerId = await ensureHumanPlayerId();
         await startConversationQueued({ playerId, invitee: actionTargetPlayer.id });
         setActiveTab('dialogue');
+        await applyResult({
+          yourAction: `Alan 邀請 ${displayAgentName(game.playerDescriptions.get(actionTargetPlayer.id)?.name ?? actionTargetName)} 對話。`,
+          characterReactions: '對話邀請已送出，對方正在靠近或準備回應。',
+          worldChanges: '校園已收到這個互動，不需要再送出第二個聊天 action。',
+          futureImplications: '對話面板會在角色接近後自動更新。',
+        });
+        return;
       }
       const result: any = await toastOnError(
         playerAction({

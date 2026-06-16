@@ -4956,6 +4956,28 @@ body {
   z-index: 4;
 }
 
+.giis-scene-character-count-5,
+.giis-scene-character-count-6 {
+  gap: clamp(0.18rem, 0.7vw, 0.62rem);
+  grid-auto-columns: clamp(9.2rem, 12.6vw, 13.2rem);
+  max-width: calc(100% - 1.6rem);
+  width: calc(100% - 1.6rem);
+}
+
+.giis-scene-character-count-5 .character-portrait-card,
+.giis-scene-character-count-6 .character-portrait-card {
+  height: clamp(14rem, 39vh, 28rem);
+  min-height: clamp(14rem, 39vh, 28rem);
+}
+
+.giis-scene-character-count-5 .character-portrait-img,
+.giis-scene-character-count-5 .character-portrait-fallback,
+.giis-scene-character-count-6 .character-portrait-img,
+.giis-scene-character-count-6 .character-portrait-fallback {
+  height: calc(clamp(15rem, 40vh, 29rem) * var(--render-zoom, 1));
+  max-width: min(15vw, 13rem);
+}
+
 .giis-scene-standee {
   align-items: center;
   background: transparent;
@@ -5312,6 +5334,13 @@ body {
     width: calc(100% - 1rem);
   }
 
+  .giis-scene-character-count-5,
+  .giis-scene-character-count-6 {
+    grid-auto-columns: 8.4rem;
+    max-width: calc(100% - 1rem);
+    width: calc(100% - 1rem);
+  }
+
   .giis-scene-standee {
     max-width: 8.4rem;
     min-width: 8.4rem;
@@ -5524,6 +5553,13 @@ body {
     padding: 0 0.55rem 0.2rem;
     scroll-padding-inline: 0.55rem;
     scrollbar-width: none;
+    width: 100%;
+  }
+
+  .giis-scene-character-count-5,
+  .giis-scene-character-count-6 {
+    grid-auto-columns: minmax(7.6rem, 32vw);
+    max-width: 100%;
     width: 100%;
   }
 
