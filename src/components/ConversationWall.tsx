@@ -61,6 +61,7 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   const [compactWall, setCompactWall] = useState(() =>
     typeof window === 'undefined' ? false : window.matchMedia('(max-width: 900px)').matches,
   );
+  const [slowInitialLoad, setSlowInitialLoad] = useState(false);
   useEffect(() => {
     const query = window.matchMedia('(max-width: 900px)');
     const onChange = () => setCompactWall(query.matches);
@@ -77,6 +78,15 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   const campusState = useQuery(api.school.campusSocialState, {
     timeZone: userTimeZone,
   });
+  const hasAnyWallData = data !== undefined || campusState !== undefined;
+  useEffect(() => {
+    if (hasAnyWallData) {
+      setSlowInitialLoad(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => setSlowInitialLoad(true), compactWall ? 2800 : 4200);
+    return () => window.clearTimeout(timeout);
+  }, [compactWall, hasAnyWallData]);
 
   const conversations = (data?.conversations ?? []) as ConversationEntry[];
   const statusEntries = useMemo(() => statusEntriesFromCampusState(campusState), [campusState]);
@@ -126,7 +136,7 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   const summary = useMemo(() => conversationSummary(conversations, statusEntries), [conversations, statusEntries]);
   const strongest = useMemo(() => strongestMoment(conversations), [conversations]);
   const weakest = useMemo(() => weakestFailure(conversations), [conversations]);
-  const wallLoading = data === undefined && campusState === undefined;
+  const wallLoading = data === undefined && campusState === undefined && !slowInitialLoad;
   const wallPartiallyLoading = data === undefined || campusState === undefined;
 
   return (
@@ -211,7 +221,9 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
           </>
         ) : (
           <div className="giis-wall-empty">
-            {wallPartiallyLoading ? '部分資料載入中，暫時沒有可顯示的項目' : '沒有符合的對話'}
+            {wallPartiallyLoading
+              ? '資料還在接線，先顯示空牆；也可以先回世界繼續觀察'
+              : '沒有符合的對話'}
           </div>
         )}
       </div>

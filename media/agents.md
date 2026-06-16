@@ -6,16 +6,21 @@ They read evidence and write reviewable drafts under `media/`. They must not
 mutate Convex, change prompts, write memories, restart the world, or upload to
 YouTube.
 
-## Topic Agent
+## MysteryDetector
 
 Input:
-- current Underworld status
-- existing logs
-- recent experiments
-- latest reports
+- existing Underworld reports and watcher notes
+- memory anomalies
+- repeated behavior
+- relationship/trust shifts
+- social loop stagnation
+- conflict or misunderstanding emergence
+- surprising character consistency
+- bugs that create interesting personality-like behavior
 
 Read first:
 - `WORKLOG.md`
+- `media/topics/watcher-inbox.md`
 - `docs/giis-v0.1-roadmap.md`
 - `evals/conversations/reports/latest.md`
 - `umi/reports/life-signals-latest.md`
@@ -23,11 +28,30 @@ Read first:
 - `umi/reports/v01-completion-audit-latest.md`
 
 Output:
-- ranked video ideas
-- category recommendation: Short, Story Episode, Research Episode
-- evidence source paths
-- claim risk: low / medium / high
-- next package path
+- ranked StoryCandidates
+- evidence links
+- public-safe summary
+- mystery angle
+- recommended action
+
+Rule:
+This is the first priority. Do not generate scripts, assets, or upload packages
+until the strongest StoryCandidate is clear.
+
+## StoryCandidateGenerator
+
+Input:
+- MysteryDetector output
+- current style ledger
+- channel-manager notes
+
+Output:
+- exactly 3 Short ideas
+- exactly 1 longer video idea
+- one selected item for the run
+
+Rule:
+Quality over quantity. One selected item per run.
 
 ## Research Agent
 
@@ -96,6 +120,9 @@ Output:
 Rule:
 Prepare upload package only. Do not upload or change video privacy.
 
+Upload Agent is not part of MysteryDetector v1 and should not be built before
+story discovery is working.
+
 ## Human Review Gate
 
 Before upload:
@@ -106,4 +133,5 @@ Before upload:
 - The source project and paper references are credited.
 - Upload privacy is explicit.
 
-Public release requires explicit Alan approval in the current conversation.
+Public release requires the active Field Notes release gate and a recorded
+release decision.

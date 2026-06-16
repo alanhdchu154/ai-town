@@ -1,9 +1,54 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-14 21:14 CDT (runtime freshness guard live after Sunday stall; run Monday/Tuesday, review Wednesday)
+Last updated: 2026-06-16 16:48 CDT (data-collection readiness reset; cc review completed; human-flow gate ready)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
+
+## 2026-06-16 Data-Collection Readiness Reset
+
+Alan's current goal is not to declare v0.1 done by adding more features. The
+goal is to make the environment stable enough that fresh Underworld evidence can
+be collected and judged without UI/runtime noise corrupting the read.
+
+Core problem:
+
+- Recent hardware/local-runtime issues and frontend friction made the world hard
+  to observe cleanly.
+- UI issues can block Alan from collecting usable manual-test evidence even when
+  the backend is partly healthy.
+- Pre-recovery samples should not be treated as clean v0.1 proof.
+
+Current direction:
+
+- Keep the target narrow: data-collection readiness and Alan human-test flow.
+- Use the completed `umi/workload.md` cc Opus review as a read-only findings
+  pass over the current dirty set, MysteryDetector boundary, frontend changes,
+  and smallest readiness patch.
+- Accept only small readiness fixes that make evidence collection cleaner, such
+  as fail-fast backend listener checks, no-side-effect clock refresh, clearer
+  frontend no-data states, or a human-flow readiness report.
+
+Success criteria before calling v0.1 evidence review fair:
+
+- `npm run underworld:runtime-preflight` passes or fails fast with a clear
+  backend/listener reason.
+- `npm run underworld:frontend-smoke` passes on the Alan-facing flow.
+- Conversation Wall / Scene Mode do not block Alan with indefinite loading,
+  misleading presence, or flicker that prevents observation.
+- At least one clean post-recovery evidence window is collected after the UI and
+  runtime checks are stable.
+- Alan's manual acceptance remains separate from machine checks; do not mark
+  v0.1 closed without Alan seeing the actual experience.
+
+Out of scope for this reset:
+
+- broad prompt rewriting,
+- memory architecture rewrites,
+- provider migration,
+- schema redesign,
+- new character expansion,
+- using Field Notes story needs to mutate the runtime.
 
 ## 2026-06-14 Runtime Guard Reset — Monday/Tuesday Run, Wednesday Review
 

@@ -101,6 +101,14 @@ body {
   max-width: 24rem;
 }
 
+.giis-loading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
 .game-title {
   background: linear-gradient(to bottom, #fec742, #dd7c42);
   background-clip: text;

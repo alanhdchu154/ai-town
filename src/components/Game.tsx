@@ -239,7 +239,15 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     : undefined;
   const humanConversation = humanPlayer && game ? game.world.playerConversation(humanPlayer) : undefined;
   const isConversationMode = !!humanPlayer && !!humanConversation;
-  const shouldLoadCampusContext = !isConversationMode || notebookOpen;
+  const [pauseCampusContextForConversation, setPauseCampusContextForConversation] = useState(false);
+  useEffect(() => {
+    const timeout = window.setTimeout(
+      () => setPauseCampusContextForConversation(isConversationMode),
+      1500,
+    );
+    return () => window.clearTimeout(timeout);
+  }, [isConversationMode]);
+  const shouldLoadCampusContext = !pauseCampusContextForConversation || notebookOpen;
   const [campusSocialState, setCampusSocialState] = useState<any>();
   const [umiBriefing, setUmiBriefing] = useState<any>();
   const movementStateKey = useMemo(() => {
@@ -462,26 +470,47 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }, [game, humanTokenIdentifier, moveAlanTo, setSelectedElement]);
 
   const waitingForWorld = !worldId || !engineId || !game;
+  const [slowWorldLoad, setSlowWorldLoad] = useState(false);
   useEffect(() => {
     if (!waitingForWorld) {
       loadingShellLoggedRef.current = false;
+      setSlowWorldLoad(false);
       return;
     }
-    if (!import.meta.env.DEV || loadingShellLoggedRef.current) return;
-    loadingShellLoggedRef.current = true;
-    console.debug('[GIIS loading]', {
-      hasWorldId: !!worldId,
-      hasEngineId: !!engineId,
-      hasGame: !!game,
-    });
-  }, [waitingForWorld, worldId, engineId, game]);
+    const timeout = window.setTimeout(() => setSlowWorldLoad(true), 4000);
+    if (import.meta.env.DEV && !loadingShellLoggedRef.current) {
+      loadingShellLoggedRef.current = true;
+      console.debug('[GIIS loading]', {
+        hasWorldId: !!worldId,
+        hasEngineId: !!engineId,
+        hasGame: !!game,
+      });
+    }
+    return () => window.clearTimeout(timeout);
+  }, [waitingForWorld]);
 
   if (waitingForWorld) {
     return (
       <section className="giis-loading-shell" aria-live="polite">
         <span className="giis-kicker">GIIS Underworld</span>
-        <h2>正在接通校園…</h2>
-        <p>先把世界狀態接好，再讓 Alan 進來。</p>
+        <h2>{slowWorldLoad ? '校園接線有點慢' : '正在接通校園…'}</h2>
+        <p>
+          {slowWorldLoad
+            ? '世界還在回應。你可以先回對話牆看紀錄，或稍等一下再試。'
+            : '先把世界狀態接好，再讓 Alan 進來。'}
+        </p>
+        {slowWorldLoad && (
+          <div className="giis-loading-actions">
+            {onChangeView && (
+              <button className="giis-wall-world-button" type="button" onClick={() => onChangeView('conversations')}>
+                回到對話牆
+              </button>
+            )}
+            <button className="giis-wall-world-button" type="button" onClick={() => window.location.reload()}>
+              再試一次
+            </button>
+          </div>
+        )}
       </section>
     );
   }
@@ -667,16 +696,24 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     clockState?.hoverLabelZh ?? `現實：${realClockLabel}\n世界：${worldClockLabel}`;
   const alanPlaceLabel = alanPlayer ? alanLocation?.labelZh ?? currentScene.labelZh : '離校處理其他公司';
   const alanMovementHint = isConversationMode ? '對話中：場景已鎖定。' : '';
-  const sceneStagePlayers = alanPlayer && !scenePlayers.some((player) => player.id === alanPlayer.id)
-    ? [...scenePlayers, alanPlayer]
-    : scenePlayers;
+  const sceneStagePlayers = [
+    ...scenePlayers,
+    ...(selectedPlayer && !scenePlayers.some((player) => player.id === selectedPlayer.id)
+      ? [selectedPlayer]
+      : []),
+    ...(alanPlayer &&
+    !scenePlayers.some((player) => player.id === alanPlayer.id) &&
+    alanPlayer.id !== selectedPlayer?.id
+      ? [alanPlayer]
+      : []),
+  ];
   const sceneStageCharacters = sceneStagePlayers
     .map((player) => {
       const name = game.playerDescriptions.get(player.id)?.name ?? player.id;
       const presence = campusSocialState?.emotions?.find((item: any) => item.name === name);
       const playerScene = nearestSchoolLocation(player.position);
       const isAlan = name === 'Alan';
-      const isOffSceneAlan = isAlan && !!playerScene && playerScene.id !== currentScene.id;
+      const isOffScene = !!playerScene && playerScene.id !== currentScene.id;
       const destination = player.pathfinding?.destination
         ? nearestSchoolLocation(player.pathfinding.destination)
         : undefined;
@@ -684,7 +721,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       const emotion = portraitEmotionFrom(presence?.currentEmotion);
       const statusZh = isTalking
         ? '正在對話中'
-        : isOffSceneAlan
+        : isOffScene
           ? `在線：${playerScene.labelZh}`
           : player.pathfinding
           ? `前往${destination?.labelZh ?? '目的地'}`
@@ -715,7 +752,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         isTalking,
         isSelected: selectedPlayer?.id === player.id,
         isAlan,
-        isOffScene: isOffSceneAlan,
+        isOffScene,
       };
     })
     .sort((a, b) => {

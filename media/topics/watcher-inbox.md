@@ -4,6 +4,94 @@ Time anchor: 2026-06-15 America/Chicago
 
 This inbox collects possible playtest-note style content from Underworld.
 
+## 2026-06-16 Midday Scout
+
+### Why did an AI remember the light on someone's hand?
+
+Type:
+Short or Story Episode segment.
+
+Status:
+Fresh candidate from 2026-06-16 rolling-continuity report. Hold until tonight's
+watcher pass unless a stronger fresh story appears.
+
+Observed moment:
+In the 08:00-10:00 source window, 真晝 said the window light fell on 一之瀨's hand.
+In the 10:00-12:00 callback window, later conversations reused that concrete
+window/hand cue, including a strong callback where 真晝 explained counting forks
+because the light moved onto the hand.
+
+System cause:
+The rolling continuity gate found a residue-to-callback chain across adjacent
+two-hour windows. This is not proof of friendship or consciousness; it is a
+small continuity signal where a concrete sensory detail survived long enough to
+shape later wording/attention.
+
+Evidence paths:
+- `/Users/alanhdchu/ai-town/umi/reports/rolling-continuity-latest.md`
+- `/Users/alanhdchu/ai-town/WORKLOG.md`
+
+Claim risk:
+Medium.
+
+Why it is interesting:
+It gives the world a tiny lived texture: not "the AI remembered everything",
+but "one small visual detail came back later." That is exactly the kind of
+Underworld life-note that can be made watchable without overclaiming.
+
+Suggested package:
+- hook: `An AI noticed light on someone's hand. Two hours later, it came back.`
+- narration angle: continuity is not memory as a database; it is what a detail
+  makes the character notice next.
+- visual idea: black-and-white manga or visual-novel sunlight panel, with one
+  red mark around the hand/window cue.
+- voice idea: watcher diary or 一之瀨 / 真晝 character POV, not default Umi lecture.
+- music plan: quiet YouTube Audio Library ambient bed or self-generated soft
+  piano texture.
+- title idea: `Can AI Remember A Moment?`
+- publish recommendation: observe until tonight; publish only if the callback
+  remains the strongest fresh story and the script keeps the claim narrow.
+
+### Why did the mobile UI jump when the AI was thinking?
+
+Type:
+Short backlog or devlog segment.
+
+Status:
+Fresh engineering-story candidate from 2026-06-16. Lower priority than a pure
+life-story candidate unless Alan asks for more "building the world" clips.
+
+Observed moment:
+Alan saw mobile UI flicker/jump during play. The visible failure looked like a
+frontend reconnect, but logs showed heavy world-summary/notebook/timeline
+queries timing out while an Alan/Tianze conversation was generating.
+
+System cause:
+The active conversation hot path was competing with nonessential background
+queries. The patch paused/skipped several heavy queries during current dialogue
+and kept last-good cached display values.
+
+Evidence paths:
+- `/Users/alanhdchu/ai-town/WORKLOG.md`
+- `/Users/alanhdchu/umi-central/ai/HANDOFF.md`
+
+Claim risk:
+Low.
+
+Why it is interesting:
+It explains a real product lesson: if the world is alive, the viewer still
+experiences the frontend. A simulated society needs boring UI resilience too.
+
+Suggested package:
+- hook: `The AI was thinking so hard the interface blinked.`
+- narration angle: the weird part of AI worlds is that intelligence and UI
+  stability can fight each other.
+- visual idea: UI evidence board, mobile frame, query labels, one red overload
+  warning.
+- title idea: `Why My AI World Flickered`
+- publish recommendation: backlog; useful if no stronger social-life story
+  appears.
+
 ## 2026-06-15 Nightly Scout
 
 ### Why did the promise exist in chat, but not in memory?

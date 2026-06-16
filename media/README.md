@@ -3,16 +3,18 @@
 Purpose:
 Document and study the emergence of AI society in Underworld.
 
-This is not a generic AI education content factory. The media pipeline turns
-Underworld experiments, logs, reports, failures, and papers into reviewable
-YouTube content packages.
+This is not a generic AI education content factory. The media pipeline first
+finds interesting Underworld events, then turns the strongest ones into
+reviewable field-note packages.
 
-## Core Rule
+## Core Rules
 
-Automation may generate packages.
+MysteryDetector comes first.
 
-Automation must not publish.
+If the system cannot identify what interesting thing happened inside
+Underworld, scripts, assets, renders, and uploads are premature.
 
+Automation may generate candidates or packages. Automation must not publish.
 Every package requires human review before upload or privacy changes.
 
 ## Content Categories
@@ -88,9 +90,24 @@ media/
   uploads/     upload packages only; no automatic publishing
 ```
 
+## v1 Pipeline
+
+```text
+Underworld evidence
+  -> MysteryDetector
+  -> StoryCandidate review
+  -> one selected draft
+  -> human review
+```
+
+Do not build a large video factory. Each run should produce or advance at most
+one item.
+
 ## Agents
 
 Agent contracts live in [agents.md](agents.md).
+
+MysteryDetector v1 is specified in [mystery-detector-v1.md](mystery-detector-v1.md).
 
 The playtest-note scout role lives in [watcher.md](watcher.md). Its inbox is
 [topics/watcher-inbox.md](topics/watcher-inbox.md).
@@ -118,10 +135,12 @@ Not allowed:
 
 ## First v1 Goal
 
-For every meaningful Underworld experiment, create:
+For every daily channel-manager run:
 
-1. One Short candidate.
-2. One Story Episode candidate.
-3. One Research Episode candidate.
+1. Find ranked StoryCandidates.
+2. Generate exactly 3 Short ideas and 1 longer video idea from the strongest
+   evidence.
+3. Select only one item to draft or review.
+4. Stop before uploader work.
 
-The output can be a package, not necessarily a rendered video.
+The first output is a candidate, not necessarily a script or rendered video.

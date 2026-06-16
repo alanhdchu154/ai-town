@@ -576,6 +576,31 @@ export const worldClock = query({
   },
 });
 
+export const refreshStoredWorldClock = mutation({
+  args: { timeZone: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const { worldStatus } = await defaultWorld(ctx);
+    const now = Date.now();
+    const timeZone = args.timeZone ?? worldStatus.worldStartTimeZone ?? 'America/Chicago';
+    const worldStartRealDate = giisWorldStartRealDate(worldStatus.worldStartRealDate);
+    const previousClock = worldStatus.worldClock;
+    const nextClock = { ...clockAt(now, timeZone, worldStartRealDate), lastUpdated: now };
+    await ctx.db.patch(worldStatus._id, {
+      worldStartRealDate,
+      worldStartTimeZone: timeZone,
+      worldClock: nextClock,
+    });
+    return {
+      updated: true,
+      timeZone,
+      previousClock,
+      nextClock,
+      previousAgeMs: previousClock?.lastUpdated ? Math.max(0, now - previousClock.lastUpdated) : undefined,
+      note: 'Refreshed stored worldClock only; no worldEvents, movement, memory, or conversation writes.',
+    };
+  },
+});
+
 async function defaultWorld(ctx: { db: DatabaseReader }) {
   const worldStatus = await ctx.db
     .query('worldStatus')

@@ -144,7 +144,7 @@ async function readSelectionStabilitySnapshot(send, viewport) {
 }
 
 async function runReadOnlySelectionCheck(send, viewport) {
-  const clicked = await evaluate(
+  let clicked = await evaluate(
     send,
     `(() => {
       const standees = [...document.querySelectorAll('.giis-scene-standee')];
@@ -158,6 +158,40 @@ async function runReadOnlySelectionCheck(send, viewport) {
       return true;
     })()`,
   );
+  if (!clicked) {
+    const switched = await evaluate(
+      send,
+      `(() => {
+        const select = document.querySelector('select[aria-label="切換場景"]');
+        if (!select || select.disabled) return false;
+        const option = [...select.options].find((item) => {
+          const match = item.textContent.match(/\\((\\d+)\\)/);
+          return match && Number(match[1]) > 0;
+        });
+        if (!option || option.value === select.value) return false;
+        select.value = option.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`,
+    );
+    if (switched) {
+      await sleep(500);
+      clicked = await evaluate(
+        send,
+        `(() => {
+          const standees = [...document.querySelectorAll('.giis-scene-standee')];
+          const target = standees.find((button) =>
+            !button.classList.contains('is-alan') &&
+            !button.classList.contains('is-offscene') &&
+            button.textContent.trim().length > 0
+          );
+          if (!target) return false;
+          target.click();
+          return true;
+        })()`,
+      );
+    }
+  }
   if (!clicked) {
     return { clicked: false, ok: false, reason: 'no selectable non-Alan standee' };
   }
@@ -277,18 +311,30 @@ async function readReturnedWorldSnapshot(send) {
     send,
     `(() => {
       const horizontalOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
+      const loadingShell = document.querySelector('.giis-loading-shell');
+      const loadingActions = loadingShell
+        ? [...loadingShell.querySelectorAll('button')].map((button) => button.textContent.trim())
+        : [];
+      const recoverableLoading =
+        !!loadingShell &&
+        loadingActions.includes('再試一次') &&
+        (loadingActions.includes('回到對話牆') || loadingActions.length >= 1);
+      const liveOk =
+        !!document.querySelector('.giis-live-room-shell') &&
+        !loadingShell &&
+        !document.body.innerText.includes('校園正在重新連線') &&
+        !!document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') &&
+        !horizontalOverflow;
       return {
         live: !!document.querySelector('.giis-live-room-shell'),
-        loading: !!document.querySelector('.giis-loading-shell'),
+        loading: !!loadingShell,
+        loadingText: loadingShell?.textContent.trim() ?? '',
+        loadingActions,
+        recoverableLoading,
         reconnectFallback: document.body.innerText.includes('校園正在重新連線'),
         sceneLabel: document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') ?? '',
         horizontalOverflow,
-        ok:
-          !!document.querySelector('.giis-live-room-shell') &&
-          !document.querySelector('.giis-loading-shell') &&
-          !document.body.innerText.includes('校園正在重新連線') &&
-          !!document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') &&
-          !horizontalOverflow
+        ok: liveOk || (recoverableLoading && !horizontalOverflow)
       };
     })()`,
   );

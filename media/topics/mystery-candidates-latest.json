@@ -1,0 +1,103 @@
+[
+  {
+    "score": 9.4,
+    "type": "memory_anomaly",
+    "title": "Can AI Remember A Moment?",
+    "source_event": "A window-light-on-hand detail from one conversation reappeared in a later callback.",
+    "why_interesting": "A tiny sensory detail survived long enough to shape a later line, which is more watchable than an abstract memory claim.",
+    "public_safe_summary": "A concrete detail from one conversation appeared again later, suggesting a small continuity signal.",
+    "mystery_angle": "Did the character remember the moment, or did the system merely reuse a cue?",
+    "suggested_format": "field_note_short",
+    "narrator_or_pov": "Umi watcher diary with Ichinose / Mahiru visuals",
+    "risk_level": "medium",
+    "evidence_links": [
+      "umi/reports/rolling-continuity-latest.md",
+      "media/topics/watcher-inbox.md"
+    ],
+    "recommended_action": "draft_short_candidate"
+  },
+  {
+    "score": 9.1,
+    "type": "memory_anomaly",
+    "title": "Why Did The Promise Exist In Chat, But Not In Memory?",
+    "source_event": "A pearl milk tea promise was present in dialogue, but the notebook/commitment layer came back empty.",
+    "why_interesting": "It turns memory failure into a human-scale object: the system did not forget everything, it failed to preserve the thing that mattered tomorrow.",
+    "public_safe_summary": "A character sounded committed in chat, but the structured memory layer failed to keep the concrete promise.",
+    "mystery_angle": "When does a spoken promise become memory, and why did this one fall through?",
+    "suggested_format": "field_note_short",
+    "narrator_or_pov": "Umi bug-note narrator",
+    "risk_level": "low",
+    "evidence_links": [
+      "media/topics/watcher-inbox.md",
+      "WORKLOG.md"
+    ],
+    "recommended_action": "backfill_story"
+  },
+  {
+    "score": 8.8,
+    "type": "repeated_behavior",
+    "title": "Why Did My AI Characters Repeat The Rehearsal Key?",
+    "source_event": "The life-signals report found repeated surface lines around rehearsal keys and the same reply pattern.",
+    "why_interesting": "Repeated behavior can look like memory, but it may actually be a loop that prevents the world from moving socially.",
+    "public_safe_summary": "Recent Underworld conversations repeated a specific rehearsal-key phrase pattern several times.",
+    "mystery_angle": "Was this continuity, or was the world stuck on one object?",
+    "suggested_format": "field_note_short",
+    "narrator_or_pov": "Maomao diagnostic narrator or deadpan watcher diary",
+    "risk_level": "low",
+    "evidence_links": [
+      "umi/reports/life-signals-latest.md"
+    ],
+    "recommended_action": "draft_short_candidate"
+  },
+  {
+    "score": 8.6,
+    "type": "social_loop_stagnation",
+    "title": "The World Had Details, But The Social Loop Was Stuck",
+    "source_event": "Recent reports show campus-life cues and continuity, but repeated motifs and failed event-thread continuity keep the world from feeling free.",
+    "why_interesting": "This is the central Underworld problem: detail is not the same thing as social movement.",
+    "public_safe_summary": "Underworld produced many concrete daily-life cues, but repeated motifs made the social loop feel less alive.",
+    "mystery_angle": "How can a world have memory and still fail to move forward?",
+    "suggested_format": "underworld_story",
+    "narrator_or_pov": "Umi field-note narrator",
+    "risk_level": "medium",
+    "evidence_links": [
+      "umi/reports/life-signals-latest.md",
+      "umi/reports/v01-completion-audit-latest.md",
+      "evals/conversations/reports/latest.md"
+    ],
+    "recommended_action": "draft_video_outline"
+  },
+  {
+    "score": 7.8,
+    "type": "builder_failure",
+    "title": "The AI Was Thinking So Hard The Interface Blinked",
+    "source_event": "A mobile playtest surfaced UI flicker/jump while background world queries competed with active conversation.",
+    "why_interesting": "It shows that an AI society documentary includes boring infrastructure: the world can be alive while the interface still breaks the illusion.",
+    "public_safe_summary": "A frontend instability made the world feel jumpy during active AI generation, then machine checks narrowed the issue.",
+    "mystery_angle": "If the simulated society is alive, why did the window into it keep blinking?",
+    "suggested_format": "builder_log",
+    "narrator_or_pov": "deadpan documentary or Alan builder-confession premise",
+    "risk_level": "low",
+    "evidence_links": [
+      "WORKLOG.md",
+      "media/topics/watcher-inbox.md"
+    ],
+    "recommended_action": "observe_more"
+  },
+  {
+    "score": 7.6,
+    "type": "character_consistency",
+    "title": "The Characters Remembered Objects Better Than Each Other",
+    "source_event": "Recent conversation evals flagged weak character voice, low attention shift, and motif mirroring across speakers.",
+    "why_interesting": "It explains why a scene can have vivid props while still feeling emotionally flat.",
+    "public_safe_summary": "Some recent conversations had concrete objects but weak character-specific movement.",
+    "mystery_angle": "Can a character be detailed without being socially specific?",
+    "suggested_format": "field_note_short",
+    "narrator_or_pov": "Maomao diagnostic narrator",
+    "risk_level": "medium",
+    "evidence_links": [
+      "evals/conversations/reports/latest.md"
+    ],
+    "recommended_action": "observe_more"
+  }
+]

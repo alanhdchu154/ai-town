@@ -11,10 +11,11 @@ actual Codex automation for this workflow is
 `underworld-field-notes-watcher` (`Underworld Field Notes Nightly Producer`)
 under `/Users/alanhdchu/.codex/automations/`.
 
-This is not a success detector and not a hype generator. The watcher looks for
-interesting observed phenomena: strange failures, repeated motifs, memory
-pollution, fallback behavior, runtime stalls, continuity surprises, and small
-signs of social behavior.
+This is not a success detector and not a hype generator. The watcher starts by
+reading or running MysteryDetector, then chooses only one useful next step. It
+looks for interesting observed phenomena: strange failures, repeated motifs,
+memory pollution, fallback behavior, runtime stalls, continuity surprises, and
+small signs of social behavior.
 
 It should treat Underworld as a long-running AI-society field notebook with
 20+ days of process, logs, GitHub history, worklogs, memory experiments, and
@@ -55,6 +56,7 @@ Read-only sources:
 Optional read-only checks:
 
 ```bash
+npm run underworld:mystery-detector
 npm run underworld:runtime-preflight
 npm run underworld:stale-watchdog
 npm run underworld:life-signals
@@ -64,8 +66,22 @@ npm run underworld:rolling-continuity
 Do not run write commands. Do not restart, kick, repair, import, migrate, clean,
 or mutate Convex state.
 
-Do not upload automatically. Public upload requires a release decision in the
-active publishing context.
+Do not upload automatically. Do not build a large content backlog. Public upload
+requires a release decision in the active publishing context.
+
+## Daily Channel Manager Loop
+
+Every run:
+
+1. Review latest uploads, available metrics, comments, and style ledger.
+2. Run or read MysteryDetector output.
+3. Identify what appears to work or fail without blindly chasing views.
+4. Generate exactly 3 Short ideas and 1 longer video idea.
+5. Select only one item for the run.
+6. Create only the needed draft asset: script, outline, title, thumbnail
+   concepts, description, or review package.
+7. Update Mystery candidates, style/metrics ledger, and Central handoff.
+8. Stop before uploader work.
 
 ## Interesting Moment Types
 
@@ -152,6 +168,24 @@ Suggested Package:
 - music plan:
 - title idea:
 - publish recommendation:
+```
+
+MysteryDetector's machine-readable StoryCandidate schema is defined in
+[mystery-detector-v1.md](mystery-detector-v1.md).
+
+## Human Review Package Format
+
+```text
+Candidate:
+Source evidence:
+Public-safe claim:
+Risk level:
+Narrator / POV:
+Format:
+Draft assets included:
+Quality gate:
+Human decision:
+Next action:
 ```
 
 ## Production Defaults

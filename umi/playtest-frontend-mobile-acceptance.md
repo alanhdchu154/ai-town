@@ -14,9 +14,12 @@ Machine gates before manual play:
 
 ```bash
 git rev-parse --short HEAD
-npm run underworld:runtime-preflight
-npm run underworld:frontend-smoke
+npm run underworld:human-flow-ready
 ```
+
+`underworld:human-flow-ready` runs runtime preflight, frontend smoke, and an
+optional Alan-facing candidate scan, then writes the current local/mobile URLs
+to `umi/reports/human-flow-ready-latest.md`.
 
 Current smoke coverage includes mobile 390x844, small-mobile 360x640,
 landscape-mobile 844x390, tablet 820x1180, and desktop 1440x960. It opens the

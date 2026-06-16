@@ -2,6 +2,7 @@
 // Read-only Convex runtime preflight for GIIS Underworld gates.
 
 import { execFile } from 'node:child_process';
+import net from 'node:net';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +17,39 @@ const args = parseArgs(process.argv.slice(2));
 if (args.get('self-test') === 'true') {
   runSelfTest();
   process.exit(0);
+}
+
+const listenerChecks =
+  process.env.UNDERWORLD_PREFLIGHT_SKIP_LISTENER_CHECKS === 'true'
+    ? []
+    : [
+        { id: 'vite_frontend', host: '127.0.0.1', port: 5173, label: 'Vite frontend' },
+        { id: 'convex_backend', host: '127.0.0.1', port: 3210, label: 'Convex backend' },
+        { id: 'convex_site', host: '127.0.0.1', port: 3211, label: 'Convex site' },
+      ];
+const listenerResults = [];
+for (const listener of listenerChecks) {
+  listenerResults.push(await checkTcpListener(listener));
+}
+const listenerFailures = listenerResults.filter((item) => item.status !== 'PASS');
+if (listenerFailures.length > 0) {
+  const runtimeHealth = {
+    status: 'FAIL',
+    mode: 'unknown',
+    latestInputAgeMs: undefined,
+    storedWorldClockAgeMs: undefined,
+    duePendingInputCount: undefined,
+    oldestDuePendingInputAgeMs: undefined,
+    activeConversationCount: undefined,
+    staleActiveConversationCount: undefined,
+    issues: listenerFailures.map((item) => `${item.id}_listener_down:${item.host}:${item.port}`),
+  };
+  await writeReport([], runtimeHealth, listenerResults);
+  console.log(
+    `[underworld-runtime-preflight] FAIL: ${listenerFailures.length} listener(s) down; skipped Convex function checks.`,
+  );
+  console.log(`[underworld-runtime-preflight] report written: ${relative(OUTPUT_PATH)}`);
+  process.exit(1);
 }
 
 const checks = [
@@ -39,7 +73,7 @@ for (const check of checks) {
 }
 
 const runtimeHealth = evaluateRuntimeHealth(results.find((item) => item.id === 'runtime_health'));
-await writeReport(results, runtimeHealth);
+await writeReport(results, runtimeHealth, listenerResults);
 const failed = results.filter((item) => item.exitCode !== 0);
 const healthFailed = runtimeHealth.status === 'FAIL';
 const ok = failed.length === 0;
@@ -96,15 +130,69 @@ async function convexRunCheck(check) {
   }
 }
 
-async function writeReport(results, runtimeHealth) {
+async function checkTcpListener({ id, host, port, label }) {
+  const startedAt = new Date().toISOString();
+  const timeoutMs = Number(process.env.UNDERWORLD_PREFLIGHT_LISTENER_TIMEOUT_MS ?? 1000);
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host, port });
+    let settled = false;
+    const finish = (status, summary) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({
+        id,
+        label,
+        host,
+        port,
+        timeoutMs,
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        status,
+        summary,
+      });
+    };
+    socket.setTimeout(timeoutMs, () => finish('FAIL', 'timeout'));
+    socket.once('connect', () => finish('PASS', 'listening'));
+    socket.once('error', (error) => finish('FAIL', error.code ?? error.message ?? 'connection_failed'));
+  });
+}
+
+async function writeReport(results, runtimeHealth, listenerResults = []) {
   await mkdir(dirname(OUTPUT_PATH), { recursive: true });
   const failed = results.filter((item) => item.exitCode !== 0);
+  const listenerFailures = listenerResults.filter((item) => item.status !== 'PASS');
   const lines = [
     '# GIIS Underworld Runtime Preflight',
     '',
     `Generated: ${new Date().toISOString()}`,
-    `Overall: ${failed.length === 0 && runtimeHealth.status !== 'FAIL' ? 'PASS' : 'FAIL'}`,
-    `Reason: ${failed.length} failed check(s); ${runtimeHealth.issues.length} runtime health issue(s).`,
+    `Overall: ${
+      listenerFailures.length === 0 && failed.length === 0 && runtimeHealth.status !== 'FAIL' ? 'PASS' : 'FAIL'
+    }`,
+    `Reason: ${listenerFailures.length} listener issue(s); ${failed.length} failed check(s); ${runtimeHealth.issues.length} runtime health issue(s).`,
+    '',
+    '## Listener Checks',
+    '',
+    listenerResults.length > 0
+      ? '| Listener | Host | Port | Timeout ms | Status | Started | Finished | Summary |'
+      : 'Listener checks skipped.',
+    listenerResults.length > 0 ? '|---|---|---:|---:|---|---|---|---|' : '',
+    ...listenerResults.map((item) =>
+      [
+        item.label ?? item.id,
+        item.host,
+        item.port,
+        item.timeoutMs,
+        item.status,
+        item.startedAt,
+        item.finishedAt,
+        item.summary,
+      ]
+        .map(escapeTableCell)
+        .join(' | ')
+        .replace(/^/, '| ')
+        .replace(/$/, ' |'),
+    ),
     '',
     '## Checks',
     '',
@@ -145,7 +233,7 @@ async function writeReport(results, runtimeHealth) {
     '',
     '## Recovery',
     '',
-    'If this report fails before the afternoon gate, start the local dev stack with `bash umi/run_underworld_dev_stack.sh`, wait for Convex to become responsive, rerun this preflight, and only then rerun the guarded afternoon gate if still inside 13:00-16:59 America/Chicago.',
+    'If listener checks fail, restart the local dev stack with `bash umi/run_underworld_dev_stack.sh`, wait for ports 5173 / 3210 / 3211, then rerun this preflight. If only stored worldClock is stale after restart, prefer `npx convex run --typecheck disable --codegen disable school:refreshStoredWorldClock \'{"timeZone":"America/Chicago"}\'` over `advanceWorldTime {"hours":0}` so recovery does not emit world events.',
     '',
   ];
   await writeFile(OUTPUT_PATH, `${lines.join('\n')}\n`, 'utf8');

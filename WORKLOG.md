@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 15:56 CDT
+Last updated: 2026-06-16 16:48 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,62 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 16:48 CDT: Underworld v0.1 review / human-test readiness pass is
+  complete enough to commit and hand Alan a stable next manual test. cc
+  performed the requested current-diff second opinion in
+  `umi/reports/20260616T211519Z-workload.md`: no P0, no commit blocker;
+  MysteryDetector stayed read-only/review-safe; the selected-character anchor
+  and Conversation Wall graceful empty state were accepted with caveats; cc's
+  smallest recommended readiness patch was a fail-fast backend listener probe.
+  Codex implemented that plus a safer no-event clock refresh mutation
+  (`school:refreshStoredWorldClock`), a new
+  `npm run underworld:human-flow-ready` gate/report, frontend loading-shell
+  recovery buttons, frontend-smoke scene fallback for empty rooms, and
+  Conversation Wall wording polish. Verification after the patch:
+  `npm run underworld:runtime-preflight:self-test` PASS,
+  `npm run underworld:human-flow-ready:self-test` PASS,
+  `node --check` on the changed scripts PASS, `npm run underworld:mystery-detector`
+  PASS, `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS, `npm run underworld:runtime-preflight` PASS,
+  `npm run underworld:frontend-smoke` PASS 5/5, and
+  `npm run underworld:human-flow-ready` READY with mobile URL
+  `http://192.168.1.239:5173/ai-town`. Evidence collection ran but did not close
+  v0.1: `npm run underworld:observe:daytime-samples` collected 4 fresh pilot
+  samples; `eval:soul-triad` was 8/8 PASS, while
+  `eval:conversation:recent -- --since-last-change` stayed 0 PASS / 3 WARN / 9
+  FAIL and `underworld:rolling-continuity` stayed WARN / weak continuity. Repair
+  gate correctly produced proposal-only
+  `umi/proposals/20260616T214514Z-v01-approach-proposal.md`; cc agreed not to
+  prompt-tune yet because the likely next safe task is rubric/emotional-cue
+  calibration plus residue/opening-template investigation, not broad prompt
+  changes. Manual acceptance still required: Alan should run the human-flow
+  gate, then test 海 / 真晝 / 貓貓 / 天澤 / 一之瀨 / 祥子 with greeting plus one
+  short promise/memory hook, recording stuck state, scroll behavior, fallback,
+  and residue quality.
+- 2026-06-16 16:10 CDT: Alan reported today's UI felt especially flickery /
+  like the screen suddenly jumped while playing. Fresh evidence separated three
+  causes: local dev/build HMR page reloads while Codex was editing, real Convex
+  runtime overload, and one frontend selection-anchor gap. First
+  `npm run underworld:runtime-preflight` failed because
+  `school:activeConversationRuntimeHealth` timed out with `performing too many
+  system operations`; `umi/reports/mobile-dev-stack.log` around 16:02-16:03 CDT
+  showed timeouts in `campusTimeline`, `campusSocialState`, `umiBriefing`,
+  `agentSendMessage`, and `saveWorld`, then `restartDeadWorlds` restarted the
+  engine. A smoke run during the overload reproduced visible UI symptoms:
+  mobile Conversation Wall stayed at `載入中` and returned to a loading world,
+  while small-mobile selected 一之瀨 and then lost the central selected standee
+  after the live simulation pulled her into a conversation with 海. Patch:
+  `Game.tsx` now keeps the selected player in the stage as a visual anchor even
+  when the simulation moves them out of the viewed scene, and marks any
+  off-scene staged player as `is-offscene`; `ConversationWall.tsx` now degrades
+  to a stable empty/partial state after a short no-data wait instead of staying
+  indefinitely on `載入中`. Verification: `npx tsc --noEmit --pretty false`
+  PASS, `npm run build` PASS, `npm run underworld:runtime-preflight` rerun
+  PASS, `git diff --check` PASS, and `npm run underworld:frontend-smoke` PASS
+  5/5 generated at `2026-06-16T21:07:09.150Z`; all viewports returned to world
+  without overflow / hard console / hard network issues. Remaining risk:
+  runtime overload still needs engine/query pressure work; UI now degrades more
+  gently but cannot make Convex timeouts disappear.
 - 2026-06-16 15:56 CDT: Continued frontend launch-readiness audit after
   `2527bd0f`. cc residual review `umi/reports/20260616T204624Z-workload.md`
   found no confirmed P0, but flagged two P1s: iOS `100vh` world-shell clipping
