@@ -1,9 +1,15 @@
-# Underworld Field Notes Nightly Producer
+# Underworld Field Notes Watcher Brief
 
 Purpose:
 Watch Underworld's development and collect shareable field-note moments. The
-same nightly pass may also check Central Umi's Field Notes plan for due AI
+same nightly watcher pass may also check Central Umi's Field Notes plan for due AI
 topic, project-video, or paper-brief packages.
+
+Naming note:
+This file is a local watcher brief/playbook, not a second automation. The only
+actual Codex automation for this workflow is
+`underworld-field-notes-watcher` (`Underworld Field Notes Nightly Producer`)
+under `/Users/alanhdchu/.codex/automations/`.
 
 This is not a success detector and not a hype generator. The watcher looks for
 interesting observed phenomena: strange failures, repeated motifs, memory
