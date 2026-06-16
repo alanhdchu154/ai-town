@@ -15,6 +15,7 @@ const POST_SELECTION_SAMPLE_MS = Number(process.env.UNDERWORLD_FRONTEND_SMOKE_SA
 const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844, mobile: true },
   { name: 'small-mobile', width: 360, height: 640, mobile: true },
+  { name: 'tablet', width: 820, height: 1180, mobile: true },
   { name: 'desktop', width: 1440, height: 960, mobile: false },
 ];
 

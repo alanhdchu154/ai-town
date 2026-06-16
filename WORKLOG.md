@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 15:18 CDT
+Last updated: 2026-06-16 15:26 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,22 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 15:26 CDT: Tablet breakpoint frontend smoke coverage added after
+  cc's residual frontend pass identified the 768-900px tablet range as the only
+  cheap machine-check gap worth closing before Alan's real-device acceptance.
+  Patch: `underworld:frontend-smoke` now includes a tablet viewport
+  `820x1180` in addition to mobile 390x844, small-mobile 360x640, and desktop
+  1440x960. Verification: `npx tsc --noEmit --pretty false` PASS,
+  `npm run build` PASS, `npm run underworld:runtime-preflight` initially saw a
+  transient `school:debugState` "performing too many system operations" timeout
+  while listener ports 3210/3211/5173 were healthy, then rerun PASS;
+  `npm run underworld:frontend-smoke` PASS 4/4 generated at
+  `2026-06-16T20:25:09.761Z`. Mobile, small-mobile, and tablet selected 天澤 in
+  餐廳場景; desktop selected 祥子 in 中央庭院場景; every viewport had
+  `idleOk=true`, 7 samples, `drift=0`, `consoleIssues=0`, `badNetwork=0`, and
+  no horizontal overflow (`tablet` scroll `820/820`). Remaining frontend launch
+  condition is unchanged: Alan real mobile/touch acceptance via
+  `umi/playtest-frontend-mobile-acceptance.md`.
 - 2026-06-16 15:18 CDT: cc residual frontend market-readiness pass
   `umi/reports/20260616T201756Z-workload.md` found no P0 after `80cd6a22`.
   It classified the remaining P1 as manual-only real mobile/touch acceptance:
