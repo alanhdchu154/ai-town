@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 15:26 CDT
+Last updated: 2026-06-16 15:38 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,27 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 15:38 CDT: Alan reported today's UI felt especially flickery /
+  like it suddenly jumped while playing. cc read-only review
+  `umi/reports/20260616T203207Z-workload.md` recommended closing the remaining
+  machine-check gap by exercising the topbar `對話` route. First patched smoke
+  run caught a real mobile issue: world selection stayed stable, but mobile
+  Conversation Wall remained `載入中` after 15s while desktop loaded 45 cards
+  and returned to world correctly. Patch: `ConversationWall.tsx` now starts
+  mobile/tablet with a smaller payload (`limit=18`, `messagesPerConversation=5`)
+  and renders partial available rows/status instead of blocking the whole grid
+  until both conversation and campus-state queries finish. `underworld:frontend-smoke`
+  now opens `對話` and returns to `世界` for mobile 390x844 and desktop
+  1440x960, asserting wall header/metrics/filters/select/grid, no reconnect
+  fallback, no horizontal overflow, no hard console/network issue, and live room
+  return. Verification: `npx tsc --noEmit --pretty false` PASS, `npm run build`
+  PASS, `npm run underworld:runtime-preflight` PASS, `git diff --check` PASS,
+  and `npm run underworld:frontend-smoke` PASS 4/4 generated at
+  `2026-06-16T20:37:57.589Z`; mobile wall check now passes in 2.7s with 9 cards
+  plus the partial-loading note, desktop wall check passes and returns to world.
+  Remaining launch condition is still Alan real iPhone/in-app mobile acceptance,
+  especially touch feel, iOS background/foreground reconnect, and long wall
+  readability.
 - 2026-06-16 15:26 CDT: Tablet breakpoint frontend smoke coverage added after
   cc's residual frontend pass identified the 768-900px tablet range as the only
   cheap machine-check gap worth closing before Alan's real-device acceptance.

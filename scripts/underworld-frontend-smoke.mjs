@@ -18,6 +18,7 @@ const VIEWPORTS = [
   { name: 'tablet', width: 820, height: 1180, mobile: true },
   { name: 'desktop', width: 1440, height: 960, mobile: false },
 ];
+const CONVERSATION_WALL_VIEWPORTS = new Set(['mobile', 'desktop']);
 
 fs.mkdirSync(REPORT_DIR, { recursive: true });
 
@@ -208,6 +209,163 @@ async function runPostSelectionIdleCheck(send, viewport, initialSnapshot) {
   };
 }
 
+async function readConversationWallSnapshot(send) {
+  return evaluate(
+    send,
+    `(() => {
+      const wall = document.querySelector('.giis-conversation-wall');
+      const grid = document.querySelector('.giis-wall-grid');
+      const empty = document.querySelector('.giis-wall-empty');
+      const returnButton = document.querySelector('.giis-wall-world-button');
+      const characterSelect = document.querySelector('.giis-wall-controls select[aria-label="character"]');
+      const segmentButtons = [...document.querySelectorAll('.giis-wall-controls .giis-wall-segments button')];
+      const cards = [...document.querySelectorAll('.giis-conversation-card')];
+      const emptyText = empty?.textContent.trim() ?? '';
+      const horizontalOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
+      const settled = !!grid && (cards.length > 0 || (emptyText.length > 0 && emptyText !== '載入中'));
+      return {
+        wall: !!wall,
+        headerText: document.querySelector('.giis-conversation-wall-header h2')?.textContent.trim() ?? '',
+        metricCount: document.querySelectorAll('.giis-wall-metrics .giis-wall-metric').length,
+        segmentCount: segmentButtons.length,
+        segmentLabels: segmentButtons.map((button) => button.textContent.trim()),
+        hasCharacterSelect: !!characterSelect,
+        characterSelectDisabled: characterSelect ? characterSelect.disabled : true,
+        hasReturnButton: !!returnButton,
+        returnButtonDisabled: returnButton ? returnButton.disabled : true,
+        returnButtonText: returnButton?.textContent.trim() ?? '',
+        hasGrid: !!grid,
+        cardCount: cards.length,
+        emptyText,
+        settled,
+        loading: !!document.querySelector('.giis-loading-shell'),
+        reconnectFallback: document.body.innerText.includes('校園正在重新連線'),
+        horizontalOverflow,
+        ok:
+          !!wall &&
+          document.querySelector('.giis-conversation-wall-header h2')?.textContent.trim() === '對話牆' &&
+          document.querySelectorAll('.giis-wall-metrics .giis-wall-metric').length === 4 &&
+          segmentButtons.length === 6 &&
+          !!characterSelect &&
+          !characterSelect.disabled &&
+          !!returnButton &&
+          !returnButton.disabled &&
+          returnButton.textContent.trim() === '回到世界' &&
+          settled &&
+          !document.querySelector('.giis-loading-shell') &&
+          !document.body.innerText.includes('校園正在重新連線') &&
+          !horizontalOverflow
+      };
+    })()`,
+  );
+}
+
+async function waitForConversationWall(send) {
+  const deadline = Date.now() + 15_000;
+  let snapshot;
+  do {
+    await sleep(500);
+    snapshot = await readConversationWallSnapshot(send);
+    if (snapshot.ok) break;
+  } while (Date.now() < deadline);
+  return snapshot;
+}
+
+async function readReturnedWorldSnapshot(send) {
+  return evaluate(
+    send,
+    `(() => {
+      const horizontalOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
+      return {
+        live: !!document.querySelector('.giis-live-room-shell'),
+        loading: !!document.querySelector('.giis-loading-shell'),
+        reconnectFallback: document.body.innerText.includes('校園正在重新連線'),
+        sceneLabel: document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') ?? '',
+        horizontalOverflow,
+        ok:
+          !!document.querySelector('.giis-live-room-shell') &&
+          !document.querySelector('.giis-loading-shell') &&
+          !document.body.innerText.includes('校園正在重新連線') &&
+          !!document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') &&
+          !horizontalOverflow
+      };
+    })()`,
+  );
+}
+
+async function waitForReturnedWorld(send) {
+  const deadline = Date.now() + 8_000;
+  let snapshot;
+  do {
+    await sleep(300);
+    snapshot = await readReturnedWorldSnapshot(send);
+    if (snapshot.ok) break;
+  } while (Date.now() < deadline);
+  return snapshot;
+}
+
+async function runConversationWallCheck(send, viewport, badNetwork, consoleIssues) {
+  if (!CONVERSATION_WALL_VIEWPORTS.has(viewport.name)) {
+    return {
+      skipped: 'viewport not in conversation-wall coverage',
+      ok: true,
+    };
+  }
+
+  const startedAt = Date.now();
+  const networkStart = badNetwork.length;
+  const consoleStart = consoleIssues.length;
+  const opened = await evaluate(
+    send,
+    `(() => {
+      const tab = [...document.querySelectorAll('.giis-view-switch button')]
+        .find((button) => button.textContent.trim() === '對話');
+      if (!tab) return false;
+      tab.click();
+      return true;
+    })()`,
+  );
+  if (!opened) {
+    return {
+      opened: false,
+      ok: false,
+      reason: 'conversation tab not found',
+      durationMs: Date.now() - startedAt,
+    };
+  }
+
+  const wallSnapshot = await waitForConversationWall(send);
+  const returnedClick = await evaluate(
+    send,
+    `(() => {
+      const button = document.querySelector('.giis-wall-world-button');
+      if (!button || button.disabled) return false;
+      button.click();
+      return true;
+    })()`,
+  );
+  const returnedWorld = returnedClick ? await waitForReturnedWorld(send) : null;
+  const hardConsoleIssues = consoleIssues.slice(consoleStart).filter((issue) => !issue.known);
+  const newBadNetwork = badNetwork.slice(networkStart);
+
+  return {
+    opened,
+    wallSnapshot,
+    returnedClick,
+    returnedWorld,
+    durationMs: Date.now() - startedAt,
+    badNetwork: newBadNetwork,
+    consoleIssues: hardConsoleIssues,
+    ok:
+      opened &&
+      wallSnapshot?.ok === true &&
+      returnedClick &&
+      returnedWorld?.ok === true &&
+      newBadNetwork.length === 0 &&
+      hardConsoleIssues.length === 0,
+  };
+}
+
 async function smokeViewport(viewport, index) {
   const port = 9400 + index;
   const profileDir = path.join(os.tmpdir(), `underworld-frontend-smoke-${Date.now()}-${index}`);
@@ -304,6 +462,9 @@ async function smokeViewport(viewport, index) {
     const idleCheck = selectionCheck?.ok
       ? await runPostSelectionIdleCheck(send, viewport, selectionCheck)
       : null;
+    const conversationWallCheck = idleCheck?.ok
+      ? await runConversationWallCheck(send, viewport, badNetwork, consoleIssues)
+      : { ok: false, reason: 'selection idle check failed' };
     const screenshot = await send('Page.captureScreenshot', { format: 'png' });
     const screenshotPath = path.join(REPORT_DIR, `frontend-smoke-${viewport.name}-latest.png`);
     fs.writeFileSync(screenshotPath, Buffer.from(screenshot.data, 'base64'));
@@ -320,10 +481,12 @@ async function smokeViewport(viewport, index) {
         badNetwork.length === 0 &&
         hardConsoleIssues.length === 0 &&
         selectionCheck?.ok === true &&
-        idleCheck?.ok === true,
+        idleCheck?.ok === true &&
+        conversationWallCheck?.ok === true,
       state,
       selectionCheck,
       idleCheck,
+      conversationWallCheck,
       screenshotPath,
       badNetwork,
       consoleIssues: hardConsoleIssues,

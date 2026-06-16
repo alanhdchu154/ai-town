@@ -1,13 +1,16 @@
-# CC Workload - Frontend Market-Readiness Residual Pass
+# CC Workload - Conversation View Smoke Coverage Review
 
-Time anchor: 2026-06-16 15:15 America/Chicago
+Time anchor: 2026-06-16 15:32 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
 Mode: Split-work, read-only findings-first review before Codex implements any next patch
+Status: completed; cc report saved at `umi/reports/20260616T203207Z-workload.md`.
+Codex accepted the smoke-coverage recommendation and patched the mobile
+Conversation Wall cold-load issue it exposed.
 
 ## Task ID
 
-underworld-frontend-market-readiness-residual-pass-20260616-1515
+underworld-conversation-view-smoke-review-20260616-1532
 
 ## Context
 
@@ -15,71 +18,57 @@ Alan's active goal remains:
 
 > 你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市
 
-Current frontend stability state after pushed commit `80cd6a22`:
+Current state on `main`:
 
-- `Game.tsx` keeps last-good `defaultWorldStatus` and same-world `userStatus`
-  during brief Convex undefined windows.
-- `underworld:frontend-smoke` now:
-  - loads mobile 390x844, small-mobile 360x640, and desktop 1440x960;
-  - clicks a visible non-Alan standee;
-  - verifies selected target, bottom `目標`, visible mobile helper / desktop
-    focus card, and a visible primary CTA;
-  - samples the selected live room for 7 seconds and fails on loading shell,
-    reconnect fallback, selected target loss, scene aria-label drift, missing
-    bottom status/helper/focus card/CTA, horizontal overflow, hard console
-    issue, or bad network.
-- Latest smoke report: generated `2026-06-16T20:09:29.103Z`, PASS 3/3.
-  - All three viewports selected 祥子 in 中央庭院場景.
-  - `idleOk=true`, 7 samples each, `drift=0`, `consoleIssues=0`,
-    `badNetwork=0`, no horizontal overflow.
-- Latest verification before this handoff:
-  - `npx tsc --noEmit --pretty false`: PASS.
-  - `npm run build`: PASS.
-  - `npm run underworld:runtime-preflight`: PASS.
-  - `npm run underworld:frontend-smoke`: PASS 3/3.
-  - `git diff --check`: PASS.
+- `b91dc5a4` added tablet smoke coverage.
+- `8b55eb0b` added `umi/playtest-frontend-mobile-acceptance.md`.
+- `80cd6a22` stabilized the world view after character selection.
+- `underworld:frontend-smoke` now covers mobile 390x844, small-mobile 360x640,
+  tablet 820x1180, and desktop 1440x960.
+- Latest smoke report generated `2026-06-16T20:25:09.761Z`: PASS 4/4,
+  `idleOk=true`, 7 samples each, `drift=0`, `consoleIssues=0`,
+  `badNetwork=0`, and no horizontal overflow.
 - Current `ai-town` worktree has unrelated `media/topics/watcher-inbox.md`
-  dirty from Field Notes watcher work, plus this `umi/workload.md` handoff.
-  Ignore the watcher inbox; do not stage/revert it.
+  dirty from Field Notes watcher work plus this handoff. Ignore watcher inbox;
+  do not stage or revert it.
 
-Known remaining caveat:
+Potential remaining frontend gap:
 
-- Real Alan in-app mobile/touch acceptance is still unproven. Do not claim
-  launch-ready solely from machine checks.
+- The smoke suite exercises the world/scene selection path but never opens the
+  topbar `對話` view (`ConversationWall`). Alan previously found dialogue/tab
+  flow confusing, and the manual acceptance gate includes Conversation Wall.
+- `ConversationWall.tsx` is read-only UI but subscribes to
+  `recentConversationEvalData` and `campusSocialState`, so any smoke extension
+  should avoid mutations and avoid clicking filters unless clearly safe.
 
 ## Read First
 
-- `WORKLOG.md` Current State Snapshot and Open Follow-Ups.
+- `WORKLOG.md` Current State Snapshot.
 - `umi/reports/frontend-smoke-latest.json`.
 - `scripts/underworld-frontend-smoke.mjs`.
-- `src/components/Game.tsx`.
-- `src/components/PlayerDetails.tsx`.
-- `src/components/Messages.tsx`.
-- `src/components/MessageInput.tsx`.
-- `src/components/ConversationWall.tsx`.
-- `src/components/buttons/InteractButton.tsx`.
-- `src/hooks/serverGame.ts`.
-- `src/hooks/useWorldHeartbeat.ts`.
 - `src/App.tsx`.
-- `src/index.css`.
-
-You may inspect adjacent frontend files and recent diffs as needed.
+- `src/components/Game.tsx` topbar `世界` / `對話` switch.
+- `src/components/ConversationWall.tsx`.
+- `src/index.css` Conversation Wall / mobile styles.
 
 ## Questions For CC
 
 Findings-first, read-only:
 
-1. After `80cd6a22`, what P0/P1/P2 frontend launch-readiness risks remain?
-2. Is there any small code patch worth doing now, or is the next correct step
-   manual Alan mobile/touch acceptance?
-3. If a patch is warranted, keep it narrow and name exact files/selectors. Good
-   candidates might include subjective toast flicker/churn, mobile CTA
-   affordance clarity, conversation-wall tab clarity, or a missing smoke
-   assertion. Bad candidates are broad redesign, prompt changes, backend
-   changes, or WorldContext consolidation without a concrete launch risk.
-4. Are there any current smoke gaps that are cheap and meaningful to close
-   without mutating Convex or invoking LLM/provider work?
-5. What should remain manual acceptance and not be automated?
+1. Is adding a non-mutating Conversation Wall check to
+   `underworld:frontend-smoke` the next useful machine gate, or should it remain
+   manual-only?
+2. If worth adding, what exact route/click flow and DOM assertions are stable?
+   Candidate flow: after world-view selection smoke, click topbar `對話`, wait
+   for `.giis-conversation-wall`, assert header/metrics/controls/grid or empty
+   state, no hard console/network, no horizontal overflow, then click
+   `回到世界` and assert `.giis-live-room-shell` returns.
+3. Should this run for every viewport or only mobile + desktop to avoid making
+   smoke too slow/heavy?
+4. Are there code risks in `ConversationWall` itself that a small patch should
+   address first, e.g. transient `campusSocialState` timeout, filter overflow,
+   or missing loading fallback?
+5. What must stay manual acceptance?
 
 ## Constraints
 
@@ -88,16 +77,16 @@ Findings-first, read-only:
 - Do not mutate Convex state intentionally.
 - Avoid clicking action pills, `接手 Alan`, chat inputs, quick actions, or
   anything that sends Convex mutations or triggers provider/LLM work.
-- You may run static commands and inspect the latest smoke JSON. If you run a
-  smoke, keep it to the existing non-mutating script.
-- Do not propose broad redesign or backend/prompt changes.
+- If you recommend a patch, keep it narrow: smoke coverage or a tiny
+  frontend-only resilience/overflow fix.
+- Do not propose backend/prompt/provider changes.
 
 ## Expected Output
 
 Return:
 
 1. Top findings by severity.
-2. Whether Codex should patch now or stop at manual acceptance.
-3. If patching, the smallest implementation batch.
+2. Whether Codex should patch now.
+3. If patching, smallest implementation batch with selectors/assertions.
 4. Verification commands.
-5. Manual acceptance checklist for Alan.
+5. Manual acceptance that remains required.

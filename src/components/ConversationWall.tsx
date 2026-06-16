@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { CharacterPortrait } from './CharacterPortrait';
@@ -58,11 +58,21 @@ const PILOT_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', '貓貓', '
 export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [compactWall, setCompactWall] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia('(max-width: 900px)').matches,
+  );
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 900px)');
+    const onChange = () => setCompactWall(query.matches);
+    onChange();
+    query.addEventListener('change', onChange);
+    return () => query.removeEventListener('change', onChange);
+  }, []);
   const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago';
   const data = useQuery(api.school.recentConversationEvalData, {
     timeZone: userTimeZone,
-    limit: 36,
-    messagesPerConversation: 8,
+    limit: compactWall ? 18 : 36,
+    messagesPerConversation: compactWall ? 5 : 8,
   });
   const campusState = useQuery(api.school.campusSocialState, {
     timeZone: userTimeZone,
@@ -116,6 +126,8 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   const summary = useMemo(() => conversationSummary(conversations, statusEntries), [conversations, statusEntries]);
   const strongest = useMemo(() => strongestMoment(conversations), [conversations]);
   const weakest = useMemo(() => weakestFailure(conversations), [conversations]);
+  const wallLoading = data === undefined && campusState === undefined;
+  const wallPartiallyLoading = data === undefined || campusState === undefined;
 
   return (
     <section className="giis-conversation-wall">
@@ -182,18 +194,25 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
       </div>
 
       <div className="giis-wall-grid">
-        {data === undefined || campusState === undefined ? (
+        {wallLoading ? (
           <div className="giis-wall-empty">載入中</div>
         ) : rows.length ? (
-          rows.map((row) =>
-            row.kind === 'conversation' ? (
-              <ConversationCard conversation={row.conversation} flags={row.flags} key={row.conversation.id} />
-            ) : (
-              <StatusCard status={row.status} key={row.status.id} />
-            ),
-          )
+          <>
+            {wallPartiallyLoading ? (
+              <div className="giis-wall-empty giis-wall-loading-note">部分資料載入中，先顯示已接上的狀態。</div>
+            ) : null}
+            {rows.map((row) =>
+              row.kind === 'conversation' ? (
+                <ConversationCard conversation={row.conversation} flags={row.flags} key={row.conversation.id} />
+              ) : (
+                <StatusCard status={row.status} key={row.status.id} />
+              ),
+            )}
+          </>
         ) : (
-          <div className="giis-wall-empty">沒有符合的對話</div>
+          <div className="giis-wall-empty">
+            {wallPartiallyLoading ? '部分資料載入中，暫時沒有可顯示的項目' : '沒有符合的對話'}
+          </div>
         )}
       </div>
     </section>
