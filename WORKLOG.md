@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 15:10 CDT
+Last updated: 2026-06-16 15:18 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,24 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 15:18 CDT: cc residual frontend market-readiness pass
+  `umi/reports/20260616T201756Z-workload.md` found no P0 after `80cd6a22`.
+  It classified the remaining P1 as manual-only real mobile/touch acceptance:
+  headless Chrome proves structural stability, but not iPhone Safari tap
+  latency, keyboard occlusion, iOS bounce, foreground/background reconnect, or
+  cellular websocket behavior. Codex did not pre-patch subjective P2 items
+  (toast wrapping, helper clamp, tablet viewport) because cc judged them
+  unconfirmed polish. Instead, Codex added
+  `umi/playtest-frontend-mobile-acceptance.md`, a 12-step real-device frontend
+  acceptance gate with required pass items for cold open, conversation
+  affordance, send-message, and background/foreground reconnect. Fresh
+  verification before the gate: `npm run underworld:runtime-preflight` PASS and
+  `npm run underworld:frontend-smoke` PASS 3/3 generated at
+  `2026-06-16T20:15:59.259Z`, with mobile/small-mobile/desktop all selecting
+  祥子 in 中央庭院場景, `idleOk=true`, 7 samples each, `drift=0`,
+  `consoleIssues=0`, `badNetwork=0`, and no horizontal overflow. Remaining
+  frontend launch condition: Alan must run the real-device acceptance gate; do
+  not mark frontend market-ready from machine checks alone.
 - 2026-06-16 15:10 CDT: cc post-selection stability review
   `umi/reports/20260616T200529Z-workload.md` found a remaining P1 jump vector
   matching Alan's "suddenly jumps then comes back" report: transient

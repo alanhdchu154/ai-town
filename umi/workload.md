@@ -1,50 +1,51 @@
-# CC Workload - Frontend Post-Selection Stability Review
+# CC Workload - Frontend Market-Readiness Residual Pass
 
-Time anchor: 2026-06-16 15:02 America/Chicago
+Time anchor: 2026-06-16 15:15 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
 Mode: Split-work, read-only findings-first review before Codex implements any next patch
 
 ## Task ID
 
-underworld-frontend-post-selection-stability-review-20260616-1502
+underworld-frontend-market-readiness-residual-pass-20260616-1515
 
 ## Context
 
-Alan's active goal is still:
+Alan's active goal remains:
 
 > 你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市
 
-Most recent pushed frontend commits:
+Current frontend stability state after pushed commit `80cd6a22`:
 
-- `ae543f56` added a non-mutating frontend selection smoke: mobile,
-  small-mobile, and desktop load `/ai-town`, click a visible non-Alan standee,
-  and assert selected character, bottom `目標`, visible helper / focus card, and
-  visible primary CTA without clicking any mutation/LLM action.
-- `82dad797` removed Convex server/simulation class imports from the browser and
-  made frontend smoke fail on hard console issues.
-- `4abe717e` moved optional campus context queries behind a soft query boundary
-  so timeouts no longer remount the main room.
+- `Game.tsx` keeps last-good `defaultWorldStatus` and same-world `userStatus`
+  during brief Convex undefined windows.
+- `underworld:frontend-smoke` now:
+  - loads mobile 390x844, small-mobile 360x640, and desktop 1440x960;
+  - clicks a visible non-Alan standee;
+  - verifies selected target, bottom `目標`, visible mobile helper / desktop
+    focus card, and a visible primary CTA;
+  - samples the selected live room for 7 seconds and fails on loading shell,
+    reconnect fallback, selected target loss, scene aria-label drift, missing
+    bottom status/helper/focus card/CTA, horizontal overflow, hard console
+    issue, or bad network.
+- Latest smoke report: generated `2026-06-16T20:09:29.103Z`, PASS 3/3.
+  - All three viewports selected 祥子 in 中央庭院場景.
+  - `idleOk=true`, 7 samples each, `drift=0`, `consoleIssues=0`,
+    `badNetwork=0`, no horizontal overflow.
+- Latest verification before this handoff:
+  - `npx tsc --noEmit --pretty false`: PASS.
+  - `npm run build`: PASS.
+  - `npm run underworld:runtime-preflight`: PASS.
+  - `npm run underworld:frontend-smoke`: PASS 3/3.
+  - `git diff --check`: PASS.
+- Current `ai-town` worktree has unrelated `media/topics/watcher-inbox.md`
+  dirty from Field Notes watcher work, plus this `umi/workload.md` handoff.
+  Ignore the watcher inbox; do not stage/revert it.
 
-Fresh evidence after `ae543f56`:
+Known remaining caveat:
 
-- `npm run underworld:frontend-smoke` PASS 3/3.
-- `npm run underworld:runtime-preflight` PASS.
-- Latest smoke report generated `2026-06-16T19:59:11.195Z`.
-- Mobile selected 一之瀨 and showed helper:
-  `Alan 離校中；按下後會先把 Alan 接回校長室，再邀請 一之瀨。`
-- Small-mobile and desktop selected 祥子 and showed the same invite/wake helper.
-- Hard console issues 0, bad network 0, horizontal overflow 0.
-- Current worktree has only unrelated `media/topics/watcher-inbox.md` dirty,
-  plus this `umi/workload.md` handoff. Ignore the watcher inbox; do not ask to
-  stage/revert it.
-
-User-reported problem to keep in mind:
-
-- Alan said today's UI felt unusually flickery and could suddenly jump to
-  another scene, then come back. Earlier patches addressed confirmed timeout
-  and focus-to-Alan paths, but we need stronger evidence that the selected scene
-  does not drift or fall back shortly after a safe interaction.
+- Real Alan in-app mobile/touch acceptance is still unproven. Do not claim
+  launch-ready solely from machine checks.
 
 ## Read First
 
@@ -55,6 +56,11 @@ User-reported problem to keep in mind:
 - `src/components/PlayerDetails.tsx`.
 - `src/components/Messages.tsx`.
 - `src/components/MessageInput.tsx`.
+- `src/components/ConversationWall.tsx`.
+- `src/components/buttons/InteractButton.tsx`.
+- `src/hooks/serverGame.ts`.
+- `src/hooks/useWorldHeartbeat.ts`.
+- `src/App.tsx`.
 - `src/index.css`.
 
 You may inspect adjacent frontend files and recent diffs as needed.
@@ -63,26 +69,23 @@ You may inspect adjacent frontend files and recent diffs as needed.
 
 Findings-first, read-only:
 
-1. After `ae543f56`, what is the next highest-value frontend launch risk that
-   can be reduced with a small code/gate patch?
-2. Should the existing `underworld:frontend-smoke` add a post-selection idle
-   stability check, e.g. wait several seconds after selecting a character and
-   assert the selected scene/target did not disappear, no route fallback
-   appeared, and no horizontal overflow / hard console issue emerged?
-3. What exact DOM/state assertions should we use to detect Alan's "suddenly
-   jumps to another scene and back" symptom without depending on character names
-   or mutating Convex state?
-4. Are there code paths in `Game.tsx` or related components that can still
-   change `selectedSceneId`, selected target, or view state after a read-only
-   selection even when Alan follow mode is off?
-5. Is there any small UI affordance fix still worth doing now for market
-   readiness, or should this batch be gate-only?
+1. After `80cd6a22`, what P0/P1/P2 frontend launch-readiness risks remain?
+2. Is there any small code patch worth doing now, or is the next correct step
+   manual Alan mobile/touch acceptance?
+3. If a patch is warranted, keep it narrow and name exact files/selectors. Good
+   candidates might include subjective toast flicker/churn, mobile CTA
+   affordance clarity, conversation-wall tab clarity, or a missing smoke
+   assertion. Bad candidates are broad redesign, prompt changes, backend
+   changes, or WorldContext consolidation without a concrete launch risk.
+4. Are there any current smoke gaps that are cheap and meaningful to close
+   without mutating Convex or invoking LLM/provider work?
+5. What should remain manual acceptance and not be automated?
 
 ## Constraints
 
 - Read-only. Do not modify files.
 - Do not run watch/dev servers.
-- Do not mutate Convex data intentionally.
+- Do not mutate Convex state intentionally.
 - Avoid clicking action pills, `接手 Alan`, chat inputs, quick actions, or
   anything that sends Convex mutations or triggers provider/LLM work.
 - You may run static commands and inspect the latest smoke JSON. If you run a
@@ -94,7 +97,7 @@ Findings-first, read-only:
 Return:
 
 1. Top findings by severity.
-2. The smallest next implementation batch Codex should do now.
-3. Stable selectors/state assertions to use.
-4. Verification commands to run.
-5. What must remain Alan/manual acceptance.
+2. Whether Codex should patch now or stop at manual acceptance.
+3. If patching, the smallest implementation batch.
+4. Verification commands.
+5. Manual acceptance checklist for Alan.
