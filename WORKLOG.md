@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 14:55 CDT
+Last updated: 2026-06-16 15:10 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,28 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 15:10 CDT: cc post-selection stability review
+  `umi/reports/20260616T200529Z-workload.md` found a remaining P1 jump vector
+  matching Alan's "suddenly jumps then comes back" report: transient
+  `defaultWorldStatus` or `userStatus` `undefined` could briefly make
+  `worldId`, `game`, `humanPlayer`, or `isConversationMode` disappear, dropping
+  the live room into loading or non-conversation styling and then snapping back
+  when Convex recovered. Patch: `Game.tsx` now keeps last-good
+  `defaultWorldStatus` and same-world `userStatus` during brief Convex
+  undefined windows, while still clearing the user cache when the world id is
+  gone/changes. The existing non-mutating `underworld:frontend-smoke` now also
+  runs a post-selection idle stability check: after selecting a visible
+  non-Alan standee, each viewport samples the live room for 7 seconds and fails
+  if the loading shell, reconnect fallback, selected target, scene aria-label,
+  bottom status, CTA/helper/focus card, horizontal overflow, console issue, or
+  bad network state drifts. Verification: `npx tsc --noEmit --pretty false`
+  PASS, `npm run build` PASS, `npm run underworld:runtime-preflight` PASS,
+  `npm run underworld:frontend-smoke` PASS 3/3 with mobile 390x844,
+  small-mobile 360x640, and desktop 1440x960 all selecting 祥子 in
+  中央庭院場景, `idleOk=true`, 7 samples each, `drift=0`,
+  `consoleIssues=0`, `badNetwork=0`, and no horizontal overflow; `git diff
+  --check` PASS. Remaining manual gate: Alan real mobile/touch acceptance and
+  any subjective residual toast flicker.
 - 2026-06-16 14:55 CDT: cc mobile-flow gate review
   `umi/reports/20260616T195319Z-workload.md` found no P0 after `82dad797` and
   recommended extending the existing frontend smoke with a non-mutating

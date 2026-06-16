@@ -10,6 +10,8 @@ const TARGET_URL = process.env.UNDERWORLD_FRONTEND_SMOKE_URL ?? 'http://localhos
 const CHROME_PATH =
   process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const WAIT_MS = Number(process.env.UNDERWORLD_FRONTEND_SMOKE_WAIT_MS ?? 25_000);
+const POST_SELECTION_IDLE_MS = Number(process.env.UNDERWORLD_FRONTEND_SMOKE_IDLE_MS ?? 7_000);
+const POST_SELECTION_SAMPLE_MS = Number(process.env.UNDERWORLD_FRONTEND_SMOKE_SAMPLE_MS ?? 1_000);
 const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844, mobile: true },
   { name: 'small-mobile', width: 360, height: 640, mobile: true },
@@ -87,22 +89,7 @@ async function evaluate(send, expression) {
   return result.result.value;
 }
 
-async function runReadOnlySelectionCheck(send, viewport) {
-  await evaluate(
-    send,
-    `(() => {
-      const standees = [...document.querySelectorAll('.giis-scene-standee')];
-      const target = standees.find((button) =>
-        !button.classList.contains('is-alan') &&
-        !button.classList.contains('is-offscene') &&
-        button.textContent.trim().length > 0
-      );
-      if (!target) return false;
-      target.click();
-      return true;
-    })()`,
-  );
-  await sleep(300);
+async function readSelectionStabilitySnapshot(send, viewport) {
   return evaluate(
     send,
     `(() => {
@@ -125,7 +112,12 @@ async function runReadOnlySelectionCheck(send, viewport) {
         : false;
       const helperText = helper?.textContent.trim() ?? '';
       const bottomStatusText = bottomStatus?.textContent.trim() ?? '';
+      const horizontalOverflow = document.documentElement.scrollWidth > window.innerWidth + 2;
       return {
+        live: !!document.querySelector('.giis-live-room-shell'),
+        loading: !!document.querySelector('.giis-loading-shell'),
+        reconnectFallback: document.body.innerText.includes('校園正在重新連線'),
+        sceneLabel: document.querySelector('.giis-scene-stage')?.getAttribute('aria-label') ?? '',
         selectedName: selected?.querySelector('.giis-scene-standee-name-row b')?.textContent.trim() ?? '',
         selected: !!selected,
         bottomStatusText,
@@ -133,14 +125,86 @@ async function runReadOnlySelectionCheck(send, viewport) {
         helperVisible,
         focusCardVisible,
         primaryButtons,
+        horizontalOverflow,
         ok:
           !!selected &&
+          !!document.querySelector('.giis-live-room-shell') &&
+          !document.querySelector('.giis-loading-shell') &&
+          !document.body.innerText.includes('校園正在重新連線') &&
           bottomStatusText.includes('目標') &&
           primaryButtons.some((button) => button.text.length > 0) &&
+          !horizontalOverflow &&
           (${viewport.mobile ? 'helperVisible && helperText.length > 0' : 'focusCardVisible'})
       };
     })()`,
   );
+}
+
+async function runReadOnlySelectionCheck(send, viewport) {
+  const clicked = await evaluate(
+    send,
+    `(() => {
+      const standees = [...document.querySelectorAll('.giis-scene-standee')];
+      const target = standees.find((button) =>
+        !button.classList.contains('is-alan') &&
+        !button.classList.contains('is-offscene') &&
+        button.textContent.trim().length > 0
+      );
+      if (!target) return false;
+      target.click();
+      return true;
+    })()`,
+  );
+  if (!clicked) {
+    return { clicked: false, ok: false, reason: 'no selectable non-Alan standee' };
+  }
+  await sleep(300);
+  return { clicked: true, ...(await readSelectionStabilitySnapshot(send, viewport)) };
+}
+
+async function runPostSelectionIdleCheck(send, viewport, initialSnapshot) {
+  if (!initialSnapshot?.ok) {
+    return { ok: false, reason: 'initial selection failed', samples: [] };
+  }
+  const expected = {
+    selectedName: initialSnapshot.selectedName,
+    sceneLabel: initialSnapshot.sceneLabel,
+  };
+  const samples = [];
+  const deadline = Date.now() + POST_SELECTION_IDLE_MS;
+  do {
+    await sleep(Math.min(POST_SELECTION_SAMPLE_MS, Math.max(0, deadline - Date.now())));
+    const sample = await readSelectionStabilitySnapshot(send, viewport);
+    samples.push(sample);
+  } while (Date.now() < deadline);
+
+  const drift = samples.filter((sample) => {
+    const stableSelected = sample.selectedName === expected.selectedName;
+    const stableScene = sample.sceneLabel === expected.sceneLabel;
+    const statusAnchored =
+      sample.bottomStatusText.includes('目標') || sample.bottomStatusText.includes('對話中');
+    return (
+      !sample.live ||
+      sample.loading ||
+      sample.reconnectFallback ||
+      !sample.selected ||
+      !stableSelected ||
+      !stableScene ||
+      !statusAnchored ||
+      !sample.primaryButtons.some((button) => button.text.length > 0) ||
+      sample.horizontalOverflow ||
+      (viewport.mobile
+        ? !(sample.helperVisible && sample.helperText.length > 0)
+        : !sample.focusCardVisible)
+    );
+  });
+  return {
+    ok: drift.length === 0,
+    durationMs: POST_SELECTION_IDLE_MS,
+    expected,
+    samples,
+    drift,
+  };
 }
 
 async function smokeViewport(viewport, index) {
@@ -236,6 +300,9 @@ async function smokeViewport(viewport, index) {
     } while (Date.now() < deadline);
 
     const selectionCheck = state?.live ? await runReadOnlySelectionCheck(send, viewport) : null;
+    const idleCheck = selectionCheck?.ok
+      ? await runPostSelectionIdleCheck(send, viewport, selectionCheck)
+      : null;
     const screenshot = await send('Page.captureScreenshot', { format: 'png' });
     const screenshotPath = path.join(REPORT_DIR, `frontend-smoke-${viewport.name}-latest.png`);
     fs.writeFileSync(screenshotPath, Buffer.from(screenshot.data, 'base64'));
@@ -251,9 +318,11 @@ async function smokeViewport(viewport, index) {
         !horizontalOverflow &&
         badNetwork.length === 0 &&
         hardConsoleIssues.length === 0 &&
-        selectionCheck?.ok === true,
+        selectionCheck?.ok === true &&
+        idleCheck?.ok === true,
       state,
       selectionCheck,
+      idleCheck,
       screenshotPath,
       badNetwork,
       consoleIssues: hardConsoleIssues,

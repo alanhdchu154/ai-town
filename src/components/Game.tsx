@@ -192,7 +192,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     [],
   );
 
-  const worldStatus = useQuery(api.world.defaultWorldStatus);
+  const worldStatusQuery = useQuery(api.world.defaultWorldStatus);
+  const lastWorldStatusRef = useRef<typeof worldStatusQuery>();
+  useEffect(() => {
+    if (worldStatusQuery) lastWorldStatusRef.current = worldStatusQuery;
+  }, [worldStatusQuery]);
+  const worldStatus = worldStatusQuery ?? lastWorldStatusRef.current;
   const clockState = useQuery(api.school.worldClock, { timeZone: userTimeZone, tick: minuteTick });
   const shouldLoadNotebookCommitments = notebookOpen && notebookTab === '約定';
   const shouldLoadNotebookReflections = notebookOpen && notebookTab === '回響';
@@ -208,7 +213,24 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const worldId = worldStatus?.worldId;
   const engineId = worldStatus?.engineId;
   const moveAlanTo = useMutation(api.school.moveAlanTo);
-  const humanTokenIdentifier = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
+  const humanTokenIdentifierQuery = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
+  const lastHumanTokenRef = useRef<{
+    worldId: typeof worldId;
+    token: Exclude<typeof humanTokenIdentifierQuery, undefined>;
+  }>();
+  useEffect(() => {
+    if (!worldId) {
+      lastHumanTokenRef.current = undefined;
+      return;
+    }
+    if (humanTokenIdentifierQuery !== undefined) {
+      lastHumanTokenRef.current = { worldId, token: humanTokenIdentifierQuery };
+    }
+  }, [worldId, humanTokenIdentifierQuery]);
+  const cachedHumanToken = lastHumanTokenRef.current;
+  const humanTokenIdentifier =
+    humanTokenIdentifierQuery ??
+    (cachedHumanToken && cachedHumanToken.worldId === worldId ? cachedHumanToken.token : undefined);
 
   const game = useServerGame(worldId);
   const players = useMemo(() => (game ? [...game.world.players.values()] : []), [game]);
