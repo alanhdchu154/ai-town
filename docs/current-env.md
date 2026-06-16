@@ -17,7 +17,7 @@ F15 (RTX 3060 6GB, 192.168.1.69):  local Ollama qwen2.5:7b — the overflow/fall
 ```
 
 The cloud endpoint has a self-imposed daily quota (`UMI_MAHIRU_PILOT_DAILY_QUOTA`,
-default 24 in `convex/modelPolicy.ts`, raised to 300). When the cloud is
+default 24 in `convex/modelPolicy.ts`, raised to 600 for the 2026-06-16 run). When the cloud is
 saturated/quota-blown, generation falls back to the F15. The F15 must be powered
 on, on the same LAN, and warm (`OLLAMA_KEEP_ALIVE=-1` on the F15 itself).
 
@@ -37,7 +37,7 @@ npx convex env set CHARACTER_SOUL_LOCAL_FALLBACK_TIMEOUT_MS 12000
 npx convex env set UMI_MAHIRU_PILOT_PROVIDER qwen
 npx convex env set UMI_MAHIRU_PILOT_MODEL qwen-plus
 npx convex env set UMI_MAHIRU_PILOT_TIMEOUT_MS 60000
-npx convex env set UMI_MAHIRU_PILOT_DAILY_QUOTA 300
+npx convex env set UMI_MAHIRU_PILOT_DAILY_QUOTA 600
 npx convex env set UMI_MAHIRU_PILOT_COOLDOWN_FAILURES 1
 npx convex env set UMI_MAHIRU_PILOT_COOLDOWN_MS 0
 npx convex env set ALAN_HUMAN_CLOUD_LLM true
@@ -76,6 +76,9 @@ reservation on the router).
 
 - 7b memory quality is more flowery than qwen-plus; that's why memory is on cloud
   (primary) and the F15 7b is fallback only.
+- 600 cloud attempts/day is an autonomous character-soul attempt quota, not a
+  hard token cap. For the 2026-06-16 run, treat about USD $5/day as the soft
+  watch cap unless fresh provider usage evidence says otherwise.
 - De-philosophised residue/summary prompts are committed (`f8e10d3d`).
 - Conversation motif-loop guards are committed (`1170e359`) — verify on fresh
   conversations.

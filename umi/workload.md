@@ -5,6 +5,12 @@ Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
 Mode: Split-work, read-only diagnosis/review first
 
+> 2026-06-16 01:05 CDT update: separate overnight check found the world was
+> only "quiet" because it was sim-night (sleep schedule, see WORKLOG #19) — no
+> retry storm / engine bug at that time. World is healthy and sleeping; it
+> resumes conversations at sim 06:00. Tomorrow's real focus is still dialogue
+> QUALITY on fresh daytime samples (motif loops, voice), not engine health.
+
 ## Context
 
 Alan reported another "connection unstable" moment while chatting with
