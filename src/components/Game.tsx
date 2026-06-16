@@ -294,7 +294,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }, [game, movementStateKey, selectedElement?.id]);
 
   // Send a periodic heartbeat to our world to keep it alive.
-  useWorldHeartbeat();
+  useWorldHeartbeat(worldStatus ?? null);
 
   const worldState = useQuery(api.world.worldState, worldId ? { worldId } : 'skip');
   const { timeManager } = useHistoricalTime(worldState?.engine);
@@ -941,7 +941,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               ))}
             </select>
           </label>
-          <InteractButton />
+          <InteractButton
+            worldStatus={worldStatus}
+            game={game}
+            humanTokenIdentifier={humanTokenIdentifier}
+            useSharedWorldState
+          />
           <button
             className="giis-presence-button giis-find-alan-button"
             onClick={focusAlan}

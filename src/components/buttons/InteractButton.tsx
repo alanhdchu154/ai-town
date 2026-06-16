@@ -2,14 +2,40 @@ import { toast } from 'react-toastify';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 // import { SignInButton } from '@clerk/clerk-react';
-import { useServerGame } from '../../hooks/serverGame';
+import { ServerGame, useServerGame } from '../../hooks/serverGame';
+import { Id } from '../../../convex/_generated/dataModel';
 
-export default function InteractButton({ className = '' }: { className?: string }) {
+type InteractButtonProps = {
+  className?: string;
+  worldStatus?: { worldId: Id<'worlds'> } | null;
+  game?: ServerGame;
+  humanTokenIdentifier?: string | null;
+  useSharedWorldState?: boolean;
+};
+
+export default function InteractButton({
+  className = '',
+  worldStatus: sharedWorldStatus,
+  game: sharedGame,
+  humanTokenIdentifier: sharedHumanTokenIdentifier,
+  useSharedWorldState = false,
+}: InteractButtonProps) {
   // const { isAuthenticated } = useConvexAuth();
-  const worldStatus = useQuery(api.world.defaultWorldStatus);
+  const queriedWorldStatus = useQuery(
+    api.world.defaultWorldStatus,
+    useSharedWorldState ? 'skip' : undefined,
+  );
+  const worldStatus = useSharedWorldState ? sharedWorldStatus : queriedWorldStatus;
   const worldId = worldStatus?.worldId;
-  const game = useServerGame(worldId);
-  const humanTokenIdentifier = useQuery(api.world.userStatus, worldId ? { worldId } : 'skip');
+  const queriedGame = useServerGame(useSharedWorldState ? undefined : worldId);
+  const game = useSharedWorldState ? sharedGame : queriedGame;
+  const queriedHumanTokenIdentifier = useQuery(
+    api.world.userStatus,
+    !useSharedWorldState && worldId ? { worldId } : 'skip',
+  );
+  const humanTokenIdentifier = useSharedWorldState
+    ? sharedHumanTokenIdentifier
+    : queriedHumanTokenIdentifier;
   const userPlayerId =
     game && [...game.world.players.values()].find((p) => p.human === humanTokenIdentifier)?.id;
   const enterCampus = useMutation(api.school.enterCampus);

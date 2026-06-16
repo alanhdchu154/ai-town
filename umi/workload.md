@@ -1,98 +1,92 @@
-# CC Workload - Frontend Market-Readiness Audit
+# CC Workload - Frontend Resilience Second-Batch Review
 
-Time anchor: 2026-06-16 13:00 America/Chicago
+Time anchor: 2026-06-16 13:10 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: Split-work, read-only findings-first frontend audit
+Mode: Split-work, read-only risk review before Codex implements the next frontend batch
 
 ## Task ID
 
-underworld-frontend-market-readiness-20260616
+underworld-frontend-resilience-second-batch-20260616
 
 ## Context
 
-Alan asked: "你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市"
+Alan's active goal is still: "你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市"
 
-This is not a tiny copy tweak. Treat it as a product/frontend readiness review
-for the `/ai-town` experience, especially the current Scene Mode / mobile /
-conversation flow. Do not redefine "上市" as "build passes"; find the issues
-that would still make the product feel unstable, confusing, or unpolished.
+Previous batch already shipped and is pushed at `432a4d6b`:
 
-Current evidence:
+- `Game` passes shared `humanTokenIdentifier`, `playerIdentity`,
+  `umiBriefing`, and `campusSocialState` into `PlayerDetails`.
+- Conversation auto-scroll no longer reacts to typing-state churn.
+- Mobile conversation entry no longer auto-focuses the textarea.
+- Conversation change clears stale draft/inflight state.
+- Conversation-start scroll is scoped to the panel instead of `window`.
+- Target-character change resets history/wake prompt/tab state.
 
-- Repo is clean at task start.
-- Recent UI patches landed:
-  - `79947cd3 Improve mobile conversation flow`
-  - `b33cd6de Allow offline Alan invite flow`
-  - `a36ad127 Reduce scene focus jumps`
-- `npm run build` passed after those changes.
-- Runtime preflight passed after a 12:41-12:44 CDT local Convex instability
-  window.
-- Logs during that window showed `Too many concurrent requests`, query
-  timeouts, `saveWorld` failure, `restartDeadWorlds`, and one
-  `generationNumber mismatch`. That may be backend pressure, not pure UI.
-- Frontend focus jump patch reduced one UI-side cause: action-cinematic now
-  refocuses Alan only while Alan-follow mode is active, and selecting/finding
-  characters disables Alan-follow mode.
-- Umi first look suspects duplicate/heavy subscriptions between `Game.tsx` and
-  `PlayerDetails.tsx` may contribute to query pressure and flicker.
+Current repo is clean at handoff start. `WORKLOG.md` row 7 and the current
+snapshot name the remaining frontend launch-readiness caveats:
+
+1. Full shared-data boundary / remaining duplicate subscriptions.
+2. ErrorBoundary fallback for transient Convex/world parse failures.
+3. Separate engine anchor caveat: `startConversation` may still walk both
+   participants to a midpoint instead of anchoring Alan in the principal office.
+
+Umi/Codex's intended second batch is deliberately smaller than a full
+Context rewrite:
+
+- Let `useWorldHeartbeat` accept the `worldStatus` already queried by `Game`,
+  removing its duplicate `defaultWorldStatus` subscription.
+- Let `InteractButton` receive `worldStatus`, `game`, and
+  `humanTokenIdentifier` from `Game`, removing its duplicate
+  `defaultWorldStatus`, `useServerGame`, and `userStatus` subscriptions.
+- Add a small React class ErrorBoundary around the main route content in
+  `App.tsx`, with a product-appropriate "校園正在重新連線" fallback and a
+  refresh button. Do not introduce new dependencies.
 
 ## Read First
 
-- `WORKLOG.md` row 7 and current snapshot
-- `docs/giis-v0.1-roadmap.md`
+- `WORKLOG.md` row 7 and current snapshot.
 - `src/App.tsx`
 - `src/components/Game.tsx`
-- `src/components/PlayerDetails.tsx`
-- `src/components/SceneStage.tsx`
-- `src/components/Messages.tsx`
-- `src/components/MessageInput.tsx`
-- `src/components/ConversationWall.tsx`
-- `src/index.css`
-- `src/hooks/serverGame.ts`
+- `src/components/buttons/InteractButton.tsx`
 - `src/hooks/useWorldHeartbeat.ts`
+- `src/hooks/serverGame.ts`
+- `src/components/Messages.tsx`
+- `src/components/PlayerDetails.tsx`
 
-You may inspect adjacent frontend files, Convex query definitions, and recent
-reports/logs only as needed. Avoid broad repo scans unless a finding requires
-it.
+You may inspect adjacent frontend files and generated types as needed.
 
 ## Questions For CC
 
 Findings-first, read-only:
 
-1. What frontend issues still block a "market-ready" feel?
-2. Which issues are P0/P1 because they cause flicker, jumpiness, broken mobile
-   layout, confusing interaction flow, accidental backend pressure, or lost
-   user input?
-3. Are there duplicate or heavy subscriptions in the main world view that could
-   be reduced without changing product behavior?
-4. Are there view-state bugs where the UI can unexpectedly reset scene,
-   selected character, panel state, scroll position, active tab, or route?
-5. Are there mobile layout/accessibility/readability problems likely to show up
-   on iPhone-size screens?
-6. Are there stale labels or mode conflicts remaining after the invite/focus
-   patches?
-7. What are the smallest high-confidence code changes Codex should implement
-   first to move the frontend closer to launch quality?
+1. Is Umi/Codex's intended second batch safe and aligned with launch-readiness,
+   or is any part likely to create behavior regressions?
+2. For `useWorldHeartbeat(worldStatus?)`, what dependency/stale-closure risk
+   should Codex avoid?
+3. For `InteractButton` prop injection, what loading/null cases must remain
+   correct?
+4. For `App.tsx` ErrorBoundary, what is the smallest implementation that does
+   not hide real bugs forever and still gives Alan a humane recovery path?
+5. Are there any P0/P1 frontend issues from the previous audit that this batch
+   must not defer?
 
 ## Constraints
 
 - Read-only. Do not modify files.
 - Do not run watch/dev servers.
 - Do not mutate Convex data or local runtime state.
-- You may run static commands like `npm run build`, `git grep`/`rg`, or
-  targeted file reads. Avoid broad eval suites.
-- Keep advice practical and prioritized. Alan wants a product that feels good,
-  not an infinite refactor list.
+- You may run static commands such as `rg`, `sed`, `git status`,
+  `npm run build` only if useful. Avoid broad eval suites.
+- Do not propose a large Context migration unless you can show this smaller
+  batch is unsafe or insufficient.
 
 ## Expected Output
 
 Return:
 
-1. Verdict: launch-ready / not launch-ready / launch-ready with caveats.
-2. P0/P1 frontend blockers with file/line references and why they matter to a
-   user.
-3. P2 polish items that are worth doing later.
-4. Recommended first implementation batch, sized to one Codex turn.
-5. Verification commands you ran or intentionally skipped.
-6. Any risk where frontend symptoms are actually backend/runtime pressure.
+1. Verdict on the proposed second batch.
+2. Specific implementation cautions with file/line references.
+3. Any minimal extra change Codex should include in this batch.
+4. Verification commands Codex should run.
+5. What should remain as a later follow-up.
