@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 16:48 CDT
+Last updated: 2026-06-16 17:18 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,32 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 17:18 CDT: Completed Alan-approved narrow v0.1 evidence fix for
+  the three issues from today's data review. cc read-only review
+  `umi/reports/20260616T224524Z-workload.md` agreed with the boundary: fix the
+  eval blind spot, add cross-conversation opener-template diagnostics, and keep
+  experience-log cap/dedupe observe-only for now. Codex patched
+  `emotionalSpecificityScore` so concrete care commitments such as "我先去把便當盒熱好，
+  回來陪你一起吃" count as implicit emotional specificity without turning generic
+  food props into free points; added regression tests including a negative
+  `收條` teasing case; added a reusable opener-template fingerprint helper and
+  `Cross-Conversation Opener Templates` section to recent eval reports; and
+  split observe experience-log rejection language so day caps show as
+  `cap_reached_for:<角色>` instead of the old ambiguous
+  `possible_cap_dedupe_or_recent_not_loaded`. Latest recent eval now surfaces a
+  concrete duplicate opener template:
+  `conversation-c:36886` / `conversation-c:36774` both start with
+  `貓貓: 你剛才轉圈時左腳鞋帶鬆了。`. This proves the next product issue is real
+  repeated opener/object templates, not merely the old "0 emotional cue" rubric
+  bug. Verification: `npm test -- evals/conversations/metrics/conversation_metrics.test.ts`
+  PASS 20/20, `node --check scripts/underworld-observe-once.mjs` PASS,
+  `npm run underworld:observe:self-test` PASS, `npm run eval:conversation:recent -- --since-last-change`
+  completed and wrote the opener-template section, `npm run eval:soul-triad`
+  PASS 8/8, `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `npm run underworld:runtime-preflight` PASS, and `git diff --check` PASS.
+  Do not broad prompt-tune yet; next safe direction is a proposal/small patch
+  against repeated opener/object templates only if another fresh window confirms
+  the pattern.
 - 2026-06-16 16:48 CDT: Underworld v0.1 review / human-test readiness pass is
   complete enough to commit and hand Alan a stable next manual test. cc
   performed the requested current-diff second opinion in

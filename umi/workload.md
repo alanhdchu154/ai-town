@@ -1,82 +1,69 @@
-# CC Workload - Underworld v0.1 Current Diff Review
+# CC Workload - Underworld v0.1 Rubric + Opening Template Review
 
-Time anchor: 2026-06-16 16:48 America/Chicago
+Time anchor: 2026-06-16 17:18 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
 Mode: Split-work, read-only findings-first review
-Status: completed; report `umi/reports/20260616T211519Z-workload.md`
+Status: completed; report `umi/reports/20260616T224524Z-workload.md`
 
 ## Task ID
 
-underworld-v01-current-diff-review-20260616-1612
+underworld-v01-rubric-opening-template-review-20260616-1710
 
 ## Current Goal
 
-Alan asked Umi/Codex to re-review all current changes with cc, commit reviewed
-changes, optimize Underworld for v0.1 evidence collection, and make the
-Alan <-> role human-testing flow smoother for Alan's next manual test.
+Alan approved the three narrow fixes from the latest data review:
 
-This is not permission for broad prompt tuning, memory architecture changes,
-provider migration, schema rewrite, character expansion, or destructive cleanup.
-The target is data-collection readiness and human-test stability.
+1. Fix/evaluate the eval rubric so concrete care behavior like `我先去把便當盒熱好，回來陪你一起吃` is not scored as zero emotional cue.
+2. Investigate why 海/真晝 fresh samples share similar openings before touching prompts.
+3. Run one more evidence loop after the safe fixes; do not broad prompt tune.
 
-## Current Dirty Set
+This is not permission for broad prompt rewrites, memory architecture change, provider migration, schema rewrite, or new character expansion.
 
-Review all current dirty files:
+## Evidence
 
-- `media/README.md`
-- `media/agents.md`
-- `media/watcher.md`
-- `media/topics/watcher-inbox.md`
-- `media/mystery-detector-v1.md`
-- `media/topics/mystery-candidates-latest.json`
-- `media/topics/mystery-candidates-latest.md`
-- `scripts/underworld-mystery-detector.mjs`
-- `package.json`
-- `src/components/ConversationWall.tsx`
-- `src/components/Game.tsx`
-- `umi/workload.md`
+Latest reports:
+
+- `umi/reports/v01-approach-latest.md`: 4 fresh samples, soul 4/0/0, recent 0/1/3, repair proposal-only.
+- `umi/reports/v01-repair-gate-latest.md`: cc agreed proposal-only; audit emotional cue detector and opening-template source before prompts.
+- `evals/conversations/reports/latest.md`: flags c:36105/c:36089/c:36161 as mirror/motif failures.
+- `evals/conversations/reports/soul-triad-latest.md`: same samples are soul PASS.
+
+Key transcripts:
+
+- c:36110 has `海: 我先去把便當盒熱好，回來陪你一起吃。` but recent eval says `emotionalSpecificityScore: found 0 emotional cue(s)`.
+- c:36089 and c:36110 start similarly: `你剛才幫三年級那孩子擦完汗/眼淚，手還在抖` and `你手肘還壓著桌角/桌緣...`.
+- c:36105 repeats `收條` across speakers.
+
+## Candidate Files
+
+Read-only review these paths:
+
+- `evals/conversations/metrics/conversation_metrics.ts`
+- `evals/conversations/metrics/conversation_metrics.test.ts`
+- `evals/conversations/runRecentConversationEval.ts`
+- `convex/agent/conversation.ts`
+- `convex/agent/experienceLog.ts`
+- `convex/agent/conversationMotifGuard.test.ts`
+- `scripts/underworld-life-signals.mjs`
+- `scripts/underworld-rolling-continuity.mjs`
 
 ## Umi First Look
 
-- MysteryDetector v1 is meant to be read-only story discovery for Field Notes:
-  reports/notes -> ranked StoryCandidates -> one review candidate. It must not
-  become a renderer, distribution tool, content factory, or mutate runtime state.
-- Frontend changes respond to today's flicker / stuck-wall evidence:
-  selected characters remain visually anchored even if simulation moves them
-  off-scene; Conversation Wall stops showing an indefinite spinner after a
-  short no-data window.
-- Runtime incident #34 showed frontend/Vite alive while Convex backend listener
-  3210/3211 was down. `underworld:runtime-preflight` currently starts by calling
-  Convex functions, so it can wait instead of failing fast on missing listeners.
-- `advanceWorldTime {"hours":0}` was used once as a clock refresh but emits
-  world events; future recovery should use a no-side-effect/minimal-side-effect
-  clock refresh path instead.
-
-## Read First
-
-- `WORKLOG.md`, especially Open Follow-Ups #7, #32-#34 and Current State Snapshot.
-- `/Users/alanhdchu/umi-central/goals.md` under the `underworld` row.
-- `docs/giis-v0.1-roadmap.md` current v0.1 completion section.
-- `scripts/underworld-runtime-preflight.mjs`.
-- `scripts/underworld-frontend-smoke.mjs`.
-- `umi/playtest-frontend-mobile-acceptance.md`.
-- Dirty files listed above.
+- `emotionalSpecificityScore` has `emotionWords` and `concreteSignals`, but notes emphasize naturalHits, so implicit care behavior can look like zero cue even when the score is decent.
+- The current prompt already has motif guards for food/props and same-pair cooldowns, so a broad prompt patch may be the wrong layer.
+- Experience-log fresh writes all reported `possible_cap_dedupe_or_recent_not_loaded=4`; this may be cap/dedupe behavior, not necessarily failure.
+- We need a read-only opening-template diagnostic that explains repeated openings from recent archived samples before any prompt change.
 
 ## Questions For CC
 
 Findings-first, read-only:
 
-1. Any P0/P1 blocker that should prevent commit?
-2. Commit recommendation: one commit or split commits? Name exact file groups.
-3. Does MysteryDetector v1 stay read-only/review-safe, and are generated
-   candidate outputs reasonable to commit?
-4. Do the `ConversationWall.tsx` / `Game.tsx` changes improve Alan's
-   human-test flow without introducing scene/presence regressions?
-5. What is the smallest v0.1 readiness patch Codex should do now, if any?
-   Consider fail-fast backend listener checks, no-side-effect clock refresh,
-   human-flow readiness command/report, or provider/backend failure clarity.
-6. What remains manual Alan acceptance only?
+1. Is it safe to patch `emotionalSpecificityScore` to count concrete care commitments / behavior-linked care as emotional specificity and report that clearly?
+2. Where is the smallest place to add an opening-template diagnostic: eval metrics, life-signals, a new script, or repair-gate report?
+3. Any risk that experience-log cap/dedupe is causing repeated openings? If yes, what read-only evidence should Codex inspect before changing write behavior?
+4. Should c:36105 `收條` be handled by existing motif guard family expansion or only reported for now?
+5. What tests should Codex add?
 
 ## Constraints
 
@@ -84,81 +71,72 @@ Findings-first, read-only:
 - Do not run watch/dev servers.
 - Do not mutate Convex state intentionally.
 - Do not call provider/LLM generation.
-- No backend schema rewrite, memory architecture rewrite, provider migration,
-  broad prompt rewrite, character expansion, or destructive cleanup.
-- Keep recommendations narrow enough for Codex to implement and verify today.
+- No broad prompt rewrite.
+- Keep recommendations narrow and testable today.
 
 ## Suggested Non-Mutating Commands
 
 ```bash
 git status --short
-git diff --stat
-git diff -- media scripts package.json src/components/ConversationWall.tsx src/components/Game.tsx
-npm run underworld:mystery-detector
-npm run underworld:runtime-preflight
-npm run underworld:frontend-smoke
+npm run eval:soul-triad
+npm run eval:conversation:recent -- --since-last-change
+npm test -- evals/conversations/metrics/conversation_metrics.test.ts
 ```
 
-Stop if any command would mutate Convex state or start a long-running server.
+Stop if any command would trigger live generation or mutate Convex state.
 
 ## Expected Output
 
 Return:
 
 1. Top findings by severity.
-2. Commit recommendation: one commit vs split, and which files belong together.
-3. Smallest patch Codex should do now, if any.
-4. Required verification commands.
-5. Manual acceptance that remains required before calling v0.1 closed.
+2. Exact safe patch recommendation, if any.
+3. Tests to add/update.
+4. What should remain observe-only.
 
 ## Result
 
-cc completed the review with no P0 and no commit blocker.
+cc completed the read-only review.
 
 Accepted findings:
 
-- MysteryDetector v1 remains read-only/review-safe; generated candidates are
-  acceptable to commit as reviewer-facing artifacts.
-- The selected-character visual-anchor and Conversation Wall graceful empty
-  state patches improve Alan's human-test flow, with manual acceptance still
-  required on a real mobile/browser session.
-- The smallest readiness patch was fail-fast listener checks in
-  `underworld:runtime-preflight`; Codex implemented this.
-- Broad prompt tuning is not justified by the current evidence because
-  soul-triad and recent-conversation eval disagree.
+- The old "0 emotional cue" diagnosis was partly misattributed, but the metric
+  still had a real blind spot for concrete care commitments.
+- Cross-conversation opener-template duplication is real and should be surfaced
+  in the recent eval report, not hidden inside repair-gate decisions.
+- Experience-log cap/dedupe may contribute to stale residue surfacing, but write
+  behavior should not change yet; first split the reporting reason.
+- The `收條` motif is real but still observe-only until it repeats across a
+  wider window.
 
-Codex follow-up implementation:
+Codex implementation:
 
-- Added listener checks for 5173 / 3210 / 3211 to
-  `scripts/underworld-runtime-preflight.mjs`.
-- Added no-event `school:refreshStoredWorldClock` for future recovery instead
-  of using `advanceWorldTime {"hours":0}`.
-- Added `scripts/underworld-human-flow-ready.mjs` and npm commands
-  `underworld:human-flow-ready` / `underworld:human-flow-ready:self-test`.
-- Patched the world loading shell and frontend smoke gate so slow/recoverable
-  backend states and empty current scenes are reported clearly instead of
-  looking like a broken UI.
+- Patched `emotionalSpecificityScore` to credit concrete care commitments while
+  preserving negative coverage for document-prop teasing.
+- Added `evals/conversations/metrics/opening_template.ts` and wired
+  `runRecentConversationEval.ts` to print `Cross-Conversation Opener Templates`.
+- Added tests for care-commitment credit, `收條` non-overcredit, and opener
+  clustering.
+- Split observe experience-log rejection inference so cap-saturated characters
+  show as `cap_reached_for:<角色>`.
 
-Verification after implementation:
+Verification:
 
-- `npm run underworld:runtime-preflight:self-test`: PASS
-- `npm run underworld:human-flow-ready:self-test`: PASS
-- `node --check scripts/underworld-runtime-preflight.mjs && node --check scripts/underworld-human-flow-ready.mjs && node --check scripts/underworld-mystery-detector.mjs`: PASS
-- `npm run underworld:mystery-detector`: PASS
-- `npx tsc --noEmit --pretty false`: PASS
-- `npm run build`: PASS
-- `git diff --check`: PASS
-- `npm run underworld:runtime-preflight`: PASS
-- `npm run underworld:frontend-smoke`: PASS 5/5
-- `npm run underworld:human-flow-ready`: READY
-- `npm run underworld:observe:daytime-samples`: collected 4 fresh samples
-- `npm run underworld:repair-gate`: proposal-only,
-  `umi/proposals/20260616T214514Z-v01-approach-proposal.md`
+- `npm test -- evals/conversations/metrics/conversation_metrics.test.ts`: PASS
+  20/20.
+- `node --check scripts/underworld-observe-once.mjs`: PASS.
+- `npm run underworld:observe:self-test`: PASS.
+- `npm run eval:conversation:recent -- --since-last-change`: completed; report
+  now includes cross-conversation opener templates.
+- `npm run eval:soul-triad`: PASS 8/8.
+- `npx tsc --noEmit --pretty false`: PASS.
+- `npm run build`: PASS.
+- `npm run underworld:runtime-preflight`: PASS.
+- `git diff --check`: PASS.
 
-Manual acceptance remaining:
+Next boundary:
 
-- Alan should run at least two real human tests on mobile/browser before we
-  call the Alan-facing flow accepted.
-- v0.1 remains evidence-in-progress: the next safe repair is rubric /
-  emotional-cue calibration and residue/opening-template investigation, not
-  broad prompt rewrite.
+- Do not broad prompt-tune yet.
+- If the next fresh window repeats the same opener/object templates, make a
+  narrow proposal or tiny prompt/motif guard patch specifically for opener
+  template diversification.

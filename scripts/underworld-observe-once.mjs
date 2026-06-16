@@ -652,6 +652,7 @@ async function writeReport({
     `- Experience logs created for fresh samples: ${experienceEvidence.createdForFreshSamples}`,
     `- Experience-log fresh rejections/statuses: ${experienceEvidence.rejectedFreshSamples.length}`,
     `- Experience-log rejection reasons: ${formatReasonHistogram(experienceEvidence.rejectionReasonHistogram)}`,
+    `- Opening-template warnings: ${openingTemplateEvidence(freshConversations).length}`,
     `- Experience residue rows: ${experienceEvidence.residueCount}`,
     `- Experience behavior hints: ${experienceEvidence.behaviorHintCount}`,
     `- Sleep notes promoted: ${experienceEvidence.sleepNotePromoted}`,
@@ -680,6 +681,10 @@ async function writeReport({
     '## Weakest Recent Failure',
     '',
     weakestFailure(findings, freshConversations),
+    '',
+    '## Opening Template Diagnostics',
+    '',
+    ...openingTemplateLines(freshConversations),
     '',
     '## Fresh Transcripts',
     '',
@@ -976,7 +981,7 @@ function freshExperienceLogStatus(conversation, rows) {
     id: conversation.id,
     created: false,
     logCount: 0,
-    reason: inferExperienceLogRejectionReason(conversation),
+    reason: inferExperienceLogRejectionReason(conversation, rows),
   };
 }
 
@@ -986,7 +991,7 @@ function canonicalConversationId(value) {
     .replace(/^conversation-/, '');
 }
 
-function inferExperienceLogRejectionReason(conversation) {
+function inferExperienceLogRejectionReason(conversation, rows = []) {
   const messages = conversation.transcriptMessages ?? [];
   const text = messages.map((message) => message.text ?? '').join('\n');
   const participants = conversation.involvedCharacters ?? [];
@@ -1009,10 +1014,26 @@ function inferExperienceLogRejectionReason(conversation) {
   }
   if (hasObviousMotifLoop(messages)) return 'obvious_echo_or_motif_loop';
   if (hasLikelyStageDirectionLeak(text)) return 'stage_direction_leak';
+  const capReason = inferExperienceCapReason(canonicalPilots, rows);
+  if (capReason) return capReason;
   const memoryTraceReason = inferMemoryTraceExperienceReason(conversation.memoryTraces ?? []);
   if (memoryTraceReason) return memoryTraceReason;
   if (conversation.outcomeQuality === 'repeated_noise') return 'repeated_noise_or_motif_loop';
-  return 'possible_cap_dedupe_or_not_archived_gate';
+  return 'possible_dedupe_or_not_archived_gate';
+}
+
+function inferExperienceCapReason(canonicalPilots, rows) {
+  const activeDay = rows
+    .map((row) => Number(row.day))
+    .filter((day) => Number.isFinite(day))
+    .sort((a, b) => b - a)[0];
+  if (!activeDay) return '';
+  const capped = [...new Set(canonicalPilots)].filter((name) => {
+    const count = rows.filter((row) => row.characterName === name && Number(row.day) === activeDay).length;
+    return count >= 2;
+  });
+  if (!capped.length) return '';
+  return `cap_reached_for:${capped.join('/')}`;
 }
 
 function canonicalEvidencePilotName(name) {
@@ -1059,6 +1080,55 @@ function hasObviousMotifLoop(messages) {
     }
   }
   return [...motifCounts.values()].some((count) => count >= 4);
+}
+
+function openingTemplateLines(conversations) {
+  const evidence = openingTemplateEvidence(conversations);
+  if (!evidence.length) {
+    return ['No repeated opening template detected in fresh samples.'];
+  }
+  return evidence.map(
+    (item) =>
+      `- ${item.left.id} ↔ ${item.right.id}: shared cues=${item.shared.join('、')}; left="${truncate(item.left.opening, 100)}"; right="${truncate(item.right.opening, 100)}"`,
+  );
+}
+
+function openingTemplateEvidence(conversations) {
+  const openings = conversations
+    .map((conversation) => {
+      const opening = (conversation.transcriptMessages ?? [])
+        .slice(0, 2)
+        .map((message) => message.text ?? '')
+        .join(' ');
+      const cues = openingTemplateCues(opening);
+      return { id: conversation.id, opening, cues };
+    })
+    .filter((item) => item.opening && item.cues.length >= 2);
+  const pairs = [];
+  for (let i = 0; i < openings.length; i += 1) {
+    for (let j = i + 1; j < openings.length; j += 1) {
+      const shared = openings[i].cues.filter((cue) => openings[j].cues.includes(cue));
+      if (shared.length >= 3) {
+        pairs.push({ left: openings[i], right: openings[j], shared });
+      }
+    }
+  }
+  return pairs;
+}
+
+function openingTemplateCues(text) {
+  const cues = [
+    ['recent_event', /剛才|剛剛|剛巡|剛路過/],
+    ['third_grade_student', /三年級|孩子|學生|同學/],
+    ['care_labor', /幫|擦|改完|分好|巡過|看見/],
+    ['body_hand', /手|手肘|手腕|指尖|喉嚨/],
+    ['tremble_or_hold', /抖|沒放開|沒動|停|壓著|喉嚨動/],
+    ['desk_edge', /桌角|桌緣|桌上|桌邊/],
+    ['food_or_cup', /便當|杯|茶|水|餐|吃/],
+    ['receipt_or_debt', /收條|定金|反悔|口袋|溫柔有價/],
+    ['boundary_test', /底線|試探|准|守護神|誰准|拆封/],
+  ];
+  return cues.flatMap(([label, pattern]) => pattern.test(text) ? [label] : []);
 }
 
 function weakestFailure(findings, conversations) {

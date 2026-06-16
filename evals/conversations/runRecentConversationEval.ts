@@ -9,6 +9,7 @@ import {
   ConversationEvalResult,
   evaluateConversationCase,
 } from './metrics/conversation_metrics.ts';
+import { findOpeningTemplateClusters } from './metrics/opening_template.ts';
 
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -446,6 +447,12 @@ async function writeReport(
   const historicalWorst = [...historicalItems]
     .sort((a, b) => a.result.overallScore - b.result.overallScore)
     .slice(0, 5);
+  const openerClusters = findOpeningTemplateClusters(
+    items.map((item) => ({
+      id: item.entry.id,
+      firstLine: firstTranscriptLine(item.entry),
+    })),
+  );
   const markdown = [
     '# GIIS Underworld Recent Conversation Eval',
     '',
@@ -482,6 +489,12 @@ async function writeReport(
       ...orphanChatSessions.slice(0, 5).flatMap(renderOrphanChatSession),
       '',
     ] : []),
+    '## Cross-Conversation Opener Templates',
+    '',
+    ...(openerClusters.length
+      ? openerClusters.slice(0, 8).flatMap(renderOpeningTemplateCluster)
+      : ['No repeated opener template detected across post-fix conversations.', '']),
+    '',
     '## Post-Fix Worst 5 Examples',
     '',
     ...(worst.length ? worst.flatMap(renderWorstItem) : ['No post-fix conversations available yet.', '']),
@@ -512,6 +525,20 @@ async function writeReport(
     '',
   ].join('\n');
   await writeFile(REPORT_PATH, markdown, 'utf8');
+}
+
+function firstTranscriptLine(entry: TimelineEntry) {
+  const first = (entry.transcriptMessages ?? entry.previewMessages ?? [])[0];
+  if (!first) return '';
+  return `${first.author}: ${first.text}`;
+}
+
+function renderOpeningTemplateCluster(cluster: ReturnType<typeof findOpeningTemplateClusters>[number]) {
+  return [
+    `- Conversations: ${cluster.ids.join(', ')}`,
+    `  - shared fingerprint: \`${cluster.sharedFingerprint}\``,
+    ...cluster.examples.map((example) => `  - example: ${example}`),
+  ];
 }
 
 function renderOrphanChatSession(entry: TimelineEntry) {

@@ -1,4 +1,5 @@
 import { evaluateConversationCase } from './conversation_metrics';
+import { findOpeningTemplateClusters } from './opening_template';
 
 function metricStatus(sampleOutput: string, metricName: string) {
   const result = evaluateConversationCase({
@@ -191,6 +192,34 @@ describe('conversation quality metrics', () => {
     expect(metric?.notes.join(' ')).toContain('mahiru_quiet_care_attention');
   });
 
+  it('credits concrete care commitments as emotional specificity without requiring direct emotion labels', () => {
+    const metric = metricStatus(
+      [
+        '海: ……我忘了問自己。',
+        '海: 我先去把便當盒熱好，回來陪你一起吃。',
+      ].join('\n'),
+      'emotionalSpecificityScore',
+    );
+
+    expect(metric?.status).toBe('PASS');
+    expect(metric?.score).toBeGreaterThanOrEqual(0.8);
+    expect(metric?.notes.join(' ')).toContain('concrete care commitment');
+    expect(metric?.notes.join(' ')).not.toContain('found 0 emotional cue');
+  });
+
+  it('does not over-credit document-prop teasing as emotional specificity', () => {
+    const metric = metricStatus(
+      [
+        '天澤: 你剛才那句「我幫你」——是誰准你擅自當我的守護神的？',
+        '一之瀨: 欸～守護神要先簽收條喔，天澤同學想領哪一項？',
+        '天澤: 欸～收條背面寫著「溫柔有價，先付真心」，你打算用哪句話當定金？',
+      ].join('\n'),
+      'emotionalSpecificityScore',
+    );
+
+    expect(metric?.status).not.toBe('PASS');
+  });
+
   it('still fails generic dialogue without lexical or behavior-shaped character voice', () => {
     const metric = metricStatus(
       [
@@ -230,5 +259,27 @@ describe('conversation quality metrics', () => {
       'memoryContinuityScore',
     );
     expect(metric?.notes.join(' ')).toContain('residue template parroted');
+  });
+
+  it('clusters near-duplicate opening templates across conversations', () => {
+    const clusters = findOpeningTemplateClusters([
+      {
+        id: 'conversation-c:36089',
+        firstLine: '海: 你剛才幫三年級那孩子擦完汗，手還在抖。',
+      },
+      {
+        id: 'conversation-c:36110',
+        firstLine: '海: 你剛才幫三年級那孩子擦完眼淚，手還在抖。',
+      },
+      {
+        id: 'conversation-c:36161',
+        firstLine: '天澤: 先確認學生是不是安心',
+      },
+    ]);
+
+    expect(clusters.some((cluster) =>
+      cluster.ids.includes('conversation-c:36089') && cluster.ids.includes('conversation-c:36110'),
+    )).toBe(true);
+    expect(clusters.some((cluster) => cluster.ids.includes('conversation-c:36161'))).toBe(false);
   });
 });

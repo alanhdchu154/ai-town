@@ -453,9 +453,14 @@ function emotionalSpecificityScore(testCase: ConversationEvalCase): MetricResult
     '反正',
   ];
   const naturalHits = emotionWords.filter((keyword) => testCase.sampleOutput.includes(keyword)).length;
-  const concreteSignals = countMatches(testCase.sampleOutput, /合上|停|停頓|走|放|窗|杯|茶|外套|吃飯|筆|文件|清單|椅|門口|走廊|午餐|溫的|盯著|問過/g);
+  const concreteSignals = countMatches(testCase.sampleOutput, /合上|停|停頓|走|放|窗|杯|茶|外套|吃飯|筆|文件|清單|椅|門口|走廊|午餐|便當|溫的|盯著|問過/g);
+  const careCommitmentHits = countMatches(
+    testCase.sampleOutput,
+    /(?:我先|我來|我會|等我|回來|一起|陪你|不催|先別|先讓|明天|下次).{0,18}(?:熱好|熱一下|陪你|一起吃|一起喝|坐一下|回來|少接|放下|不催|等你|幫你)|(?:熱好|熱一下|先吃|先坐|少接|不催).{0,18}(?:回來|陪你|一起|等你)/g,
+  );
   const bareEmotionOnlyPenalty = concreteSignals === 0 && naturalHits >= 3 ? 0.3 : 0;
   const implicitEmotionScore =
+    careCommitmentHits >= 1 ? 0.86 :
     concreteSignals >= 2 ? 0.82 :
     concreteSignals === 1 ? 0.68 :
     0;
@@ -464,8 +469,11 @@ function emotionalSpecificityScore(testCase: ConversationEvalCase): MetricResult
       bareEmotionOnlyPenalty,
   );
   return metric('emotionalSpecificityScore', score, [
-    expected.length ? `matched ${hits}/${expected.length} emotional-specific cue(s)` : `found ${naturalHits} emotional cue(s)`,
+    expected.length
+      ? `matched ${hits}/${expected.length} emotional-specific cue(s)`
+      : `${naturalHits} direct emotional cue(s), ${careCommitmentHits} concrete care commitment(s)`,
     concreteSignals ? `found ${concreteSignals} concrete signal(s)` : '',
+    careCommitmentHits ? 'implicit emotion through concrete care/return commitment' : '',
     !naturalHits && concreteSignals ? 'implicit emotion through behavior/concrete attention' : '',
     bareEmotionOnlyPenalty ? 'emotion labels without concrete signals reduced score' : '',
   ]);
