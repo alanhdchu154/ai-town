@@ -15,7 +15,7 @@ import { internal } from './_generated/api';
 import { Doc, Id } from './_generated/dataModel';
 import { playerId } from './aiTown/ids';
 import { insertInput } from './aiTown/insertInput';
-import { kickEngine, startEngine } from './aiTown/main';
+import { kickEngine, nudgeEngineForInput, startEngine } from './aiTown/main';
 import { archiveDeletedConversation } from './aiTown/game';
 import { chatCompletion } from './util/llm';
 import { isGeneratedFallbackText } from './modelPolicy';
@@ -5918,14 +5918,7 @@ export const enterCampus = mutation({
     await ensureDailyOpeningEvent(ctx, refreshedWorld, refreshedDescriptions, clock);
     await ensureDailyLifeBulletin(ctx, refreshedWorld, refreshedDescriptions, clock, 'online', timeZone);
     await maybeSeedSpontaneousEvent(ctx, refreshedWorld, refreshedDescriptions, clock, 'online');
-    const engine = await ctx.db.get(worldStatus.engineId);
-    if (engine) {
-      if (!engine.running) {
-        await startEngine(ctx, world._id);
-      } else {
-        await kickEngine(ctx, world._id);
-      }
-    }
+    await nudgeEngineForInput(ctx, world._id);
     return {
       descriptionZh: 'Alan 回到校園。玩家行動現在會以 Alan 的身分發生。',
       playerId: alan.id,
@@ -6131,8 +6124,7 @@ export const leaveAlanConversationNow = mutation({
           : player,
       ),
     });
-    const engine = await ctx.db.get(worldStatus.engineId);
-    if (engine) await kickEngine(ctx, world._id);
+    await nudgeEngineForInput(ctx, world._id);
     return {
       descriptionZh: hadConversation ? 'Alan 離開了目前對話。' : 'Alan 目前沒有正在進行的對話。',
     };
@@ -6187,8 +6179,7 @@ export const moveAlanTo = mutation({
           : player,
       ),
     });
-    const engine = await ctx.db.get(worldStatus.engineId);
-    if (engine) await kickEngine(ctx, world._id);
+    await nudgeEngineForInput(ctx, world._id);
     return {
       moved: true,
       destination,

@@ -259,21 +259,37 @@ function hasActiveAgentDoSomething(game: Game, now: number, currentAgentId: Game
   return false;
 }
 
+// A conversation has scheduling priority if a human is in it (so live human
+// chat is never starved by autonomous chatter) or it is the Umi/Mahiru pilot.
+function agentConversationHasPriority(game: Game, agentPlayerId: GameId<'players'>) {
+  const player = game.world.players.get(agentPlayerId);
+  if (!player) return false;
+  const conversation = game.world.playerConversation(player);
+  if (!conversation) return false;
+  const participantIds = [...conversation.participants.keys()];
+  if (participantIds.some((id) => game.world.players.get(id)?.human)) return true;
+  return (
+    participantIds.length === 2 &&
+    isUmiMahiruPilotConversation(participantIds[0], participantIds[1])
+  );
+}
+
 function hasActiveConversationGeneration(
   game: Game,
   now: number,
   currentAgentId: GameId<'agents'>,
-  priorityPilot = false,
+  priority = false,
 ) {
   if (!conversationSingleFlightEnabled()) return false;
   for (const agent of game.world.agents.values()) {
     const operation = agent.inProgressOperation;
     if (!operation || agent.id === currentAgentId) continue;
     if (operation.name !== 'agentGenerateMessage') continue;
-    if (priorityPilot && agent.playerId !== 'p:0' && agent.playerId !== 'p:707') continue;
-    if (now < operation.started + actionTimeoutMs(operation.name)) {
-      return true;
-    }
+    if (now >= operation.started + actionTimeoutMs(operation.name)) continue;
+    // A priority (human or Umi/Mahiru pilot) generation must never be blocked
+    // by ordinary autonomous chatter — only by another priority generation.
+    if (priority && !agentConversationHasPriority(game, agent.playerId)) continue;
+    return true;
   }
   return false;
 }
@@ -385,6 +401,10 @@ export class Agent {
       )!;
       const otherPlayer = game.world.players.get(otherPlayerId)!;
       const pilotConversation = isUmiMahiruPilotConversation(player.id, otherPlayer.id);
+      // Human-facing chat must out-prioritise autonomous generation in the
+      // single-flight gate; otherwise a busy daytime world starves the human's
+      // reply past the client's 45s wait and shows "連線不穩".
+      const priorityConversation = pilotConversation || !!player.human || !!otherPlayer.human;
       if (member.status.kind === 'invited') {
         // Accept a conversation with another agent with some probability and with
         // a human unconditionally.
@@ -443,7 +463,7 @@ export class Agent {
             if (hasHumanParticipant && shouldThrottleHumanGeneration(conversation, player.id, now)) {
               return;
             }
-            if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
+            if (hasActiveConversationGeneration(game, now, this.id, priorityConversation)) {
               return;
             }
             // Grab the lock on the conversation and send a "start" message.
@@ -485,7 +505,7 @@ export class Agent {
         const ordinaryTimeoutLeave = tooLongDeadline < now && reachedMinShape;
         const hardTimeoutLeave = hardDeadline < now;
         if (!hasHumanParticipant && (overMaxMessages || ordinaryTimeoutLeave || hardTimeoutLeave)) {
-          if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
+          if (hasActiveConversationGeneration(game, now, this.id, priorityConversation)) {
             return;
           }
           console.log(`${player.id} leaving conversation with ${otherPlayer.id}.`);
@@ -510,7 +530,7 @@ export class Agent {
           if (shouldThrottleHumanGeneration(conversation, player.id, now)) {
             return;
           }
-          if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
+          if (hasActiveConversationGeneration(game, now, this.id, priorityConversation)) {
             return;
           }
           console.log(`${player.id} closing idle human conversation with ${otherPlayer.id}.`);
@@ -550,7 +570,7 @@ export class Agent {
         ) {
           return;
         }
-        if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
+        if (hasActiveConversationGeneration(game, now, this.id, priorityConversation)) {
           return;
         }
         console.log(`${player.id} continuing conversation with ${otherPlayer.id}.`);

@@ -1,4 +1,7 @@
-import { shouldWakeWorldForConversationInputStatus } from './messages';
+import {
+  shouldKickRunningEngineForHumanInput,
+  shouldWakeWorldForConversationInputStatus,
+} from './messages';
 
 describe('message write wake policy', () => {
   test('does not wake when world status is unavailable', () => {
@@ -16,5 +19,22 @@ describe('message write wake policy', () => {
   test('wakes running or inactive worlds for conversation input', () => {
     expect(shouldWakeWorldForConversationInputStatus('running')).toBe(true);
     expect(shouldWakeWorldForConversationInputStatus('inactive')).toBe(true);
+  });
+});
+
+describe('running-engine kick policy for human input', () => {
+  const now = 1_000_000;
+
+  test('does NOT kick a healthy, freshly-stepping engine (avoids aborting in-flight replies)', () => {
+    expect(shouldKickRunningEngineForHumanInput(now - 1_000, now)).toBe(false);
+    expect(shouldKickRunningEngineForHumanInput(now, now)).toBe(false);
+  });
+
+  test('kicks an engine that has stalled (stopped advancing currentTime)', () => {
+    expect(shouldKickRunningEngineForHumanInput(now - 30_000, now)).toBe(true);
+  });
+
+  test('kicks when the engine has no currentTime yet', () => {
+    expect(shouldKickRunningEngineForHumanInput(undefined, now)).toBe(true);
   });
 });

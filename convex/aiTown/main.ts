@@ -74,6 +74,28 @@ export async function kickEngine(ctx: MutationCtx, worldId: Id<'worlds'>) {
   });
 }
 
+// A running engine that is still advancing `currentTime` picks up a
+// freshly-written input on its own next step (~1s). Kicking such a healthy
+// engine only bumps the generation and aborts the in-flight runStep — including
+// any half-generated character reply — which surfaces as "連線不穩" and, under
+// rapid inputs, spawns competing loops (generation-mismatch storm). So: start a
+// stopped engine, kick only a *stalled* running one, otherwise leave it be and
+// let the running loop consume the input itself.
+export const ENGINE_STALL_WAKE_MS = 5_000;
+
+export async function nudgeEngineForInput(ctx: MutationCtx, worldId: Id<'worlds'>) {
+  const { engineId } = await loadWorldStatus(ctx.db, worldId);
+  const engine = await ctx.db.get(engineId);
+  if (!engine) return;
+  if (!engine.running) {
+    await startEngine(ctx, worldId);
+    return;
+  }
+  if (Date.now() - (engine.currentTime ?? 0) > ENGINE_STALL_WAKE_MS) {
+    await kickEngine(ctx, worldId);
+  }
+}
+
 export async function stopEngine(ctx: MutationCtx, worldId: Id<'worlds'>) {
   const { engineId } = await loadWorldStatus(ctx.db, worldId);
   const engine = await ctx.db.get(engineId);

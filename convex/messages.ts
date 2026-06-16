@@ -17,6 +17,25 @@ const DEFAULT_CLOCK = {
 };
 const GIIS_WORLD_START_REAL_DATE = Date.UTC(2026, 4, 19, 5, 0, 0);
 
+// A healthy running engine advances `currentTime` ~every second. If it is more
+// than this far behind real time it has stalled and a human input wake should
+// kick it; otherwise the running loop will pick the input up on its own and we
+// must NOT kick (kicking aborts in-flight character replies — see
+// `wakeWorldForConversationInput`).
+const ENGINE_STALL_WAKE_MS = 5_000;
+
+// Whether a human conversation input should kick an already-running engine.
+// A healthy engine advances `currentTime` ~every second and will pick the input
+// up on its own next step, so we only kick a *stalled* engine. Kicking a
+// healthy one aborts in-flight character replies and, under rapid messages,
+// causes the generation-mismatch (split-brain) storm behind "連線不穩".
+export function shouldKickRunningEngineForHumanInput(
+  engineCurrentTime: number | undefined,
+  now: number,
+) {
+  return now - (engineCurrentTime ?? 0) > ENGINE_STALL_WAKE_MS;
+}
+
 function logGiisTiming(payload: Record<string, unknown>) {
   if (process.env.NODE_ENV === 'production') return;
   console.log('[GIIS timing]', payload);
@@ -61,7 +80,18 @@ async function wakeWorldForConversationInput(
     if (!engine.running) {
       await startEngine(ctx, worldId);
     } else {
-      await kickEngine(ctx, worldId);
+      // The engine is already running. A healthy engine advances `currentTime`
+      // every step (~1s) and will pick up this freshly-written human input on
+      // its next step with no nudge needed. Kicking a healthy engine here only
+      // bumps the generation number and aborts the in-flight runStep — which
+      // includes any half-generated character reply (`agentGenerateMessage`) —
+      // surfacing to the human as "連線不穩". Worse, when the human sends
+      // several messages in a row, each kick spawns a competing runStep loop
+      // (the generation-number-mismatch storm == split brain). So only kick if
+      // the engine has actually stalled (stopped advancing `currentTime`).
+      if (shouldKickRunningEngineForHumanInput(engine.currentTime, now)) {
+        await kickEngine(ctx, worldId);
+      }
     }
   } catch (error) {
     console.warn('[GIIS timing] failed to wake world after conversation input', {
