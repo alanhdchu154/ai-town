@@ -114,6 +114,55 @@ and a forced conversation to confirm latency dropped from ~16 s to ~1–2 s.
 
 ---
 
+## ✅ Setup results on THIS F15 (2026-06-15)
+
+Done by Claude Code on Alan's ASUS TUF F15. Everything verified working.
+
+| Item | Value |
+| --- | --- |
+| **F15 LAN IP** | `192.168.1.69` (Wi-Fi, same subnet as Mac `192.168.1.239`) |
+| **GPU + VRAM** | NVIDIA GeForce RTX 3060 Laptop GPU, **6 GB** (6144 MiB) |
+| **Driver / CUDA** | 566.07 / CUDA 12.7 |
+| **Ollama version** | 0.30.6 (installed via `winget`) |
+| **Model pulled** | `qwen2.5:7b` (Q4_K_M, 4.7 GB, 32k ctx, tools capable) |
+| **Warm latency** | ~**1.0 s** (first load ~11 s) |
+| **GPU/CPU split** | 79% GPU / 21% CPU — 7b does not fully fit in 6 GB (expected) |
+| **LAN reachability** | `http://192.168.1.69:11434/api/tags` → HTTP **200** ✅ (IPv4 tested) |
+
+### What was configured
+- `OLLAMA_HOST=0.0.0.0:11434` and `OLLAMA_NUM_PARALLEL=2` set via `setx`
+  (persistent — the tray app picks them up after reboot/login too).
+- Ollama listens on `[::]:11434` (dual-stack) and **accepts IPv4** LAN
+  connections — confirmed with `Test-NetConnection 192.168.1.69:11434` = True.
+- Power: sleep & hibernate set to **Never when plugged in**
+  (`powercfg -change -standby-timeout-ac 0` / `-hibernate-timeout-ac 0`).
+
+### Firewall — important note
+The manual `New-NetFirewallRule ... -Profile Private` step was **NOT needed and
+would not have worked**: this Wi-Fi network ("Icecream 2") is classified as a
+**Public** network, not Private. The Ollama installer already created inbound
+**Allow** rules for `ollama.exe` on the **Public** profile, which is exactly the
+active profile, so the LAN is already open to port 11434. (Verified reachable.)
+If you ever switch the network to Private, you'd need an equivalent Allow rule
+for the Private profile, or just rely on the existing app-based Public rules.
+
+### ⚠️ Watch-outs
+- **6 GB VRAM can't hold all of 7b** → ~21% spills to CPU. Still ~1 s, fine.
+  If you want it fully on GPU, pull `qwen2.5:3b` instead and set
+  `OLLAMA_MODEL=qwen2.5:3b` on the Mac.
+- **IP is DHCP** (`192.168.1.69`); it can change after a reboot. If it does,
+  re-check with `ipconfig` and update the Mac's `OLLAMA_BASE_URL`, or set a DHCP
+  reservation on the router to pin it.
+
+### Mac side (do this on the Mac, not here)
+```
+npx convex env set OLLAMA_BASE_URL "http://192.168.1.69:11434"
+npx convex env set OLLAMA_MODEL "qwen2.5:7b"
+# clean restart of the world: testing:stop -> wait -> testing:resume
+```
+
+---
+
 ## Keep-it-running notes
 
 - The F15 must stay **on** and on the **same network** whenever the world runs.
