@@ -1,13 +1,12 @@
 import clsx from 'clsx';
-import { Doc, Id } from '../../convex/_generated/dataModel';
+import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { MessageInput } from './MessageInput';
-import { Player } from '../../convex/aiTown/player';
-import { Conversation } from '../../convex/aiTown/conversation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CharacterPortrait } from './CharacterPortrait';
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames';
+import type { ClientConversation, ClientPlayer } from '../lib/clientGameState';
 
 type PendingChatMessage = {
   conversationId: string;
@@ -32,10 +31,10 @@ export function Messages({
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
   conversation:
-    | { kind: 'active'; doc: Conversation }
+    | { kind: 'active'; doc: ClientConversation }
     | { kind: 'archived'; doc: Doc<'archivedConversations'> };
   inConversationWithMe: boolean;
-  humanPlayer?: Player;
+  humanPlayer?: ClientPlayer;
   scrollViewRef: React.RefObject<HTMLDivElement>;
   placeholderTargetName?: string;
 }) {

@@ -2,8 +2,9 @@ import { toast } from 'react-toastify';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 // import { SignInButton } from '@clerk/clerk-react';
-import { ServerGame, useServerGame } from '../../hooks/serverGame';
-import { Id } from '../../../convex/_generated/dataModel';
+import { useServerGame } from '../../hooks/serverGame';
+import type { ServerGame } from '../../hooks/serverGame';
+import type { Id } from '../../../convex/_generated/dataModel';
 
 type InteractButtonProps = {
   className?: string;

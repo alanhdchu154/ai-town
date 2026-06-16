@@ -4,7 +4,7 @@ import { Player, SelectElement } from './Player.tsx';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PixiViewport from './PixiViewport.tsx';
 import { Viewport } from 'pixi-viewport';
-import { Id } from '../../convex/_generated/dataModel';
+import type { Id } from '../../convex/_generated/dataModel';
 import { useQuery } from 'convex/react';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api.js';
@@ -12,7 +12,7 @@ import { toastOnError } from '../toasts.ts';
 import { DebugPath } from './DebugPath.tsx';
 import { PositionIndicator } from './PositionIndicator.tsx';
 import { SHOW_DEBUG_UI } from './Game.tsx';
-import { ServerGame } from '../hooks/serverGame.ts';
+import type { ServerGame } from '../hooks/serverGame.ts';
 import { ClassroomBounds } from '../../data/classroomBounds.ts';
 import { SchoolLocationId, SchoolLocations } from '../../data/schoolLocations.ts';
 

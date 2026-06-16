@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 14:27 CDT
+Last updated: 2026-06-16 14:41 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,26 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 14:41 CDT: Residual frontend market-readiness cc review
+  `umi/reports/20260616T193516Z-workload.md` found no P0 after `4abe717e` and
+  confirmed the main P1 was the Convex browser-import warning in frontend
+  smoke. Patch: frontend parsing now uses a client-only `ClientWorld` snapshot
+  instead of importing backend simulation classes (`World` / `Player` /
+  `Conversation` / `Agent`) into the browser; related frontend imports were
+  narrowed to `import type`; `conversation.ts` and `player.ts` now import
+  backend `Game` only as a type; and the smoke gate no longer treats the Convex
+  browser-import warning as known/allowed. Verification:
+  `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS with frontend JS
+  bundle reduced from 487.07 kB to 417.58 kB, `npm run
+  underworld:runtime-preflight` PASS, `git diff --check` PASS. The strict smoke
+  gate now covers mobile 390x844, small-mobile 360x640, and desktop 1440x960;
+  `npm run underworld:frontend-smoke` PASS 3/3 with all viewports live, 0 hard
+  console issues, no horizontal overflow, and only the harmless
+  `Ignoring Event: localhost` known warning. The two cc P2 mobile polish issues
+  were also patched: mobile bottom status now shows the selected CTA helper line
+  when the focus card is hidden, and small-phone bottom bar / character-row
+  spacing is guarded by a 360x640 smoke viewport. Remaining frontend launch
+  evidence gap: real Alan/in-app mobile acceptance.
 - 2026-06-16 14:27 CDT: Alan reported that today's UI still felt unusually
   flickery / suddenly jumped while playing. The fresh smoke report reproduced
   the concrete jump path: mobile hit the route-level reconnect fallback because

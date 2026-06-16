@@ -1,13 +1,13 @@
 # CC Workload - Frontend Market-Readiness Residual Review
 
-Time anchor: 2026-06-16 13:56 America/Chicago
+Time anchor: 2026-06-16 14:35 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: Split-work, read-only findings-first review before Codex implements the next batch
+Mode: Split-work, read-only findings-first review before Codex implements any next patch
 
 ## Task ID
 
-underworld-frontend-market-readiness-residual-review-20260616
+underworld-frontend-market-readiness-residual-review-20260616-1435
 
 ## Context
 
@@ -19,34 +19,41 @@ Recent shipped frontend-stability commits on `main`:
 
 - `432a4d6b` reduced frontend flicker and conversation jumps.
 - `890ae766` added shared hot-path world state and route ErrorBoundary.
-- `2b3221d0` fixed the reproduced mobile flicker root cause by pausing/skipping
-  heavy notebook/summary/timeline queries during active dialogue and fixing a
-  duplicate chat action.
-- `bec338b` added the post-flicker residual patch: current dialogue skips
-  `previousConversation`, `InteractButton` is loading-disabled/labeled, and
-  `Game` renders a stable loading shell instead of `null`.
+- `2b3221d0` fixed a reproduced mobile flicker path by pausing/skipping heavy
+  notebook/summary/timeline queries during active dialogue and fixing duplicate
+  chat actions.
+- `bec338b` added a stable loading shell, current-dialogue history skip, and
+  loading-disabled `InteractButton`.
+- `946b698b` preserved dialogue during transient `worldState`,
+  `gameDescriptions`, and `messages.listMessages` reloads.
+- `0ad69099` added repeatable mobile/desktop frontend smoke coverage and fixed
+  missing emotion portrait 404s.
+- `4abe717e` moved optional `campusSocialState` / `umiBriefing` queries behind a
+  soft-failure loader so a timeout no longer remounts the whole `Game` UI.
 
-Current worktree note:
+Current evidence:
 
-- `media/topics/watcher-inbox.md` is dirty from a Field Notes watcher flow.
-  Ignore it for this review and do not ask to stage/revert it.
-- `umi/workload.md` is being updated for this cc review.
+- `npm run underworld:frontend-smoke` last PASS 2/2 after `4abe717e`.
+- `npx tsc --noEmit --pretty false`, `npm run build`, and
+  `npm run underworld:runtime-preflight` passed after `4abe717e`.
+- Current worktree has unrelated `media/topics/watcher-inbox.md` dirty from a
+  Field Notes watcher flow. Ignore it; do not stage/revert it.
+- `umi/workload.md` is this active cc task.
 
-Central handoff and `WORKLOG.md` row 7 say the remaining frontend launch
-caveats are:
+Known remaining caveats from `WORKLOG.md`:
 
-1. Full WorldContext/provider consolidation for non-hot-path duplicate queries.
-2. Engine anchoring: confirm whether `startConversation` should always keep
-   Alan anchored in the principal office across edge cases.
-3. Alan/in-app mobile visual acceptance is still unproven.
-
-Umi/Codex wants an independent residual review, not a rewrite. Treat
-"market-ready frontend" pragmatically: ordinary mobile/desktop use should not
-feel jumpy, clipped, mysterious, blocked, or unclear about what can be clicked.
+1. Alan/in-app mobile visual acceptance is still unproven.
+2. The frontend smoke still records this known warning:
+   `Convex functions should not be imported in the browser. This will throw an error in future versions of convex.`
+3. Full WorldContext/provider consolidation for non-hot-path duplicate queries is
+   deferred unless there is a concrete launch-risk reason to do it now.
+4. Engine anchoring should eventually confirm whether `startConversation` always
+   keeps Alan anchored in the principal office across edge cases.
 
 ## Read First
 
 - `WORKLOG.md` row 7 and Current State Snapshot.
+- `umi/reports/frontend-smoke-latest.json`.
 - `src/App.tsx`
 - `src/components/Game.tsx`
 - `src/components/PlayerDetails.tsx`
@@ -54,8 +61,13 @@ feel jumpy, clipped, mysterious, blocked, or unclear about what can be clicked.
 - `src/components/MessageInput.tsx`
 - `src/components/ConversationWall.tsx`
 - `src/components/buttons/InteractButton.tsx`
+- `src/hooks/serverGame.ts`
 - `src/hooks/useWorldHeartbeat.ts`
 - `src/index.css`
+- For the Convex browser-import warning, inspect imports from frontend into
+  `convex/aiTown/*`, especially `convex/aiTown/world.ts`,
+  `convex/aiTown/agent.ts`, `convex/aiTown/player.ts`, and
+  `convex/aiTown/conversation.ts`.
 
 You may inspect adjacent frontend files and recent diffs as needed.
 
@@ -63,15 +75,17 @@ You may inspect adjacent frontend files and recent diffs as needed.
 
 Findings-first, read-only:
 
-1. What P0/P1/P2 frontend launch-readiness risks remain after `bec338b`?
-2. Are there any active-dialogue render paths, subscriptions, effects, or
+1. What P0/P1/P2 frontend launch-readiness risks remain after `4abe717e`?
+2. Is the remaining Convex browser-import warning likely caused by a specific
+   frontend import path? If yes, what is the smallest safe fix?
+3. Are there any active-dialogue render paths, subscriptions, effects, or
    scroll/focus behaviors still likely to cause flicker, jump, stale target, or
    ErrorBoundary fallback under load?
-3. Does the mobile invite/direct-dialogue flow still make it unclear when Alan
+4. Does the mobile invite/direct-dialogue flow still make it unclear when Alan
    is offline, waking, invited, talking, or blocked?
-4. Does Scene Mode still risk clipped characters, status-card overlap, hidden
+5. Does Scene Mode still risk clipped characters, status-card overlap, hidden
    controls, or unreadable action bars on desktop/mobile?
-5. Is there one small implementation batch Codex should do now? If no, say what
+6. Is there one small implementation batch Codex should do now? If no, say what
    evidence would be needed before more changes.
 
 ## Constraints
@@ -84,7 +98,7 @@ Findings-first, read-only:
   eval suites.
 - Do not propose a large rewrite unless you can show a concrete market-readiness
   blocker that cannot be addressed by a smaller patch.
-- Keep engine/backend anchoring as a finding only unless the frontend code is
+- Treat engine/backend anchoring as a finding only unless the frontend code is
   clearly misleading the user about that state.
 
 ## Expected Output

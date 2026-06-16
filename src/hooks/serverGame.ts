@@ -1,19 +1,28 @@
-import { GameId } from '../../convex/aiTown/ids.ts';
-import { AgentDescription } from '../../convex/aiTown/agentDescription.ts';
-import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
-import { World } from '../../convex/aiTown/world.ts';
-import { WorldMap } from '../../convex/aiTown/worldMap.ts';
-import { Id } from '../../convex/_generated/dataModel';
+import type { GameId } from '../../convex/aiTown/ids.ts';
+import type { Id } from '../../convex/_generated/dataModel';
 import { useEffect, useMemo, useRef } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { parseMap } from '../../convex/util/object.ts';
+import { ClientWorld, type ClientWorldMap } from '../lib/clientGameState.ts';
+
+export type ClientAgentDescription = {
+  agentId: GameId<'agents'>;
+  identity: string;
+  plan: string;
+};
+
+export type ClientPlayerDescription = {
+  playerId: GameId<'players'>;
+  name: string;
+  description: string;
+  character: string;
+};
 
 export type ServerGame = {
-  world: World;
-  playerDescriptions: Map<GameId<'players'>, PlayerDescription>;
-  agentDescriptions: Map<GameId<'agents'>, AgentDescription>;
-  worldMap: WorldMap;
+  world: ClientWorld;
+  playerDescriptions: Map<GameId<'players'>, ClientPlayerDescription>;
+  agentDescriptions: Map<GameId<'agents'>, ClientAgentDescription>;
+  worldMap: ClientWorldMap;
 };
 
 // TODO: This hook reparses the game state (even if we're not rerunning the query)
@@ -47,18 +56,26 @@ export function useServerGame(worldId: Id<'worlds'> | undefined): ServerGame | u
       return undefined;
     }
     return {
-      world: new World(stableWorldState.world),
-      agentDescriptions: parseMap(
-        stableDescriptions.agentDescriptions,
-        AgentDescription,
-        (p) => p.agentId,
+      world: new ClientWorld(stableWorldState.world),
+      agentDescriptions: new Map(
+        stableDescriptions.agentDescriptions.map((agent) => [
+          agent.agentId as GameId<'agents'>,
+          {
+            ...agent,
+            agentId: agent.agentId as GameId<'agents'>,
+          },
+        ]),
       ),
-      playerDescriptions: parseMap(
-        stableDescriptions.playerDescriptions,
-        PlayerDescription,
-        (p) => p.playerId,
+      playerDescriptions: new Map(
+        stableDescriptions.playerDescriptions.map((player) => [
+          player.playerId as GameId<'players'>,
+          {
+            ...player,
+            playerId: player.playerId as GameId<'players'>,
+          },
+        ]),
       ),
-      worldMap: new WorldMap(stableDescriptions.worldMap),
+      worldMap: stableDescriptions.worldMap as ClientWorldMap,
     };
   }, [stableWorldState, stableDescriptions]);
   return game;

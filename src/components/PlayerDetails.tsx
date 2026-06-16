@@ -1,15 +1,15 @@
 import { useAction, useConvex, useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
-import { Id } from '../../convex/_generated/dataModel';
+import type { Id } from '../../convex/_generated/dataModel';
 import closeImg from '../../assets/close.svg';
-import { SelectElement } from './Player';
+import type { SelectElement } from './Player';
 import { Messages } from './Messages';
 import { toastOnError } from '../toasts';
 import { useSendInputQueued } from '../hooks/sendInput';
-import { Player } from '../../convex/aiTown/player';
-import { GameId } from '../../convex/aiTown/ids';
-import { ServerGame } from '../hooks/serverGame';
+import type { GameId } from '../../convex/aiTown/ids';
+import type { ServerGame } from '../hooks/serverGame';
+import type { ClientPlayer } from '../lib/clientGameState';
 import { CharacterPortrait } from './CharacterPortrait';
 import { displayAgentName, displayTextWithNames } from '../../data/displayNames';
 import { SchoolLocation, nearestSchoolLocation } from '../../data/schoolLocations';
@@ -1395,10 +1395,10 @@ function ConversationPanel({
 }: {
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
-  humanPlayer?: Player;
+  humanPlayer?: ClientPlayer;
   humanConversation: any;
   targetName?: string;
-  targetPlayer?: Player;
+  targetPlayer?: ClientPlayer;
   targetProfile?: any;
   targetEmotion?: any;
   targetPresence?: {

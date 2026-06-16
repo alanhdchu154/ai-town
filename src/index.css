@@ -1351,6 +1351,10 @@ body {
   font-weight: 800;
 }
 
+.giis-bottom-status .giis-bottom-helper {
+  display: none;
+}
+
 .giis-soft-prompt {
   color: #bae6fd;
 }
@@ -6193,5 +6197,28 @@ body {
 
   .giis-live-room-shell.giis-conversation-active .giis-thread-transcript-inline {
     max-height: 44dvh;
+  }
+}
+
+@media (max-width: 900px) {
+  .giis-live-room-shell .giis-bottom-status .giis-bottom-helper {
+    color: #e0f2fe;
+    display: inline-flex;
+    max-width: min(32rem, calc(100vw - 1.2rem));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px), (max-height: 700px) {
+  .giis-live-room-shell .giis-bottom-bar {
+    max-height: min(34vh, 13rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .giis-scene-character-row {
+    bottom: calc(10.2rem + env(safe-area-inset-bottom));
   }
 }

@@ -12,6 +12,7 @@ const CHROME_PATH =
 const WAIT_MS = Number(process.env.UNDERWORLD_FRONTEND_SMOKE_WAIT_MS ?? 25_000);
 const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844, mobile: true },
+  { name: 'small-mobile', width: 360, height: 640, mobile: true },
   { name: 'desktop', width: 1440, height: 960, mobile: false },
 ];
 
@@ -136,11 +137,10 @@ async function smokeViewport(viewport, index) {
       if (message.method === 'Runtime.consoleAPICalled' && ['error', 'warning'].includes(message.params.type)) {
         const args = message.params.args.map((arg) => arg.value ?? arg.description);
         const text = args.join(' ');
-        const knownConvexBrowserWarning = text.includes('Convex functions should not be imported in the browser');
         const knownLocalhostWarning = text.includes('Ignoring Event: localhost');
         consoleIssues.push({
           level: message.params.type,
-          known: knownConvexBrowserWarning || knownLocalhostWarning,
+          known: knownLocalhostWarning,
           text,
         });
       }

@@ -8,7 +8,7 @@ import { api } from '../../convex/_generated/api';
 import { useWorldHeartbeat } from '../hooks/useWorldHeartbeat.ts';
 import { useHistoricalTime } from '../hooks/useHistoricalTime.ts';
 import { DebugTimeManager } from './DebugTimeManager.tsx';
-import { GameId } from '../../convex/aiTown/ids.ts';
+import type { GameId } from '../../convex/aiTown/ids.ts';
 import { useServerGame } from '../hooks/serverGame.ts';
 import {
   SchoolLocationId,
@@ -1307,6 +1307,11 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
             ) : (
               <span className="giis-soft-prompt">選一位角色開始互動。</span>
             )}
+            {selectedName && !isConversationMode && selectedConversationCta.helper ? (
+              <span className="giis-bottom-helper" title={selectedConversationCta.helper}>
+                {selectedConversationCta.helper}
+              </span>
+            ) : null}
           </div>
           <div className="giis-bottom-actions">
             {/* Verb consolidation (2026-06-11): with a target selected, the

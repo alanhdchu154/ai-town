@@ -1,11 +1,9 @@
 import { Graphics } from '@pixi/react';
 import { Graphics as PixiGraphics } from 'pixi.js';
 import { useCallback } from 'react';
-import { Doc } from '../../convex/_generated/dataModel';
-import { Player } from '../../convex/aiTown/player';
-import { unpackPathComponent } from '../../convex/util/types';
+import type { ClientPlayer } from '../lib/clientGameState';
 
-export function DebugPath({ player, tileDim }: { player: Player; tileDim: number }) {
+export function DebugPath({ player, tileDim }: { player: ClientPlayer; tileDim: number }) {
   const path = player.pathfinding?.state.kind == 'moving' && player.pathfinding.state.path;
   const draw = useCallback(
     (g: PixiGraphics) => {
@@ -15,7 +13,7 @@ export function DebugPath({ player, tileDim }: { player: Player; tileDim: number
       }
       let first = true;
       for (const p of path) {
-        const { position } = unpackPathComponent(p as any);
+        const position = { x: p[0], y: p[1] };
         const x = position.x * tileDim + tileDim / 2;
         const y = position.y * tileDim + tileDim / 2;
         if (first) {

@@ -7,7 +7,7 @@ import { inputHandler } from './inputHandler';
 import { TYPING_TIMEOUT, CONVERSATION_DISTANCE } from '../constants';
 import { distance, normalize, vector } from '../util/geometry';
 import { Point } from '../util/types';
-import { Game } from './game';
+import type { Game } from './game';
 import { stopPlayer, blocked, movePlayer } from './movement';
 import { ConversationMembership, serializedConversationMembership } from './conversationMembership';
 import { parseMap, serializeMap } from '../util/object';

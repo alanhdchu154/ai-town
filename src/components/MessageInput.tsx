@@ -1,12 +1,11 @@
 import { useMutation, useQuery } from 'convex/react';
 import { ChangeEvent, FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { api } from '../../convex/_generated/api';
-import { Id } from '../../convex/_generated/dataModel';
+import type { Id } from '../../convex/_generated/dataModel';
 import { useSendInputQueued } from '../hooks/sendInput';
-import { Player } from '../../convex/aiTown/player';
-import { Conversation } from '../../convex/aiTown/conversation';
 import { displayAgentName } from '../../data/displayNames';
 import { toast } from 'react-toastify';
+import type { ClientConversation, ClientPlayer } from '../lib/clientGameState';
 
 const WRITE_RETRY_DELAYS_MS = [180, 420, 900];
 
@@ -48,8 +47,8 @@ export function MessageInput({
 }: {
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
-  humanPlayer: Player;
-  conversation: Conversation;
+  humanPlayer: ClientPlayer;
+  conversation: ClientConversation;
   placeholderTargetName?: string;
   onOptimisticMessage?: (message: {
     conversationId: string;

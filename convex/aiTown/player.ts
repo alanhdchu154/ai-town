@@ -10,7 +10,7 @@ import {
   MAX_PATHFINDS_PER_STEP,
 } from '../constants';
 import { pointsEqual, pathPosition } from '../util/geometry';
-import { Game } from './game';
+import type { Game } from './game';
 import { stopPlayer, findRoute, blocked, movePlayer } from './movement';
 import { inputHandler } from './inputHandler';
 import { characters } from '../../data/characters';

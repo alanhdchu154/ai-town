@@ -2,19 +2,32 @@ import { Character } from './Character.tsx';
 import { orientationDegrees } from '../../convex/util/geometry.ts';
 import { characters } from '../../data/characters.ts';
 import { toast } from 'react-toastify';
-import { Player as ServerPlayer } from '../../convex/aiTown/player.ts';
-import { GameId } from '../../convex/aiTown/ids.ts';
-import { Id } from '../../convex/_generated/dataModel';
-import { Location, locationFields, playerLocation } from '../../convex/aiTown/location.ts';
+import type { GameId } from '../../convex/aiTown/ids.ts';
 import { useHistoricalValue } from '../hooks/useHistoricalValue.ts';
-import { PlayerDescription } from '../../convex/aiTown/playerDescription.ts';
-import { WorldMap } from '../../convex/aiTown/worldMap.ts';
-import { ServerGame } from '../hooks/serverGame.ts';
+import type { ServerGame } from '../hooks/serverGame.ts';
+import type { ClientPlayer } from '../lib/clientGameState.ts';
 import { characterVisualFor } from '../../data/characterVisuals.ts';
 
 export type SelectElement = (element?: { kind: 'player'; id: GameId<'players'> }) => void;
 
 const logged = new Set<string>();
+const locationFields = [
+  { name: 'x', precision: 8 },
+  { name: 'y', precision: 8 },
+  { name: 'dx', precision: 8 },
+  { name: 'dy', precision: 8 },
+  { name: 'speed', precision: 16 },
+];
+type Location = { x: number; y: number; dx: number; dy: number; speed: number };
+function playerLocation(player: ClientPlayer): Location {
+  return {
+    x: player.position.x,
+    y: player.position.y,
+    dx: player.facing.dx,
+    dy: player.facing.dy,
+    speed: player.speed,
+  };
+}
 
 export const Player = ({
   game,
@@ -28,7 +41,7 @@ export const Player = ({
   game: ServerGame;
   isViewer: boolean;
   isSelectedTarget?: boolean;
-  player: ServerPlayer;
+  player: ClientPlayer;
   displayPosition?: { x: number; y: number };
 
   onClick: SelectElement;
