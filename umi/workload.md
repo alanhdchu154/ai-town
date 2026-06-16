@@ -1,92 +1,87 @@
-# CC Workload - Frontend Resilience Second-Batch Review
+# CC Workload - Post-Flicker Frontend Launch Readiness Review
 
-Time anchor: 2026-06-16 13:10 America/Chicago
+Time anchor: 2026-06-16 13:48 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: Split-work, read-only risk review before Codex implements the next frontend batch
+Mode: Split-work, read-only findings-first review before Codex implements the next frontend batch
 
 ## Task ID
 
-underworld-frontend-resilience-second-batch-20260616
+underworld-post-flicker-frontend-readiness-20260616
 
 ## Context
 
-Alan's active goal is still: "你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市"
+Alan's active goal is still:
 
-Previous batch already shipped and is pushed at `432a4d6b`:
+> 你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市
 
-- `Game` passes shared `humanTokenIdentifier`, `playerIdentity`,
-  `umiBriefing`, and `campusSocialState` into `PlayerDetails`.
-- Conversation auto-scroll no longer reacts to typing-state churn.
-- Mobile conversation entry no longer auto-focuses the textarea.
-- Conversation change clears stale draft/inflight state.
-- Conversation-start scroll is scoped to the panel instead of `window`.
-- Target-character change resets history/wake prompt/tab state.
+Recent shipped commits on `main`:
 
-Current repo is clean at handoff start. `WORKLOG.md` row 7 and the current
-snapshot name the remaining frontend launch-readiness caveats:
+- `432a4d6b` reduced frontend flicker and conversation jumps.
+- `890ae766` added shared hot-path world state and route ErrorBoundary.
+- `2b3221d0` fixed the reproduced mobile flicker root cause:
+  active conversations no longer depend on heavy notebook/summary/timeline queries,
+  offline Alan invite no longer sends duplicate chat actions, and crowded 5-6
+  character scenes use responsive standee spacing.
 
-1. Full shared-data boundary / remaining duplicate subscriptions.
-2. ErrorBoundary fallback for transient Convex/world parse failures.
-3. Separate engine anchor caveat: `startConversation` may still walk both
-   participants to a midpoint instead of anchoring Alan in the principal office.
+Current `ai-town` worktree is clean. Central handoff and `WORKLOG.md` row 7 say
+the remaining launch-readiness caveats are:
 
-Umi/Codex's intended second batch is deliberately smaller than a full
-Context rewrite:
+1. Full WorldContext/provider consolidation for non-hot-path duplicate queries.
+2. Engine anchoring: confirm whether `startConversation` should always keep Alan
+   anchored in the principal office across edge cases.
+3. More Alan/mobile visual playtest time before claiming market-ready.
 
-- Let `useWorldHeartbeat` accept the `worldStatus` already queried by `Game`,
-  removing its duplicate `defaultWorldStatus` subscription.
-- Let `InteractButton` receive `worldStatus`, `game`, and
-  `humanTokenIdentifier` from `Game`, removing its duplicate
-  `defaultWorldStatus`, `useServerGame`, and `userStatus` subscriptions.
-- Add a small React class ErrorBoundary around the main route content in
-  `App.tsx`, with a product-appropriate "校園正在重新連線" fallback and a
-  refresh button. Do not introduce new dependencies.
+Umi/Codex wants a fresh independent review after the flicker patch, not a broad
+rewrite. Focus on whether any remaining frontend UI/UX/stability issue is
+likely to make Alan say "this is confusing, jumpy, clipped, or not friendly"
+during ordinary mobile/desktop use.
 
 ## Read First
 
-- `WORKLOG.md` row 7 and current snapshot.
-- `src/App.tsx`
+- `WORKLOG.md` row 7 and Current State Snapshot.
 - `src/components/Game.tsx`
-- `src/components/buttons/InteractButton.tsx`
-- `src/hooks/useWorldHeartbeat.ts`
-- `src/hooks/serverGame.ts`
-- `src/components/Messages.tsx`
 - `src/components/PlayerDetails.tsx`
+- `src/components/Messages.tsx`
+- `src/components/MessageInput.tsx`
+- `src/App.tsx`
+- `src/index.css`
+- `src/hooks/useWorldHeartbeat.ts`
+- `src/components/buttons/InteractButton.tsx`
 
-You may inspect adjacent frontend files and generated types as needed.
+You may inspect adjacent frontend files and recent diffs as needed.
 
 ## Questions For CC
 
 Findings-first, read-only:
 
-1. Is Umi/Codex's intended second batch safe and aligned with launch-readiness,
-   or is any part likely to create behavior regressions?
-2. For `useWorldHeartbeat(worldStatus?)`, what dependency/stale-closure risk
-   should Codex avoid?
-3. For `InteractButton` prop injection, what loading/null cases must remain
-   correct?
-4. For `App.tsx` ErrorBoundary, what is the smallest implementation that does
-   not hide real bugs forever and still gives Alan a humane recovery path?
-5. Are there any P0/P1 frontend issues from the previous audit that this batch
-   must not defer?
+1. What are the top P0/P1/P2 frontend launch-readiness risks remaining after
+   commit `2b3221d0`?
+2. Are there remaining query subscriptions or render paths that can still pull
+   active dialogue into ErrorBoundary under Convex load?
+3. Does the mobile dialogue/invite flow still have confusing states, double
+   actions, unavailable buttons, or stale target state?
+4. Do the Scene Mode layout rules still risk clipped characters, hidden status
+   cards, or controls overlapping on desktop/mobile?
+5. What is the smallest next implementation batch Codex should do now, and what
+   should remain deferred?
 
 ## Constraints
 
 - Read-only. Do not modify files.
 - Do not run watch/dev servers.
 - Do not mutate Convex data or local runtime state.
-- You may run static commands such as `rg`, `sed`, `git status`,
-  `npm run build` only if useful. Avoid broad eval suites.
-- Do not propose a large Context migration unless you can show this smaller
-  batch is unsafe or insufficient.
+- You may run static commands such as `git status`, `git diff`, `rg`, `sed`,
+  `npm run build`, or focused typecheck if useful. Avoid broad eval suites.
+- Do not propose a large rewrite unless you can show a specific market-readiness
+  blocker that a small patch cannot address.
 
 ## Expected Output
 
 Return:
 
-1. Verdict on the proposed second batch.
-2. Specific implementation cautions with file/line references.
-3. Any minimal extra change Codex should include in this batch.
-4. Verification commands Codex should run.
-5. What should remain as a later follow-up.
+1. Top findings by severity with file/line references.
+2. What looks directionally right after the recent patches.
+3. The smallest next patch Codex should implement now.
+4. Verification commands and browser smoke path Codex should run.
+5. Deferred follow-ups that should stay out of this immediate batch.

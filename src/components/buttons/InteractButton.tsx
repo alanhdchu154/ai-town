@@ -41,13 +41,10 @@ export default function InteractButton({
   const enterCampus = useMutation(api.school.enterCampus);
   const leaveCampus = useMutation(api.school.leaveCampus);
   const isPlaying = !!userPlayerId;
+  const isLoadingWorld = !worldId || game === undefined;
 
   const joinOrLeaveGame = () => {
-    if (
-      !worldId ||
-      // || !isAuthenticated
-      game === undefined
-    ) {
+    if (isLoadingWorld) {
       return;
     }
     if (isPlaying) {
@@ -70,14 +67,17 @@ export default function InteractButton({
   return (
     <button
       className={`giis-presence-button ${isPlaying ? 'giis-presence-button-playing' : ''} ${className}`}
+      disabled={isLoadingWorld}
       onClick={joinOrLeaveGame}
       title={
-        isPlaying
-          ? '放開 Alan：他離開校園，世界繼續，但你不再以他的身分行動。'
-          : '接手 Alan：他回到校園，你的點地形 / 說話會以 Alan 身分發生。'
+        isLoadingWorld
+          ? '正在接通校園，等世界狀態載入後就能接手 Alan。'
+          : isPlaying
+            ? '放開 Alan：他離開校園，世界繼續，但你不再以他的身分行動。'
+            : '接手 Alan：他回到校園，你的點地形 / 說話會以 Alan 身分發生。'
       }
     >
-      {isPlaying ? '放開 Alan' : '接手 Alan'}
+      {isLoadingWorld ? '正在連線…' : isPlaying ? '放開 Alan' : '接手 Alan'}
     </button>
   );
 }

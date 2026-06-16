@@ -113,6 +113,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const followAlanRef = useRef(true);
   const initialSceneAutoSelectRef = useRef(false);
   const previousMovingStateRef = useRef<Map<string, boolean>>(new Map());
+  const loadingShellLoggedRef = useRef(false);
   const userTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago',
     [],
@@ -381,8 +382,29 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     return () => window.removeEventListener('giis:navigate-character', onCharacterNavigation);
   }, [game, humanTokenIdentifier, moveAlanTo, setSelectedElement]);
 
-  if (!worldId || !engineId || !game) {
-    return null;
+  const waitingForWorld = !worldId || !engineId || !game;
+  useEffect(() => {
+    if (!waitingForWorld) {
+      loadingShellLoggedRef.current = false;
+      return;
+    }
+    if (!import.meta.env.DEV || loadingShellLoggedRef.current) return;
+    loadingShellLoggedRef.current = true;
+    console.debug('[GIIS loading]', {
+      hasWorldId: !!worldId,
+      hasEngineId: !!engineId,
+      hasGame: !!game,
+    });
+  }, [waitingForWorld, worldId, engineId, game]);
+
+  if (waitingForWorld) {
+    return (
+      <section className="giis-loading-shell" aria-live="polite">
+        <span className="giis-kicker">GIIS Underworld</span>
+        <h2>正在接通校園…</h2>
+        <p>先把世界狀態接好，再讓 Alan 進來。</p>
+      </section>
+    );
   }
   const currentScene =
     SchoolLocations.find((location) => location.id === selectedSceneId) ?? SchoolLocations[0];

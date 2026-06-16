@@ -63,6 +63,44 @@ body {
   background-attachment: fixed;
 }
 
+.giis-loading-shell {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.86)),
+    radial-gradient(circle at 50% 0%, rgba(34, 211, 238, 0.16), transparent 36%);
+  border: 1px solid rgba(125, 211, 252, 0.3);
+  border-radius: 18px;
+  box-shadow:
+    0 22px 80px rgba(2, 6, 23, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  display: grid;
+  gap: 0.55rem;
+  justify-items: center;
+  max-width: min(32rem, calc(100vw - 2rem));
+  min-height: 16rem;
+  padding: 1.4rem;
+  text-align: center;
+  width: 100%;
+}
+
+.giis-loading-shell h2 {
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  font-weight: 850;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.giis-loading-shell p {
+  color: #cbd5e1;
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 24rem;
+}
+
 .game-title {
   background: linear-gradient(to bottom, #fec742, #dd7c42);
   background-clip: text;

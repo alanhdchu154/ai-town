@@ -303,9 +303,10 @@ export default function PlayerDetails({
   const player = playerId && game.world.players.get(playerId);
   const playerConversation = player && game.world.playerConversation(player);
 
+  const shouldLoadPreviousConversation = !humanConversation;
   const previousConversation = useQuery(
     api.world.previousConversation,
-    playerId ? { worldId, playerId } : 'skip',
+    shouldLoadPreviousConversation && playerId ? { worldId, playerId } : 'skip',
   );
   const [schoolState, setSchoolState] = useState<any[]>([]);
   const [schoolObservation, setSchoolObservation] = useState<any>();
