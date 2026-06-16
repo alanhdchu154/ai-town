@@ -54,12 +54,29 @@ it listen on all interfaces, then RESTART Ollama so it takes effect:
 ```powershell
 setx OLLAMA_HOST "0.0.0.0:11434"
 setx OLLAMA_NUM_PARALLEL "2"
+setx OLLAMA_KEEP_ALIVE "-1"
 # restart the Ollama process so the new env is picked up:
 taskkill /IM ollama.exe /F
 # then relaunch it (Start menu -> Ollama), or:
 ollama serve
 ```
-`OLLAMA_NUM_PARALLEL=2` lets it handle 2 requests at once (helps throughput).
+- `OLLAMA_NUM_PARALLEL=2` lets it handle 2 requests at once (helps throughput).
+- `OLLAMA_KEEP_ALIVE=-1` keeps the model **permanently loaded in VRAM** so it
+  never unloads. This is REQUIRED for a server: without it Ollama unloads the
+  model after ~5 min idle, and the next call from the Mac pays a ~10 s cold
+  reload — which made the Mac's memory write time out and fall back. With it,
+  every call stays ~1–5 s. (This is a dedicated server, so keeping it resident
+  is exactly what we want.)
+
+> **If you already finished setup earlier and did NOT set OLLAMA_KEEP_ALIVE,
+> run these three lines now and you're done:**
+> ```powershell
+> setx OLLAMA_KEEP_ALIVE "-1"
+> taskkill /IM ollama.exe /F
+> # then relaunch Ollama (Start menu) or: ollama serve
+> ```
+> Confirm it stays warm: run `ollama run qwen2.5:7b "嗨"` twice; the SECOND
+> call should be ~1 s (no reload). Report back to Alan that keep-alive is on.
 
 ## Step 3 — pull the model (from the Step 0 table)
 
