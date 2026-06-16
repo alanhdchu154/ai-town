@@ -252,7 +252,9 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   useEffect(() => {
     const onActionCinematic = (event: Event) => {
       const detail = (event as CustomEvent<{ label?: string }>).detail;
-      focusOn(alanPlayerForFocus?.position, 1.45);
+      if (followAlanRef.current) {
+        focusOn(alanPlayerForFocus?.position, 1.45);
+      }
       setSceneMessage(detail?.label ? `Alan 行動：${detail.label}` : 'Alan 的行動已影響校園。');
     };
     const onSceneMessage = (event: Event) => {
@@ -314,6 +316,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         setSceneMessage(`找不到 ${targetName}。`);
         return;
       }
+      followAlanRef.current = false;
       setSelectedElement({ kind: 'player', id: target.id });
       const scene = nearestSchoolLocation(target.position);
       if (scene) setSelectedSceneId(scene.id);
@@ -1088,6 +1091,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
             onSelectCharacter={(id) => {
               const player = game.world.players.get(id);
               const name = game.playerDescriptions.get(id)?.name ?? id;
+              followAlanRef.current = false;
               setSelectedElement({ kind: 'player', id });
               if (player) {
                 const scene = nearestSchoolLocation(player.position);
