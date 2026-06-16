@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 14:18 CDT
+Last updated: 2026-06-16 14:27 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,22 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 14:27 CDT: Alan reported that today's UI still felt unusually
+  flickery / suddenly jumped while playing. The fresh smoke report reproduced
+  the concrete jump path: mobile hit the route-level reconnect fallback because
+  `school:campusSocialState` timed out with `performing too many system
+  operations`, and that non-critical query was still inside the main `Game`
+  render path. Patch: `Game.tsx` now moves `campusSocialState` and
+  `umiBriefing` into a hidden `CampusContextLoader` wrapped by a
+  `SoftQueryBoundary`; successful results update cached parent state, but
+  transient timeout/errors only pause/retry the optional loader instead of
+  remounting the live room. Verification: `npx tsc --noEmit --pretty false`
+  PASS, `npm run build` PASS, `npm run underworld:runtime-preflight` PASS,
+  `git diff --check` PASS, and `npm run underworld:frontend-smoke` PASS 2/2
+  with mobile/desktop live room, no ErrorBoundary, no horizontal overflow, and
+  no hard asset/network failures. Remaining caveat: the known Convex
+  browser-import console warning is still a future-compatibility follow-up,
+  not the root cause of this jump.
 - 2026-06-16 14:18 CDT: Added repeatable frontend visual smoke coverage after
   the transient-reload resilience patch. `npm run underworld:frontend-smoke`
   now launches headless Chrome for mobile 390x844 and desktop 1440x960, waits

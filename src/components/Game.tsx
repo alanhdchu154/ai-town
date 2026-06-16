@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import { Component, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, ErrorInfo, ReactNode } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 
 import { useMutation, useQuery } from 'convex/react';
@@ -75,6 +75,79 @@ type NotebookReflectionsData = {
   }>;
 };
 
+class SoftQueryBoundary extends Component<
+  {
+    children: ReactNode;
+    label: string;
+    resetKey: string;
+    retryDelayMs?: number;
+  },
+  { error: Error | null }
+> {
+  state = { error: null };
+  private retryTimer: number | undefined;
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.warn(`[GIIS soft query boundary] ${this.props.label}`, error, info);
+    this.scheduleRetry();
+  }
+
+  componentDidUpdate(prevProps: { resetKey: string }) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.error) {
+      this.setState({ error: null });
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.retryTimer) window.clearTimeout(this.retryTimer);
+  }
+
+  private scheduleRetry() {
+    if (this.retryTimer) window.clearTimeout(this.retryTimer);
+    this.retryTimer = window.setTimeout(() => {
+      this.retryTimer = undefined;
+      if (this.state.error) this.setState({ error: null });
+    }, this.props.retryDelayMs ?? 4000);
+  }
+
+  render() {
+    if (this.state.error) return null;
+    return this.props.children;
+  }
+}
+
+function CampusContextLoader({
+  load,
+  timeZone,
+  onCampusSocialState,
+  onUmiBriefing,
+}: {
+  load: boolean;
+  timeZone: string;
+  onCampusSocialState: (value: any) => void;
+  onUmiBriefing: (value: any) => void;
+}) {
+  const campusSocialState = useQuery(
+    api.school.campusSocialState,
+    load ? { timeZone } : 'skip',
+  );
+  const umiBriefing = useQuery(api.school.umiBriefing, load ? { timeZone } : 'skip');
+
+  useEffect(() => {
+    if (campusSocialState) onCampusSocialState(campusSocialState);
+  }, [campusSocialState, onCampusSocialState]);
+
+  useEffect(() => {
+    if (umiBriefing) onUmiBriefing(umiBriefing);
+  }, [umiBriefing, onUmiBriefing]);
+
+  return null;
+}
+
 export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const [selectedElement, setSelectedElement] = useState<{
     kind: 'player';
@@ -145,24 +218,8 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const humanConversation = humanPlayer && game ? game.world.playerConversation(humanPlayer) : undefined;
   const isConversationMode = !!humanPlayer && !!humanConversation;
   const shouldLoadCampusContext = !isConversationMode || notebookOpen;
-  const campusSocialStateLive = useQuery(
-    api.school.campusSocialState,
-    shouldLoadCampusContext ? { timeZone: userTimeZone } : 'skip',
-  );
-  const umiBriefingLive = useQuery(
-    api.school.umiBriefing,
-    shouldLoadCampusContext ? { timeZone: userTimeZone } : 'skip',
-  );
-  const campusSocialStateCacheRef = useRef<any>();
-  const umiBriefingCacheRef = useRef<any>();
-  useEffect(() => {
-    if (campusSocialStateLive) campusSocialStateCacheRef.current = campusSocialStateLive;
-  }, [campusSocialStateLive]);
-  useEffect(() => {
-    if (umiBriefingLive) umiBriefingCacheRef.current = umiBriefingLive;
-  }, [umiBriefingLive]);
-  const campusSocialState = campusSocialStateLive ?? campusSocialStateCacheRef.current;
-  const umiBriefing = umiBriefingLive ?? umiBriefingCacheRef.current;
+  const [campusSocialState, setCampusSocialState] = useState<any>();
+  const [umiBriefing, setUmiBriefing] = useState<any>();
   const movementStateKey = useMemo(() => {
     if (!game) return '';
     return [...game.world.players.values()]
@@ -916,6 +973,17 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   return (
     <>
       {SHOW_DEBUG_UI && <DebugTimeManager timeManager={timeManager} width={200} height={100} />}
+      <SoftQueryBoundary
+        label="campus context"
+        resetKey={`${shouldLoadCampusContext ? 'load' : 'skip'}:${userTimeZone}:${notebookOpen ? 'notebook' : 'closed'}`}
+      >
+        <CampusContextLoader
+          load={shouldLoadCampusContext}
+          timeZone={userTimeZone}
+          onCampusSocialState={setCampusSocialState}
+          onUmiBriefing={setUmiBriefing}
+        />
+      </SoftQueryBoundary>
       <div
         className={`giis-switch-shell giis-live-room-shell ${
           currentScene.id === 'aiClubRoom'
