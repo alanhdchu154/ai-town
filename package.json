@@ -65,6 +65,7 @@
     "underworld:repair-gate:self-test": "node scripts/underworld-repair-gate.mjs --self-test",
     "underworld:runtime-preflight": "node scripts/underworld-runtime-preflight.mjs",
     "underworld:runtime-preflight:self-test": "node scripts/underworld-runtime-preflight.mjs --self-test",
+    "underworld:frontend-smoke": "node scripts/underworld-frontend-smoke.mjs",
     "underworld:stale-watchdog": "node scripts/underworld-stale-conversation-watchdog.mjs",
     "underworld:stale-watchdog:write": "node scripts/underworld-stale-conversation-watchdog.mjs --write --confirm=clear-stale-active-conversations",
     "underworld:stale-watchdog:self-test": "node scripts/underworld-stale-conversation-watchdog.mjs --self-test",

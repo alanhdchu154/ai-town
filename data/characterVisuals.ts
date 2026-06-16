@@ -28,12 +28,18 @@ const PORTRAIT_BASE = `${ASSET_BASE}/portraits`;
 const RENDER_BASE = `${ASSET_BASE}/renders`;
 const SPRITE_BASE = `${ASSET_BASE}/sprites`;
 
-function portraitSet(slug: string): Record<PortraitEmotion, string> {
+function portraitSet(
+  slug: string,
+  availableEmotionPortraits: Partial<Record<PortraitEmotion, boolean>> = {},
+): Record<PortraitEmotion, string> {
+  const base = `${PORTRAIT_BASE}/${slug}.png`;
+  const emotionPath = (emotion: PortraitEmotion) =>
+    availableEmotionPortraits[emotion] ? `${PORTRAIT_BASE}/${slug}-${emotion}.png` : base;
   return {
-    neutral: `${PORTRAIT_BASE}/${slug}.png`,
-    smiling: `${PORTRAIT_BASE}/${slug}-smiling.png`,
-    worried: `${PORTRAIT_BASE}/${slug}-worried.png`,
-    serious: `${PORTRAIT_BASE}/${slug}-serious.png`,
+    neutral: base,
+    smiling: emotionPath('smiling'),
+    worried: emotionPath('worried'),
+    serious: emotionPath('serious'),
   };
 }
 
@@ -128,7 +134,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0x2f8a62,
     label: '貓貓',
     portraitPath: `${PORTRAIT_BASE}/maomao.png`,
-    portraitPaths: portraitSet('maomao'),
+    portraitPaths: portraitSet('maomao', { serious: true }),
     renderPath: `${RENDER_BASE}/maomao-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/maomao-neutral.png`,
@@ -157,7 +163,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0x3f6fa8,
     label: '祥子',
     portraitPath: `${PORTRAIT_BASE}/sakiko.png`,
-    portraitPaths: portraitSet('sakiko'),
+    portraitPaths: portraitSet('sakiko', { serious: true }),
     renderPath: `${RENDER_BASE}/sakiko-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/sakiko-neutral.png`,
