@@ -531,8 +531,9 @@ export default function PlayerDetails({
         } 談話。你可以先等待、旁聽校園動態，或改找另一位角色。`
       : undefined;
   const canStartSelectedChat =
+    !!humanPlayer &&
     targetPlayer &&
-    (!humanPlayer || targetPlayer.id !== humanPlayer.id) &&
+    targetPlayer.id !== humanPlayer.id &&
     !humanConversation &&
     !targetConversation;
   const ensureHumanPlayerId = async () => {
@@ -567,6 +568,16 @@ export default function PlayerDetails({
 
   const onStartSelectedConversation = async () => {
     if (!targetPlayer || !canStartSelectedChat) {
+      if (!humanPlayer) {
+        setActiveTab('dialogue');
+        setActionSummary({
+          yourAction: `Alan 想找 ${displayAgentName(targetName)} 說話。`,
+          characterReactions: 'Alan 目前離校中，先接手 Alan 回到校長室。',
+          worldChanges: '校園沒有自動讓 Alan 上線或移動。',
+          futureImplications: '接手 Alan 之後，就可以邀請角色來校長室對話。',
+        });
+        return;
+      }
       if (targetBusyDescription) {
         setActiveTab('dialogue');
         setActionSummary({
@@ -578,7 +589,7 @@ export default function PlayerDetails({
       }
       return;
     }
-    await queueConversationStart(`正在前往 ${displayAgentName(targetName)}`, targetPlayer.id);
+    await queueConversationStart(`邀請 ${displayAgentName(targetName)} 來校長室`, targetPlayer.id);
   };
   const onLeaveSelectedConversation = async () => {
     if (!humanPlayer || !humanConversation) return;
@@ -921,7 +932,7 @@ export default function PlayerDetails({
               runningActionKeys={runningActionKeys}
               playerIdentity={playerIdentity}
               canStartSelectedChat={!!canStartSelectedChat}
-              onTravelToTarget={() => targetName && navigateToCharacter(targetName, true)}
+              onTravelToTarget={() => targetName && navigateToCharacter(targetName, false)}
               onStartConversation={() => void onStartSelectedConversation()}
               onOpenDialogue={() => setActiveTab('dialogue')}
               onKick={() => void onKick()}
@@ -1001,7 +1012,7 @@ export default function PlayerDetails({
   }
   const isMe = humanPlayer && player.id === humanPlayer.id;
   const playerLocation = nearestSchoolLocation(player.position);
-  const canInvite = !isMe && !playerConversation && !humanConversation;
+  const canInvite = !!humanPlayer && !isMe && !playerConversation && !humanConversation;
   const sameConversation =
     !isMe &&
     humanPlayer &&
@@ -1029,7 +1040,7 @@ export default function PlayerDetails({
     if (!playerId) return;
     const inviteeId = playerId;
     await runWithStatus(
-      `正在前往 ${displayAgentName(playerDescription?.name)}`,
+      `邀請 ${displayAgentName(playerDescription?.name)} 來校長室`,
       async () => {
         const alanPlayerId = await ensureHumanPlayerId();
         await startConversationQueued({ playerId: alanPlayerId, invitee: inviteeId });
@@ -1178,7 +1189,7 @@ export default function PlayerDetails({
           disabled={!!runningActionKeys['conversation:start']}
           onClick={onStartConversation}
         >
-          {runningActionKeys['conversation:start'] ? '正在前往...' : '開始對話'}
+          {runningActionKeys['conversation:start'] ? '邀請中...' : '邀請來校長室'}
         </button>
       )}
       {activeTab === 'action' && (schoolLoading || activeActionLabel || queueItems.length) ? (
@@ -1265,7 +1276,7 @@ export default function PlayerDetails({
             runningActionKeys={runningActionKeys}
             playerIdentity={playerIdentity}
             canStartSelectedChat={!!canStartSelectedChat}
-            onTravelToTarget={() => targetName && navigateToCharacter(targetName, true)}
+            onTravelToTarget={() => targetName && navigateToCharacter(targetName, false)}
             onStartConversation={() => void onStartSelectedConversation()}
             onOpenDialogue={() => setActiveTab('dialogue')}
             onKick={() => void onKick()}
@@ -1460,7 +1471,7 @@ function ConversationPanel({
     ? inConversationWithMe
       ? `${targetDisplayName} 正在和 Alan 對話`
       : waitingForNearby
-        ? `Alan 正在靠近 ${targetDisplayName}`
+        ? `${targetDisplayName} 正在前往校長室`
         : waitingForAccept
           ? `等待 ${targetDisplayName} 回應邀請`
           : '對話正在建立中'
@@ -1469,7 +1480,7 @@ function ConversationPanel({
       : unavailableReason
       ? unavailableReason
       : canStart
-      ? `可以開始和 ${targetDisplayName} 說話`
+      ? `可以邀請 ${targetDisplayName} 來校長室`
       : targetName
         ? `${targetDisplayName} 目前沒有在對話中`
         : '選一位角色開始互動';
@@ -1506,7 +1517,7 @@ function ConversationPanel({
             disabled={!!conversationLoadingLabel}
             onClick={() => void onStartConversation()}
           >
-            {conversationLoadingLabel ? '正在前往...' : '開始說話'}
+            {conversationLoadingLabel ? '邀請中...' : '邀請來校長室'}
           </button>
         ) : null}
       </header>
@@ -1553,14 +1564,14 @@ function ConversationPanel({
                 {unavailableReason
                   ? '對方正在對話中。'
                   : canStart
-                    ? '可以開始對話。'
+                    ? '可以邀請對話。'
                     : '目前沒有進行中的對話。'}
               </b>
               <p>
                 {unavailableReason
                   ? unavailableReason
                   : canStart
-                  ? `Alan 可以直接找 ${targetDisplayName} 說話。`
+                  ? `Alan 會留在校長室，邀請 ${targetDisplayName} 過來對話。`
                   : '先在場景或角色卡選一位角色，這裡會顯示對話狀態。'}
               </p>
             </div>
@@ -1693,7 +1704,7 @@ function ConversationPanel({
             disabled={!!conversationLoadingLabel}
             onClick={() => setShowWakePrompt(true)}
           >
-            {canWakeAtNight ? (conversationLoadingLabel ? '正在前往...' : '開始說話') : '夜間互動'}
+            {canWakeAtNight ? (conversationLoadingLabel ? '邀請中...' : '輕聲邀請') : '夜間互動'}
           </button>
         ) : null}
         {canStart && isLateNight && showWakePrompt ? (
@@ -1705,7 +1716,7 @@ function ConversationPanel({
                 disabled={!!conversationLoadingLabel}
                 onClick={() => void onStartConversation()}
               >
-                {conversationLoadingLabel ? '正在前往...' : '輕聲叫醒'}
+                {conversationLoadingLabel ? '邀請中...' : '輕聲邀請'}
               </button>
             ) : null}
             <button className="action-pill" onClick={() => setShowWakePrompt(false)}>
@@ -1886,7 +1897,7 @@ function CharacterRosterPanel({
       <div className="giis-roster-brief">
         <span className="giis-kicker">角色</span>
         <h3>找人與角色互動</h3>
-        <p>選一位角色，再前往、開始說話或採取行動。</p>
+        <p>選一位角色查看所在地；要談話時，邀請對方來校長室。</p>
       </div>
       <div className="giis-roster-list">
         {names.map((name) => {
@@ -1984,18 +1995,23 @@ function CharacterActionPanel({
             <p>「{displayTextWithNames(targetFocus || defaultConcern(targetName))}」</p>
           </div>
           <p className="giis-character-actions-hint">
-            常用互動（聊天 / 關心 / 問傳聞 / 送禮 / 留訊息 / 邀請）已搬到底部互動列。
+            找到角色只會切換觀察視角；要談話時，Alan 會留在校長室邀請對方過來。
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button className="action-pill action-pill-active" onClick={onTravelToTarget}>
-              前往所在地
+              查看所在地
             </button>
             <button
               className="action-pill action-pill-active"
               disabled={!canStartSelectedChat || !!runningActionKeys['conversation:start']}
               onClick={onStartConversation}
+              title={
+                canStartSelectedChat
+                  ? `邀請 ${targetDisplayName} 來校長室對話`
+                  : 'Alan 離校、正在對話，或對方正在談話時不能邀請。'
+              }
             >
-              {runningActionKeys['conversation:start'] ? '正在前往...' : '開始說話'}
+              {runningActionKeys['conversation:start'] ? '邀請中...' : '邀請來校長室'}
             </button>
             <button className="action-pill" onClick={onOpenDialogue}>
               看對話紀錄

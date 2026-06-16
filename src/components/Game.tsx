@@ -421,6 +421,98 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   const selectedStatus = selectedPlayer?.pathfinding
     ? `正在前往${selectedDestination?.labelZh ?? '目的地'}`
     : selectedPlayer?.activity?.description ?? '正在觀察今天的校園心情';
+  const selectedConversation = selectedPlayer ? game.world.playerConversation(selectedPlayer) : undefined;
+  const selectedBusyConversation =
+    selectedConversation && selectedConversation.id !== humanConversation?.id ? selectedConversation : undefined;
+  const selectedBusyNames = selectedBusyConversation
+    ? [...selectedBusyConversation.participants.keys()]
+        .filter((participantId) => participantId !== selectedPlayer?.id)
+        .map((participantId) =>
+          displayAgentName(game.playerDescriptions.get(participantId)?.name ?? participantId),
+        )
+        .join('、')
+    : '';
+  const selectedDisplayName = selectedName ? displayAgentName(selectedName) : '';
+  const selectedConversationCta = (() => {
+    if (!selectedName || !selectedPlayer) {
+      return {
+        disabled: true,
+        label: '選一位角色',
+        status: '未選擇',
+        title: '先選擇一位角色。',
+        helper: '先選一位角色，海會幫你判斷要直接聊還是邀請來校長室。',
+        toast: '先選一位角色。',
+      };
+    }
+    if (selectedName === 'Alan') {
+      return {
+        disabled: true,
+        label: '這是 Alan',
+        status: '本人',
+        title: '這是 Alan 自己。',
+        helper: '這是 Alan 自己；請選其他角色開始對話。',
+        toast: '請選其他角色開始對話。',
+      };
+    }
+    if (!humanPlayer || playerIdentity?.status === 'away') {
+      return {
+        disabled: true,
+        label: '先接手 Alan',
+        status: 'Alan 離校',
+        title: 'Alan 離校中，先按「接手 Alan」回到校長室。',
+        helper: `Alan 離校中；先接手 Alan，再邀請 ${selectedDisplayName} 來校長室。`,
+        toast: `先接手 Alan，再邀請 ${selectedDisplayName} 來校長室。`,
+      };
+    }
+    if (humanConversation) {
+      return {
+        disabled: true,
+        label: '先結束目前對話',
+        status: '對話中',
+        title: '正在對話中，先離開目前對話才能找下一位角色。',
+        helper: '正在對話中；先離開目前對話，再找下一位角色。',
+        toast: '正在對話中。請先結束目前對話，再邀請下一位角色。',
+      };
+    }
+    if (selectedBusyConversation) {
+      return {
+        disabled: true,
+        label: '對方正在談話',
+        status: '對方忙碌',
+        title: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話。`,
+        helper: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話；等一下再邀請會比較自然。`,
+        toast: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話，先不要打斷。`,
+      };
+    }
+    if (targetDistanceStatus === '不在同場景') {
+      return {
+        disabled: false,
+        label: `邀請 ${selectedDisplayName}`,
+        status: '可邀請來校長室',
+        title: `邀請 ${selectedDisplayName} 來校長室對話。`,
+        helper: `${selectedDisplayName} 在${selectedLocation?.labelZh ?? '其他場景'}；按下後會被邀請來校長室。`,
+        toast: `已邀請 ${selectedDisplayName} 來校長室，對方正在靠近。`,
+      };
+    }
+    if (targetDistanceStatus === '附近') {
+      return {
+        disabled: false,
+        label: '直接對話',
+        status: '可直接對話',
+        title: `直接和 ${selectedDisplayName} 開始對話。`,
+        helper: `${selectedDisplayName} 和 Alan 在同一場景附近，可以直接開始對話。`,
+        toast: `正在和 ${selectedDisplayName} 開始對話。`,
+      };
+    }
+    return {
+      disabled: false,
+      label: `請 ${selectedDisplayName} 靠近`,
+      status: '同場景稍遠',
+      title: `請 ${selectedDisplayName} 靠近後開始對話。`,
+      helper: `${selectedDisplayName} 和 Alan 在同一場景但距離稍遠；系統會先讓對方靠近。`,
+      toast: `已請 ${selectedDisplayName} 靠近 Alan，準備開始對話。`,
+    };
+  })();
   const periodLabel = clockState?.periodLabelZh ?? '讀取中';
   // Visual cue for time of day. Scene tone already shifts with period,
   // but a glyph in the topbar lets the player read it without parsing
@@ -598,25 +690,19 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
       return;
     }
     if (actionType === 'chat' && selectedName && selectedName !== 'Alan') {
-      if (!humanPlayer) {
-        setSceneMessage(`先接手 Alan，再邀請 ${displayAgentName(selectedName)} 來校長室。`);
+      if (selectedConversationCta.disabled) {
+        setSceneMessage(selectedConversationCta.toast);
         return;
       }
-      if (humanConversation) {
-        setSceneMessage('正在對話中。請先結束目前對話，再邀請下一位角色。');
-        return;
+      if (targetDistanceStatus === '不在同場景') {
+        const principalOffice = SchoolLocations.find((location) => location.id === ALAN_HOME_SCENE_ID);
+        if (principalOffice) {
+          followAlanRef.current = false;
+          setSelectedSceneId(principalOffice.id);
+          window.setTimeout(() => focusOn(principalOffice.position, 1.28), 60);
+        }
       }
-      const principalOffice = SchoolLocations.find((location) => location.id === ALAN_HOME_SCENE_ID);
-      if (principalOffice) {
-        followAlanRef.current = false;
-        setSelectedSceneId(principalOffice.id);
-        window.setTimeout(() => focusOn(principalOffice.position, 1.28), 60);
-      }
-      setSceneMessage(
-        targetDistanceStatus === '不在同場景'
-          ? `已邀請 ${displayAgentName(selectedName)} 來校長室，對方正在靠近。`
-          : `Alan 正在和 ${displayAgentName(selectedName)} 開始對話。`,
-      );
+      setSceneMessage(selectedConversationCta.toast);
     }
     setQuickTextAction(undefined);
     setQuickText('');
@@ -761,11 +847,13 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     { label: '進入', state: humanPlayer ? 'done' : 'active' },
     { label: '選人', state: selectedName ? 'done' : humanPlayer ? 'active' : 'pending' },
     {
-      label: targetDistanceStatus === '不在同場景' ? '邀請' : '靠近',
+      label: selectedConversationCta.disabled ? '確認' : targetDistanceStatus === '不在同場景' ? '邀請' : '對話',
       state:
         !selectedName
           ? 'pending'
-          : targetDistanceStatus === '附近' || isConversationMode
+          : selectedConversationCta.disabled && !isConversationMode
+            ? 'active'
+            : targetDistanceStatus === '附近' || isConversationMode
             ? 'done'
             : 'active',
     },
@@ -942,7 +1030,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                       onCollapse={() => setNotebookOpen(false)}
                       onExpand={() => setNotebookOpen(true)}
                       onOpenDialogue={() => {
-                        window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi', travel: true } }));
+                        window.dispatchEvent(new CustomEvent('giis:navigate-character', { detail: { name: 'Umi' } }));
                         openPanelTab('dialogue');
                       }}
                     />
@@ -1032,45 +1120,22 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                   {selectedLocation?.labelZh ? (
                     <small>
                       在 {selectedLocation.labelZh}
-                      {targetDistanceStatus === '附近'
-                        ? '・附近'
-                        : targetDistanceStatus === '不在同場景'
-                          ? '・不在同場景'
-                          : ''}
+                      {selectedConversationCta.status ? `・${selectedConversationCta.status}` : ''}
                     </small>
                   ) : null}
                 </div>
               </div>
               <p className="giis-focus-card-status">「{selectedStatus}。」</p>
+              <p className="giis-focus-card-guidance">{selectedConversationCta.helper}</p>
               <div className="giis-focus-card-actions">
-                {targetDistanceStatus === '不在同場景' ? (
-                  <button
-                    className="giis-action-pill giis-action-pill-primary"
-                    title={`邀請 ${displayAgentName(selectedName)} 來校長室對話`}
-                    disabled={!humanPlayer}
-                    onClick={() => runQuickAction('chat')}
-                  >
-                    邀請 {displayAgentName(selectedName)}
-                  </button>
-                ) : (
-                  <button
-                    className="giis-action-pill giis-action-pill-primary"
-                    title={ACTION_TOOLTIPS.chat}
-                    disabled={!humanPlayer}
-                    onClick={() => {
-                      // Immediate feedback: starting a conversation involves
-                      // walking over + engine accept, which can take ~10s with
-                      // no visible change — without this toast the click feels
-                      // dead and users click again.
-                      setSceneMessage(
-                        `Alan 正在走向 ${displayAgentName(selectedName)}，準備開始對話…`,
-                      );
-                      runQuickAction('chat');
-                    }}
-                  >
-                    說話
-                  </button>
-                )}
+                <button
+                  className="giis-action-pill giis-action-pill-primary"
+                  title={selectedConversationCta.title}
+                  disabled={selectedConversationCta.disabled}
+                  onClick={() => runQuickAction('chat')}
+                >
+                  {selectedConversationCta.label}
+                </button>
                 <button
                   className="giis-action-pill"
                   title="打開角色資料 / 完整互動選項"
@@ -1111,7 +1176,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               <span>
                 {isConversationMode ? '對話中' : '目標'}：{displayAgentName(selectedName)}
                 {selectedLocation?.labelZh ? `｜${selectedLocation.labelZh}` : ''}
-                {targetDistanceStatus === '附近' ? '｜附近' : targetDistanceStatus === '不在同場景' ? '｜不在同場景' : ''}
+                {selectedConversationCta.status ? `｜${selectedConversationCta.status}` : ''}
               </span>
             ) : (
               <span className="giis-soft-prompt">選一位角色開始互動。</span>
@@ -1140,16 +1205,12 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 <button
                   className="giis-action-pill giis-action-pill-primary"
                   title={
-                    targetDistanceStatus === '不在同場景'
-                      ? `邀請 ${displayAgentName(selectedName)} 來校長室對話`
-                      : ACTION_TOOLTIPS.chat
+                    selectedConversationCta.title
                   }
                   onClick={() => runQuickAction('chat')}
-                  disabled={!humanPlayer || !targetDistanceStatus || targetDistanceStatus === '找不到角色'}
+                  disabled={selectedConversationCta.disabled}
                 >
-                  {targetDistanceStatus === '不在同場景'
-                    ? `邀請 ${displayAgentName(selectedName)}`
-                    : `聊聊 ${displayAgentName(selectedName)}`}
+                  {selectedConversationCta.label}
                 </button>
               </>
             ) : null}
