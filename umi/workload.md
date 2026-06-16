@@ -1,88 +1,98 @@
-# CC Workload - Mobile Conversation Flow QA
+# CC Workload - Frontend Market-Readiness Audit
 
-Time anchor: 2026-06-16 10:30 America/Chicago
+Time anchor: 2026-06-16 13:00 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
-Model target: sonnet
-Mode: Split-work, read-only verification/review
+Model target: opus
+Mode: Split-work, read-only findings-first frontend audit
 
 ## Task ID
 
-underworld-mobile-conversation-flow-20260616
+underworld-frontend-market-readiness-20260616
 
 ## Context
 
-Alan reported two mobile UX issues:
+Alan asked: "你重複前端有沒有什麼其他問題呢？你拉上cc一起討論。把前端優化到可以上市"
 
-- Mobile can crop character heads, especially in conversation mode.
-- The conversation flow is confusing: when can Alan talk directly, when should
-  he invite someone to the principal office, and why are some buttons disabled?
+This is not a tiny copy tweak. Treat it as a product/frontend readiness review
+for the `/ai-town` experience, especially the current Scene Mode / mobile /
+conversation flow. Do not redefine "上市" as "build passes"; find the issues
+that would still make the product feel unstable, confusing, or unpolished.
 
-Umi implemented a scoped frontend patch before this handoff:
+Current evidence:
 
-- `src/components/Game.tsx`
-  - Added one selected-character conversation CTA model.
-  - CTA states now explain: Alan away, already in conversation, target busy,
-    invite to principal office, direct conversation, or same-scene approach.
-  - Focus card and bottom action use the same label/disabled/title/helper.
-  - "Find/dialogue" style navigation no longer secretly uses `travel: true`
-    from the Umi notebook path.
-- `src/components/PlayerDetails.tsx`
-  - Requires Alan to be online before selected-character invite buttons enable.
-  - Renamed right-panel actions toward "invite to principal office" language.
-  - Changed character "go to location" behavior to view/focus only.
-- `src/index.css`
-  - Enlarged mobile scene standee portrait slots.
-  - Enlarged active conversation portrait header and removed hidden overflow
-    that could crop heads.
-
-Verification already run by Umi:
-
-- `npm run build` passed.
-- In-app browser mobile viewport partial QA:
-  - Loaded `/ai-town` at mobile width.
-  - Selected 海 while Alan was away.
-  - Confirmed focus card and bottom CTA showed disabled `先接手 Alan`.
-  - After waiting for `接手 Alan`, confirmed state changed to Alan in
-    校長室 and selected 海 CTA became `邀請 海`.
-  - Browser automation became unstable after further interaction, so the active
-    conversation portrait needs independent review.
+- Repo is clean at task start.
+- Recent UI patches landed:
+  - `79947cd3 Improve mobile conversation flow`
+  - `b33cd6de Allow offline Alan invite flow`
+  - `a36ad127 Reduce scene focus jumps`
+- `npm run build` passed after those changes.
+- Runtime preflight passed after a 12:41-12:44 CDT local Convex instability
+  window.
+- Logs during that window showed `Too many concurrent requests`, query
+  timeouts, `saveWorld` failure, `restartDeadWorlds`, and one
+  `generationNumber mismatch`. That may be backend pressure, not pure UI.
+- Frontend focus jump patch reduced one UI-side cause: action-cinematic now
+  refocuses Alan only while Alan-follow mode is active, and selecting/finding
+  characters disables Alan-follow mode.
+- Umi first look suspects duplicate/heavy subscriptions between `Game.tsx` and
+  `PlayerDetails.tsx` may contribute to query pressure and flicker.
 
 ## Read First
 
+- `WORKLOG.md` row 7 and current snapshot
+- `docs/giis-v0.1-roadmap.md`
+- `src/App.tsx`
 - `src/components/Game.tsx`
 - `src/components/PlayerDetails.tsx`
+- `src/components/SceneStage.tsx`
+- `src/components/Messages.tsx`
+- `src/components/MessageInput.tsx`
+- `src/components/ConversationWall.tsx`
 - `src/index.css`
-- `WORKLOG.md`
-- `docs/giis-v0.1-roadmap.md`
+- `src/hooks/serverGame.ts`
+- `src/hooks/useWorldHeartbeat.ts`
 
-You may inspect nearby files if needed, but avoid broad scans.
+You may inspect adjacent frontend files, Convex query definitions, and recent
+reports/logs only as needed. Avoid broad repo scans unless a finding requires
+it.
 
 ## Questions For CC
 
-Read-only findings-first review:
+Findings-first, read-only:
 
-1. Does the new CTA model make the flow coherent?
-2. Are there remaining entry points where Alan can still be auto-moved or
-   auto-brought online when the UI says he should stay in the principal office?
-3. Are there remaining labels like "start talking", "walking over", or
-   "go to location" that conflict with the invite-to-office model?
-4. Does the mobile CSS change plausibly prevent head cropping in scene standees
-   and active conversation headers without creating obvious overlap?
-5. Any TypeScript/runtime bug risk in the changed files?
+1. What frontend issues still block a "market-ready" feel?
+2. Which issues are P0/P1 because they cause flicker, jumpiness, broken mobile
+   layout, confusing interaction flow, accidental backend pressure, or lost
+   user input?
+3. Are there duplicate or heavy subscriptions in the main world view that could
+   be reduced without changing product behavior?
+4. Are there view-state bugs where the UI can unexpectedly reset scene,
+   selected character, panel state, scroll position, active tab, or route?
+5. Are there mobile layout/accessibility/readability problems likely to show up
+   on iPhone-size screens?
+6. Are there stale labels or mode conflicts remaining after the invite/focus
+   patches?
+7. What are the smallest high-confidence code changes Codex should implement
+   first to move the frontend closer to launch quality?
 
 ## Constraints
 
 - Read-only. Do not modify files.
-- Do not run watch/dev servers or broad eval suites.
-- You may run `npm run build` if you need verification, but Umi already ran it.
+- Do not run watch/dev servers.
 - Do not mutate Convex data or local runtime state.
-- Keep output concise and actionable.
+- You may run static commands like `npm run build`, `git grep`/`rg`, or
+  targeted file reads. Avoid broad eval suites.
+- Keep advice practical and prioritized. Alan wants a product that feels good,
+  not an infinite refactor list.
 
 ## Expected Output
 
 Return:
 
-1. Verdict: pass / pass with caveats / fail.
-2. Top findings with file/line references.
-3. Any recommended small follow-up before commit.
-4. Verification commands run or skipped.
+1. Verdict: launch-ready / not launch-ready / launch-ready with caveats.
+2. P0/P1 frontend blockers with file/line references and why they matter to a
+   user.
+3. P2 polish items that are worth doing later.
+4. Recommended first implementation batch, sized to one Codex turn.
+5. Verification commands you ran or intentionally skipped.
+6. Any risk where frontend symptoms are actually backend/runtime pressure.

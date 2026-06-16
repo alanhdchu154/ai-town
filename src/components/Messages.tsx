@@ -126,6 +126,17 @@ export function Messages({
   const getScrollView = () => conversationLogRef.current ?? scrollViewRef.current;
   const isScrolledToBottom = useRef(false);
   const initializedScroll = useRef(false);
+  const messageScrollKey = useMemo(
+    () =>
+      (messages ?? [])
+        .map((message: any) => `${message.messageUuid ?? message._id}:${message._creationTime}`)
+        .join('|'),
+    [messages],
+  );
+  const pendingScrollKey = useMemo(
+    () => pendingMessages.map((message) => message.messageUuid).join('|'),
+    [pendingMessages],
+  );
   useEffect(() => {
     initializedScroll.current = false;
     isScrolledToBottom.current = true;
@@ -170,7 +181,7 @@ export function Messages({
         window.clearTimeout(timeout);
       };
     }
-  }, [messages, currentlyTyping, pendingMessages.length, awaitingReply?.since, conversation.doc.id]);
+  }, [messageScrollKey, pendingScrollKey, awaitingReply?.since, conversation.doc.id]);
 
   if (messages === undefined) {
     return null;

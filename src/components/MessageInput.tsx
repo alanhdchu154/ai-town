@@ -33,6 +33,11 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function shouldAutoFocusChatInput() {
+  if (typeof window === 'undefined') return false;
+  return !window.matchMedia('(pointer: coarse), (max-width: 700px)').matches;
+}
+
 export function MessageInput({
   worldId,
   engineId,
@@ -77,6 +82,11 @@ export function MessageInput({
   const focusInput = () => inputRef.current?.focus({ preventScroll: true });
 
   useEffect(() => {
+    setText('');
+    inflightUuid.current = undefined;
+    sendingRef.current = false;
+    setSending(false);
+    if (!shouldAutoFocusChatInput()) return undefined;
     const handle = window.setTimeout(() => focusInput(), 80);
     return () => window.clearTimeout(handle);
   }, [conversation.id]);

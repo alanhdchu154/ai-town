@@ -263,6 +263,10 @@ export default function PlayerDetails({
   currentScene,
   scenePlayers = [],
   clockState,
+  humanTokenIdentifier,
+  playerIdentity,
+  umiBriefing,
+  campusSocialState,
 }: {
   worldId: Id<'worlds'>;
   engineId: Id<'engines'>;
@@ -273,16 +277,16 @@ export default function PlayerDetails({
   currentScene?: SchoolLocation;
   scenePlayers?: Array<{ id: GameId<'players'>; name: string }>;
   clockState?: any;
+  humanTokenIdentifier?: string | null;
+  playerIdentity?: any;
+  umiBriefing?: any;
+  campusSocialState?: any;
 }) {
   const convex = useConvex();
-  const humanTokenIdentifier = useQuery(api.world.userStatus, { worldId });
-  const playerIdentity = useQuery(api.school.currentPlayerIdentity);
   const userTimeZone = useMemo(
     () => Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Chicago',
     [],
   );
-  const umiBriefing = useQuery(api.school.umiBriefing, { timeZone: userTimeZone });
-  const campusSocialState = useQuery(api.school.campusSocialState, { timeZone: userTimeZone });
   const worldClockState = clockState;
 
   const players = [...game.world.players.values()];
@@ -1412,10 +1416,19 @@ function ConversationPanel({
   // absent to present. Subsequent re-renders keep the user's manual tab.
   const hadActiveConversationRef = useRef(!!humanConversation);
   useEffect(() => {
+    setHistoryFilter('今天');
+    setSelectedHistoryThreadId(undefined);
+    setShowWakePrompt(false);
+    setConversationTab(humanConversation ? 'current' : 'history');
+    hadActiveConversationRef.current = !!humanConversation;
+  }, [targetName]);
+  useEffect(() => {
     const hasNow = !!humanConversation;
     if (hasNow && !hadActiveConversationRef.current) {
       setConversationTab('current');
-      window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
+      window.requestAnimationFrame(() =>
+        scrollViewRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' }),
+      );
     }
     hadActiveConversationRef.current = hasNow;
   }, [humanConversation]);

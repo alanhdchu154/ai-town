@@ -1292,6 +1292,10 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
               name: game.playerDescriptions.get(player.id)?.name ?? player.id,
             }))}
             clockState={clockState}
+            humanTokenIdentifier={humanTokenIdentifier ?? null}
+            playerIdentity={playerIdentity}
+            umiBriefing={umiBriefing}
+            campusSocialState={campusSocialState}
           />
         </div>
       </div>
