@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 14:41 CDT
+Last updated: 2026-06-16 14:55 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,24 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 14:55 CDT: cc mobile-flow gate review
+  `umi/reports/20260616T195319Z-workload.md` found no P0 after `82dad797` and
+  recommended extending the existing frontend smoke with a non-mutating
+  select-visible-character step rather than creating a separate script. Patch:
+  `underworld:frontend-smoke` now clicks the first visible non-Alan standee in
+  each viewport, verifies a selected character, bottom status `目標`, visible
+  mobile helper / desktop focus card, and a visible primary CTA, while still
+  avoiding all action/CTA buttons that would mutate Convex state or trigger LLM
+  work. The stricter gate now fails on any hard console issue; this immediately
+  exposed a React duplicate-key warning from `playFlowSteps` when two steps both
+  used label `對話`, fixed by keying flow steps with label+index. Verification:
+  `npm run underworld:frontend-smoke` PASS 3/3 with mobile 390x844,
+  small-mobile 360x640, and desktop 1440x960 all selecting 一之瀨, showing the
+  invite/wake- Alan helper/CTA, `consoleIssues=0`, and no horizontal overflow;
+  `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `npm run underworld:runtime-preflight` PASS, and `git diff --check` PASS.
+  This still does not replace Alan's real mobile/touch acceptance, but it now
+  proves the main read-only selection path rather than only passive page mount.
 - 2026-06-16 14:41 CDT: Residual frontend market-readiness cc review
   `umi/reports/20260616T193516Z-workload.md` found no P0 after `4abe717e` and
   confirmed the main P1 was the Convex browser-import warning in frontend

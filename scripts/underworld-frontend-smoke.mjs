@@ -87,6 +87,62 @@ async function evaluate(send, expression) {
   return result.result.value;
 }
 
+async function runReadOnlySelectionCheck(send, viewport) {
+  await evaluate(
+    send,
+    `(() => {
+      const standees = [...document.querySelectorAll('.giis-scene-standee')];
+      const target = standees.find((button) =>
+        !button.classList.contains('is-alan') &&
+        !button.classList.contains('is-offscene') &&
+        button.textContent.trim().length > 0
+      );
+      if (!target) return false;
+      target.click();
+      return true;
+    })()`,
+  );
+  await sleep(300);
+  return evaluate(
+    send,
+    `(() => {
+      const selected = document.querySelector('.giis-scene-standee.is-selected');
+      const bottomStatus = document.querySelector('.giis-bottom-status');
+      const helper = document.querySelector('.giis-bottom-helper');
+      const focusCard = document.querySelector('.giis-focus-card');
+      const primaryButtons = [...document.querySelectorAll('.giis-action-pill-primary')]
+        .map((button) => ({
+          text: button.textContent.trim(),
+          disabled: button.disabled,
+          visible: !!(button.offsetWidth || button.offsetHeight || button.getClientRects().length),
+        }))
+        .filter((button) => button.visible);
+      const helperVisible = helper
+        ? !!(helper.offsetWidth || helper.offsetHeight || helper.getClientRects().length)
+        : false;
+      const focusCardVisible = focusCard
+        ? !!(focusCard.offsetWidth || focusCard.offsetHeight || focusCard.getClientRects().length)
+        : false;
+      const helperText = helper?.textContent.trim() ?? '';
+      const bottomStatusText = bottomStatus?.textContent.trim() ?? '';
+      return {
+        selectedName: selected?.querySelector('.giis-scene-standee-name-row b')?.textContent.trim() ?? '',
+        selected: !!selected,
+        bottomStatusText,
+        helperText,
+        helperVisible,
+        focusCardVisible,
+        primaryButtons,
+        ok:
+          !!selected &&
+          bottomStatusText.includes('目標') &&
+          primaryButtons.some((button) => button.text.length > 0) &&
+          (${viewport.mobile ? 'helperVisible && helperText.length > 0' : 'focusCardVisible'})
+      };
+    })()`,
+  );
+}
+
 async function smokeViewport(viewport, index) {
   const port = 9400 + index;
   const profileDir = path.join(os.tmpdir(), `underworld-frontend-smoke-${Date.now()}-${index}`);
@@ -179,6 +235,7 @@ async function smokeViewport(viewport, index) {
       if (state.live) break;
     } while (Date.now() < deadline);
 
+    const selectionCheck = state?.live ? await runReadOnlySelectionCheck(send, viewport) : null;
     const screenshot = await send('Page.captureScreenshot', { format: 'png' });
     const screenshotPath = path.join(REPORT_DIR, `frontend-smoke-${viewport.name}-latest.png`);
     fs.writeFileSync(screenshotPath, Buffer.from(screenshot.data, 'base64'));
@@ -188,8 +245,15 @@ async function smokeViewport(viewport, index) {
       state?.viewport?.scrollWidth > state?.viewport?.innerWidth + 2;
     return {
       viewport,
-      ok: Boolean(state?.live) && !state?.loading && !horizontalOverflow && badNetwork.length === 0,
+      ok:
+        Boolean(state?.live) &&
+        !state?.loading &&
+        !horizontalOverflow &&
+        badNetwork.length === 0 &&
+        hardConsoleIssues.length === 0 &&
+        selectionCheck?.ok === true,
       state,
+      selectionCheck,
       screenshotPath,
       badNetwork,
       consoleIssues: hardConsoleIssues,

@@ -1283,7 +1283,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         <div className="giis-bottom-bar">
           <div className="giis-play-flow" aria-label="目前互動流程">
             {playFlowSteps.map((step, index) => (
-              <span key={step.label} className={`giis-play-step giis-play-step-${step.state}`}>
+              <span key={`${step.label}-${index}`} className={`giis-play-step giis-play-step-${step.state}`}>
                 <b>{index + 1}</b>
                 {step.label}
               </span>
