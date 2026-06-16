@@ -3,7 +3,8 @@ import {
   shouldRunAgentGenerationForTest,
   shouldRunAgentRememberForTest,
 } from './agentOperations';
-import { shouldQueueConversationMemoryOnStop } from './conversation';
+import { shouldClearGenerationBackoffForAuthor, shouldQueueConversationMemoryOnStop } from './conversation';
+import { GameId } from './ids';
 
 describe('agent schedule movement', () => {
   test('is enabled by default so daytime scenes can gather characters', () => {
@@ -119,6 +120,29 @@ describe('conversation stop memory queue policy', () => {
   test('queues memory when the final message came from a character', () => {
     expect(
       shouldQueueConversationMemoryOnStop({ hasMessages: true, lastAuthorIsHuman: false }),
+    ).toBe(true);
+  });
+});
+
+describe('generation backoff marker clearing', () => {
+  const ichinose = 'p:2' as GameId<'players'>;
+  const alan = 'p:11' as GameId<'players'>;
+
+  test('does not clear a character backoff marker when Alan sends another message', () => {
+    expect(
+      shouldClearGenerationBackoffForAuthor(
+        { playerId: ichinose, timestamp: 1_000_000 },
+        alan,
+      ),
+    ).toBe(false);
+  });
+
+  test('clears a character backoff marker when that character successfully replies', () => {
+    expect(
+      shouldClearGenerationBackoffForAuthor(
+        { playerId: ichinose, timestamp: 1_000_000 },
+        ichinose,
+      ),
     ).toBe(true);
   });
 });

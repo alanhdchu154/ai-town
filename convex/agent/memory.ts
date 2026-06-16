@@ -392,7 +392,16 @@ export function hasUnansweredHumanTailForMemory(
   const characterReplies = meaningful.filter(
     (message) => !humanPlayerIds.has(message.author),
   ).length;
-  return characterReplies < 2;
+  if (characterReplies < 2) return true;
+  return finalHumanLineStillNeedsReply(last.text);
+}
+
+function finalHumanLineStillNeedsReply(text: string) {
+  const normalized = text.trim();
+  if (!normalized) return false;
+  if (/[？?]\s*$/.test(normalized)) return true;
+  if (/(嗎|呢|麻)\s*[。！!…]*$/.test(normalized)) return true;
+  return /(?:記住|記得|有約|約好了|答應|告訴我|說吧)/.test(normalized);
 }
 
 export function concreteCommitmentSummaryForMessages(
@@ -426,7 +435,7 @@ export function concreteCommitmentSummaryForMessages(
 
   // Pass 1: acceptance-anchored. Someone closed with a clean commitment
   // response ("好", "我會", ...).
-  for (let index = 0; index < normalizedMessages.length; index += 1) {
+  for (let index = normalizedMessages.length - 1; index >= 0; index -= 1) {
     const message = normalizedMessages[index];
     if (!looksLikeCommitmentResponse(message.text)) continue;
     const windowMessages = normalizedMessages.slice(Math.max(0, index - 4), index + 1);
@@ -481,7 +490,8 @@ export function concreteCommitmentSummaryForMessages(
 // First-person making verb — "我煮…", "我來做…", "我會準備…". Used both to find
 // the real promiser behind an acceptance line and to detect offers that were
 // never explicitly accepted.
-const COMMITMENT_OFFER_PATTERN = /我(?:來|會|再)?\s*(?:煮|做|準備|帶)/;
+const COMMITMENT_OFFER_PATTERN =
+  /我(?:來|會|再)?\s*(?:煮|做|準備|帶)|我.{0,32}(?:準備|帶|塞了?|放了?).{0,24}(?:一杯|兩杯|午餐|便當|珍珠奶茶|奶茶|咖哩)|(?:一杯少糖|一杯正常甜|你選哪一杯)/;
 
 const COMMITMENT_WEEKDAYS_ZH = ['日', '一', '二', '三', '四', '五', '六'];
 
@@ -516,6 +526,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // not understand; callers then keep the relative wording only.
 export function resolveCommitmentDueAt(time: string, saidAt: number, timeZone = 'America/Chicago') {
   const saidWeekday = chicagoDateParts(saidAt, timeZone).weekday;
+  if (time === '明天午休') return saidAt + DAY_MS;
   if (time === '明天') return saidAt + DAY_MS;
   if (time === '週末') {
     // Already Sat/Sun -> this weekend (same day); otherwise the coming Saturday.
@@ -567,7 +578,7 @@ export function commitmentIsExpired(
 }
 
 function normalizeTraditionalFoodText(text: string) {
-  return text.replace(/咖喱/g, '咖哩').replace(/麻/g, '嗎');
+  return text.replace(/咖喱/g, '咖哩').replace(/珍珠奶查/g, '珍珠奶茶').replace(/麻/g, '嗎');
 }
 
 function looksLikeCommitmentResponse(text: string) {
@@ -583,37 +594,53 @@ function commitmentObjectFromText(text: string) {
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean);
-  for (const line of [...lines].reverse()) {
-    if (!/咖哩(?:飯)?/.test(line)) continue;
-    if (lineRejectsCommitmentObject(line)) continue;
-    if (lineAsksOnlyAboutPriorCommitment(line)) continue;
-    if (lineSupportsCommitmentObject(line)) return '咖哩飯';
+  // Prefer more specific objects over the container/meal around them. In
+  // "明天午休帶便當盒 + 珍珠奶茶" the memorable promise is the tea, not the box.
+  for (const object of ['珍珠奶茶', '午餐', '便當', '咖哩飯']) {
+    for (const line of [...lines].reverse()) {
+      if (!lineContainsCommitmentObject(line, object)) continue;
+      if (lineRejectsCommitmentObject(line, object)) continue;
+      if (lineAsksOnlyAboutPriorCommitment(line, object)) continue;
+      if (lineSupportsCommitmentObject(line, object)) return object;
+    }
   }
   return '';
 }
 
-function lineRejectsCommitmentObject(line: string) {
-  return /(?:先不要|不要|不用|不吃|不能|不必|算了|先別|改天|下次).{0,16}咖哩(?:飯)?|咖哩(?:飯)?.{0,16}(?:先不要|不要|不用|不吃|不能|不必|算了|先別|改天|下次)/.test(
-    line,
-  );
+function lineContainsCommitmentObject(line: string, object: string) {
+  return new RegExp(objectPattern(object)).test(line);
 }
 
-function lineAsksOnlyAboutPriorCommitment(line: string) {
-  return /咖哩(?:飯)?的約定/.test(line) && /[？?嗎]/.test(line) && !COMMITMENT_OFFER_PATTERN.test(line);
+function objectPattern(object: string) {
+  if (object === '珍珠奶茶') return '(?:珍珠奶茶|奶茶)';
+  if (object === '午餐') return '午餐';
+  if (object === '便當') return '便當(?:盒)?';
+  if (object === '咖哩飯') return '咖哩(?:飯)?';
+  return object.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function lineSupportsCommitmentObject(line: string) {
-  return (
-    COMMITMENT_OFFER_PATTERN.test(line) ||
-    /(?:想吃|要吃|一起吃|給我吃|做給我|煮給我|準備|帶).{0,18}咖哩(?:飯)?|咖哩(?:飯)?.{0,18}(?:想吃|要吃|一起吃|給我吃|做給我|煮給我|準備|帶)/.test(
-      line,
-    )
+function lineRejectsCommitmentObject(line: string, object: string) {
+  const pattern = objectPattern(object);
+  const rejection = '(?:先不要|不要|不用|不吃|不能|不必|算了|先別|改天|下次)';
+  return new RegExp(`${rejection}.{0,16}${pattern}|${pattern}.{0,16}${rejection}`).test(line);
+}
+
+function lineAsksOnlyAboutPriorCommitment(line: string, object: string) {
+  return new RegExp(`${objectPattern(object)}的約定`).test(line) && /[？?嗎]/.test(line) && !COMMITMENT_OFFER_PATTERN.test(line);
+}
+
+function lineSupportsCommitmentObject(line: string, object: string) {
+  const pattern = objectPattern(object);
+  const objectNearbySupport = new RegExp(
+    `(?:想吃|要吃|一起吃|一起喝|喝|少糖|正常甜|給我吃|做給我|煮給我|準備|帶上|帶|便當盒).{0,24}${pattern}|${pattern}.{0,24}(?:想吃|要吃|一起吃|一起喝|喝|少糖|正常甜|給我吃|做給我|煮給我|準備|帶上|帶|一杯|兩杯|便當盒)`,
   );
+  return COMMITMENT_OFFER_PATTERN.test(line) || objectNearbySupport.test(line);
 }
 
 function commitmentTimeFromText(text: string) {
   if (/下週末|下周末/.test(text)) return '下週末';
   if (/週末|周末/.test(text)) return '週末';
+  if (/明天(?:午休|中午)/.test(text)) return '明天午休';
   if (/明天|明日/.test(text)) return '明天';
   const weekday = text.match(/(?:下週|下周|週|周|星期|禮拜)([一二三四五六日天])/);
   if (weekday) return `週${weekday[1] === '天' ? '日' : weekday[1]}`;

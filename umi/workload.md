@@ -1,106 +1,87 @@
-# CC Workload — Underworld Media Pipeline v1 Feasibility Review
+# CC Workload - Human-Facing Generation Retry Storm Review
 
-Time anchor: 2026-06-15 America/Chicago
+Time anchor: 2026-06-15 21:49 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: read-only feasibility / architecture review
+Mode: Split-work, read-only diagnosis/review first
 
 ## Context
 
-Alan wants an Underworld Media Pipeline v1. The goal is not generic AI
-education. The goal is documenting and studying the emergence of AI society.
+Alan reported another "connection unstable" moment while chatting with
+一之瀨 / Ichinose.
 
-Requested categories:
+Umi/Codex first-look evidence:
 
-- Category A Shorts, 30-60s, single question + surprising answer.
-- Category B Story Episodes, 5-15m, narrative documentary.
-- Category C Research Episodes, 5-20m, paper + Underworld implementation +
-  findings.
+- `npm run underworld:runtime-preflight` passed earlier this turn.
+- `curl -I http://127.0.0.1:5173/ai-town` returned HTTP 200.
+- Convex backend is listening on port 3210 and Vite is listening on 5173.
+- `school:debugAlanConversationState` showed active `c:30824` with Alan and
+  Ichinose, last message by Alan: `記住了麻，你有約麻`.
+- `umi/reports/mobile-dev-stack.log` then showed repeated:
+  - `p:2 continuing conversation with p:11.`
+  - `Agent a:3 starting operation agentGenerateMessage (...)`
+  - Convex `generationNumber mismatch` errors.
+- A later debug snapshot showed `c:30824` was archived without a final
+  Ichinose reply to Alan's last line, and memory was queued.
 
-Requested folder:
+Current code already has an earlier failure cooldown:
 
-```text
-media/
-  topics/
-  scripts/
-  shorts/
-  longform/
-  papers/
-  generated/
-  uploads/
-```
+- `Conversation.lastGenerationFailure`
+- `conversation.markGenerationFailure`
+- `shouldThrottleHumanGenerationAfterFailure`
+- `agentAbortConversation` / `clearAgentOperation` mark failure for human
+  conversations.
 
-Requested agents:
+But the current failure cooldown is only written after an abort / clear /
+timeout path. It does not mark a generation attempt before scheduling. If the
+operation fails before cleanup, is preempted by generation mismatch, or does not
+persist the failure marker reliably, `Agent.tick` can immediately start another
+`agentGenerateMessage`.
 
-- Topic Agent: generate ranked video ideas from current Underworld status,
-  existing logs, recent experiments.
-- Research Agent: collect papers/references/experiments into a research package.
-- Script Agent: generate Shorts / long-form scripts.
-- Asset Agent: generate image prompts, thumbnail prompts, visual suggestions.
-- Upload Agent: generate title, description, tags, and prepare upload package.
+## Candidate Patch Shape
 
-Important constraint:
-No automatic publishing yet. Human review required.
+Minimal hardening:
 
-## Umi First Look
+- Add a per-conversation `lastGenerationAttempt` marker for human-facing
+  conversations.
+- Before scheduling `agentGenerateMessage` for a human-facing conversation,
+  check recent attempt/failure cooldown.
+- Mark the attempt before `setIsTyping` / `startOperation`.
+- Clear attempt/failure only when a real message is successfully recorded.
+- Keep no fallback dialogue, no fake lastMessage, no provider/env changes.
+- Avoid broad memory or prompt changes.
 
-Current Underworld direction is v0.1 evidence collection, not broad civilization
-feature expansion. The media pipeline should be read-only over runtime/project
-evidence and should not mutate Convex, prompt state, memory, experienceLogs,
-sleepNotes, or YouTube privacy.
+Potential files:
 
-Useful source paths already exist:
+- `convex/aiTown/conversation.ts`
+- `convex/aiTown/agent.ts`
+- `convex/aiTown/agentInputs.ts`
+- `convex/aiTown/agent.test.ts`
 
-- `WORKLOG.md`
-- `docs/giis-v0.1-roadmap.md`
-- `evals/conversations/reports/latest.md`
-- `umi/reports/life-signals-latest.md`
-- `umi/reports/rolling-continuity-latest.md`
-- `umi/reports/v01-completion-audit-latest.md`
-- `docs/paper/README.md`
-- `docs/paper/emotional-residue/release/ALAN_HANDOFF.md`
-- `docs/paper/emotional-residue/claims/CLAIM_EVIDENCE_MATRIX.md`
+## Questions for CC
 
-Current risk:
-2026-06-15 life-signals report is still `sample_pending` with fewer than three
-daytime conversations. The media pipeline must not turn sparse evidence into
-strong claims like "AI society emerged" or "AI citizens formed real trust."
+Findings-first, no writes:
 
-## Task
-
-Read only. Do not edit files.
-
-Assess the feasibility of adding the requested `media/` scaffold and lightweight
-pipeline docs/scripts.
-
-Please answer:
-
-1. Is the requested v1 feasible without touching runtime behavior?
-2. What should v1 include versus defer?
-3. Which files/folders should Codex create now?
-4. What source reports should Topic Agent read first?
-5. What safety gates are required before any upload package?
-6. What would be dangerous over-automation?
-7. Should this live in `/Users/alanhdchu/ai-town/media/`, or in
-   `/Users/alanhdchu/umi-central/content/`, or both?
+1. Is the attempt-marker approach the smallest safe fix for this retry storm?
+2. Is there a safer place to mark the attempt than `Agent.tick` before
+   `startOperation`?
+3. Should memory queueing be blocked when a human conversation ends with the
+   last message authored by Alan and a recent generation failure/attempt exists?
+4. What focused tests are needed?
 
 ## Constraints
 
-- No runtime mutation.
-- No Convex writes.
-- No prompt/memory/soul changes.
-- No automatic publishing.
-- No public upload from this pipeline.
-- No claims of validation from sparse synthetic/internal evidence.
-- Keep v1 markdown/JSON/scriptable and lightweight.
-- Prefer generated packages that a human can review.
+- Do not touch provider keys or env.
+- Do not delete live Convex state.
+- Do not insert fallback / fake character dialogue.
+- Do not rewrite prompts, memory architecture, or experienceLog logic.
+- Do not run dev servers or broad evals.
 
 ## Expected Output
 
-Findings-first, concise:
+Short review:
 
-- Feasibility verdict.
-- Recommended v1 shape.
-- Minimal file scaffold.
-- Risks and mitigations.
-- Smallest next implementation step.
+- top findings by severity
+- recommended minimal patch
+- risks
+- smallest verification commands

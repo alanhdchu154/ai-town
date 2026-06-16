@@ -139,6 +139,26 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('便當盒');
     expect(lines).toContain('Motifs already used: 便當/餐食');
     expect(lines).toContain('Do not restart that same object/helping move');
+    expect(lines).toContain('Same-pair motif cooldown');
+  });
+
+  test('adds cooldown for fresh needle candy curtain and sleeve prop loops', () => {
+    const lines = motifGuardPromptLinesForTest(
+      [
+        '一之瀨 to 祥子: 針盒還在我手裡，沒還你喔。',
+        '祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。',
+        '真晝 to 天澤: 你剛才幫我扶正的窗簾鉤……還歪著。',
+        '天澤 to 祥子: 你指甲縫裡的鉛筆灰，是擦掉又寫留下的吧？',
+      ],
+      [],
+      'Ichinose',
+      'Sakiko',
+    ).join('\n');
+
+    expect(lines).toContain('針線/糖紙/細物接力');
+    expect(lines).toContain('窗邊/走廊/空椅');
+    expect(lines).toContain('手指/袖口/灰塵接力');
+    expect(lines).toContain('普通回答');
   });
 
   test('adds compact weekend life anchor without food-loop seeds', () => {
@@ -235,6 +255,95 @@ describe('conversation motif guard', () => {
 
     expect(repairedDate).toBe('今天我不亂猜星期幾。怎麼，想拿週末當藉口約我？');
     expect(repairedInvite).toBe('可以啊，先走到餐廳。再往前一步，就看你敢不敢。');
+  });
+
+  test('repairs Alan-facing Mahiru direct questions instead of narrating around them', () => {
+    const secret = sanitizeConversationContentForTest(
+      '我正把那本筆記本輕輕推過來——封面朝上，一頁沒翻。',
+      'Mahiru',
+      'Alan',
+      '筆記本裡面有沒有秘密！',
+      [],
+    );
+    const invite = sanitizeConversationContentForTest(
+      '……我指尖停在封面邊緣，沒用力。',
+      'Mahiru',
+      'Alan',
+      '那我邀請你去放風箏？你要來嗎',
+      [],
+    );
+
+    expect(secret).not.toContain('我正把');
+    expect(secret).toContain('不知道');
+    expect(secret).toContain('沒有翻開');
+    expect(invite).toContain('還沒決定');
+    expect(invite).toContain('陪你走一段');
+  });
+
+  test('repairs Alan-facing Umi curry motif when Alan asks about feelings instead', () => {
+    const repaired = sanitizeConversationContentForTest(
+      '……那鍋咖哩還在小火上，我把紅椒粉收進櫃子深處。其實我也喜歡你。',
+      'Umi',
+      'Alan',
+      '你喜歡我嗎',
+      ['海 to Alan: 咖哩飯的約定，今天要重新排進日程嗎？'],
+    );
+
+    expect(repaired).toBe('我喜歡你。這句話不用靠咖哩或道具幫忙。');
+  });
+
+  test('repairs Alan-facing Umi boba commitment away from stale curry motif', () => {
+    const repaired = sanitizeConversationContentForTest(
+      '……那鍋咖哩還在小火上。明天午休，我們先把咖哩煮完，好嗎？',
+      'Umi',
+      'Alan',
+      '那我們明天午休一起喝少糖珍珠奶茶，好嗎',
+      ['海 to Alan: ——明天午休，我們先喝珍珠奶茶，再煮咖哩。'],
+    );
+
+    expect(repaired).toBe('好。明天午休，我帶少糖珍珠奶茶，我們一起喝。');
+  });
+
+  test('aborts autonomous dangling fragments before archiving', () => {
+    const comma = repairFreeWorldSoulLineForTest(
+      '啊……抱歉，祥子，',
+      'Ichinose',
+      ['祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。'],
+    );
+    const brokenQuote = repairFreeWorldSoulLineForTest(
+      '「糖紙剝開了，風一吹就飄走囉……',
+      'Ichinose',
+      ['祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。'],
+    );
+    const complete = repairFreeWorldSoulLineForTest(
+      '我先不催你。明天晨練後再說。',
+      'Ichinose',
+      ['祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。'],
+    );
+
+    expect(comma).toContain('[ABORT_CONVERSATION]');
+    expect(brokenQuote).toContain('[ABORT_CONVERSATION]');
+    expect(complete).not.toContain('[ABORT_CONVERSATION]');
+  });
+
+  test('aborts non-Alan sanitizer dangling fragments before archiving', () => {
+    const comma = sanitizeConversationContentForTest(
+      '啊……抱歉，祥子，',
+      'Ichinose',
+      'Sakiko',
+      undefined,
+      ['祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。'],
+    );
+    const brokenQuote = sanitizeConversationContentForTest(
+      '「糖紙剝開了，風一吹就飄走囉……',
+      'Ichinose',
+      'Sakiko',
+      undefined,
+      ['祥子 to 一之瀨: 薄荷糖我會留到晨練後再吃。'],
+    );
+
+    expect(comma).toContain('[ABORT_CONVERSATION]');
+    expect(brokenQuote).toContain('[ABORT_CONVERSATION]');
   });
 
   test('keeps Mahiru Alan-facing care concrete without restaurant food relay', () => {

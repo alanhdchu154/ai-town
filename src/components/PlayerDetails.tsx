@@ -583,7 +583,16 @@ export default function PlayerDetails({
   const onLeaveSelectedConversation = async () => {
     if (!humanPlayer || !humanConversation) return;
     await runWithStatus('離開對話', async () => {
-      await leaveAlanConversationNow({});
+      const result: any = await leaveAlanConversationNow({});
+      if (result?.waitedForReply) {
+        setActionSummary({
+          yourAction: 'Alan 想離開目前對話。',
+          characterReactions: result.descriptionZh ?? '角色還在回覆，先等一下。',
+          worldChanges: '這段對話暫時沒有被切掉，避免留下只有 Alan 的單邊紀錄。',
+          futureImplications: '等角色回完再離開會比較自然；如果真的卡太久，系統會允許離開並保留診斷。',
+        });
+        return;
+      }
       setActionSummary({
         yourAction: 'Alan 離開了目前對話。',
         characterReactions: '對話正在收尾，校園會繼續自然流動。',
@@ -1059,7 +1068,15 @@ export default function PlayerDetails({
     await runWithStatus(
       '離開對話',
       async () => {
-        await leaveAlanConversationNow({});
+        const result: any = await leaveAlanConversationNow({});
+        if (result?.waitedForReply) {
+          setActionSummary({
+            yourAction: 'Alan 想離開目前對話。',
+            characterReactions: result.descriptionZh ?? '角色還在回覆，先等一下。',
+            worldChanges: '這段對話暫時沒有被切掉，避免留下只有 Alan 的單邊紀錄。',
+            futureImplications: '等角色回完再離開會比較自然；如果真的卡太久，系統會允許離開並保留診斷。',
+          });
+        }
       },
       'conversation:leave',
     );

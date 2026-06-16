@@ -312,6 +312,60 @@ describe('memory post-processing hygiene', () => {
     expect(commitment).toBe('');
   });
 
+  test('extracts Alan and Umi tomorrow lunch pearl milk tea commitment', () => {
+    const saidAt = Date.UTC(2026, 5, 16, 1, 8, 0); // 2026-06-15 20:08 CDT
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:0', name: '海' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:human', text: '我不要帶便當盒了吧，你可以帶嗎？幫我準備午餐' },
+        {
+          author: 'p:0',
+          text: '……好。我帶便當盒，也帶那罐你說過喜歡的紅椒醬。——但明天午休，你得陪我把咖哩飯煮完。',
+        },
+        { author: 'p:human', text: '這有什麼問題，再帶上你喜歡的珍珠奶茶？' },
+        {
+          author: 'p:0',
+          text: '……珍珠奶茶？一杯少糖、一杯正常甜。你選哪一杯？',
+        },
+        { author: 'p:human', text: '我要少糖的，因為跟你一起喝就夠甜了' },
+        { author: 'p:0', text: '——明天午休，我們從拆開便當盒開始？' },
+        { author: 'p:human', text: '好呀！' },
+      ],
+      { saidAt },
+    );
+
+    expect(commitment).toBe('具體承諾：海答應明天午休（6/16 週二）為Alan準備珍珠奶茶（說於6/15 週一）');
+  });
+
+  test('extracts lunch-only commitment when no more specific drink appears', () => {
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:0', name: '海' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:human', text: '你明天中午可以幫我準備午餐嗎？' },
+        { author: 'p:0', text: '可以，我明天中午幫你準備午餐。' },
+      ],
+      { saidAt: Date.UTC(2026, 5, 16, 1, 8, 0) },
+    );
+
+    expect(commitment).toBe('具體承諾：海答應明天午休（6/16 週二）為Alan準備午餐（說於6/15 週一）');
+  });
+
+  test('does not turn a bento-box refusal into a bento commitment', () => {
+    const commitment = concreteCommitmentSummaryForMessages(
+      { id: 'p:0', name: '海' },
+      { id: 'p:human', name: 'Alan' },
+      [
+        { author: 'p:human', text: '我明天不要帶便當盒了。' },
+        { author: 'p:0', text: '嗯，那就先不要帶。' },
+      ],
+      { saidAt: Date.UTC(2026, 5, 16, 1, 8, 0) },
+    );
+
+    expect(commitment).toBe('');
+  });
+
   test('keeps the promiser as the offerer when the other party only accepts', () => {
     // Real 一之瀨 case (c:94554): she offers to cook, Alan closes with "好".
     // Without offer detection the commitment direction inverts to Alan cooking.
@@ -433,6 +487,30 @@ describe('memory post-processing hygiene', () => {
         [
           { author: 'p:alan', text: '海', _creationTime: 1 },
           { author: 'p:umi', text: '嗯，我在。', _creationTime: 2 },
+        ],
+        humanIds,
+      ),
+    ).toBe(false);
+    expect(
+      hasUnansweredHumanTailForMemory(
+        [
+          { author: 'p:alan', text: '一之瀨', _creationTime: 1 },
+          { author: 'p:ichinose', text: '……嗯，這次念對了呢。', _creationTime: 2 },
+          { author: 'p:alan', text: '你明天晚上願意跟我去後山看星星嗎？', _creationTime: 3 },
+          { author: 'p:ichinose', text: '獵戶座……啊，確實升起來了呢。', _creationTime: 4 },
+          { author: 'p:alan', text: '記住了麻，你有約麻', _creationTime: 5 },
+        ],
+        humanIds,
+      ),
+    ).toBe(true);
+    expect(
+      hasUnansweredHumanTailForMemory(
+        [
+          { author: 'p:alan', text: '晚上好', _creationTime: 1 },
+          { author: 'p:umi', text: '晚上好，Alan。', _creationTime: 2 },
+          { author: 'p:alan', text: '明天午休見', _creationTime: 3 },
+          { author: 'p:umi', text: '嗯，我會記得窗邊的位置。', _creationTime: 4 },
+          { author: 'p:alan', text: '今天先這樣吧，晚安', _creationTime: 5 },
         ],
         humanIds,
       ),

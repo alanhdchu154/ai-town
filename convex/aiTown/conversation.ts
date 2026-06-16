@@ -25,11 +25,29 @@ export class Conversation {
     author: GameId<'players'>;
     timestamp: number;
   };
+  lastGenerationFailure?: {
+    playerId: GameId<'players'>;
+    timestamp: number;
+  };
+  lastGenerationAttempt?: {
+    playerId: GameId<'players'>;
+    timestamp: number;
+  };
   numMessages: number;
   participants: Map<GameId<'players'>, ConversationMembership>;
 
   constructor(serialized: SerializedConversation) {
-    const { id, creator, created, isTyping, lastMessage, numMessages, participants } = serialized;
+    const {
+      id,
+      creator,
+      created,
+      isTyping,
+      lastMessage,
+      lastGenerationFailure,
+      lastGenerationAttempt,
+      numMessages,
+      participants,
+    } = serialized;
     this.id = parseGameId('conversations', id);
     this.creator = parseGameId('players', creator);
     this.created = created;
@@ -41,6 +59,14 @@ export class Conversation {
     this.lastMessage = lastMessage && {
       author: parseGameId('players', lastMessage.author),
       timestamp: lastMessage.timestamp,
+    };
+    this.lastGenerationFailure = lastGenerationFailure && {
+      playerId: parseGameId('players', lastGenerationFailure.playerId),
+      timestamp: lastGenerationFailure.timestamp,
+    };
+    this.lastGenerationAttempt = lastGenerationAttempt && {
+      playerId: parseGameId('players', lastGenerationAttempt.playerId),
+      timestamp: lastGenerationAttempt.timestamp,
     };
     this.numMessages = numMessages;
     this.participants = parseMap(participants, ConversationMembership, (m) => m.playerId);
@@ -163,6 +189,14 @@ export class Conversation {
     this.isTyping = { playerId: player.id, messageUuid, since: now };
   }
 
+  markGenerationFailure(now: number, player: Player) {
+    this.lastGenerationFailure = { playerId: player.id, timestamp: now };
+  }
+
+  markGenerationAttempt(now: number, player: Player) {
+    this.lastGenerationAttempt = { playerId: player.id, timestamp: now };
+  }
+
   acceptInvite(game: Game, player: Player) {
     const member = this.participants.get(player.id);
     if (!member) {
@@ -219,13 +253,24 @@ export class Conversation {
   }
 
   serialize(): SerializedConversation {
-    const { id, creator, created, isTyping, lastMessage, numMessages } = this;
+    const {
+      id,
+      creator,
+      created,
+      isTyping,
+      lastMessage,
+      lastGenerationFailure,
+      lastGenerationAttempt,
+      numMessages,
+    } = this;
     return {
       id,
       creator,
       created,
       isTyping,
       lastMessage,
+      lastGenerationFailure,
+      lastGenerationAttempt,
       numMessages,
       participants: serializeMap(this.participants),
     };
@@ -238,6 +283,13 @@ export function shouldQueueConversationMemoryOnStop(state: {
 }) {
   if (!state.hasMessages) return false;
   return !state.lastAuthorIsHuman;
+}
+
+export function shouldClearGenerationBackoffForAuthor(
+  marker: { playerId: GameId<'players'>; timestamp: number } | undefined,
+  authorId: GameId<'players'>,
+) {
+  return marker?.playerId === authorId;
 }
 
 export const serializedConversation = {
@@ -254,6 +306,18 @@ export const serializedConversation = {
   lastMessage: v.optional(
     v.object({
       author: playerId,
+      timestamp: v.number(),
+    }),
+  ),
+  lastGenerationFailure: v.optional(
+    v.object({
+      playerId,
+      timestamp: v.number(),
+    }),
+  ),
+  lastGenerationAttempt: v.optional(
+    v.object({
+      playerId,
       timestamp: v.number(),
     }),
   ),
@@ -341,6 +405,12 @@ export const conversationInputs = {
       const player = game.world.players.get(playerId);
       if (player?.human) {
         player.lastInput = now;
+      }
+      if (shouldClearGenerationBackoffForAuthor(conversation.lastGenerationFailure, playerId)) {
+        delete conversation.lastGenerationFailure;
+      }
+      if (shouldClearGenerationBackoffForAuthor(conversation.lastGenerationAttempt, playerId)) {
+        delete conversation.lastGenerationAttempt;
       }
       conversation.lastMessage = { author: playerId, timestamp: args.timestamp };
       conversation.numMessages++;

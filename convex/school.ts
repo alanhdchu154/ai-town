@@ -6010,6 +6010,26 @@ export const leaveCampus = mutation({
   },
 });
 
+const LEAVE_WAIT_FOR_REPLY_MS = 90_000;
+
+export function shouldDelayAlanLeaveForTypingForTest(args: {
+  typingPlayerId?: string;
+  alanId: string;
+  typingSince?: number;
+  now: number;
+  lastHumanMessageAt?: number;
+  lastNonHumanMessageAt?: number;
+  maxWaitMs?: number;
+}) {
+  if (!args.typingPlayerId || args.typingPlayerId === args.alanId || args.typingSince === undefined) {
+    return false;
+  }
+  if (args.now - args.typingSince > (args.maxWaitMs ?? LEAVE_WAIT_FOR_REPLY_MS)) {
+    return false;
+  }
+  return (args.lastHumanMessageAt ?? 0) >= (args.lastNonHumanMessageAt ?? 0);
+}
+
 export const leaveAlanConversationNow = mutation({
   args: {},
   handler: async (ctx) => {
@@ -6034,6 +6054,42 @@ export const leaveAlanConversationNow = mutation({
     const humanPlayers = new Map<string, boolean>(
       world.players.map((player) => [player.id, Boolean(player.human)]),
     );
+    const now = Date.now();
+    for (const conversation of alanConversations) {
+      if (!conversation.isTyping || conversation.isTyping.playerId === alan.id) continue;
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      let lastHumanMessageAt = 0;
+      let lastNonHumanMessageAt = 0;
+      for (const message of messages.sort((a, b) => a._creationTime - b._creationTime)) {
+        if (!message.text.trim()) continue;
+        if (message.author === alan.id) {
+          lastHumanMessageAt = message._creationTime;
+        } else {
+          lastNonHumanMessageAt = message._creationTime;
+        }
+      }
+      if (
+        shouldDelayAlanLeaveForTypingForTest({
+          typingPlayerId: conversation.isTyping.playerId,
+          alanId: alan.id,
+          typingSince: conversation.isTyping.since,
+          now,
+          lastHumanMessageAt,
+          lastNonHumanMessageAt,
+        })
+      ) {
+        return {
+          descriptionZh:
+            '角色還在回覆，先等一下；如果超過 90 秒仍卡住，系統會允許你離開並保留診斷。',
+          waitedForReply: true,
+        };
+      }
+    }
     for (const conversation of alanConversations) {
       await archiveDeletedConversation(ctx, world._id, conversation, playerNames, humanPlayers);
     }
@@ -6051,7 +6107,6 @@ export const leaveAlanConversationNow = mutation({
         }
       }
     }
-    const now = Date.now();
     await ctx.db.patch(world._id, {
       conversations: world.conversations.filter(
         (conversation) =>

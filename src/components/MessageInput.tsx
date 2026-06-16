@@ -68,6 +68,12 @@ export function MessageInput({
   const writeMessage = useMutation(api.messages.writeMessage);
   const startTyping = useSendInputQueued(engineId, 'startTyping');
   const currentlyTyping = conversation.isTyping;
+  const otherPlayerTyping = Boolean(currentlyTyping && currentlyTyping.playerId !== humanPlayer.id);
+  const otherTypingName = currentlyTyping
+    ? descriptions?.playerDescriptions.find(
+        (p: { playerId: string }) => p.playerId === currentlyTyping.playerId,
+      )?.name
+    : undefined;
   const focusInput = () => inputRef.current?.focus({ preventScroll: true });
 
   useEffect(() => {
@@ -86,6 +92,10 @@ export function MessageInput({
     }
     const messageText = text.trim();
     if (!messageText) {
+      return;
+    }
+    if (otherPlayerTyping) {
+      toast.info(`${displayAgentName(otherTypingName ?? placeholderTargetName ?? '角色')} 還在回覆，等一下再送。`);
       return;
     }
     const messageUuid = crypto.randomUUID();
@@ -238,11 +248,19 @@ export function MessageInput({
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         />
-        <button className="giis-send-button disabled:opacity-60" type="submit" disabled={sending}>
-          {sending ? '正在送出訊息' : '送出'}
+        <button
+          className="giis-send-button disabled:opacity-60"
+          type="submit"
+          disabled={sending || otherPlayerTyping}
+        >
+          {otherPlayerTyping ? '角色正在回覆' : sending ? '正在送出訊息' : '送出'}
         </button>
       </div>
-      <p className="giis-chat-input-hint">Esc 離開對話。中文輸入法組字時不會送出。</p>
+      <p className="giis-chat-input-hint">
+        {otherPlayerTyping
+          ? `${displayAgentName(otherTypingName ?? placeholderTargetName ?? '角色')} 還在回覆。`
+          : 'Esc 離開對話。中文輸入法組字時不會送出。'}
+      </p>
     </form>
   );
 }

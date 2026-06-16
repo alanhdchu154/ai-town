@@ -13,6 +13,7 @@ import { formativeMemoriesForName, giisProfileForName } from '../../data/giisPro
 import {
   hasCompanionSemanticDrift,
   hasDialogueSystemPhraseLeak,
+  hasFirstPersonStageDirectionLeak,
   stripSeparatorArtifacts,
   stripStageDirectionsFromDialogue,
 } from './dialogueHygiene';
@@ -442,7 +443,7 @@ export async function continueConversationMessage(
           ? []
           : relatedMemoriesPrompt(memories)),
         ...sleepNotePromptLines(sleepNotes, otherPlayer.name),
-        ...commitmentPromptLines(openCommitments, otherPlayer.name),
+        ...commitmentPromptLines(openCommitments, otherPlayer.name, Date.now(), lastHumanInput),
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         `Below is the current chat history between you and ${otherPlayer.name}.`,
         companionMode
@@ -1184,10 +1185,16 @@ function compactAutonomousStartPrompt({
 function recentPairContinuityPromptLines(hint?: PromptLastConversationHint | null) {
   if (!hint || hint.minutesAgo > 90) return [];
   const motifs = hint.motifLabels.length ? ` Motifs already used: ${hint.motifLabels.join('、')}.` : '';
-  return [
+  const lines = [
     `Recent same-pair memory: ${hint.minutesAgo} minutes ago you already talked about ${clipPromptText(hint.topicZh, 90)}; the last beat was "${clipPromptText(hint.finalBeatZh, 80)}".${motifs}`,
     'Do not restart that same object/helping move as if it is new. Either briefly acknowledge the previous refusal/boundary, change topic to a different concrete life detail, or choose not to approach.',
   ];
+  if (hint.motifLabels.length) {
+    lines.push(
+      `Same-pair motif cooldown: do not use ${hint.motifLabels.join('、')} as the next opener or emotional proof; pick a different school-life detail, a plain answer, or a soft close.`,
+    );
+  }
+  return lines;
 }
 
 export function recentPairContinuityPromptLinesForTest(hint?: PromptLastConversationHint | null) {
@@ -1714,36 +1721,56 @@ function commitmentPromptLines(
   openCommitments: PromptResidue[] | undefined,
   other: string,
   now = Date.now(),
+  currentInput = '',
 ) {
   if (residueReadMode() === 'off') return [];
+  const normalizedInput = normalizeTraditionalZh(currentInput);
   const items = (openCommitments ?? [])
     .map((entry) => ({ text: entry.text.trim(), createdAt: entry.createdAt }))
     // A promise marked 已兌現 (school:markCommitmentFulfilled) is no longer
     // "未了" — it must stop surfacing as honorable. Until the owner marks it,
     // nothing here changes.
     .filter((entry) => entry.text && !memory.commitmentIsFulfilled(entry.text))
+    .filter((entry) => {
+      const expired = memory.commitmentIsExpired(entry.text, entry.createdAt, now);
+      // Expired commitments are still useful when Alan explicitly asks about
+      // that object. They should not keep hijacking ordinary greetings or new
+      // topics days later.
+      if (!expired) return true;
+      return commitmentObjectMentionedInInput(entry.text, normalizedInput);
+    })
     .slice(0, 2);
   if (!items.length) return [];
   return [
-    `未了的約定（你先前和${other}的對話留下的承諾。若這次情境合適，可以自然地主動兌現或提起；若不合適就先放著，不要逐字複述整段對話，也不要硬塞）：`,
+    `未了的約定（你先前和${other}的對話留下的承諾。它有時間性：若已過期或 Alan 已轉題，只能短短承認一次，不要把今天的話題硬拉回那個物件；若不合適就完全先放著）：`,
     ...items.map((entry) => {
       // A commitment whose promised date already passed must not be surfaced
       // as still honorable — that invites "明天煮給你" said three days later.
       // Keep it visible (so the character can own the miss) but labeled.
       const expired = memory.commitmentIsExpired(entry.text, entry.createdAt, now);
       return expired
-        ? ` - ${entry.text}（已過了說好的時間：提起時要承認錯過，不要假裝還來得及）`
+        ? ` - ${entry.text}（已過了說好的時間：只有 Alan 主動提到時才承認錯過；回答後立刻回到 Alan 現在的問題，不要重開同一個約定）`
         : ` - ${entry.text}`;
     }),
   ];
+}
+
+function commitmentObjectMentionedInInput(commitmentText: string, normalizedInput: string) {
+  if (!normalizedInput) return false;
+  if (/咖哩(?:飯)?/.test(commitmentText)) return /咖哩(?:飯)?|咖喱(?:飯)?/.test(normalizedInput);
+  if (/早餐/.test(commitmentText)) return /早餐/.test(normalizedInput);
+  if (/午餐|便當/.test(commitmentText)) return /午餐|便當/.test(normalizedInput);
+  if (/珍珠奶茶|奶茶/.test(commitmentText)) return /珍珠奶茶|奶茶/.test(normalizedInput);
+  return false;
 }
 
 export function commitmentPromptLinesForTest(
   openCommitments: PromptResidue[] | undefined,
   other: string,
   now?: number,
+  currentInput?: string,
 ) {
-  return commitmentPromptLines(openCommitments, other, now);
+  return commitmentPromptLines(openCommitments, other, now, currentInput);
 }
 
 export function residueTimeLabelZhForTest(
@@ -1827,7 +1854,8 @@ function propDiversityPromptLines(
   if (guard.overusedMotifs.length) {
     lines.push(
       `v0.1 motif guard：最近已經過度使用 ${guard.overusedMotifs.join('、')}。`,
-      '下一句不要再靠這些物件或場景推進；改用一個短反應、沉默、拒絕、交接、身體狀態，或換到不同的生活細節。',
+      '下一句不要再靠這些物件或場景推進；改用一個短反應、沉默、拒絕、交接、不同的生活細節，或直接 soft close。',
+      '如果腦中第一個反應仍是同一個物件、手部細節或道具痕跡，請把那句話縮短成普通回答，不要把它寫出來。',
     );
   }
   if (guard.previousMove) {
@@ -1979,7 +2007,7 @@ const CONVERSATION_MOTIF_FAMILIES = [
   },
   {
     label: '窗邊/走廊/空椅',
-    cues: ['窗邊', '窗', '走廊', '椅子', '空椅', '座位', '桌子', '角落', '那扇門'],
+    cues: ['窗邊', '窗', '走廊', '椅子', '空椅', '座位', '桌子', '角落', '那扇門', '窗簾', '窗簾鉤'],
   },
   {
     label: '分一半/扛責任',
@@ -2053,6 +2081,14 @@ const CONVERSATION_MOTIF_FAMILIES = [
       '縫隙',
       '霧氣',
     ],
+  },
+  {
+    label: '針線/糖紙/細物接力',
+    cues: ['針線', '針盒', '縫衣針', '線盒', '鈕釦', '扣子', '薄荷糖', '糖紙', '抽屜邊緣'],
+  },
+  {
+    label: '手指/袖口/灰塵接力',
+    cues: ['手指', '指尖', '手背', '手心', '袖口', '指甲', '鉛筆灰', '粉筆灰', '手抖', '發抖'],
   },
   {
     label: '舞台/衣物/光線接力',
@@ -2542,7 +2578,7 @@ function sanitizeConversationContent(
     .replace(/^剛才\s*Alan\s*說[:：]\s*「[^」]+」[，,。]?\s*/g, '')
     .trim();
   const rawAlanFacingDangling =
-    displayConversationName(otherPlayerName) === 'Alan' && hasAlanFacingDanglingFragment(normalized);
+    displayConversationName(otherPlayerName) === 'Alan' && hasDanglingSpokenFragment(normalized);
   const { line: cleaned, strippedStageDirection } = stripStageDirectionsFromDialogue(normalized);
   if (!cleaned) {
     return companionMode
@@ -2550,9 +2586,10 @@ function sanitizeConversationContent(
       : '[ABORT_CONVERSATION] autonomous stage-direction-only output';
   }
   const addressed = repairWrongConversationAddressee(cleaned, playerName, otherPlayerName);
+  const humanFacingPair = displayConversationName(otherPlayerName) === 'Alan';
   const repairedFreeWorld = companionMode
     ? addressed
-    : repairFreeWorldSoulLine(addressed, playerName, previous);
+    : repairFreeWorldSoulLine(addressed, playerName, previous, humanFacingPair);
   if (
     !companionMode &&
     (hasFreeWorldQualityLeak(repairedFreeWorld) || hasFreeWorldPropEchoLeak(repairedFreeWorld, previous))
@@ -2604,7 +2641,7 @@ function repairAlanFacingCharacterLine(
     .slice(-6)
     .map((message) => stripConversationPrefix(message.content ?? ''))
     .join('\n');
-  const badDangling = forceDanglingRepair || hasAlanFacingDanglingFragment(normalizedLine);
+  const badDangling = forceDanglingRepair || hasDanglingSpokenFragment(normalizedLine);
   const unsupportedBodyCue =
     self !== '貓貓' &&
     /(?:呼吸停了半秒|手還按在門把|手按在門把|低頭盯著鞋尖|手在發抖|手好像抖|鞋尖)/.test(normalizedLine);
@@ -2616,8 +2653,25 @@ function repairAlanFacingCharacterLine(
     /(?:吃|早餐|飯|蛋|餐廳|咖哩|咖喱)/.test(input) &&
     ((foodObjectRelayExhausted(normalizedLine, recent) && mahiruFoodHits >= 1) ||
       (mahiruFoodHits >= 2 && recentMahiruFoodHits >= 1));
+  const umiCurryLoop =
+    self === '海' &&
+    !/(?:咖哩|咖喱)/.test(input) &&
+    /(?:咖哩|咖喱)/.test(normalizedLine);
+  const directQuestionDodge = alanFacingDirectQuestionDodge(input, normalizedLine);
+  const stageActionDodge =
+    hasFirstPersonStageDirectionLeak(normalizedLine) &&
+    /(?:[？?]|嗎|有沒有|要來|邀請|喜歡|開心|高興|未來|今天過得|最近好)/.test(input);
 
-  if (!badDangling && !unsupportedBodyCue && !repeatedFoodLoop) return undefined;
+  if (
+    !badDangling &&
+    !unsupportedBodyCue &&
+    !repeatedFoodLoop &&
+    !umiCurryLoop &&
+    !directQuestionDodge &&
+    !stageActionDodge
+  ) {
+    return undefined;
+  }
 
   if (self === '天澤') {
     if (/(?:星期|禮拜|週幾|周幾|幾月|幾號|今天)/.test(input)) {
@@ -2633,6 +2687,15 @@ function repairAlanFacingCharacterLine(
     return '欸，話說一半不好玩。你到底想讓我承認什麼？';
   }
   if (self === '真晝') {
+    if (/(?:秘密)/.test(input)) {
+      return '我不知道。我沒有翻開，所以不能替它編秘密。';
+    }
+    if (/(?:要來嗎|邀請.*放風箏|放風箏)/.test(input)) {
+      return '我還沒決定。但如果你真的想去，我可以陪你走一段。';
+    }
+    if (/(?:最近好嗎|今天過得好嗎)/.test(input)) {
+      return '還可以。今天有點安靜，但沒有壞到需要你擔心。';
+    }
     if (/(?:餐廳|restaurant)/.test(input)) {
       return '嗯，是餐廳。我剛才說錯了，我們去那邊吃。';
     }
@@ -2642,6 +2705,24 @@ function repairAlanFacingCharacterLine(
     return '嗯，我聽到了。那我先不猜你的狀態，陪你把這句話說完。';
   }
   if (self === '海') {
+    if (/(?:明天(?:午休|中午)?.{0,12}(?:珍珠奶茶|奶茶)|(?:珍珠奶茶|奶茶).{0,12}(?:明天|午休|中午)|少糖)/.test(input)) {
+      return '好。明天午休，我帶少糖珍珠奶茶，我們一起喝。';
+    }
+    if (/(?:明天(?:午休|中午)?.{0,12}(?:午餐|便當)|(?:午餐|便當).{0,12}(?:明天|午休|中午)|準備午餐)/.test(input)) {
+      return '好。明天午休，我幫你準備午餐。';
+    }
+    if (/(?:喜歡)/.test(input)) {
+      return '我喜歡你。這句話不用靠咖哩或道具幫忙。';
+    }
+    if (/(?:開心|高興)/.test(input)) {
+      return '有一點。你來找我說話，我就開心了一點。';
+    }
+    if (/(?:未來)/.test(input)) {
+      return '嗯。那就先把明天留得輕一點，不急著把未來變成一份清單。';
+    }
+    if (umiCurryLoop) {
+      return '嗯，我不把那個舊約定硬拉回來。你剛剛說的，我先聽這一句。';
+    }
     return '嗯，我先照你說的來。今天不用多加戲，我們把眼前這件事做好。';
   }
   if (self === '貓貓') {
@@ -2656,13 +2737,39 @@ function repairAlanFacingCharacterLine(
   return '嗯，我先回答你。這件事可以慢慢說。';
 }
 
-function hasAlanFacingDanglingFragment(line: string) {
+function alanFacingDirectQuestionDodge(input: string, normalizedLine: string) {
+  if (!input) return false;
+  if (/(?:秘密)/.test(input)) {
+    return !/(?:秘密|不知道|不確定|不能|沒有翻開|沒翻開|沒看過|沒有看過)/.test(normalizedLine);
+  }
+  if (/(?:要來嗎|邀請|陪我|一起去|願意.*(?:來|去))/.test(input)) {
+    return !/(?:好|可以|願意|我來|我去|不|不要|還沒決定|等一下|陪你)/.test(normalizedLine);
+  }
+  if (/(?:喜歡.*嗎|你喜歡|喜不喜歡)/.test(input)) {
+    return !/(?:喜歡|不喜歡|還不知道|不確定)/.test(normalizedLine);
+  }
+  if (/(?:開心|高興).*嗎|你.*開心|你.*高興/.test(input)) {
+    return !/(?:開心|高興|還好|有一點|沒有|不太)/.test(normalizedLine);
+  }
+  return false;
+}
+
+function hasDanglingSpokenFragment(line: string) {
   const normalized = normalizeTraditionalZh(line).trim();
   if (!normalized) return false;
   if (/[，,、—-]\s*$/.test(normalized)) return true;
   if ((normalized.match(/「/g)?.length ?? 0) !== (normalized.match(/」/g)?.length ?? 0)) return true;
   if (/^(?:欸|嗯|啊|……|\.{2,}|…+)[，,、—-]?$/.test(normalized)) return true;
   return /(?:你(?:剛才)?(?:問|說).*?(?:的時候|那句)|你剛才那句|你問這句|你說「[^」]{1,24}」的時候|呼吸停了半秒|低頭盯著自己的鞋尖|手還按在門把上沒鬆開)(?:[，,。]?|\s*)$/.test(normalized);
+}
+
+function hasAutonomousDanglingFragment(line: string) {
+  const normalized = normalizeTraditionalZh(line).trim();
+  if (!normalized) return false;
+  if (hasDanglingSpokenFragment(normalized)) return true;
+  if (/[，,、—-]\s*$/.test(normalized)) return true;
+  if ((normalized.match(/「/g)?.length ?? 0) !== (normalized.match(/」/g)?.length ?? 0)) return true;
+  return /(?:剛才那句|你問這句|的時候|那句話|那句|我先|待會|等一下|抱歉)(?:[，,、—-]|\s*)$/.test(normalized);
 }
 
 function repairFreeWorldSoulLine(
@@ -2677,6 +2784,9 @@ function repairFreeWorldSoulLine(
     .slice(-3)
     .map((message) => stripConversationPrefix(message.content ?? ''))
     .join('\n');
+  if (!humanFacingPair && hasAutonomousDanglingFragment(singleBeat)) {
+    return '[ABORT_CONVERSATION] autonomous dangling fragment';
+  }
   if (repairRelayExhausted(self, singleBeat, recent)) {
     return '[ABORT_CONVERSATION] repair relay exhausted';
   }

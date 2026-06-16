@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-15 11:48 CDT
+Last updated: 2026-06-15 21:52 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -44,9 +44,120 @@ historical evidence is needed.
 | 22 | Underworld Media Pipeline v1 scaffold exists under `media/`. Alan's goal is a public record of AI society emergence, not generic AI education. The scaffold is package-first and review-gated: Topic, Research, Script, Asset, and Upload agents may generate reviewable packages, but must not mutate Convex/runtime state, change prompts/memory/souls, upload automatically, or make public claims without evidence and human approval. cc feasibility review was attempted in plan mode, but Claude Code is session-limited until 1:30am America/Chicago, so Umi implemented the conservative markdown scaffold only. Next useful work is a small script that reads existing reports and produces a ranked topic package, still read-only. | Alan / Umi / Codex | media_pipeline_v1_scaffolded_review_gated |
 | 23 | Underworld Field Notes Watcher role is defined at `media/watcher.md`, with current playtest-note candidates in `media/topics/watcher-inbox.md`. Central Codex automation `underworld-field-notes-watcher` is active daily at 23:00 America/Chicago. It is read-only and should scout for shareable moments such as repeated fallback lines, dirty memory pollution, runtime stalls, motif loops, or genuine social signals. It must not mutate Convex/runtime state, restart/kick/repair, upload, or change YouTube privacy. First watcher Short, `When an AI World Is Online but Not Alive | Field Note`, was uploaded public at `https://youtu.be/_to91-H3DEY` after Alan's explicit public approval; no runtime mutation was performed for the video. | Umi / Codex automation | active_read_only_content_scout_first_short_public |
 | 24 | 2026-06-15 morning health incident: frontend/dev stack looked alive (`/ai-town` HTTP 200, world status `running`, engineRunning true), but agent input freshness showed the world had not advanced for about 2h17m and stored `worldClock` was stuck near 05:59 while real local time was after 08:12 CDT. There were no stale active conversations or due pending inputs, so `testing:stop` -> wait -> `testing:resume` did not wake it. A controlled `underworld-mobile` dev-stack restart recovered the loop; logs showed `world:restartDeadWorlds`, runtime input advanced, and Umi/Mahiru started fresh conversation `c:20060`. `underworld:runtime-preflight` now uses real America/Chicago time from `payload.now` for day/night mode instead of trusting stale stored `worldClock.hour`, reports stored worldClock age, and fails if stored worldClock age exceeds the stale threshold during daytime. Verification after recovery: `/ai-town` HTTP 200, `underworld:runtime-preflight` PASS, `underworld:runtime-preflight:self-test` PASS, `underworld:stale-watchdog` dry-run stale=0/messages=0, `npx tsc --noEmit --pretty false`, and `npm run build`. Treat 2026-06-15 before about 08:18 CDT as missing/unreliable continuity data; collect Monday evidence only after this recovery point. | Umi / Codex | recovered_preflight_time_guard_patched_watch_next_two_hours |
+| 25 | 2026-06-15 evening data review showed the world is now producing continuity evidence but still has dialogue hygiene failures: `underworld:rolling-continuity` PASS for the 16:00-20:00 window, while `eval:conversation:recent -- --since-last-change` reported 0 PASS / 6 WARN / 6 FAIL with repeated small-object motifs and dangling autonomous endings (`啊……抱歉，祥子，`, `「糖紙剝開了...`, `嗯…待會琴房的燈，`). cc read-only review (`umi/reports/20260616T003312Z-workload.md`) agreed the repair should be narrow: ungate dangling-fragment rejection for non-Alan autonomous pairs and avoid broad memory/provider/schema changes. Patch landed in `convex/agent/conversation.ts`: same-pair motif cooldown line, extra prop-family prompt cooldowns for needle/candy/curtain/hand/sleeve loops, autonomous dangling-fragment abort before archive, and preserved Alan-facing repair behavior. Tests added in `conversationMotifGuard.test.ts`. Verification: targeted Jest 43/43, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Existing pre-patch eval reports will still show old failures; judge this fix on fresh post-patch samples. | Umi / Codex / cc | motif_cooldown_and_dangling_guard_patched_watch_fresh_samples |
+| 26 | 2026-06-15 Alan-facing human chat repair landed after Alan playtested 海/真晝/天澤. Evidence: 海 kept dragging an expired curry promise into unrelated current topics; 真晝 answered direct Alan questions with stage/action phrasing instead of answer-first; 天澤 archived a single-sided Alan-only conversation while the character was still typing. cc read-only review (`umi/reports/20260616T013551Z-workload.md`) recommended a bounded commitment cooldown and warned against broad prompt rewrites. Codex implemented the low-risk subset plus direct evidence guards: expired commitments now surface only when Alan explicitly mentions the object, Umi curry output is repaired when Alan asks feelings/current topics, Mahiru direct secret/invitation/check-in questions repair to answer-first lines, first-person stage-direction detection catches `我正/正在...推過來`, MessageInput blocks duplicate sends while the other participant is typing, and `leaveAlanConversationNow` delays leave/archive for up to 90s if Alan spoke last and the character is still typing. Verification: targeted Jest 54/54, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Next: Alan human-test Umi/Mahiru/Tianze/Ichinose once; judge only fresh post-patch chats. | Umi / Codex / cc | alan_facing_smoothness_patched_human_test_next |
+| 27 | 2026-06-15 follow-up playtest: Alan tried to establish a "明天午休 / 中午 珍珠奶茶" promise with 海 and felt she did not catch it. Evidence from `school:debugAlanConversationState` showed 海 did answer in dialogue (`明天午休，見`; `明天午休，我們先喝珍珠奶茶，再煮咖哩`), but `school:notebookCommitments` returned `[]`. Root cause: `concreteCommitmentSummaryForMessages` only recognized curry-like objects and scanned early acceptances before later concrete refinements, so it could collapse to lunch/box or miss boba entirely. Codex patched `convex/agent/memory.ts` to support `珍珠奶茶/奶茶`, `午餐`, `便當/便當盒`, `明天午休/明天中午`, more specific object priority, newest acceptance-first scanning, and boba offer cues like `一杯少糖` / `你選哪一杯`. cc read-only review (`umi/reports/20260616T015123Z-workload.md`) agreed and suggested edge tests; Codex added lunch-only and bento-box-refusal tests. Alan then retested once; `c:30552` still produced `commitments: []` because Umi's stale-curry repair converted her answer into the generic `嗯，我先照你說的來...`, leaving no explicit commitment text. Codex patched the Umi repair branch so 明天午休/少糖珍珠奶茶 and lunch requests repair to explicit acceptances (`好。明天午休，我帶少糖珍珠奶茶，我們一起喝。`). Verification: targeted Jest 90/90, `npm test -- convex/agent` 145/145, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Existing `c:29920`/`c:30552` will not auto-backfill; the next fresh Alan/海 test should now produce both explicit answer and commitment notebook row. | Umi / Codex / cc | boba_lunch_commitment_extractor_and_reply_repair_patched_retest_needed |
+| 28 | 2026-06-15 night Tianze stuck-reply incident: Alan's active 天澤 conversation `c:30631` was not a frontend send failure or down world. `runtime-preflight` passed, `world:defaultWorldStatus` was running, and `school:debugAlanConversationState` showed Alan's final message `你明天晚上有空嗎？` while Tianze agent `a:11` repeatedly entered `agentGenerateMessage`. Logs showed `p:10 continuing conversation with p:11` plus new operation IDs every few seconds, but no new Tianze message. cc confirmed the code-level mechanism: human-facing generation abort/provider failure cleared `inProgressOperation`/typing without leaving the human conversation; because Alan remained the last real speaker, `Agent.tick` immediately retried forever. Patch landed with a per-conversation human generation failure marker and cooldown; `agentAbortConversation` and `clearAgentOperation` now mark human-facing generation failures, `Agent.tick` throttles same-character retries, and real new messages clear the marker. No fallback text, memory, archive, or experienceLog write is introduced. Verification: targeted aiTown Jest 21/21, typecheck PASS, build PASS, diff-check clean, runtime preflight PASS. Existing `c:30631` is not backfilled with a Tianze answer; next fresh Tianze chat should fail softly instead of machine-gun retrying if provider/hygiene aborts again. | Umi / Codex / cc | retry_loop_guard_patched_watch_next_tianze_chat |
+| 29 | 2026-06-15 follow-up Ichinose stuck incident: Alan's 一之瀨 chat `c:30814` exposed two remaining human-chat stall paths after the Tianze patch. First, `agentGenerateMessage` timeout was cleared inside `Agent.tick` itself, not through `agentAbortConversation` / `clearAgentOperation`, so the failure marker/cooldown was never written and timeout immediately retried. Second, human-facing NPCs could self-continue after their own last message once the awkward deadline passed, so Alan could see "thinking" even when he had not sent a new message. Codex restarted the dev stack once because Convex backend had gone half-ready (`/ai-town` 200 but port 3210 initially absent / local backend waiting), then patched `agent.ts`: timed-out human-facing `agentGenerateMessage` now clears typing, marks generation failure, and returns; human-facing conversations now stop after the character's own message and wait for Alan instead of self-continuing. Verification: targeted aiTown Jest 21/21, typecheck PASS, build PASS, diff-check clean, runtime preflight PASS; post-patch active state shows 一之瀨 `inProgressOperation=null`, no new `p:2 continuing conversation with p:11` after Convex functions reloaded at 21:35:42. Existing `c:30814` contains one pre-patch self-continuation line (`……那你要不要，幫我接住下一聲？`) and should not be used as post-patch quality evidence. | Umi / Codex | timeout_path_and_self_continue_guard_patched_watch_fresh_human_chat |
+| 30 | 2026-06-15 second 一之瀨 "connection unstable" report: active `c:30824` showed Alan's final line `記住了麻，你有約麻`; logs then showed `p:2 continuing conversation with p:11`, repeated `agentGenerateMessage` starts, and Convex `generationNumber mismatch`. The app/backend were healthy (`/ai-town` HTTP 200, Convex 3210 listening), so this was not Wi-Fi/frontend downtime. cc read-only review (`umi/reports/20260616T025008Z-workload.md`) agreed the missing start-level attempt marker was a real defense-in-depth gap and caught a sharper bug: `finishSendingMessage` was clearing generation failure markers for every author, so Alan sending another line could clear Ichinose's cooldown. Patch landed with `lastGenerationAttempt`, a 30s human-facing attempt cooldown, scoped clearing of attempt/failure markers only when the same character successfully sends, and a memory guard that treats final human "記住/有約/嗎/麻" tails as unanswered instead of complete memory. Verification: aiTown targeted Jest 23/23, memory Jest 44/44, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Live post-patch spot-check shows world running, no active Alan conversation, no agent stuck in `agentGenerateMessage`, and no new `p:2 continuing conversation with p:11` storm in the latest log window. Existing `c:30824` already archived pre-patch and still contains a memory; do not treat it as clean post-patch evidence. | Umi / Codex / cc | attempt_backoff_and_unanswered_tail_guard_patched_watch_fresh_ichinose_chat |
 
 ## Current State Snapshot
 
+- 2026-06-15 21:52 CDT: A second 一之瀨 "connection unstable" report was
+  diagnosed as a backend generation retry/backoff issue, not local Wi-Fi or
+  frontend downtime. cc reviewed the narrow scheduler path and caught that
+  Alan-authored follow-up messages could clear the character's generation
+  cooldown. Patch: human-facing conversations now record
+  `lastGenerationAttempt` before scheduling `agentGenerateMessage`, throttle
+  repeated attempts for 30s, clear attempt/failure markers only when the same
+  character successfully sends, and skip memory for final human open prompts
+  such as `記住了嗎 / 有約嗎`. Verification: targeted aiTown Jest 23/23,
+  memory Jest 44/44, typecheck PASS, build PASS, diff-check clean, runtime
+  preflight PASS. Post-patch live state is running with no active Alan
+  conversation and no agent stuck in `agentGenerateMessage`; judge the fix on a
+  fresh post-patch 一之瀨 or 天澤 chat.
+- 2026-06-15 21:36 CDT: Alan reported 一之瀨 chat stuck after the Tianze retry
+  patch. Live evidence showed a second pair of bugs: timeout cleanup inside
+  `Agent.tick` did not mark the human-generation failure cooldown, and
+  human-facing NPCs could self-continue after their own last message once the
+  awkward deadline passed. A controlled dev-stack restart recovered Convex after
+  the backend was half-ready, then `agent.ts` was patched so timed-out
+  human-facing message generation marks failure/clears typing/returns, and
+  human-facing conversations wait for Alan after the character replies.
+  Verification: targeted aiTown Jest 21/21, typecheck PASS, build PASS,
+  diff-check clean, runtime preflight PASS. Post-patch spot check: active
+  一之瀨 conversation has `inProgressOperation=null`; no new self-continue logs
+  appeared after Convex functions reloaded at 21:35:42. Existing `c:30814`
+  includes pre-patch wind-chime motif/self-continuation and is not clean
+  post-patch evidence.
+- 2026-06-15 21:23 CDT: Alan reported current 天澤 chat stuck on thinking.
+  Live checks showed Underworld healthy and `c:30631` active, with Alan's final
+  line `你明天晚上有空嗎？` and Tianze repeatedly starting `agentGenerateMessage`
+  without inserting a reply. This was a backend retry loop, not a dead server:
+  generation abort/failure cleared the active op in a human conversation, but
+  the conversation stayed open with Alan as last speaker, so the scheduler
+  retried every few seconds. cc reviewed the diagnosis in
+  `umi/reports/20260616T022108Z-workload.md` and recommended a bounded
+  failure cooldown rather than fallback text or cleanup. Patch: conversations
+  now store `lastGenerationFailure`, human-facing abort/clear paths mark it,
+  `Agent.tick` throttles same-player retries for a bounded cooldown, and real
+  new messages clear the marker. Verification: targeted aiTown Jest 21/21,
+  typecheck PASS, build PASS, diff-check clean, runtime preflight PASS.
+  Existing `c:30631` will not get a synthetic Tianze reply; Alan can send again
+  after cooldown or start a fresh Tianze chat.
+- 2026-06-15 21:02 CDT: Alan retested the "明天午休少糖珍珠奶茶" promise and
+  the notebook still stayed empty. New evidence showed `c:30552` archived with
+  海 replying `嗯，我先照你說的來...`; the stale-curry repair had protected
+  against curry relapse but over-repaired the boba promise into a generic line,
+  leaving the memory extractor no explicit commitment text. Patch: Umi's
+  Alan-facing repair now answers boba/lunch commitment requests directly:
+  `好。明天午休，我帶少糖珍珠奶茶，我們一起喝。` or `好。明天午休，我幫你準備午餐。`
+  Added a sanitizer regression test proving a stale curry reply becomes the
+  explicit boba acceptance. Verification: targeted Jest 90/90, agent Jest
+  145/145, typecheck PASS, build PASS, diff-check clean, runtime preflight PASS.
+  Existing `c:29920` and `c:30552` are already processed and will not backfill
+  automatically without explicit data-write approval; next fresh retest should
+  write the commitment.
+- 2026-06-15 20:57 CDT: Alan's "明天午休少糖珍珠奶茶" playtest revealed a
+  memory-write gap, not a dialogue-only gap. 海 did answer with tomorrow-lunch
+  boba language in `c:29920`, but `school:notebookCommitments` remained empty
+  because the extractor only understood curry-like objects and accepted the
+  first coarse lunch/box commitment before seeing the later boba refinement.
+  Patch: commitment extraction now recognizes `珍珠奶茶/奶茶`, `午餐`,
+  `便當/便當盒`, and `明天午休/明天中午`; prefers more specific drink over
+  meal/container; scans acceptance windows newest-first; and treats `一杯少糖`,
+  `一杯正常甜`, and `你選哪一杯` as bounded offer cues. cc reviewed and agreed
+  via `umi/reports/20260616T015123Z-workload.md`; added edge tests for
+  lunch-only success and bento-box-only refusal. Verification: memory Jest
+  44/44, `npm test -- convex/agent` 144/144, with earlier typecheck/build/diff
+  check/runtime preflight already green. Existing `c:29920` is already
+  processed and will not be auto-backfilled without explicit data-write
+  approval; future fresh conversations should write this kind of commitment.
+- 2026-06-15 20:55 CDT: Alan-facing chat smoothness guard is patched after
+  Alan's direct playtest. Root causes: old time-bound commitments were too
+  sticky in prompt assembly; answer-first repair did not catch some direct
+  Mahiru questions after stage-direction stripping; and the UI/backend could
+  let Alan send/leave while the character was still typing, producing a
+  single-sided diagnostic archive. Fixes: expired commitments now surface only
+  when Alan explicitly mentions the object; Umi curry output is repaired away
+  from unrelated feeling/current-topic questions; Mahiru direct questions about
+  secrets/invitations/check-ins answer first; first-person stage-direction
+  detection catches `我正/正在...推過來`; MessageInput blocks duplicate sends
+  while the other participant is typing; `leaveAlanConversationNow` waits up to
+  90s before archiving Alan-only conversations when a character is still
+  typing. cc reviewed the issue in read-only mode at
+  `umi/reports/20260616T013551Z-workload.md`; Codex accepted the bounded parts
+  and kept broader prompt/memory/provider changes out of scope. Verification:
+  targeted Jest 54/54, typecheck PASS, build PASS, `git diff --check` clean,
+  runtime preflight PASS. Next: Alan should human-test one short chat each with
+  海 / 真晝 / 天澤 or 一之瀨 and treat only post-patch rows as evidence.
+- 2026-06-15 19:35 CDT: After Alan approved a targeted repair, Codex/Umi used
+  split-work with cc. cc confirmed the safest fix is not a broad prompt or
+  memory rewrite: the main gap was autonomous non-Alan pairs archiving dangling
+  fragments while the Alan-facing path already had a repair guard. Implemented a
+  bounded conversation-hygiene patch: recent same-pair motif cooldown now tells
+  the model not to reuse already-used motif families as the next opener or
+  emotional proof; prop diversity guidance now prefers plain replies or soft
+  closes instead of another object callback; fresh repeated motif families for
+  needle/candy/wrapper, curtain/hook/window, and hand/finger/sleeve/dust are in
+  the cooldown set; autonomous dangling fragments abort before archive while
+  Alan-facing dangling replies still use the existing character-specific repair
+  path. Added sanitizer-level tests for non-Alan dangling aborts. Verification:
+  `npm test -- --runTestsByPath convex/agent/conversationMotifGuard.test.ts`
+  43/43, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`,
+  and `npm run underworld:runtime-preflight` PASS. Next check should use fresh
+  post-patch conversations; old latest eval report still reflects pre-patch
+  failures.
 - 2026-06-15 11:48 CDT: Added a polished mobile home-screen icon for
   Underworld/UW, then corrected the direction to match Alan's expectation that
   the app icon should show Umi rather than only the school entrance. Active icon

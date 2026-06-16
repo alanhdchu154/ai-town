@@ -58,6 +58,68 @@ function soulPilotConversationCooldownMs() {
   );
 }
 
+function humanGenerationFailureCooldownMs() {
+  return envNumber(
+    'HUMAN_GENERATION_FAILURE_COOLDOWN_MS',
+    90_000,
+    15_000,
+    10 * 60_000,
+  );
+}
+
+function humanGenerationAttemptCooldownMs() {
+  return envNumber(
+    'HUMAN_GENERATION_ATTEMPT_COOLDOWN_MS',
+    30_000,
+    5_000,
+    60_000,
+  );
+}
+
+export function shouldThrottleHumanGenerationAfterFailure(
+  failure: { playerId: GameId<'players'>; timestamp: number } | undefined,
+  playerIdValue: GameId<'players'>,
+  now: number,
+  cooldownMs = humanGenerationFailureCooldownMs(),
+) {
+  return Boolean(
+    failure?.playerId === playerIdValue && now < failure.timestamp + cooldownMs,
+  );
+}
+
+export function shouldThrottleHumanGenerationAfterAttempt(
+  attempt: { playerId: GameId<'players'>; timestamp: number } | undefined,
+  playerIdValue: GameId<'players'>,
+  now: number,
+  cooldownMs = humanGenerationAttemptCooldownMs(),
+) {
+  return Boolean(
+    attempt?.playerId === playerIdValue && now < attempt.timestamp + cooldownMs,
+  );
+}
+
+function shouldThrottleHumanGeneration(
+  conversation: {
+    lastGenerationAttempt?: { playerId: GameId<'players'>; timestamp: number };
+    lastGenerationFailure?: { playerId: GameId<'players'>; timestamp: number };
+  },
+  playerIdValue: GameId<'players'>,
+  now: number,
+) {
+  return (
+    shouldThrottleHumanGenerationAfterAttempt(
+      conversation.lastGenerationAttempt,
+      playerIdValue,
+      now,
+    ) ||
+    shouldThrottleHumanGenerationAfterFailure(
+      conversation.lastGenerationFailure,
+      playerIdValue,
+      now,
+    )
+  );
+}
+
 function inviteAcceptProbability() {
   return envNumber('INVITE_ACCEPT_PROBABILITY', INVITE_ACCEPT_PROBABILITY, 0, 1);
 }
@@ -253,7 +315,21 @@ export class Agent {
         return;
       }
       console.log(`Timing out ${JSON.stringify(this.inProgressOperation)}`);
+      const timedOutOperation = this.inProgressOperation;
       delete this.inProgressOperation;
+      if (timedOutOperation.name === 'agentGenerateMessage') {
+        const conversation = game.world.playerConversation(player);
+        const hasHumanParticipant =
+          conversation &&
+          [...conversation.participants.keys()].some((id) => game.world.players.get(id)?.human);
+        if (conversation && hasHumanParticipant) {
+          if (conversation.isTyping?.playerId === player.id) {
+            delete conversation.isTyping;
+          }
+          conversation.markGenerationFailure(now, player);
+          return;
+        }
+      }
     }
     const conversation = game.world.playerConversation(player);
     const member = conversation?.participants.get(player.id);
@@ -363,12 +439,19 @@ export class Agent {
           const awkwardDeadline = started + AWKWARD_CONVERSATION_TIMEOUT;
           // Send the first message if we're the initiator or if we've been waiting for too long.
           if (isInitiator || awkwardDeadline < now) {
+            const hasHumanParticipant = player.human || otherPlayer.human;
+            if (hasHumanParticipant && shouldThrottleHumanGeneration(conversation, player.id, now)) {
+              return;
+            }
             if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
               return;
             }
             // Grab the lock on the conversation and send a "start" message.
             console.log(`${player.id} initiating conversation with ${otherPlayer.id}.`);
             const messageUuid = crypto.randomUUID();
+            if (hasHumanParticipant) {
+              conversation.markGenerationAttempt(now, player);
+            }
             conversation.setIsTyping(now, player, messageUuid);
             this.startOperation(game, now, 'agentGenerateMessage', {
               worldId: game.worldId,
@@ -424,11 +507,15 @@ export class Agent {
           if (now < awkwardDeadline) {
             return;
           }
+          if (shouldThrottleHumanGeneration(conversation, player.id, now)) {
+            return;
+          }
           if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
             return;
           }
           console.log(`${player.id} closing idle human conversation with ${otherPlayer.id}.`);
           const messageUuid = crypto.randomUUID();
+          conversation.markGenerationAttempt(now, player);
           conversation.setIsTyping(now, player, messageUuid);
           this.startOperation(game, now, 'agentGenerateMessage', {
             worldId: game.worldId,
@@ -439,6 +526,9 @@ export class Agent {
             messageUuid,
             type: 'leave',
           });
+          return;
+        }
+        if (hasHumanParticipant && conversation.lastMessage.author === player.id) {
           return;
         }
         // Wait for the awkward deadline if we sent the last message.
@@ -454,11 +544,20 @@ export class Agent {
           return;
         }
         // Grab the lock and send a message!
+        if (
+          hasHumanParticipant &&
+          shouldThrottleHumanGeneration(conversation, player.id, now)
+        ) {
+          return;
+        }
         if (hasActiveConversationGeneration(game, now, this.id, pilotConversation)) {
           return;
         }
         console.log(`${player.id} continuing conversation with ${otherPlayer.id}.`);
         const messageUuid = crypto.randomUUID();
+        if (hasHumanParticipant) {
+          conversation.markGenerationAttempt(now, player);
+        }
         conversation.setIsTyping(now, player, messageUuid);
         this.startOperation(game, now, 'agentGenerateMessage', {
           worldId: game.worldId,

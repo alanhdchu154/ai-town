@@ -145,6 +145,9 @@ export const agentInputs = {
       const hasHumanParticipant =
         conversation &&
         [...conversation.participants.keys()].some((id) => game.world.players.get(id)?.human);
+      if (conversation && player && hasHumanParticipant) {
+        conversation.markGenerationFailure(now, player);
+      }
       if (conversation && player && !hasHumanParticipant) {
         conversation.leave(game, now, player);
       }
@@ -176,6 +179,13 @@ export const agentInputs = {
         const conversation = game.world.conversations.get(conversationId);
         if (conversation?.isTyping?.playerId === agent.playerId) {
           delete conversation.isTyping;
+        }
+        const player = game.world.players.get(agent.playerId);
+        const hasHumanParticipant =
+          conversation &&
+          [...conversation.participants.keys()].some((id) => game.world.players.get(id)?.human);
+        if (conversation && player && hasHumanParticipant) {
+          conversation.markGenerationFailure(now, player);
         }
       }
       return null;

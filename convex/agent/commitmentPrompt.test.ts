@@ -50,9 +50,10 @@ describe('commitmentPromptLines', () => {
       [{ text: dueText, createdAt: saidAt }],
       'Alan',
       saidAt + 3 * dayMs,
+      '咖哩飯那件事呢',
     );
     expect(late[1]).toContain('已過了說好的時間');
-    expect(late[1]).toContain('不要假裝還來得及');
+    expect(late[1]).toContain('回答後立刻回到 Alan 現在的問題');
   });
 
   test('fulfilled commitments are excluded from the 未了的約定 block', () => {
@@ -82,6 +83,7 @@ describe('commitmentPromptLines', () => {
       [{ text: 'Umi答應明天為Alan準備咖哩飯', createdAt: Date.UTC(2026, 5, 4) }],
       'Alan',
       Date.UTC(2026, 5, 20),
+      '咖哩飯還算數嗎',
     );
     expect(staleTomorrow[1]).toContain('已過了說好的時間');
 
@@ -91,5 +93,29 @@ describe('commitmentPromptLines', () => {
       Date.UTC(2026, 5, 20),
     );
     expect(legacyWeekend[1]).not.toContain('已過了說好的時間');
+  });
+
+  test('omits expired commitments unless Alan explicitly mentions the object', () => {
+    const saidAt = Date.UTC(2026, 5, 10, 17, 0, 0);
+    const readAt = Date.UTC(2026, 5, 15, 17, 0, 0);
+    const commitment = 'Umi答應明天為Alan準備咖哩飯';
+
+    expect(
+      commitmentPromptLinesForTest(
+        [{ text: commitment, createdAt: saidAt }],
+        'Alan',
+        readAt,
+        '早安，你今天開心嗎',
+      ),
+    ).toEqual([]);
+
+    const mentioned = commitmentPromptLinesForTest(
+      [{ text: commitment, createdAt: saidAt }],
+      'Alan',
+      readAt,
+      '那咖哩飯呢',
+    ).join('\n');
+    expect(mentioned).toContain('已過了說好的時間');
+    expect(mentioned).toContain('只有 Alan 主動提到時才承認錯過');
   });
 });
