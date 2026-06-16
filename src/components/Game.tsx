@@ -454,16 +454,6 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         toast: '請選其他角色開始對話。',
       };
     }
-    if (!humanPlayer || playerIdentity?.status === 'away') {
-      return {
-        disabled: true,
-        label: '先接手 Alan',
-        status: 'Alan 離校',
-        title: 'Alan 離校中，先按「接手 Alan」回到校長室。',
-        helper: `Alan 離校中；先接手 Alan，再邀請 ${selectedDisplayName} 來校長室。`,
-        toast: `先接手 Alan，再邀請 ${selectedDisplayName} 來校長室。`,
-      };
-    }
     if (humanConversation) {
       return {
         disabled: true,
@@ -482,6 +472,16 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         title: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話。`,
         helper: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話；等一下再邀請會比較自然。`,
         toast: `${selectedDisplayName} 正在和 ${selectedBusyNames || '其他人'} 談話，先不要打斷。`,
+      };
+    }
+    if (!humanPlayer || playerIdentity?.status === 'away') {
+      return {
+        disabled: false,
+        label: `邀請 ${selectedDisplayName}`,
+        status: '會先叫醒 Alan',
+        title: `叫醒 Alan 回到校長室，並邀請 ${selectedDisplayName} 對話。`,
+        helper: `Alan 離校中；按下後會先把 Alan 接回校長室，再邀請 ${selectedDisplayName}。`,
+        toast: `正在叫醒 Alan，並邀請 ${selectedDisplayName} 來校長室。`,
       };
     }
     if (targetDistanceStatus === '不在同場景') {
@@ -694,7 +694,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         setSceneMessage(selectedConversationCta.toast);
         return;
       }
-      if (targetDistanceStatus === '不在同場景') {
+      if (targetDistanceStatus === '不在同場景' || !humanPlayer || playerIdentity?.status === 'away') {
         const principalOffice = SchoolLocations.find((location) => location.id === ALAN_HOME_SCENE_ID);
         if (principalOffice) {
           followAlanRef.current = false;

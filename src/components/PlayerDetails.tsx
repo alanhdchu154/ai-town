@@ -531,9 +531,8 @@ export default function PlayerDetails({
         } 談話。你可以先等待、旁聽校園動態，或改找另一位角色。`
       : undefined;
   const canStartSelectedChat =
-    !!humanPlayer &&
     targetPlayer &&
-    targetPlayer.id !== humanPlayer.id &&
+    (!humanPlayer || targetPlayer.id !== humanPlayer.id) &&
     !humanConversation &&
     !targetConversation;
   const ensureHumanPlayerId = async () => {
@@ -568,16 +567,6 @@ export default function PlayerDetails({
 
   const onStartSelectedConversation = async () => {
     if (!targetPlayer || !canStartSelectedChat) {
-      if (!humanPlayer) {
-        setActiveTab('dialogue');
-        setActionSummary({
-          yourAction: `Alan 想找 ${displayAgentName(targetName)} 說話。`,
-          characterReactions: 'Alan 目前離校中，先接手 Alan 回到校長室。',
-          worldChanges: '校園沒有自動讓 Alan 上線或移動。',
-          futureImplications: '接手 Alan 之後，就可以邀請角色來校長室對話。',
-        });
-        return;
-      }
       if (targetBusyDescription) {
         setActiveTab('dialogue');
         setActionSummary({
@@ -589,7 +578,12 @@ export default function PlayerDetails({
       }
       return;
     }
-    await queueConversationStart(`邀請 ${displayAgentName(targetName)} 來校長室`, targetPlayer.id);
+    await queueConversationStart(
+      humanPlayer
+        ? `邀請 ${displayAgentName(targetName)} 來校長室`
+        : `叫醒 Alan 並邀請 ${displayAgentName(targetName)}`,
+      targetPlayer.id,
+    );
   };
   const onLeaveSelectedConversation = async () => {
     if (!humanPlayer || !humanConversation) return;
@@ -1012,7 +1006,7 @@ export default function PlayerDetails({
   }
   const isMe = humanPlayer && player.id === humanPlayer.id;
   const playerLocation = nearestSchoolLocation(player.position);
-  const canInvite = !!humanPlayer && !isMe && !playerConversation && !humanConversation;
+  const canInvite = !isMe && !playerConversation && !humanConversation;
   const sameConversation =
     !isMe &&
     humanPlayer &&
@@ -1039,8 +1033,9 @@ export default function PlayerDetails({
   const onStartConversation = async () => {
     if (!playerId) return;
     const inviteeId = playerId;
+    const inviteeName = displayAgentName(playerDescription?.name);
     await runWithStatus(
-      `邀請 ${displayAgentName(playerDescription?.name)} 來校長室`,
+      humanPlayer ? `邀請 ${inviteeName} 來校長室` : `叫醒 Alan 並邀請 ${inviteeName}`,
       async () => {
         const alanPlayerId = await ensureHumanPlayerId();
         await startConversationQueued({ playerId: alanPlayerId, invitee: inviteeId });
@@ -2508,7 +2503,7 @@ function PlayerOverviewCard({
               className={`action-pill ${canStartSelectedChat ? 'action-pill-active' : ''}`}
               onClick={canStartSelectedChat ? onStartConversation : onOpenDialogue}
             >
-              {canStartSelectedChat ? `開始和${displayAgentName(targetName)}說話` : '查看對話狀態'}
+              {canStartSelectedChat ? `邀請${displayAgentName(targetName)}` : '查看對話狀態'}
             </button>
           ) : (
             <button className="action-pill action-pill-active" onClick={onOpenCharacters}>
