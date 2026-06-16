@@ -637,7 +637,10 @@ describe('soul-grounded LLM residue', () => {
     // The other party's public surface — the trace must connect to what THEY did.
     expect(prompt).toContain('真晝 的角色：');
     expect(prompt).toContain(otherPublic.communicationStyle);
-    expect(prompt).toMatch(/交會點/);
+    // De-philosophise guards: grounded observation, no aphorisms, no projecting
+    // the other party's unspoken interior.
+    expect(prompt).toMatch(/不要用「原來/);
+    expect(prompt).toMatch(/不要替 真晝 臆測/);
     // Anti-confabulation + anti-template guards must be in the instruction.
     expect(prompt).toMatch(/不可虛構任何事實/);
     expect(prompt).toMatch(/不要逐句複述/);
@@ -658,7 +661,9 @@ describe('soul-grounded LLM residue', () => {
     expect(grounded).toContain('You are 海');
     expect(grounded).toContain('隱藏的恐懼：');
     expect(grounded).toContain(profile.stakes.hiddenFear);
-    expect(grounded).toMatch(/touched what I privately fear or want/);
+    // Grounded, de-philosophised: no "原來" aphorisms, no projecting the other.
+    expect(grounded).toMatch(/不要用「原來/);
+    expect(grounded).toMatch(/不要替 Alan 臆測/);
     // Without a profile it still produces a valid plain first-person prompt.
     const plain = buildSubjectiveSummaryPrompt('海', 'Alan', null);
     expect(plain).toContain('You are 海');
