@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 15:38 CDT
+Last updated: 2026-06-16 15:56 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -61,6 +61,30 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 15:56 CDT: Continued frontend launch-readiness audit after
+  `2527bd0f`. cc residual review `umi/reports/20260616T204624Z-workload.md`
+  found no confirmed P0, but flagged two P1s: iOS `100vh` world-shell clipping
+  risk and Conversation Wall smoke skipping small-mobile/tablet. Codex also ran
+  a local non-mutating 844x390 landscape probe and reproduced a concrete
+  clipping issue: before patch the standee row had `y=-101` while the topbar was
+  176px tall, so character art was pushed above the viewport. Patch: `App.tsx`
+  now uses `100dvh` root height, `index.css` adds a short-height mobile
+  landscape layout that compresses the topbar and standees (probe after patch:
+  topbar 54px, standee row `y=137`, no overflow), and
+  `underworld:frontend-smoke` now includes `landscape-mobile` 844x390 plus
+  runs Conversation Wall open/return checks for every viewport instead of only
+  mobile/desktop. `umi/playtest-frontend-mobile-acceptance.md` now records the
+  expanded machine coverage while keeping real-device iPhone acceptance
+  required. Verification: `npx tsc --noEmit --pretty false` PASS,
+  `npm run build` PASS, `npm run underworld:runtime-preflight` PASS,
+  `git diff --check` PASS, and `npm run underworld:frontend-smoke` PASS 5/5
+  generated at `2026-06-16T20:54:02.188Z`; mobile, small-mobile,
+  landscape-mobile, tablet, and desktop all selected a character, held idle,
+  opened Conversation Wall, returned to world, had `conversationWallCheck.ok=true`,
+  and had no horizontal overflow. Remaining launch condition: Alan real
+  iPhone/in-app mobile acceptance for touch feel, keyboard occlusion during real
+  message send, background/foreground reconnect, native select rendering, and
+  subjective flicker.
 - 2026-06-16 15:38 CDT: Alan reported today's UI felt especially flickery /
   like it suddenly jumped while playing. cc read-only review
   `umi/reports/20260616T203207Z-workload.md` recommended closing the remaining

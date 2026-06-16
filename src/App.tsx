@@ -27,8 +27,8 @@ export default function Home() {
   };
 
   return (
-    <main className="relative flex h-screen overflow-hidden flex-col items-center justify-between font-body game-background">
-      <div className="w-full h-screen min-h-0 relative isolate overflow-hidden p-2 lg:p-3 flex flex-col justify-center items-center gap-3">
+    <main className="relative flex h-[100dvh] min-h-[100dvh] overflow-hidden flex-col items-center justify-between font-body game-background">
+      <div className="w-full h-[100dvh] min-h-0 relative isolate overflow-hidden p-2 lg:p-3 flex flex-col justify-center items-center gap-3">
         <h1 className="sr-only">GIIS Underworld</h1>
 
         <AppErrorBoundary key={view}>

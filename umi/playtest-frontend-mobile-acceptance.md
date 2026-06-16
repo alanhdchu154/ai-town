@@ -18,6 +18,12 @@ npm run underworld:runtime-preflight
 npm run underworld:frontend-smoke
 ```
 
+Current smoke coverage includes mobile 390x844, small-mobile 360x640,
+landscape-mobile 844x390, tablet 820x1180, and desktop 1440x960. It opens the
+world, selects a non-Alan standee, waits for idle stability, opens the topbar
+`對話` wall, and returns to `世界` in every viewport. This lowers regression
+risk, but it does not replace the real-device checks below.
+
 Open `http://localhost:5173/ai-town` on Alan's actual phone or the in-app
 browser. Prefer one Wi-Fi pass and, if practical, one cellular pass.
 
@@ -78,8 +84,9 @@ Mark each item `PASS`, `WARN`, or `FAIL`. A v0.1 frontend pass requires at least
     permanent fallback; if fallback appears, `再試一次` must recover.
 
 11. Landscape rotation
-    PASS if rotating to landscape does not create a double scrollbar or clip the
-    primary controls.
+    PASS if rotating to landscape does not create a double scrollbar, clip
+    character standees, or hide the primary controls behind the browser chrome
+    / home indicator.
 
 12. Subjective flicker
     PASS if 60 seconds of free observation in one scene has no noticeable scene

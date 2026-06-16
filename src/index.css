@@ -6222,3 +6222,118 @@ body {
     bottom: calc(10.2rem + env(safe-area-inset-bottom));
   }
 }
+
+@media (max-width: 900px) and (max-height: 500px) {
+  .game-background > div {
+    padding: 0.35rem !important;
+  }
+
+  .giis-live-room-shell .giis-topbar {
+    gap: 0.35rem;
+    grid-template-columns: minmax(7rem, 1fr) auto minmax(10rem, 1.2fr) auto auto;
+    left: 0.45rem;
+    padding: 0.34rem 0.45rem;
+    right: 0.45rem;
+    top: 0.35rem;
+  }
+
+  .giis-live-room-shell .giis-topbar-title b {
+    font-size: 0.84rem;
+  }
+
+  .giis-live-room-shell .giis-topbar-line {
+    display: none;
+  }
+
+  .giis-live-room-shell .giis-view-switch button {
+    font-size: 0.68rem;
+    min-height: 1.7rem;
+    padding: 0.16rem 0.42rem;
+  }
+
+  .giis-live-room-shell .giis-scene-select {
+    grid-column: auto;
+    width: auto;
+  }
+
+  .giis-live-room-shell .giis-select {
+    font-size: 0.74rem;
+    min-height: 1.9rem;
+    padding: 0.24rem 0.48rem;
+  }
+
+  .giis-live-room-shell .giis-presence-button,
+  .giis-live-room-shell .giis-find-alan-button {
+    max-width: none;
+    min-height: 1.9rem;
+    padding: 0.22rem 0.46rem;
+    width: auto;
+  }
+
+  .giis-live-room-shell .giis-left-column {
+    top: 4.4rem;
+  }
+
+  .giis-live-room-shell .giis-utility-panel-collapsed {
+    bottom: calc(5.4rem + env(safe-area-inset-bottom));
+    top: auto;
+  }
+
+  .giis-live-room-shell .giis-utility-panel-collapsed .giis-panel-toggle {
+    min-height: 4.6rem;
+  }
+
+  .giis-scene-presence-banner {
+    font-size: 0.64rem;
+    min-height: 1.45rem;
+    top: 4.65rem;
+  }
+
+  .giis-scene-character-row {
+    bottom: calc(5.55rem + env(safe-area-inset-bottom));
+    grid-auto-columns: minmax(6.4rem, 18vw);
+    max-width: calc(100% - 4.25rem);
+    padding: 0 0.45rem 0.12rem;
+    width: calc(100% - 4.25rem);
+  }
+
+  .giis-scene-character-count-5,
+  .giis-scene-character-count-6 {
+    grid-auto-columns: minmax(6.4rem, 18vw);
+    max-width: calc(100% - 4.25rem);
+    width: calc(100% - 4.25rem);
+  }
+
+  .giis-scene-standee {
+    max-width: min(7rem, 18vw);
+    min-width: min(7rem, 18vw);
+  }
+
+  .giis-scene-standee .character-portrait-card {
+    height: clamp(5.7rem, 24dvh, 8.2rem);
+    min-height: clamp(5.7rem, 24dvh, 8.2rem);
+  }
+
+  .giis-scene-standee .character-portrait-img,
+  .giis-scene-standee .character-portrait-fallback {
+    height: calc(clamp(5.5rem, 23dvh, 8rem) * var(--render-zoom, 1));
+    max-width: min(6.5rem, 17vw);
+  }
+
+  .giis-scene-standee-label {
+    min-height: 2.35rem;
+    padding: 0.22rem 0.32rem;
+  }
+
+  .giis-scene-activity-row {
+    min-height: 1.05rem;
+  }
+
+  .giis-scene-quiet-line {
+    display: none;
+  }
+
+  .giis-live-room-shell .giis-bottom-bar {
+    max-height: min(30vh, 7rem);
+  }
+}
