@@ -33,21 +33,24 @@ crons.daily('vacuum old entries', { hourUTC: 4, minuteUTC: 20 }, internal.crons.
 export default crons;
 
 const TablesToVacuum: TableNames[] = [
-  // Un-comment this to also clean out old conversations.
-  // 'conversationMembers', 'conversations', 'messages',
-
-  // Inputs aren't useful unless you're trying to replay history.
-  // If you want to support that, you should add a snapshot table, so you can
-  // replay from a certain time period. Or stop vacuuming inputs and replay from
-  // the beginning of time
+  // Inputs are just the engine's replay/event log (not research data), so they
+  // are safe to age out.
   'inputs',
 
-  // We can keep memories without their embeddings for inspection, but we won't
-  // retrieve them when searching memories via vector search.
-  'memories',
-  // We can vacuum fewer tables without serious consequences, but the only
-  // one that will cause issues over time is having >>100k vectors.
-  'memoryEmbeddings',
+  // 2026-06-16 (Alan, explicit): SOUL DATA IS PERMANENT. `memories` and
+  // `memoryEmbeddings` are the emotional-residue research record — the whole
+  // point of long-term soul growth — so they are intentionally NOT vacuumed.
+  // The upstream default deleted them after VACUUM_MAX_AGE, which would have
+  // silently erased ~14-day-old soul memories; that is removed here.
+  //   'memories',          // never auto-delete — permanent
+  //   'memoryEmbeddings',  // never auto-delete — permanent
+  // Watch-out for later: keeping every embedding forever means the vector count
+  // grows unbounded; past ~100k vectors, vector search slows (a gradual
+  // degradation, not a failure). If that bites, tier/archive OLD embeddings to
+  // a side store while keeping the memory TEXT — do NOT just delete memories.
+  //
+  // Note: `conversationMembers` / `conversations` / `messages` are also left
+  // un-vacuumed; they grow slowly and are raw transcript context.
 ];
 
 export const vacuumOldEntries = internalMutation({

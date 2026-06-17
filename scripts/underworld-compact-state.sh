@@ -57,8 +57,22 @@ check_only() {
 
 if [ "${1:-}" = "--check" ]; then check_only; exit 0; fi
 
-# ---- confirmation ----
-if [ "${1:-}" != "--yes" ]; then
+# --auto: for an unattended scheduler (e.g. a nightly cron during deep sleep).
+# Compacts ONLY when the document count has grown past WARN_DOCS, then runs
+# non-interactively; otherwise it does nothing. The version history grows
+# ~150-170k docs/day, so this self-paces to roughly every 2-3 nights.
+if [ "${1:-}" = "--auto" ]; then
+  n=$(doc_count)
+  if [ "$n" = "?" ]; then echo "[compact-state] --auto: backend not ready, skipping."; exit 0; fi
+  if [ "$n" -lt "$WARN_DOCS" ]; then
+    echo "[compact-state] --auto: documents=$n < $WARN_DOCS — no compaction needed."
+    exit 0
+  fi
+  echo "[compact-state] --auto: documents=$n >= $WARN_DOCS — compacting now."
+fi
+
+# ---- confirmation (skipped for --yes / --auto) ----
+if [ "${1:-}" != "--yes" ] && [ "${1:-}" != "--auto" ]; then
   echo "About to compact the Convex local backend (stops the world ~5-10 min)."
   echo "Current: db=$(db_mb) MB, documents=$(doc_count)."
   read -r -p "Proceed? [y/N] " ans
