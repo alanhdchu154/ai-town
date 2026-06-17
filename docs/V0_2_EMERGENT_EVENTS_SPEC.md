@@ -69,3 +69,49 @@ Today's events are **hardcoded, injected "weather"**:
 Each increment is "done" when: it is env-gated, has a test or a reproducible
 demo, does not regress the runtime preflight, and the WORKLOG records the actual
 observed effect (a real before/after, not a claim).
+
+## Implementation notes
+
+### E1 initial substrate — 2026-06-17
+
+Status: **metadata substrate + bounded consumer shipped, runtime behavior still
+gated/off by default.**
+
+What changed:
+
+- `worldEvents` now has optional v0.2 consequence metadata:
+  `emergentCauseKind`, `consequenceStatus`, `consequenceKind`, `causeEventId`,
+  and `chainDepth`.
+- Clean `conversationOutcome` rows can be marked as `conversation_outcome`
+  cause candidates only when `UNDERWORLD_V02_EMERGENT_EVENTS=true`.
+- `repeated_noise` outcomes are never promoted into cause candidates.
+- The metadata is deliberately conservative: it does not move agents, rewrite
+  relationships, or schedule chains yet. E2+ must consume these candidates
+  explicitly and remain review-gated.
+- `school:applyEmergentEventCandidates` is the E2-E4 consumer:
+  - `{"write": false}` is a no-side-effect dry-run.
+  - `{"write": true}` is blocked unless `UNDERWORLD_V02_EMERGENT_EVENTS=true`.
+  - `max` is clamped to 1-5 candidates.
+  - only `conversation_outcome` candidates at `chainDepth <= 0` are considered.
+- E2 current consequence: a `queued_intention` candidate appends a bounded
+  short-term intention and, when the actor is not inside an active conversation
+  and the source event has a location, gives that actor a pathfinding destination
+  plus a short activity toward the event location. Existing world-time execution
+  can later turn the intention into an additional action/event.
+- E3 current consequence: a `relationship_shift_candidate` can apply a tiny
+  relationship delta and notification through the existing relationship path.
+- E4 current consequence: every applied candidate writes at most one follow-up
+  `worldEvents` row with `causeEventId` and `chainDepth=1`. No recursive chain
+  is allowed in this increment.
+
+Verification:
+
+- `npm run underworld:emergent-events:self-test`
+- Dry-run command:
+  `npx convex run school:applyEmergentEventCandidates '{"write":false,"max":3}'`
+
+Why this shape:
+
+v0.1 data collection must stay stable. E1 creates a durable, testable bridge
+from "conversation outcome was recorded" to "this outcome is eligible to cause
+something later" without making the live world suddenly more chaotic.

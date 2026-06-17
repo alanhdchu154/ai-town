@@ -23,7 +23,7 @@ const listenerChecks =
   process.env.UNDERWORLD_PREFLIGHT_SKIP_LISTENER_CHECKS === 'true'
     ? []
     : [
-        { id: 'vite_frontend', host: '127.0.0.1', port: 5173, label: 'Vite frontend' },
+        { id: 'vite_frontend', host: 'localhost', port: 5173, label: 'Vite frontend' },
         { id: 'convex_backend', host: '127.0.0.1', port: 3210, label: 'Convex backend' },
         { id: 'convex_site', host: '127.0.0.1', port: 3211, label: 'Convex site' },
       ];
@@ -233,7 +233,7 @@ async function writeReport(results, runtimeHealth, listenerResults = []) {
     '',
     '## Recovery',
     '',
-    'If listener checks fail, restart the local dev stack with `bash umi/run_underworld_dev_stack.sh`, wait for ports 5173 / 3210 / 3211, then rerun this preflight. If only stored worldClock is stale after restart, prefer `npx convex run --typecheck disable --codegen disable school:refreshStoredWorldClock \'{"timeZone":"America/Chicago"}\'` over `advanceWorldTime {"hours":0}` so recovery does not emit world events.',
+    'If listener checks fail, restart the local dev stack with `bash umi/run_underworld_dev_stack.sh`, wait for frontend `localhost:5173` plus backend ports 3210 / 3211, then rerun this preflight. If only stored worldClock is stale after restart, prefer `npx convex run --typecheck disable --codegen disable school:refreshStoredWorldClock \'{"timeZone":"America/Chicago"}\'` over `advanceWorldTime {"hours":0}` so recovery does not emit world events.',
     '',
   ];
   await writeFile(OUTPUT_PATH, `${lines.join('\n')}\n`, 'utf8');

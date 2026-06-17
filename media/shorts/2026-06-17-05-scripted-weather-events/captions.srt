@@ -1,0 +1,15 @@
+1
+00:00:00,000 --> 00:00:04,000
+My AI world had events, but many were just weather.
+
+2
+00:00:04,000 --> 00:00:11,000
+They changed the mood, but not the world.
+
+3
+00:00:11,000 --> 00:00:18,000
+v0.2 asks whether an event can become a cause.
+
+4
+00:00:18,000 --> 00:00:28,000
+Someone notices, acts, remembers, and the next scene changes.

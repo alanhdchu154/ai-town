@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 22:21 CDT
+Last updated: 2026-06-17 16:42 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -68,6 +68,30 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 16:42 CDT: Completed cc WORKLOG #45 handoff items A/B, and also
+  packaged the requested Shorts candidates for review. v0.2 emergent-events
+  substrate is now implemented but runtime-default-off: `worldEvents` has
+  optional consequence metadata, `convex/schoolEmergentEvents.ts` defines the
+  env gate and E1-E4 planning rules, and
+  `school:applyEmergentEventCandidates` can dry-run candidate consequences or
+  write only when `UNDERWORLD_V02_EMERGENT_EVENTS=true`. E1 marks only clean
+  conversation outcomes as candidates, repeated-noise never promotes, E2 queues
+  an intention and safe pathfinding movement, E3 applies a tiny relationship
+  shift, and E4 writes one bounded follow-up event with no recursive chaining.
+  Current live dry-run is callable but found 0 candidates, so no live world
+  mutation was performed. Source-lore enrichment is aligned in
+  `docs/soul/CHARACTER_SOURCES.md` and `convex/agent/conversation.ts`: Umi is
+  grounded as 朝凪海, Tianze keeps only safe mischievous/boundary-testing energy
+  with explicit/露出 material forbidden, and Tianze/Ichinose is treated as the
+  richest source-conflict relationship spine. Five review-gated Shorts packages
+  were created under `media/shorts/` plus
+  `media/topics/2026-06-17-worklog45-shorts-plan.md`; nothing was rendered or
+  uploaded. Verification: `npm run underworld:emergent-events:self-test` PASS,
+  `npm test -- convex/agent/conversationMotifGuard.test.ts` PASS,
+  `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS, `npm run underworld:runtime-preflight` PASS, and
+  `npx convex run --typecheck disable --codegen disable school:applyEmergentEventCandidates '{"write":false,"max":3}'`
+  returned `status=dry_run`, `enabled=false`, `checked=0`.
 - 2026-06-16 22:21 CDT: Completed WORKLOG #40 CODEX ACTION. `scripts/underworld-rolling-continuity.mjs`
   now calls `scripts/underworld-peek.sh health` and `scripts/underworld-peek.sh talk`
   while building the read-only rolling continuity report, then writes the

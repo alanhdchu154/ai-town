@@ -46,3 +46,42 @@ their own ordinary self-knowledge.
   `RELATIONSHIP_DYNAMICS` 天澤↔一之瀨 entries with the source's real antagonism,
   staying inside each authored soul (Tianze tests boundaries; Ichinose prices the
   test and makes him pause by asking who pays for the joke).
+
+## 2026-06-17 source-lore enrichment pass
+
+Status: **small prompt-spine enrichment shipped; not a plot import.**
+
+Public references used for conservative paraphrase:
+
+- 一之瀨 / Honami Ichinose: You-Zitsu Wiki profile describes her as socially
+  engaging, benevolent, and able to pull focus through open warmth.
+  <https://you-zitsu.fandom.com/wiki/Honami_Ichinose>
+- 天澤 / Ichika Amasawa: You-Zitsu Wiki relationship/profile pages frame her as
+  evasive, sharp, and comfortable redirecting attention around upperclassmen /
+  rivals.
+  <https://you-zitsu.fandom.com/wiki/Ichika_Amasawa>
+  <https://you-zitsu.fandom.com/wiki/Ichika_Amasawa/Relationships>
+- 海 / Asanagi Umi: Kura Nika and public series summaries position Umi as a
+  sociable, popular "second cutest" classmate whose real weight comes from
+  ordinary after-school closeness rather than institutional authority.
+  <https://kuranika.fandom.com/wiki/Umi_Asanagi>
+  <https://en.wikipedia.org/wiki/I_Made_Friends_with_the_Second_Prettiest_Girl_in_My_Class>
+- 真晝 / Mahiru Shiina: public character descriptions emphasize the "Angel"
+  public image, formal distance, practical competence, and care through concrete
+  support.
+  <https://otonari-no-tenshi.fandom.com/wiki/Characters>
+- 貓貓 / Maomao: public summaries emphasize apothecary knowledge, poison /
+  medicine curiosity, deadpan observation, and reluctant problem-solving.
+  <https://en.wikipedia.org/wiki/Maomao_(The_Apothecary_Diaries)>
+- 祥子 / Sakiko Togawa: public profile pages identify her as Ave Mujica's
+  producer / composer / keyboardist and support the stage-composure frame.
+  <https://bandori.fandom.com/wiki/Togawa_Sakiko>
+
+Applied boundary:
+
+- `convex/agent/conversation.ts` now enriches `RELATIONSHIP_DYNAMICS` with this
+  source energy, especially 一之瀨↔天澤 and 貓貓↔祥子.
+- No runtime character is asked to recite source plot.
+- No spoiler-heavy material was imported.
+- 天澤 enrichment stays strictly at safe boundary-testing / mischievous pressure;
+  no exposure, explicit content, or humiliation.

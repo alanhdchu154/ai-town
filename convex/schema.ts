@@ -201,6 +201,19 @@ export default defineSchema({
         v.literal('repeated_noise'),
       ),
     ),
+    emergentCauseKind: v.optional(v.literal('conversation_outcome')),
+    consequenceStatus: v.optional(
+      v.union(v.literal('candidate'), v.literal('queued'), v.literal('applied'), v.literal('skipped')),
+    ),
+    consequenceKind: v.optional(
+      v.union(
+        v.literal('queued_intention'),
+        v.literal('relationship_shift_candidate'),
+        v.literal('memory_residue_candidate'),
+      ),
+    ),
+    causeEventId: v.optional(v.string()),
+    chainDepth: v.optional(v.number()),
     importance: v.number(),
     createdAt: v.number(),
     createdAtUnix: v.optional(v.number()),

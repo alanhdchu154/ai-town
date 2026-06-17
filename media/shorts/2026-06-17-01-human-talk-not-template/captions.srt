@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:03,000
+My AI characters sounded emotional, but not alive.
+
+2
+00:00:03,000 --> 00:00:08,000
+They kept repeating the same first move.
+
+3
+00:00:08,000 --> 00:00:14,000
+The bug was making personality decide what to say.
+
+4
+00:00:14,000 --> 00:00:20,000
+Humans start from the event, the person, and the mood.
+
+5
+00:00:20,000 --> 00:00:28,000
+Personality should shape how they speak, not force the opener.
+
+6
+00:00:28,000 --> 00:00:36,000
+That is the difference between a voice and a template.

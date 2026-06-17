@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:04,000
+What would it mean for an AI character to forget?
+
+2
+00:00:04,000 --> 00:00:10,000
+Memory is not just saved text.
+
+3
+00:00:10,000 --> 00:00:16,000
+It also needs a cue that can reach it.
+
+4
+00:00:16,000 --> 00:00:24,000
+Forgetting might mean sinking deeper, not deletion.
+
+5
+00:00:24,000 --> 00:00:34,000
+The right person or place can bring it back.

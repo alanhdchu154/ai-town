@@ -1,0 +1,15 @@
+1
+00:00:00,000 --> 00:00:04,000
+The same event should not become the same memory for everyone.
+
+2
+00:00:04,000 --> 00:00:11,000
+Umi, Mahiru, and Maomao would each carry it differently.
+
+3
+00:00:11,000 --> 00:00:18,000
+The event is objective. The residue is subjective.
+
+4
+00:00:18,000 --> 00:00:28,000
+That is the next memory problem I want Underworld to solve.

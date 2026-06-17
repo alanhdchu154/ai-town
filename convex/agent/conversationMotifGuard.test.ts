@@ -5,6 +5,7 @@ import {
   hasFreeWorldQualityLeakForTest,
   motifGuardPromptLinesForTest,
   recentPairContinuityPromptLinesForTest,
+  relationshipDynamicPromptLinesForTest,
   repairFreeWorldSoulLineForTest,
   residuePromptLinesForTest,
   residueTimeLabelZhForTest,
@@ -134,6 +135,18 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('角色行動分化 / 一之瀨');
     expect(lines).toContain('大姊姊式');
     expect(lines).toContain('親口承認想被照顧');
+  });
+
+  test('adds source-lore-enriched Tianze and Ichinose relationship spine without explicit content', () => {
+    const tianze = relationshipDynamicPromptLinesForTest('天澤', '一之瀨').join('\n');
+    const ichinose = relationshipDynamicPromptLinesForTest('一之瀨', '天澤').join('\n');
+
+    expect(tianze).toContain('同一套競爭教室');
+    expect(tianze).toContain('安全小惡魔');
+    expect(tianze).toContain('代價算回你身上');
+    expect(ichinose).toContain('同源教室');
+    expect(ichinose).toContain('誰買單');
+    expect(`${tianze}\n${ichinose}`).not.toMatch(/內褲|露出|explicit|羞辱/);
   });
 
   test('adds recent same-pair continuity guard for repeated lunch-box opener', () => {

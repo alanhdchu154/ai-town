@@ -42,6 +42,12 @@ import {
 import { schoolDayRhythmContext } from '../data/schoolCalendar';
 import { DailyLifePeriod, dailyLifeBulletinSourcesForDay } from '../data/dailyLifeBulletin';
 import { SPONTANEOUS_EVENTS } from '../data/spontaneousEvents';
+import {
+  conversationOutcomeCauseMetadata,
+  emergentConsequencePlanForEvent,
+  type EmergentEventCauseMetadata,
+  v02EmergentEventsEnabled,
+} from './schoolEmergentEvents';
 import { DEFAULT_NAME } from './constants';
 
 const DEFAULT_CLOCK = {
@@ -836,6 +842,9 @@ async function appendRecentEvent(
       | 'concrete_action'
       | 'emotional_residue'
       | 'repeated_noise';
+    causeEventId?: string;
+    chainDepth?: number;
+  } & Partial<EmergentEventCauseMetadata> & {
     importance: number;
     clock: Clock;
   },
@@ -3633,6 +3642,7 @@ export const recordConversationOutcome = internalMutation({
       reactionDialogueZh: '這段對話留下了選擇，不只是漂亮話。',
       futureImplicationsZh: `${displayNameZh(playerName)} 接下來可能把這個決定變成行動：${intention}`,
       outcomeQuality,
+      ...conversationOutcomeCauseMetadata(outcomeQuality),
       importance: importanceForConversationOutcome(outcomeQuality),
       clock,
     });
@@ -3686,6 +3696,206 @@ export const recordConversationOutcome = internalMutation({
       target: otherName,
     });
     return { intention, outcomeType: outcomeTypeFor(playerName) };
+  },
+});
+
+export const applyEmergentEventCandidates = mutation({
+  args: {
+    write: v.optional(v.boolean()),
+    max: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const max = Math.max(1, Math.min(args.max ?? 3, 5));
+    const write = args.write === true;
+    const enabled = v02EmergentEventsEnabled();
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const clock = currentClockForStatus(worldStatus);
+    const activeConversationPlayerIds = new Set(
+      world.conversations.flatMap((conversation) =>
+        conversation.participants.map((participant) => participant.playerId),
+      ),
+    );
+    const candidates = (
+      await ctx.db
+        .query('worldEvents')
+        .withIndex('worldId', (q) => q.eq('worldId', world._id))
+        .order('desc')
+        .take(80)
+    )
+      .filter(
+        (event) =>
+          event.emergentCauseKind === 'conversation_outcome' &&
+          event.consequenceStatus === 'candidate' &&
+          event.consequenceKind &&
+          (event.chainDepth ?? 0) <= 0,
+      )
+      .slice(0, max);
+    const results: Array<{
+      eventId: string;
+      actorName?: string;
+      targetName?: string;
+      action?: string;
+      consequenceKind?: string;
+      status: 'dry_run' | 'applied' | 'skipped';
+      reason?: string;
+      followUpEventId?: string;
+    }> = [];
+
+    if (write && !enabled) {
+      return {
+        status: 'write_blocked',
+        enabled,
+        checked: candidates.length,
+        reason: 'Set UNDERWORLD_V02_EMERGENT_EVENTS=true before applying candidate consequences.',
+        results: candidates.map((event) => ({
+          eventId: event.eventId,
+          actorName: event.actorName,
+          targetName: event.targetName,
+          consequenceKind: event.consequenceKind,
+          status: 'skipped' as const,
+          reason: 'env_disabled',
+        })),
+      };
+    }
+
+    for (const event of candidates) {
+      const plan = emergentConsequencePlanForEvent({
+        type: event.type,
+        descriptionZh: event.descriptionZh,
+        actorName: event.actorName,
+        targetName: event.targetName,
+        consequenceKind: event.consequenceKind,
+        chainDepth: event.chainDepth,
+      });
+      if (!plan) {
+        if (write) await ctx.db.patch(event._id, { consequenceStatus: 'skipped' });
+        results.push({
+          eventId: event.eventId,
+          actorName: event.actorName,
+          targetName: event.targetName,
+          consequenceKind: event.consequenceKind,
+          status: write ? 'skipped' : 'dry_run',
+          reason: 'no_plan',
+        });
+        continue;
+      }
+      if (!write) {
+        results.push({
+          eventId: event.eventId,
+          actorName: event.actorName,
+          targetName: event.targetName,
+          action: plan.action,
+          consequenceKind: plan.consequenceKind,
+          status: 'dry_run',
+          reason: plan.followUpDescriptionZh,
+        });
+        continue;
+      }
+
+      if (plan.action === 'queue_intention_and_move' && event.actorPlayerId && plan.intentionZh) {
+        await appendIntention(ctx, world._id, event.actorPlayerId, plan.intentionZh);
+        if (!activeConversationPlayerIds.has(event.actorPlayerId) && event.locationId) {
+          const location = SchoolLocations.find((item) => item.id === event.locationId);
+          if (location) {
+            const destination = clampToClassroom(
+              sceneSpawnPointWithPresence(location.id, 0, event.actorName ?? ''),
+            );
+            const now = Date.now();
+            await ctx.db.patch(world._id, {
+              players: world.players.map((player) => {
+                if (player.id !== event.actorPlayerId) return player;
+                return {
+                  ...player,
+                  pathfinding: {
+                    destination,
+                    started: now,
+                    state: { kind: 'needsPath' as const },
+                  },
+                  activity: {
+                    description: `前往${location.labelZh}處理剛才留下的事`,
+                    emoji: '↗',
+                    until: now + 5 * 60_000,
+                  },
+                };
+              }),
+            });
+          }
+        }
+        await ctx.db.patch(event._id, { consequenceStatus: 'queued' });
+      } else if (
+        plan.action === 'shift_relationship' &&
+        event.actorName &&
+        event.targetName &&
+        plan.relationshipDelta
+      ) {
+        await patchRelationshipDelta(
+          ctx,
+          world._id,
+          descriptions,
+          event.actorName,
+          event.targetName,
+          plan.relationshipDelta,
+          `${displayNameZh(event.actorName)}和${displayNameZh(event.targetName)}因一段對話留下了更具體的關係重量。`,
+          clock,
+        );
+        await ctx.db.patch(event._id, { consequenceStatus: 'applied' });
+      } else if (plan.action === 'write_follow_up_event') {
+        await ctx.db.patch(event._id, { consequenceStatus: 'applied' });
+      } else {
+        await ctx.db.patch(event._id, { consequenceStatus: 'skipped' });
+        results.push({
+          eventId: event.eventId,
+          actorName: event.actorName,
+          targetName: event.targetName,
+          action: plan.action,
+          consequenceKind: plan.consequenceKind,
+          status: 'skipped',
+          reason: 'missing_actor_target_or_payload',
+        });
+        continue;
+      }
+
+      const followUpEventId = await appendRecentEvent(ctx, world._id, {
+        type: plan.followUpType ?? 'emergentFollowUp',
+        actorPlayerId: event.actorPlayerId,
+        targetPlayerId: event.targetPlayerId,
+        actorName: event.actorName,
+        targetName: event.targetName,
+        source: 'autonomous_agent_action',
+        happenedDuringAlanPresence: event.happenedDuringAlanPresence ?? 'unknown',
+        observerPlayerIds: event.observerPlayerIds,
+        descriptionZh: plan.followUpDescriptionZh ?? '一段對話變成了後續事件候選。',
+        descriptionEn: 'A conversation outcome became an emergent follow-up candidate.',
+        locationId: event.locationId,
+        locationZh: event.locationZh,
+        interpretationZh: '這不是硬塞的校園天氣，而是由前一段真實對話留下的後續。',
+        reactionDialogueZh: '剛才那段話沒有立刻消失。',
+        futureImplicationsZh: '後續對話可以檢查這個事件是否真的改變行動或關係。',
+        importance: Math.max(4, Math.min(7, event.importance ?? 5)),
+        causeEventId: event.eventId,
+        consequenceStatus: 'applied',
+        chainDepth: plan.chainDepth,
+        clock,
+      });
+      results.push({
+        eventId: event.eventId,
+        actorName: event.actorName,
+        targetName: event.targetName,
+        action: plan.action,
+        consequenceKind: plan.consequenceKind,
+        status: 'applied',
+        followUpEventId: String(followUpEventId),
+      });
+    }
+
+    return {
+      status: write ? 'applied' : 'dry_run',
+      enabled,
+      checked: candidates.length,
+      write,
+      results,
+    };
   },
 });
 

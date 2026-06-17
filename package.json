@@ -82,6 +82,7 @@
     "underworld:life-signals:self-test": "node scripts/underworld-life-signals.mjs --self-test",
     "underworld:life-density": "node scripts/underworld-life-density.mjs",
     "underworld:life-density:self-test": "node scripts/underworld-life-density.mjs --self-test",
+    "underworld:emergent-events:self-test": "npm test -- convex/schoolEmergentEvents.test.ts",
     "underworld:alan-chat-archival": "node scripts/underworld-alan-chat-archival.mjs",
     "underworld:alan-chat-archival:self-test": "node scripts/underworld-alan-chat-archival.mjs --self-test",
     "paper:residue-ablation": "node scripts/paper/run_residue_ablation.mjs",

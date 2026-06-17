@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:03,000
+I realized I built my AI world backwards.
+
+2
+00:00:03,000 --> 00:00:09,000
+I kept adding dialogue guards.
+
+3
+00:00:09,000 --> 00:00:15,000
+But the real problem was a thin situation.
+
+4
+00:00:15,000 --> 00:00:23,000
+If nothing happens, the model has to fake movement from style.
+
+5
+00:00:23,000 --> 00:00:31,000
+v0.2 is not more prompts. It is making events real.
+
+6
+00:00:31,000 --> 00:00:38,000
+Speech should come from life, not from bans.
