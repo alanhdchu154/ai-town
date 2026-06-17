@@ -54,6 +54,24 @@ const RESIDUE_PREFIX = '殘留：';
 // derives the trace from each character's authored profile instead, so the
 // remaining three can join without a hand-written branch.
 const RESIDUE_PILOT_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', '貓貓', '祥子']);
+
+// Per-character residue LENS. Each soul is attuned to a different *kind* of
+// detail, so the same conversation should leave a different kind of trace in
+// each of them. Without this, every character's residue collapses onto the same
+// generic templates ("停頓的那半秒", "語氣像在報天氣"). Derived from
+// docs/soul/pilots/*.md; this guides what each one tends to notice, it does not
+// dictate the sentence.
+const RESIDUE_LENS: Record<string, string> = {
+  海: '對方這次有沒有真的需要你、用上你——還是其實不需要你也行（你最怕沒被需要）',
+  真晝: '對方藏起來的累或勉強，那種別人不會注意到的小訊號',
+  天澤: '你逗或推了一下之後，對方藏不住的真實反應——退一步、臉紅、還是頂回來的那個破綻',
+  一之瀨: '這次誰給了誰、誰欠了誰——那筆沒講明的人情帳',
+  貓貓: '對方身上一個被忽略的症狀或兜不攏的破綻——手、食慾、袖口、藉口',
+  祥子: '對方的儀態哪裡裂了一下又立刻收回去——他是不是在撐、在演',
+};
+function residueLensFor(self: string): string | null {
+  return RESIDUE_LENS[self] ?? null;
+}
 // Sentinel returned by safeMemoryCompletion's fallback so we can tell a real
 // provider failure (→ fall back to the deterministic residue) apart from the
 // model genuinely deciding nothing resonated (→ honour the empty "無").
@@ -1002,6 +1020,13 @@ export function buildResiduePrompt(
     `關係裡的不安：${profile.stakes.relationshipInsecurity}`,
     `核心價值：${profile.coreValues.join('、')}`,
   ];
+  const lens = residueLensFor(self);
+  if (lens) {
+    lines.push(
+      ``,
+      `你（${self}）這個人，在對話裡最容易先注意到的，是：${lens}。讓這道殘留從「你會看見的東西」長出來，而不是任何人都會說的那種觀察。`,
+    );
+  }
   if (otherPublic) {
     lines.push(
       ``,
@@ -1020,6 +1045,7 @@ export function buildResiduePrompt(
     `規則：`,
     `- 以「${self}還記得」開頭，並且具體指向 ${other} 這次做了什麼（看得到、聽得到的實際舉動或話）。`,
     `- 像一句樸素的觀察筆記，不是格言或人生感悟：不要用「原來…」這種頓悟句型，也不要寫成普世道理或漂亮的比喻。`,
+    `- 避免每次都用同一種固定句式（例如老是寫成「停頓的那半秒」或「語氣像在報…」）；換成你這個角色真正注意到的具體細節。`,
     `- 只寫你自己的感覺；不要替 ${other} 臆測他沒有真正表現出來的內心、恐懼或動機。`,
     `- 這是留下的「感覺」，不是摘要：不要逐句複述，也不要引用對話原句。`,
     `- 只能根據對話真的發生過的內容，不可虛構任何事實、物件、地點或 ${other} 沒做過的動作。`,

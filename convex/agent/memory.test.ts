@@ -649,6 +649,19 @@ describe('soul-grounded LLM residue', () => {
     expect(prompt).toMatch(/就只輸出：無/);
   });
 
+  it('gives each character a distinct residue lens so traces do not collapse onto one template', () => {
+    const umiPrompt = buildResiduePrompt('海', '貓貓', profile, otherPublic, '貓貓：你的手在抖。');
+    const maomaoPrompt = buildResiduePrompt('貓貓', '海', profile, otherPublic, '海：我幫你收好。');
+    // Each soul is told what KIND of detail it tends to notice...
+    expect(umiPrompt).toContain('有沒有真的需要你'); // 海: usefulness / being-needed
+    expect(maomaoPrompt).toContain('被忽略的症狀'); // 貓貓: the hidden symptom
+    // ...and they are NOT the same lens.
+    expect(umiPrompt).not.toContain('被忽略的症狀');
+    expect(maomaoPrompt).not.toContain('有沒有真的需要你');
+    // The anti-fixed-template guard is present.
+    expect(umiPrompt).toMatch(/避免每次都用同一種固定句式/);
+  });
+
   it('still builds a valid prompt when the other party has no authored profile', () => {
     const prompt = buildResiduePrompt('海', 'Alan', profile, null, '海：你又熬夜了。');
     expect(prompt).toContain('You are 海');
