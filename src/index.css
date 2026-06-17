@@ -4029,6 +4029,37 @@ body {
   min-width: 10rem;
 }
 
+/* Primary data-layer tabs (對話 / 殘留 / 記憶 / 睡眠筆記) sit above the filters. */
+.giis-wall-tabs {
+  margin: 0.2rem 0 0.1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+  padding-bottom: 0.4rem;
+}
+.giis-wall-tabs button {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+}
+.giis-wall-tabs button.active {
+  border-bottom: 2px solid #fbbf24;
+}
+.giis-wall-tab-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+/* Residue / memory / sleep tabs reuse the conversation card but lead with the
+   one line that matters, so each tab reads as a clean column of that layer. */
+.giis-trace-card .giis-wall-residue-line,
+.giis-sleep-card .giis-wall-memory-line {
+  color: #fef3c7;
+  font-weight: 600;
+}
+.giis-trace-card .giis-wall-memory-line {
+  color: #cbd5f5;
+  font-style: italic;
+}
+
 .giis-wall-grid {
   display: grid;
   gap: 0.8rem;

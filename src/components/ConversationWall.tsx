@@ -55,8 +55,20 @@ type FilterMode = 'all' | 'conversations' | 'residual' | 'status' | 'flagged' | 
 // original three. (Field/flag names keep the `triad` spelling to avoid churn.)
 const PILOT_NAMES = new Set(['海', '真晝', '天澤', '一之瀨', '貓貓', '祥子']);
 
+// The four layers of how a soul forms, shown as tabs so the pipeline is legible:
+// a 對話 happens → it leaves a 殘留 (involuntary trace) → some of it is kept as a
+// 記憶 (what they subjectively took away) → sleep consolidates it into a 睡眠筆記.
+type WallView = 'talk' | 'residue' | 'memory' | 'sleep';
+const WALL_VIEWS: Array<[WallView, string]> = [
+  ['talk', '對話'],
+  ['residue', '殘留'],
+  ['memory', '記憶'],
+  ['sleep', '睡眠筆記'],
+];
+
 export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
+  const [wallView, setWallView] = useState<WallView>('talk');
   const [filterMode, setFilterMode] = useState<FilterMode>('all');
   const [compactWall, setCompactWall] = useState(() =>
     typeof window === 'undefined' ? false : window.matchMedia('(max-width: 900px)').matches,
@@ -78,6 +90,7 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   const campusState = useQuery(api.school.campusSocialState, {
     timeZone: userTimeZone,
   });
+  const sleepData = useQuery(api.sleepNotes.sleepNotesSummary, wallView === 'sleep' ? {} : 'skip');
   const hasAnyWallData = data !== undefined || campusState !== undefined;
   useEffect(() => {
     if (hasAnyWallData) {
@@ -151,6 +164,25 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
         </button>
       </header>
 
+      <div className="giis-wall-segments giis-wall-tabs" aria-label="data layer tabs">
+        {WALL_VIEWS.map(([value, label]) => (
+          <button
+            key={value}
+            className={wallView === value ? 'active' : ''}
+            type="button"
+            onClick={() => setWallView(value)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <p className="giis-wall-tab-hint">
+        {wallView === 'talk' && '他們實際說了什麼。'}
+        {wallView === 'residue' && '同一段對話，在每個人心裡不由自主留下的痕跡（殘留）。'}
+        {wallView === 'memory' && '他們主觀記住、帶走的片段。'}
+        {wallView === 'sleep' && '睡眠把白天的痕跡整理成、明天會帶著走的筆記。'}
+      </p>
+
       <div className="giis-wall-metrics" aria-label="conversation summary">
         <Metric label="對話" value={summary.total} />
         <Metric label="狀態" value={summary.status} />
@@ -170,41 +202,49 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
       </section>
 
       <div className="giis-wall-controls">
-        <div className="giis-wall-segments" aria-label="conversation filters">
-          {[
-            ['all', '全部'],
-            ['conversations', '對話'],
-            ['residual', '有殘留'],
-            ['status', '狀態'],
-            ['triad', '試點'],
-            ['flagged', '需看'],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              className={filterMode === value ? 'active' : ''}
-              type="button"
-              onClick={() => setFilterMode(value as FilterMode)}
-            >
-              {label}
-            </button>
-          ))}
+        {wallView === 'talk' ? (
+          <div className="giis-wall-segments" aria-label="conversation filters">
+              {[
+                ['all', '全部'],
+                ['conversations', '對話'],
+                ['residual', '有殘留'],
+                ['status', '狀態'],
+                ['triad', '試點'],
+                ['flagged', '需看'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  className={filterMode === value ? 'active' : ''}
+                  type="button"
+                  onClick={() => setFilterMode(value as FilterMode)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span />
+          )}
+          <select
+            aria-label="character"
+            value={selectedCharacter}
+            onChange={(event) => setSelectedCharacter(event.target.value)}
+          >
+            <option value="all">所有角色</option>
+            {characterNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
         </div>
-        <select
-          aria-label="character"
-          value={selectedCharacter}
-          onChange={(event) => setSelectedCharacter(event.target.value)}
-        >
-          <option value="all">所有角色</option>
-          {characterNames.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <div className="giis-wall-grid">
-        {wallLoading ? (
+        {wallView === 'sleep' ? (
+          <SleepView sleepData={sleepData} selectedCharacter={selectedCharacter} />
+        ) : wallView === 'residue' || wallView === 'memory' ? (
+          <TraceView conversations={conversations} mode={wallView} selectedCharacter={selectedCharacter} />
+        ) : wallLoading ? (
           <div className="giis-wall-empty">載入中</div>
         ) : rows.length ? (
           <>
@@ -264,6 +304,105 @@ function ConversationCard({ conversation, flags }: { conversation: ConversationE
         ))}
       </ol>
     </article>
+  );
+}
+
+// 殘留 / 記憶 tabs: one card per trace, so you read each soul's take on a
+// conversation directly instead of digging it out of a transcript card.
+function TraceView({
+  conversations,
+  mode,
+  selectedCharacter,
+}: {
+  conversations: ConversationEntry[];
+  mode: 'residue' | 'memory';
+  selectedCharacter: string;
+}) {
+  const items = conversations.flatMap((conversation) =>
+    (conversation.memoryTraces ?? [])
+      .map((trace) => ({
+        conversation,
+        trace,
+        line: mode === 'residue' ? trace.residueLineZh : trace.memoryLineZh,
+      }))
+      .filter((item) => item.line)
+      .filter(
+        (item) =>
+          selectedCharacter === 'all' ||
+          displayWallName(item.trace.characterName) === selectedCharacter ||
+          item.trace.characterName === selectedCharacter,
+      ),
+  );
+  if (!items.length) {
+    return <div className="giis-wall-empty">{mode === 'residue' ? '還沒有殘留' : '還沒有記住的片段'}</div>;
+  }
+  return (
+    <>
+      {items.map(({ conversation, trace, line }, index) => {
+        const self = displayWallName(trace.characterName);
+        const partner = conversation.involvedCharacters
+          .map(displayWallName)
+          .filter((name) => name !== self)
+          .join('、');
+        return (
+          <article className="giis-conversation-card giis-trace-card" key={`${conversation.id}-${trace.characterName}-${index}`}>
+            <header>
+              <div>
+                <h3>{self}</h3>
+                <p>
+                  {partner ? `對 ${partner}` : '獨白'} ·{' '}
+                  {conversation.timestampLabelZh ?? timeLabel(conversation.createdAt)}
+                </p>
+              </div>
+              <CharacterPortrait name={self} size="sm" showName={false} />
+            </header>
+            <p className={mode === 'residue' ? 'giis-wall-residue-line' : 'giis-wall-memory-line'}>
+              {displayWallText(line ?? '')}
+            </p>
+          </article>
+        );
+      })}
+    </>
+  );
+}
+
+// 睡眠筆記 tab: what sleep consolidated into a note the character will carry
+// forward — the last step of the 對話 → 殘留 → 記憶 → 睡眠 pipeline.
+function SleepView({ sleepData, selectedCharacter }: { sleepData: any; selectedCharacter: string }) {
+  if (sleepData === undefined) {
+    return <div className="giis-wall-empty">載入中</div>;
+  }
+  const notes = ((sleepData?.latest ?? []) as any[]).filter(
+    (note) =>
+      selectedCharacter === 'all' ||
+      displayWallName(note.subjectName) === selectedCharacter ||
+      note.subjectName === selectedCharacter,
+  );
+  if (!notes.length) {
+    return <div className="giis-wall-empty">還沒有睡眠筆記</div>;
+  }
+  return (
+    <>
+      {notes.map((note, index) => {
+        const self = displayWallName(note.subjectName);
+        const about = (note.participantNames ?? []).map(displayWallName).filter((n: string) => n && n !== self);
+        return (
+          <article className="giis-conversation-card giis-sleep-card" key={`sleep-${self}-${index}`}>
+            <header>
+              <div>
+                <h3>{self}</h3>
+                <p>
+                  {note.noteType ?? '睡眠筆記'}
+                  {about.length ? ` · 關於 ${about.join('、')}` : ''}
+                </p>
+              </div>
+              <CharacterPortrait name={self} size="sm" showName={false} />
+            </header>
+            <p className="giis-wall-memory-line">{displayWallText(note.noteZh ?? '')}</p>
+          </article>
+        );
+      })}
+    </>
   );
 }
 
