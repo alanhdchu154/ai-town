@@ -28,7 +28,13 @@ export const CONVERSATION_COOLDOWN = 60_000;
 export const ACTIVITY_COOLDOWN = 30_000;
 
 // Don't talk to the same player again too soon.
-export const PLAYER_CONVERSATION_COOLDOWN = 2 * 60_000;
+// Per-pair cooldown: the minimum gap before the SAME two characters talk again.
+// 2026-06-17 raised 2min -> 15min: at 2min, co-located pairs (e.g. 貓貓/祥子)
+// re-paired every few minutes and produced ~4 near-identical conversations in
+// 15min. 15min forces a character to rotate through other partners while a pair
+// rests; with 6 characters / 15 pairs there is still plenty of conversation
+// volume. Override at runtime with PLAYER_CONVERSATION_COOLDOWN_MS if needed.
+export const PLAYER_CONVERSATION_COOLDOWN = 15 * 60_000;
 
 // Most daytime invites should land during the v0.1 tuning phase; night rhythm
 // is still controlled by schedule-aware conversation gates.
