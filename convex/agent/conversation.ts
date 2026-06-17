@@ -1170,6 +1170,10 @@ function compactAutonomousStartPrompt({
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     ...characterStatePromptLines(playerName, otherPlayerName, selfState, otherState),
+    ...relationshipDynamicPromptLines(
+      displayConversationName(playerName),
+      displayConversationName(otherPlayerName),
+    ),
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
     ...weekendLifePromptLines(clockContext, sceneContext),
@@ -1308,6 +1312,10 @@ function compactAutonomousContinuePromptBase({
     `Your immediate goal: ${clipPromptText(agent?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 140)}`,
     otherAgent ? `About ${displayConversationName(otherPlayerName)}: ${clipPromptText(otherAgent.identity, 120)}` : '',
     ...characterStatePromptLines(playerName, otherPlayerName, selfState, otherState),
+    ...relationshipDynamicPromptLines(
+      displayConversationName(playerName),
+      displayConversationName(otherPlayerName),
+    ),
     `Scene: ${sceneContext?.labelZh ?? '校園'}；date: ${clockContext?.dateLabelZh ?? 'today'} ${clockContext?.weekdayZh ?? ''}；time: ${clockContext?.periodLabelZh ?? 'unknown'}${clockContext?.isNight ? '，偏安靜、低能量' : ''}${clockContext?.calendarHintZh ? `；${clockContext.calendarHintZh}` : ''}.`,
     dayAnchorPromptLine(clockContext),
     ...weekendLifePromptLines(clockContext, sceneContext),
@@ -3844,6 +3852,52 @@ function singlePurposeConversationPrompt(
     ' - Include at most one concrete scene detail total in your reply: door, window, hallway, cafeteria table, dorm light, or empty chair.',
     ' - If the purpose is already answered, end early or become quiet instead of adding another thesis.',
   ];
+}
+
+// Authored relationship dynamics (compiled from docs/soul/pilots/*.md "With X"
+// sections). Keyed by DISPLAY names, DIRECTED (how `self` relates to `other`), so
+// the spine knows the real history of THIS pair rather than a generic "you've
+// met". Undocumented pairs fall through — the "About [other]" identity line still
+// covers who they are. (External source-novel lore, if Alan supplies the titles,
+// can enrich these later — see SPEECH_AND_SITUATION_INVERSION.md.)
+const RELATIONSHIP_DYNAMICS: Record<string, Record<string, string>> = {
+  貓貓: {
+    海: '你尊重海的協調，但會提醒她別把人當成待處理的案例。',
+    真晝: '你只在真晝的溫柔不太直接時才接受。',
+    天澤: '你尊重天澤犀利的測試，但盯著它會不會變成傷害。',
+    一之瀨: '你不信任一之瀨那種包裝得太漂亮的甜。',
+    祥子: '你看得見祥子完美禮儀底下藏著的症狀。',
+  },
+  祥子: {
+    海: '你抗拒被海整理成一項任務。',
+    真晝: '你想要真晝的溫暖，但會從太直接的安慰退開。',
+    天澤: '你不喜歡被天澤壓力測試，但尊重她精準的克制。',
+    一之瀨: '你認出一之瀨是另一個能把痛包裝得很漂亮的人。',
+    貓貓: '你討厭貓貓多準確地看穿你藏起來的症狀。',
+  },
+  天澤: {
+    海: '你愛測試海對 Alan 的保護是不是也是一種控制，逗她卸下完美副校長面具。',
+    一之瀨: '你想戳一之瀨甜底下的破綻，但她常反問「這個玩笑誰付帳」讓你停手。',
+    真晝: '你的測試在真晝面前會被她安靜接住、輕輕問你打算在哪停。',
+  },
+  一之瀨: {
+    天澤: '你懂天澤的測試，但不信任讓別人付代價的那種；你能用「這個玩笑誰買單」讓他停一下。',
+    真晝: '真晝注意到痛，你注意到痛變成了誰沒被付錢的勞動。',
+    海: '海想讓世界更暖，你會微笑著問這份暖是誰在出。',
+  },
+  真晝: {
+    海: '你注意到海把疲憊藏在「有用」後面，會溫柔把注意力帶回海自己身上。',
+    天澤: '你看出天澤的測試是因為她怕世界沒有真東西；你會輕輕問她打算在哪停手。',
+  },
+  海: {
+    真晝: '真晝是少數會把你自己的疲憊指出來的人。',
+    天澤: '天澤會戳你替 Alan 立的規矩裡，哪些是保護、哪些其實是你的害怕。',
+  },
+};
+
+function relationshipDynamicPromptLines(selfDisplay: string, otherDisplay: string): string[] {
+  const line = RELATIONSHIP_DYNAMICS[selfDisplay]?.[otherDisplay];
+  return line ? [`你跟${otherDisplay}之間：${line}`] : [];
 }
 
 function conversationMicroPurpose(

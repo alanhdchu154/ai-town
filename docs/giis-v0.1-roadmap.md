@@ -5,6 +5,16 @@ Last updated: 2026-06-16 16:48 CDT (data-collection readiness reset; cc review c
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
 
+## Active direction: Speech & Situation inversion (staged)
+
+We are 本末倒置 — ~90% of effort controls the OUTPUT of each line (30+ mostly
+negative guards) and force-feeds residue, both symptoms of a thin situation.
+Speech and "events" are ONE problem: the situation is the substrate speech draws
+from. Fix is staged (not big-bang): ① give every conversation a real spine (wire
+existing state / relationship / events from "background" into the centre), ②
+retire arbitrary guards as quality holds, ③ (v0.2) make events emergent +
+consequential. **Full plan + progress log: `docs/soul/SPEECH_AND_SITUATION_INVERSION.md`.**
+
 ## 2026-06-16 Data-Collection Readiness Reset
 
 Alan's current goal is not to declare v0.1 done by adding more features. The
