@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { CharacterPortrait } from './CharacterPortrait';
@@ -69,7 +69,7 @@ const WALL_VIEWS: Array<[WallView, string]> = [
 export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
   const [wallView, setWallView] = useState<WallView>('talk');
-  const [filterMode, setFilterMode] = useState<FilterMode>('all');
+  const [showHelp, setShowHelp] = useState(false);
   const [compactWall, setCompactWall] = useState(() =>
     typeof window === 'undefined' ? false : window.matchMedia('(max-width: 900px)').matches,
   );
@@ -87,70 +87,40 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
     limit: compactWall ? 18 : 36,
     messagesPerConversation: compactWall ? 5 : 8,
   });
-  const campusState = useQuery(api.school.campusSocialState, {
-    timeZone: userTimeZone,
-  });
   const sleepData = useQuery(api.sleepNotes.sleepNotesSummary, wallView === 'sleep' ? {} : 'skip');
-  const hasAnyWallData = data !== undefined || campusState !== undefined;
   useEffect(() => {
-    if (hasAnyWallData) {
+    if (data !== undefined) {
       setSlowInitialLoad(false);
       return;
     }
     const timeout = window.setTimeout(() => setSlowInitialLoad(true), compactWall ? 2800 : 4200);
     return () => window.clearTimeout(timeout);
-  }, [compactWall, hasAnyWallData]);
+  }, [compactWall, data]);
 
   const conversations = (data?.conversations ?? []) as ConversationEntry[];
-  const statusEntries = useMemo(() => statusEntriesFromCampusState(campusState), [campusState]);
   const characterNames = useMemo(
     () =>
-      Array.from(
-        new Set([
-          ...conversations.flatMap((conversation) => conversation.involvedCharacters ?? []),
-          ...statusEntries.map((entry) => entry.characterName),
-        ]),
-      ).sort((left, right) => left.localeCompare(right, 'zh-Hant')),
-    [conversations, statusEntries],
+      Array.from(new Set(conversations.flatMap((conversation) => conversation.involvedCharacters ?? []))).sort(
+        (left, right) => left.localeCompare(right, 'zh-Hant'),
+      ),
+    [conversations],
   );
-  const rows = useMemo(
+  // 對話分頁：照角色篩選後，按「日」分組（讓你能看一個角色逐日的變化）。
+  const visibleConversations = useMemo(
     () =>
-      [
-        ...conversations.map<WallRow>((conversation) => ({
-          kind: 'conversation',
-          conversation,
-          flags: conversationFlags(conversation),
-          triad: hasTriadCharacter(conversation.involvedCharacters),
-        })),
-        ...statusEntries.map<WallRow>((status) => ({
-          kind: 'status',
-          status,
-          triad: PILOT_NAMES.has(status.characterName),
-        })),
-      ].filter((row) => {
-          if (selectedCharacter !== 'all' && !wallRowCharacters(row).includes(selectedCharacter)) {
-            return false;
-          }
-          if (filterMode === 'conversations' && row.kind !== 'conversation') return false;
-          if (filterMode === 'residual') {
-            return row.kind === 'conversation'
-              ? conversationTraceItems(row.conversation).length > 0
-              : Boolean(row.status.residueLineZh);
-          }
-          if (filterMode === 'status' && row.kind !== 'status') return false;
-          if (filterMode === 'flagged') {
-            return row.kind === 'conversation' && row.flags.length > 0;
-          }
-          if (filterMode === 'triad' && !row.triad) return false;
-          return true;
-        }),
-    [conversations, statusEntries, selectedCharacter, filterMode],
+      conversations.filter(
+        (conversation) =>
+          selectedCharacter === 'all' ||
+          (conversation.involvedCharacters ?? []).some(
+            (name) => name === selectedCharacter || displayWallName(name) === selectedCharacter,
+          ),
+      ),
+    [conversations, selectedCharacter],
   );
-  const summary = useMemo(() => conversationSummary(conversations, statusEntries), [conversations, statusEntries]);
-  const strongest = useMemo(() => strongestMoment(conversations), [conversations]);
-  const weakest = useMemo(() => weakestFailure(conversations), [conversations]);
-  const wallLoading = data === undefined && campusState === undefined && !slowInitialLoad;
-  const wallPartiallyLoading = data === undefined || campusState === undefined;
+  const conversationsByDay = useMemo(() => groupByDay(visibleConversations, (c) => c.createdAt), [
+    visibleConversations,
+  ]);
+  const wallLoading = data === undefined && !slowInitialLoad;
 
   return (
     <section className="giis-conversation-wall">
@@ -177,93 +147,54 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
         ))}
       </div>
       <p className="giis-wall-tab-hint">
-        {wallView === 'talk' && '他們實際說了什麼。'}
-        {wallView === 'residue' && '同一段對話，在每個人心裡不由自主留下的痕跡（殘留）。'}
-        {wallView === 'memory' && '他們主觀記住、帶走的片段。'}
-        {wallView === 'sleep' && '睡眠把白天的痕跡整理成、明天會帶著走的筆記。'}
+        {wallView === 'talk' &&
+          '他們實際說了什麼。對話一結束，每個人各自留下「記住的片段」與（被觸動時的）「殘留」。'}
+        {wallView === 'residue' &&
+          '殘留＝同一段對話在每個人心裡「不由自主」留下的主觀痕跡。只有被真正觸動時才有。'}
+        {wallView === 'memory' &&
+          '記住的片段＝他們主觀記下、帶走的事實錨點。幾乎每段對話都會有。'}
+        {wallView === 'sleep' &&
+          '睡眠筆記＝當晚把白天的痕跡整理成、明天會帶著走、會影響行為的長期記憶。'}
       </p>
 
-      <div className="giis-wall-metrics" aria-label="conversation summary">
-        <Metric label="對話" value={summary.total} />
-        <Metric label="狀態" value={summary.status} />
-        <Metric label="留下" value={summary.traced} tone={summary.traced ? 'ok' : undefined} />
-        <Metric label="需看" value={summary.flagged} tone={summary.flagged ? 'warn' : 'ok'} />
+      <div className="giis-wall-controls">
+        <button type="button" className="giis-wall-help-toggle" onClick={() => setShowHelp((v) => !v)}>
+          {showHelp ? '✕ 收起說明' : 'ℹ️ 這些是什麼、怎麼來的？'}
+        </button>
+        <select
+          aria-label="character"
+          value={selectedCharacter}
+          onChange={(event) => setSelectedCharacter(event.target.value)}
+        >
+          <option value="all">所有角色</option>
+          {characterNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <section className="giis-wall-focus-row">
-        <div>
-          <span>可讀片段</span>
-          <p>{strongest}</p>
-        </div>
-        <div>
-          <span>最需要看</span>
-          <p>{weakest}</p>
-        </div>
-      </section>
-
-      <div className="giis-wall-controls">
-        {wallView === 'talk' ? (
-          <div className="giis-wall-segments" aria-label="conversation filters">
-              {[
-                ['all', '全部'],
-                ['conversations', '對話'],
-                ['residual', '有殘留'],
-                ['status', '狀態'],
-                ['triad', '試點'],
-                ['flagged', '需看'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  className={filterMode === value ? 'active' : ''}
-                  type="button"
-                  onClick={() => setFilterMode(value as FilterMode)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span />
-          )}
-          <select
-            aria-label="character"
-            value={selectedCharacter}
-            onChange={(event) => setSelectedCharacter(event.target.value)}
-          >
-            <option value="all">所有角色</option>
-            {characterNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+      {showHelp ? <WallPipelineHelp /> : null}
 
       <div className="giis-wall-grid">
         {wallView === 'sleep' ? (
           <SleepView sleepData={sleepData} selectedCharacter={selectedCharacter} />
         ) : wallView === 'residue' || wallView === 'memory' ? (
-          <TraceView conversations={conversations} mode={wallView} selectedCharacter={selectedCharacter} />
+          <TraceView conversations={visibleConversations} mode={wallView} />
         ) : wallLoading ? (
           <div className="giis-wall-empty">載入中</div>
-        ) : rows.length ? (
-          <>
-            {wallPartiallyLoading ? (
-              <div className="giis-wall-empty giis-wall-loading-note">部分資料載入中，先顯示已接上的狀態。</div>
-            ) : null}
-            {rows.map((row) =>
-              row.kind === 'conversation' ? (
-                <ConversationCard conversation={row.conversation} flags={row.flags} key={row.conversation.id} />
-              ) : (
-                <StatusCard status={row.status} key={row.status.id} />
-              ),
-            )}
-          </>
+        ) : conversationsByDay.length ? (
+          conversationsByDay.map(([day, items]) => (
+            <DaySection key={day} day={day}>
+              {items.map((conversation) => (
+                <ConversationCard conversation={conversation} key={conversation.id} />
+              ))}
+            </DaySection>
+          ))
         ) : (
           <div className="giis-wall-empty">
-            {wallPartiallyLoading
-              ? '資料還在接線，先顯示空牆；也可以先回世界繼續觀察'
-              : '沒有符合的對話'}
+            {selectedCharacter === 'all' ? '還沒有對話' : `${selectedCharacter} 還沒有對話`}
           </div>
         )}
       </div>
@@ -271,7 +202,83 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
   );
 }
 
-function ConversationCard({ conversation, flags }: { conversation: ConversationEntry; flags: string[] }) {
+// Group items by calendar day, newest day first — lets you read a character's
+// trail day by day. Items keep their incoming (newest-first) order within a day.
+function groupByDay<T>(items: T[], getTime: (item: T) => number): Array<[string, T[]]> {
+  const buckets = new Map<string, { ts: number; items: T[] }>();
+  for (const item of items) {
+    const ts = getTime(item) || 0;
+    const key = ts ? dayLabel(ts) : '更早';
+    const bucket = buckets.get(key) ?? { ts, items: [] };
+    bucket.items.push(item);
+    bucket.ts = Math.max(bucket.ts, ts);
+    buckets.set(key, bucket);
+  }
+  return Array.from(buckets.entries())
+    .sort((a, b) => b[1].ts - a[1].ts)
+    .map(([label, bucket]) => [label, bucket.items] as [string, T[]]);
+}
+
+function dayLabel(ts: number) {
+  return new Date(ts).toLocaleDateString('zh-TW', { month: 'numeric', day: 'numeric', weekday: 'short' });
+}
+
+// Returns a Fragment so the full-width day header and the cards are all direct
+// children of the CSS grid (the header spans the row via grid-column: 1 / -1).
+function DaySection({ day, children }: { day: string; children: ReactNode }) {
+  return (
+    <>
+      <h3 className="giis-wall-day-header">{day}</h3>
+      {children}
+    </>
+  );
+}
+
+function sleepNoteTypeZh(noteType?: string) {
+  if (noteType === 'long_term_memory_candidate') return '長期記憶';
+  if (noteType === 'emotional_residue_candidate') return '情緒殘留';
+  if (noteType === 'short_term_context') return '短期脈絡';
+  if (noteType === 'relationship_trace') return '關係痕跡';
+  return '睡眠筆記';
+}
+
+// The pipeline explainer (toggled by ℹ️) — what each layer is and how it is made.
+function WallPipelineHelp() {
+  return (
+    <div className="giis-wall-help">
+      <p className="giis-wall-help-lead">一段對話結束後，會分成這幾層留下來：</p>
+      <ol className="giis-wall-help-flow">
+        <li>
+          <b>對話</b>
+          <span>他們實際說了、做了什麼。</span>
+        </li>
+        <li>
+          <b>
+            記住的片段 <i>(客觀)</i>
+          </b>
+          <span>對話一結束，每個人各自記下「對方說／做了什麼」的事實錨點。幾乎每段都有。</span>
+        </li>
+        <li>
+          <b>
+            殘留 <i>(主觀・心裡留下的)</i>
+          </b>
+          <span>
+            同一段對話在「我」心裡不由自主留下的感覺痕跡。只有被真正觸動時才有——這就是靈魂成長的來源。
+          </span>
+        </li>
+        <li>
+          <b>
+            睡眠筆記 <i>(長期記憶)</i>
+          </b>
+          <span>當晚睡覺時，把白天重要的痕跡整理成一句、明天會帶著走並影響行為的長期記憶。</span>
+        </li>
+      </ol>
+      <p className="giis-wall-help-foot">小技巧：選一個角色 + 切到「殘留」分頁，就能看那個角色逐日的心跡變化。</p>
+    </div>
+  );
+}
+
+function ConversationCard({ conversation }: { conversation: ConversationEntry }) {
   const characterNames = conversation.involvedCharacters.map(displayWallName);
   return (
     <article className="giis-conversation-card">
@@ -287,13 +294,6 @@ function ConversationCard({ conversation, flags }: { conversation: ConversationE
           <CharacterPortrait key={name} name={name} size="sm" showName={false} />
         ))}
       </div>
-      {flags.length ? (
-        <div className="giis-wall-flags">
-          {flags.map((flag) => (
-            <span key={flag}>{flag}</span>
-          ))}
-        </div>
-      ) : null}
       <ConversationTracePreview conversation={conversation} />
       <ol>
         {conversation.transcriptMessages.map((message, index) => (
@@ -312,11 +312,9 @@ function ConversationCard({ conversation, flags }: { conversation: ConversationE
 function TraceView({
   conversations,
   mode,
-  selectedCharacter,
 }: {
   conversations: ConversationEntry[];
   mode: 'residue' | 'memory';
-  selectedCharacter: string;
 }) {
   const items = conversations.flatMap((conversation) =>
     (conversation.memoryTraces ?? [])
@@ -325,43 +323,45 @@ function TraceView({
         trace,
         line: mode === 'residue' ? trace.residueLineZh : trace.memoryLineZh,
       }))
-      .filter((item) => item.line)
-      .filter(
-        (item) =>
-          selectedCharacter === 'all' ||
-          displayWallName(item.trace.characterName) === selectedCharacter ||
-          item.trace.characterName === selectedCharacter,
-      ),
+      .filter((item) => item.line),
   );
   if (!items.length) {
     return <div className="giis-wall-empty">{mode === 'residue' ? '還沒有殘留' : '還沒有記住的片段'}</div>;
   }
+  const byDay = groupByDay(items, (item) => item.conversation.createdAt);
   return (
     <>
-      {items.map(({ conversation, trace, line }, index) => {
-        const self = displayWallName(trace.characterName);
-        const partner = conversation.involvedCharacters
-          .map(displayWallName)
-          .filter((name) => name !== self)
-          .join('、');
-        return (
-          <article className="giis-conversation-card giis-trace-card" key={`${conversation.id}-${trace.characterName}-${index}`}>
-            <header>
-              <div>
-                <h3>{self}</h3>
-                <p>
-                  {partner ? `對 ${partner}` : '獨白'} ·{' '}
-                  {conversation.timestampLabelZh ?? timeLabel(conversation.createdAt)}
+      {byDay.map(([day, dayItems]) => (
+        <DaySection key={day} day={day}>
+          {dayItems.map(({ conversation, trace, line }, index) => {
+            const self = displayWallName(trace.characterName);
+            const partner = conversation.involvedCharacters
+              .map(displayWallName)
+              .filter((name) => name !== self)
+              .join('、');
+            return (
+              <article
+                className="giis-conversation-card giis-trace-card"
+                key={`${conversation.id}-${trace.characterName}-${index}`}
+              >
+                <header>
+                  <div>
+                    <h3>{self}</h3>
+                    <p>
+                      {partner ? `對 ${partner}` : '獨白'} ·{' '}
+                      {conversation.timestampLabelZh ?? timeLabel(conversation.createdAt)}
+                    </p>
+                  </div>
+                  <CharacterPortrait name={self} size="sm" showName={false} />
+                </header>
+                <p className={mode === 'residue' ? 'giis-wall-residue-line' : 'giis-wall-memory-line'}>
+                  {displayWallText(line ?? '')}
                 </p>
-              </div>
-              <CharacterPortrait name={self} size="sm" showName={false} />
-            </header>
-            <p className={mode === 'residue' ? 'giis-wall-residue-line' : 'giis-wall-memory-line'}>
-              {displayWallText(line ?? '')}
-            </p>
-          </article>
-        );
-      })}
+              </article>
+            );
+          })}
+        </DaySection>
+      ))}
     </>
   );
 }
@@ -381,27 +381,34 @@ function SleepView({ sleepData, selectedCharacter }: { sleepData: any; selectedC
   if (!notes.length) {
     return <div className="giis-wall-empty">還沒有睡眠筆記</div>;
   }
+  const byDay = groupByDay(notes, (note) => note.createdAt ?? 0);
   return (
     <>
-      {notes.map((note, index) => {
-        const self = displayWallName(note.subjectName);
-        const about = (note.participantNames ?? []).map(displayWallName).filter((n: string) => n && n !== self);
-        return (
-          <article className="giis-conversation-card giis-sleep-card" key={`sleep-${self}-${index}`}>
-            <header>
-              <div>
-                <h3>{self}</h3>
-                <p>
-                  {note.noteType ?? '睡眠筆記'}
-                  {about.length ? ` · 關於 ${about.join('、')}` : ''}
-                </p>
-              </div>
-              <CharacterPortrait name={self} size="sm" showName={false} />
-            </header>
-            <p className="giis-wall-memory-line">{displayWallText(note.noteZh ?? '')}</p>
-          </article>
-        );
-      })}
+      {byDay.map(([day, dayNotes]) => (
+        <DaySection key={day} day={day}>
+          {dayNotes.map((note, index) => {
+            const self = displayWallName(note.subjectName);
+            const about = (note.participantNames ?? [])
+              .map(displayWallName)
+              .filter((n: string) => n && n !== self);
+            return (
+              <article className="giis-conversation-card giis-sleep-card" key={`sleep-${self}-${index}`}>
+                <header>
+                  <div>
+                    <h3>{self}</h3>
+                    <p>
+                      {sleepNoteTypeZh(note.noteType)}
+                      {about.length ? ` · 關於 ${about.join('、')}` : ''}
+                    </p>
+                  </div>
+                  <CharacterPortrait name={self} size="sm" showName={false} />
+                </header>
+                <p className="giis-wall-memory-line">{displayWallText(note.noteZh ?? '')}</p>
+              </article>
+            );
+          })}
+        </DaySection>
+      ))}
     </>
   );
 }

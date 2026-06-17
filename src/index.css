@@ -4048,6 +4048,63 @@ body {
   font-size: 0.78rem;
   opacity: 0.7;
 }
+
+/* ℹ️ explainer toggle + panel */
+.giis-wall-help-toggle {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.4rem;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: inherit;
+  cursor: pointer;
+}
+.giis-wall-help {
+  margin: 0 0 0.7rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.6rem;
+  background: rgba(30, 41, 59, 0.55);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.giis-wall-help-lead {
+  margin: 0 0 0.4rem;
+  opacity: 0.85;
+}
+.giis-wall-help-flow {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.giis-wall-help-flow li b {
+  color: #fbbf24;
+}
+.giis-wall-help-flow li i {
+  opacity: 0.7;
+  font-size: 0.75rem;
+}
+.giis-wall-help-flow li span {
+  display: block;
+  opacity: 0.82;
+}
+.giis-wall-help-foot {
+  margin: 0.5rem 0 0;
+  font-size: 0.76rem;
+  opacity: 0.7;
+}
+
+/* Day divider in the grid — spans the full row above that day's cards. */
+.giis-wall-day-header {
+  grid-column: 1 / -1;
+  margin: 0.4rem 0 0;
+  padding-bottom: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #cbd5f5;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
 /* Residue / memory / sleep tabs reuse the conversation card but lead with the
    one line that matters, so each tab reads as a clean column of that layer. */
 .giis-trace-card .giis-wall-residue-line,

@@ -162,6 +162,8 @@ export const sleepNotesSummary = query({
           legacyArchive: row.legacyArchive,
           freshEvalEligible: row.freshEvalEligible,
           noteZh: row.noteZh,
+          createdAt: row.createdAt,
+          promotedAt: row.promotedAt,
         })),
     };
   },
