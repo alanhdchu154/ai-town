@@ -23,6 +23,7 @@ const PATHS = {
   amPm: join(REPO_ROOT, 'umi', 'reports', 'am-pm-continuity-latest.md'),
   life: join(REPO_ROOT, 'umi', 'reports', 'life-signals-latest.md'),
   recent: join(REPO_ROOT, 'evals', 'conversations', 'reports', 'latest.md'),
+  soulTriad: join(REPO_ROOT, 'evals', 'conversations', 'reports', 'soul-triad-latest.md'),
   output: join(REPO_ROOT, 'umi', 'reports', 'v01-completion-audit-latest.md'),
 };
 
@@ -57,6 +58,7 @@ function auditSources(sources, options = {}) {
   const rollingSummary = parseBulletSection(sources.rolling, 'Summary');
   const lifeSummary = parseBulletSection(sources.life, 'Summary');
   const recentSummary = parseRecentSummary(sources.recent);
+  const soulTriadFreshSamples = parseSoulTriadFreshSamples(sources.soulTriad);
   const rubricSummary = parseBulletSection(sources.rubric, 'Summary');
   const alanPlaytestResult = parseAlanPlaytestResult(sources.alanPlaytestResult);
 
@@ -84,7 +86,12 @@ function auditSources(sources, options = {}) {
   const dailyRhythm = numberValue(field(lifeSummary, 'Daily rhythm conversations'));
   const collapseFlags = numberValue(field(lifeSummary, 'Pilot action collapse flags'));
   const pilotActionMatchRate = numberValue(field(lifeSummary, 'Pilot expected action match rate'));
-  const freshSamples = numberValue(field(repairDecision, 'Fresh triad samples') ?? field(repairEvidence, 'Fresh triad samples'));
+  const freshSamples = Math.max(
+    numberValue(field(repairDecision, 'Fresh triad samples')),
+    numberValue(field(repairEvidence, 'Fresh triad samples')),
+    numberValue(field(rubricSummary, 'Fresh triad samples')),
+    soulTriadFreshSamples,
+  );
   const freshFallbackMarkers = numberValue(field(repairEvidence, 'Fresh fallback markers'));
   const activeFallbackPollution = numberValue(field(repairEvidence, 'Active fallback pollution count'));
   const repairChangeSize = field(repairDecision, 'Change size');
@@ -424,6 +431,14 @@ function parseRecentSummary(report) {
   return { pass, warn, fail, text: `${pass} PASS / ${warn} WARN / ${fail} FAIL` };
 }
 
+function parseSoulTriadFreshSamples(report) {
+  const text = String(report ?? '');
+  return text
+    .split('\n')
+    .filter((line) => /^conversation-[^|]+\|/.test(line.trim()))
+    .length;
+}
+
 function parseAlanPlaytestResult(report) {
   const text = String(report ?? '');
   const requiredChecks = [
@@ -707,6 +722,83 @@ Overall: FAIL
       lifePassWithMinorCollapseAudit.nextAction.includes('Alan-facing Umi playtest') &&
       lifePassWithMinorCollapseAudit.nextAction.includes('repair-gate observe-only'),
     'audit should keep naming all remaining blockers after character-soul passes',
+  );
+
+  const soulTriadFallbackAudit = auditSources({
+    worklog: 'No pending Alan playtest.',
+    alanPlaytestGate: '# Alan-Facing Umi v0.1 Playtest Gate\n\n## Test Sequence\n',
+    alanPlaytestResult: `
+## Playtest Result - 2026-06-04 14:30 CDT
+
+1. Greeting Binding: PASS
+2. Latest-Sentence Binding: PASS
+3. Correction Binding: PASS
+4. Yesterday / Today Continuity: PASS
+5. Closing / Idle Boundary: PASS
+
+Verdict: PASS
+`,
+    goalAudit: `
+Overall: PASS
+- PASS local_fallback_blocked: ok
+- PASS no_fresh_fallback_contamination: ok
+- PASS no_fresh_motif_or_hygiene_loop: ok
+- PASS night_quiet_not_forced: ok
+`,
+    repairGate: `
+## Decision
+
+- Change size: none
+- Blocked reasons:
+
+## Evidence
+
+- Active fallback pollution count: 0
+- Fresh fallback markers: 0
+`,
+    rubric: 'Decision: PASS_ALIGNED\n\n## Summary\n\n',
+    amPm: `
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Afternoon sample count: 12
+- AM residue candidates: 5
+- PM callbacks found: 1
+`,
+    rolling: `
+## Summary
+
+- Status: PASS
+- Decision: continuity_observed
+- Source sample count: 2
+- Callback sample count: 2
+- Source residue candidates: 5
+- Rolling callbacks found: 1
+`,
+    life: `
+## Summary
+
+- Status: PASS
+- Decision: life_signal_observed
+- Ordinary-scene conversations: 2
+- Daily rhythm conversations: 2
+- Pilot action collapse flags: 0
+`,
+    recent: 'Post-fix summary: 0 PASS / 2 WARN / 1 FAIL',
+    soulTriad: `
+| Conversation | Participants | Messages | Status |
+|---|---|---:|---|
+conversation-c:1 | 海 / 真晝 | 6 | PASS |
+conversation-c:2 | 天澤 / 一之瀨 | 6 | PASS |
+conversation-c:3 | 貓貓 / 祥子 | 6 | PASS |
+`,
+    preflight: '# preflight',
+  });
+  assert(
+    soulTriadFallbackAudit.requirements.find((item) => item.id === 'character_soul_expression')?.status ===
+      'PASS',
+    'completion audit should fall back to soul-triad report rows for fresh sample count',
   );
 
   const amPmOnlyPendingAudit = auditSources({

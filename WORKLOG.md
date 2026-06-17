@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-16 19:16 CDT
+Last updated: 2026-06-16 22:17 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -63,6 +63,28 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-16 22:17 CDT: Reviewed cc's forced-sample focus diagnosis and
+  completed the remaining handoff item. The focus-pair timeout/harness issue was
+  already patched and verified in `ad6d6636` / `umi/reports/20260617T000242Z-workload.md`;
+  Codex found one follow-up reporting bug in `underworld:v01-completion-audit`:
+  rolling continuity refreshed the completion audit from current reports, but
+  the audit did not read `evals/conversations/reports/soul-triad-latest.md`, so
+  it could show `freshSamples=0` even when the soul-triad report had fresh rows.
+  Patch: `scripts/underworld-v01-completion-audit.mjs` now reads the soul-triad
+  report and falls back to its conversation-row count when repair/rubric reports
+  do not include `Fresh triad samples`; self-test covers this path.
+  Verification: `npm run underworld:v01-completion-audit:self-test` PASS,
+  `node --check scripts/underworld-v01-completion-audit.mjs` PASS,
+  `npm run underworld:v01-completion-audit` still correctly FAILs but now with
+  `freshSamples=3`, `npm run underworld:runtime-preflight` PASS,
+  `npm test -- evals/conversations/metrics/conversation_metrics.test.ts` PASS
+  20/20, `npm run underworld:life-signals:self-test` PASS, and
+  `git diff --check` PASS. Current real blockers are not harness count bugs:
+  `life-signals-latest.md` remains WARN / `life_signal_repeated` with repeated
+  surface lines and pilot action collapse, and `rolling-continuity-latest.md`
+  remains WARN / `weak_continuity`. Next safe task is a bounded quality patch or
+  proposal for repeated surface lines / object-motif relay, not broad prompt
+  tuning or memory/provider changes.
 - 2026-06-16 19:16 CDT: Alan asked Codex/Umi to force a few fresh
   conversations and fix the current dialogue issue. Controlled sample collection
   exposed a harness bug before any prompt repair: `underworld:observe:daytime-samples`
