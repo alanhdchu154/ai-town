@@ -1173,10 +1173,12 @@ function compactAutonomousStartPrompt({
     dayAnchorPromptLine(clockContext),
     ...weekendLifePromptLines(clockContext, sceneContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
-    `Small purpose: ${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}.`,
+    `你的回應風格（只是「用什麼態度回應」，不是每次都要做的固定開場動作）：${conversationMicroPurpose(playerName, otherPlayerName, sceneContext)}。`,
     ownSeed ? `Private seed: ${clipPromptText(ownSeed, 90)}` : '',
     otherSeed ? `${displayConversationName(otherPlayerName)} pressure: ${clipPromptText(otherSeed, 80)}` : '',
-    recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
+    recentEvents?.[0]
+      ? `今天真實發生、可以從這裡開口的事：${clipPromptText(compactEventTopic(recentEvents[0]), 90)}。`
+      : `沒有具體的事時，就圍繞「${sceneContext?.labelZh ?? '校園'}此刻會發生的日常」開口，例如：${(sceneEverydayTopics(sceneContext) || []).slice(0, 4).join('、') || '剛發生的小事、手邊正在做的事'}。`,
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
     ...recentPairContinuityPromptLines(lastConversationHint),
     ...propDiversityPromptLines(
@@ -1187,6 +1189,8 @@ function compactAutonomousStartPrompt({
       sceneContext,
     ),
     ...sleepNotePromptLines(sleepNotes, otherPlayerName),
+    `開場 grounding（最重要）：第一句話要從「此刻的具體處境」長出來，照順序想——① 你跟${displayConversationName(otherPlayerName)}之間有沒有具體的事要說（看 immediate goal、上面的記憶/約定）？有就直接從那件事開口。② 沒有就抓今天真實發生的一件事、或${displayConversationName(otherPlayerName)}此刻真實的樣子（他的角色、狀態）開口。你的性格只決定「用什麼態度說」，不決定「說什麼」。`,
+    `絕對不要用「盯著一個微小身體細節去評論」當開場（睫毛、喉結、眨眼、停頓半拍、袖口的灰、指節、尾音）——那是機械化的 tic，不是真人開場；只有當那個細節真的承載了當下發生的事，才提它。`,
     'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
   ].filter(Boolean);
