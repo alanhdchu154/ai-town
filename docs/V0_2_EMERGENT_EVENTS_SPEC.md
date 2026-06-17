@@ -69,4 +69,3 @@ Today's events are **hardcoded, injected "weather"**:
 Each increment is "done" when: it is env-gated, has a test or a reproducible
 demo, does not regress the runtime preflight, and the WORKLOG records the actual
 observed effect (a real before/after, not a claim).
-</content>

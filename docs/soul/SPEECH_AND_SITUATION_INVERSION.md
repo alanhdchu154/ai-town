@@ -75,4 +75,3 @@ relationship map, if dropped into a doc later, would make the spine richer.
 - 2026-06-17: roadmap written. (Prior groundwork: per-character residue lens,
   the opening-grounding block, and the 15-min pair cooldown — all early moves
   toward Stage ①.)
-</content>
