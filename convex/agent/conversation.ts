@@ -214,7 +214,7 @@ export async function startConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, agent, otherAgent, lastConversation, lastConversationHint, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, agent, otherAgent, lastConversation, lastConversationHint, recentEvents, recentResidues, recentSelfResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -255,6 +255,7 @@ export async function startConversationMessage(
         lastConversationHint,
         recentEvents,
         recentResidues,
+        recentSelfResidues,
         sleepNotes,
         selfState,
         otherState,
@@ -349,7 +350,7 @@ export async function continueConversationMessage(
   playerId: GameId<'players'>,
   otherPlayerId: GameId<'players'>,
 ): Promise<string> {
-  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
+  const { player, otherPlayer, conversation, agent, otherAgent, recentEvents, recentResidues, recentSelfResidues, openCommitments, sleepNotes, selfState, otherState, sceneContext, clockContext } =
     await ctx.runQuery(selfInternal.queryPromptData, {
       worldId,
       playerId,
@@ -410,6 +411,7 @@ export async function continueConversationMessage(
         now,
         recentEvents,
         recentResidues,
+        recentSelfResidues,
         sleepNotes,
         selfState,
         otherState,
@@ -1115,6 +1117,7 @@ function compactAutonomousStartPrompt({
   lastConversationHint,
   recentEvents,
   recentResidues,
+  recentSelfResidues,
   sleepNotes,
   selfState,
   otherState,
@@ -1129,6 +1132,7 @@ function compactAutonomousStartPrompt({
   lastConversationHint?: PromptLastConversationHint | null;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
+  recentSelfResidues?: PromptResidue[];
   sleepNotes?: PromptSleepNote[];
   selfState?: PromptCharacterState;
   otherState?: PromptCharacterState;
@@ -1175,7 +1179,13 @@ function compactAutonomousStartPrompt({
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
     ...recentPairContinuityPromptLines(lastConversationHint),
-    ...propDiversityPromptLines(undefined, recentResidues, playerName, otherPlayerName, sceneContext),
+    ...propDiversityPromptLines(
+      undefined,
+      [...(recentResidues ?? []), ...(recentSelfResidues ?? [])],
+      playerName,
+      otherPlayerName,
+      sceneContext,
+    ),
     ...sleepNotePromptLines(sleepNotes, otherPlayerName),
     'Opening rhythm: begin like you are naturally approaching someone, not dropping a memo. A short name call or "欸" is okay only when tied to a concrete reason; avoid generic "你好 / 最近過得怎麼樣".',
     'Do not summarize world state, write a strategy memo, or repeat campus-politics slogans.',
@@ -1236,6 +1246,7 @@ function compactAutonomousContinuePromptBase({
   now,
   recentEvents,
   recentResidues,
+  recentSelfResidues,
   sleepNotes,
   selfState,
   otherState,
@@ -1251,6 +1262,7 @@ function compactAutonomousContinuePromptBase({
   now: number;
   recentEvents?: PromptRecentEvent[];
   recentResidues?: PromptResidue[];
+  recentSelfResidues?: PromptResidue[];
   sleepNotes?: PromptSleepNote[];
   selfState?: PromptCharacterState;
   otherState?: PromptCharacterState;
@@ -1294,7 +1306,13 @@ function compactAutonomousContinuePromptBase({
     dayAnchorPromptLine(clockContext),
     ...weekendLifePromptLines(clockContext, sceneContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
-    ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
+    ...propDiversityPromptLines(
+      previousMessages,
+      [...(recentResidues ?? []), ...(recentSelfResidues ?? [])],
+      playerName,
+      otherPlayerName,
+      sceneContext,
+    ),
     ...sleepNotePromptLines(sleepNotes, otherPlayerName),
     recentEvents?.[0] ? `Background weather: ${clipPromptText(compactEventTopic(recentEvents[0]), 90)}.` : '',
     'Do not greet again in the middle of a conversation. Do not merely acknowledge. Add one concrete human response, question, refusal, or quiet ending.',
@@ -2004,6 +2022,14 @@ const CONVERSATION_MOTIF_FAMILIES = [
   {
     label: '清單/報告/文件',
     cues: ['清單', '報告', '文件', '表格', '資料', '檔案', '排程表', '流程表', '作業本', '備忘錄', '簡報'],
+  },
+  // 2026-06-16 c:38xxx: 貓貓 opened with 「你袖口有/沾粉筆灰」 to BOTH 祥子 and
+  // 一之瀨. Noticing a physical tell is her soul, but reusing the SAME tell as an
+  // opener across partners is the motif to rotate. Cross-partner residues feed
+  // the guard (see recentSelfResidues) so this trips on ≥2 recent uses.
+  {
+    label: '袖口/粉筆灰',
+    cues: ['粉筆灰', '袖口', '衣角', '領口', '袖子'],
   },
   {
     label: '窗邊/走廊/空椅',
@@ -5138,17 +5164,17 @@ export const queryPromptData = internalQuery({
         );
       }
     }
-    const samePairMemories = (await ctx.db
+    const recentConversationMemories = await ctx.db
       .query('memories')
       .withIndex('playerId_type', (q) => q.eq('playerId', args.playerId).eq('data.type', 'conversation'))
       .order('desc')
-      .take(24))
-      .filter(
-        (entry) =>
-          entry.data.type === 'conversation' &&
-          entry.data.playerIds.includes(args.otherPlayerId) &&
-          memory.shouldExposeMemoryDescription(entry.description),
-      );
+      .take(24);
+    const samePairMemories = recentConversationMemories.filter(
+      (entry) =>
+        entry.data.type === 'conversation' &&
+        entry.data.playerIds.includes(args.otherPlayerId) &&
+        memory.shouldExposeMemoryDescription(entry.description),
+    );
     const recentResidues = samePairMemories
       .map((entry) => ({
         text: memory.residueFromMemoryDescription(entry.description),
@@ -5156,6 +5182,21 @@ export const queryPromptData = internalQuery({
       }))
       .filter((entry) => entry.text)
       .slice(0, 2);
+    // This speaker's recent residue traces across ALL partners (not just this
+    // pair). Fed only into the motif guard so a signature opener (貓貓's 袖口粉筆灰,
+    // 海's 涼掉的飲食) gets rotated cross-partner: if the same motif shows up in
+    // ≥2 of these, repeatedMotifLabels trips and the guard tells them to switch.
+    const recentSelfResidues = recentConversationMemories
+      .filter(
+        (entry) =>
+          entry.data.type === 'conversation' && memory.shouldExposeMemoryDescription(entry.description),
+      )
+      .map((entry) => ({
+        text: memory.residueFromMemoryDescription(entry.description),
+        createdAt: entry._creationTime,
+      }))
+      .filter((entry) => entry.text)
+      .slice(0, 6);
     // Open commitments are kept on their own channel: a promise (e.g. "make
     // curry") should be honorable/actionable, not framed like residue ("don't
     // quote, just pressure"). They also need a much deeper scan window than
@@ -5254,6 +5295,7 @@ export const queryPromptData = internalQuery({
         futureImplicationsZh: event.futureImplicationsZh,
       })),
       recentResidues,
+      recentSelfResidues,
       openCommitments,
       sleepNotes,
       selfState: stateForProfile(selfProfile),

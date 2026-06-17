@@ -42,6 +42,19 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('not-now boundary');
   });
 
+  test('rotates a signature physical-tell opener reused across different partners (袖口/粉筆灰)', () => {
+    // 2026-06-16: 貓貓 opened with 「袖口粉筆灰」 to BOTH 祥子 and 一之瀨. The
+    // cross-partner residues (recentSelfResidues) now feed the guard, so the same
+    // tell appearing in ≥2 recent traces trips the motif cooldown.
+    const lines = motifGuardPromptLinesForTest(
+      [],
+      ['貓貓還記得祥子袖口的粉筆灰沒擦掉。', '貓貓還記得一之瀨袖口沾到粉筆灰。'],
+      'Maomao',
+      'Ichinose',
+    ).join('\n');
+    expect(lines).toContain('袖口/粉筆灰');
+  });
+
   test('flags the 6/10 cold-drink + stop-pushing motif family across messages', () => {
     // Real c:94473 / c:94448 shape: both 海 and 真晝 opened with a
     // cold-drink observation and a stop-pushing care move.
