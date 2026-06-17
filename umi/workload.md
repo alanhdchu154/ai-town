@@ -1,86 +1,117 @@
-# CC Workload - Underworld v0.1 Rubric + Opening Template Review
+# CC Workload - Underworld Forced Sample Focus + Motif Diagnosis
 
-Time anchor: 2026-06-16 17:18 America/Chicago
+Time anchor: 2026-06-16 18:58 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Model target: opus
-Mode: Split-work, read-only findings-first review
-Status: completed; report `umi/reports/20260616T224524Z-workload.md`
+Mode: Split-work, read-only findings-first diagnosis
+Status: completed; report `umi/reports/20260617T000242Z-workload.md`
 
 ## Task ID
 
-underworld-v01-rubric-opening-template-review-20260616-1710
+underworld-forced-sample-focus-motif-diagnosis-20260616-1858
 
 ## Current Goal
 
-Alan approved the three narrow fixes from the latest data review:
+Alan asked Umi to force a few fresh conversations and then fix the current
+Underworld dialogue issue. Umi collected a fresh daytime sample batch. The batch
+produced enough evidence for diagnosis, but also exposed a sample-runner harness
+bug and focus-routing instability.
 
-1. Fix/evaluate the eval rubric so concrete care behavior like `我先去把便當盒熱好，回來陪你一起吃` is not scored as zero emotional cue.
-2. Investigate why 海/真晝 fresh samples share similar openings before touching prompts.
-3. Run one more evidence loop after the safe fixes; do not broad prompt tune.
+Do not broad prompt-tune. Do not change memory architecture, provider config,
+Convex schema, character expansion, or world state. This pass is read-only.
 
-This is not permission for broad prompt rewrites, memory architecture change, provider migration, schema rewrite, or new character expansion.
+## Fresh Evidence From Umi
 
-## Evidence
+Command run:
 
-Latest reports:
+```bash
+npm run underworld:runtime-preflight && npm run underworld:observe:daytime-samples
+```
 
-- `umi/reports/v01-approach-latest.md`: 4 fresh samples, soul 4/0/0, recent 0/1/3, repair proposal-only.
-- `umi/reports/v01-repair-gate-latest.md`: cc agreed proposal-only; audit emotional cue detector and opening-template source before prompts.
-- `evals/conversations/reports/latest.md`: flags c:36105/c:36089/c:36161 as mirror/motif failures.
-- `evals/conversations/reports/soul-triad-latest.md`: same samples are soul PASS.
+Observed:
 
-Key transcripts:
+- Runtime preflight PASS before sample collection.
+- Focus sample 1 `Umi:Mahiru` eventually produced archived sample
+  `conversation-c:37647` (`海 / 真晝`) plus an extra fresh sample
+  `conversation-c:37638` (`貓貓 / 祥子`); `eval:soul-triad` PASS for both.
+- Focus sample 2 `Tianze:Ichinose` timed out after 240000ms. It repeatedly
+  reported `ignored 1 fresh incomplete/non-focus triad candidate(s)` and no
+  expected archived focus sample.
+- Focus sample 3 `Ichinose:Maomao` also timed out after 240000ms with repeated
+  `ignored 1 fresh incomplete/non-focus triad candidate(s)`.
+- Despite focus timeouts, the wrapper printed 5 fresh transcripts:
+  `conversation-c:37730` 天澤/海, `conversation-c:37683` 天澤/一之瀨,
+  `conversation-c:37686` 海/真晝, `conversation-c:37647` 海/真晝,
+  `conversation-c:37638` 貓貓/祥子.
+- `eval:soul-triad --since-created-at=1781653446624`: PASS 5/5.
+- `eval:conversation:recent --since-created-at=1781653446624`: 0 PASS / 2 WARN / 3 FAIL.
+- `underworld-observe-once.mjs` then crashed while writing its report because
+  `openingTemplateLines()` called an undefined `truncate()` helper. Codex already
+  patched that harness bug locally and `npm run underworld:observe:self-test`
+  PASS.
 
-- c:36110 has `海: 我先去把便當盒熱好，回來陪你一起吃。` but recent eval says `emotionalSpecificityScore: found 0 emotional cue(s)`.
-- c:36089 and c:36110 start similarly: `你剛才幫三年級那孩子擦完汗/眼淚，手還在抖` and `你手肘還壓著桌角/桌緣...`.
-- c:36105 repeats `收條` across speakers.
+Latest report to read:
 
-## Candidate Files
+- `evals/conversations/reports/latest.md`
+- `evals/conversations/reports/soul-triad-latest.md`
+- `umi/reports/runtime-preflight-latest.md`
 
-Read-only review these paths:
+Key recent-eval failures:
 
-- `evals/conversations/metrics/conversation_metrics.ts`
-- `evals/conversations/metrics/conversation_metrics.test.ts`
+- `conversation-c:37683` 天澤/一之瀨: FAIL 0.81; over-repeated `湯匙` x6;
+  weak emotional specificity; attention shift 0/8.
+- `conversation-c:37638` 貓貓/祥子: FAIL 0.84; weak character voice; no explicit
+  continuity callback; opening lacks concrete reason and ending lacks soft close.
+- `conversation-c:37730` 天澤/海: FAIL 0.90; weak character voice; mirror/motif
+  loop; care move too similar.
+- `conversation-c:37686` and `conversation-c:37647` 海/真晝: WARN; previous
+  speaker binding mirror repetition and continuity callback without concrete cue.
+
+## Candidate Files To Inspect
+
+- `scripts/run-soul-triad-single-sample.mjs`
+- `scripts/underworld-observe-once.mjs`
 - `evals/conversations/runRecentConversationEval.ts`
+- `evals/conversations/metrics/conversation_metrics.ts`
+- `evals/conversations/metrics/opening_template.ts`
 - `convex/agent/conversation.ts`
-- `convex/agent/experienceLog.ts`
 - `convex/agent/conversationMotifGuard.test.ts`
-- `scripts/underworld-life-signals.mjs`
-- `scripts/underworld-rolling-continuity.mjs`
-
-## Umi First Look
-
-- `emotionalSpecificityScore` has `emotionWords` and `concreteSignals`, but notes emphasize naturalHits, so implicit care behavior can look like zero cue even when the score is decent.
-- The current prompt already has motif guards for food/props and same-pair cooldowns, so a broad prompt patch may be the wrong layer.
-- Experience-log fresh writes all reported `possible_cap_dedupe_or_recent_not_loaded=4`; this may be cap/dedupe behavior, not necessarily failure.
-- We need a read-only opening-template diagnostic that explains repeated openings from recent archived samples before any prompt change.
+- `convex/agent/experienceLog.ts`
+- `convex/aiTown/agent.ts`
+- `convex/constants.ts`
 
 ## Questions For CC
 
-Findings-first, read-only:
+Read-only findings-first:
 
-1. Is it safe to patch `emotionalSpecificityScore` to count concrete care commitments / behavior-linked care as emotional specificity and report that clearly?
-2. Where is the smallest place to add an opening-template diagnostic: eval metrics, life-signals, a new script, or repair-gate report?
-3. Any risk that experience-log cap/dedupe is causing repeated openings? If yes, what read-only evidence should Codex inspect before changing write behavior?
-4. Should c:36105 `收條` be handled by existing motif guard family expansion or only reported for now?
-5. What tests should Codex add?
+1. Why did the controlled focus samples time out while non-focus/fresh triad
+   conversations were created? Is the smallest fix in the sample runner,
+   focus-pair aliases, co-location/enqueue logic, polling/expected-sample
+   predicate, or engine behavior?
+2. Does the fresh 0 PASS / 2 WARN / 3 FAIL point to a code-level motif guard
+   issue, eval over-penalization, or prompt-level template collapse?
+3. What is the smallest safe patch Codex should make today?
+4. Which parts should remain observe-only until more natural samples exist?
+5. What exact verification commands should Codex run after the patch?
 
 ## Constraints
 
-- Read-only: do not modify files.
+- Read-only: do not modify files in this cc pass.
 - Do not run watch/dev servers.
-- Do not mutate Convex state intentionally.
+- Do not intentionally mutate Convex state or trigger new conversations.
 - Do not call provider/LLM generation.
 - No broad prompt rewrite.
-- Keep recommendations narrow and testable today.
+- Treat the `truncate` helper patch as already made by Codex; review it only if
+  relevant.
 
 ## Suggested Non-Mutating Commands
 
 ```bash
 git status --short
-npm run eval:soul-triad
-npm run eval:conversation:recent -- --since-last-change
+sed -n '1,220p' evals/conversations/reports/latest.md
 npm test -- evals/conversations/metrics/conversation_metrics.test.ts
+node --check scripts/run-soul-triad-single-sample.mjs
+node --check scripts/underworld-observe-once.mjs
 ```
 
 Stop if any command would trigger live generation or mutate Convex state.
@@ -89,46 +120,48 @@ Stop if any command would trigger live generation or mutate Convex state.
 
 Return:
 
-1. Top findings by severity.
-2. Exact safe patch recommendation, if any.
-3. Tests to add/update.
-4. What should remain observe-only.
+1. Top findings by severity, with file/line references where useful.
+2. One recommended smallest patch, or say no patch yet if evidence is
+   insufficient.
+3. Tests/checks to run.
+4. Explicit "do not change yet" boundaries.
 
 ## Result
 
-cc completed the read-only review.
+cc completed the read-only diagnosis. Accepted findings:
 
-Accepted findings:
-
-- The old "0 emotional cue" diagnosis was partly misattributed, but the metric
-  still had a real blind spot for concrete care commitments.
-- Cross-conversation opener-template duplication is real and should be surfaced
-  in the recent eval report, not hidden inside repair-gate decisions.
-- Experience-log cap/dedupe may contribute to stale residue surfacing, but write
-  behavior should not change yet; first split the reporting reason.
-- The `收條` motif is real but still observe-only until it repeats across a
-  wider window.
+- The controlled focus runner first rejected focus pairs outside the old
+  海/真晝/天澤 triad before applying the focus-pair key.
+- Codex's follow-up live query found an additional alias bug: `Ichinose`,
+  `Maomao`, and `Sakiko` were not normalized to `一之瀨`, `貓貓`, and `祥子`,
+  so English focus-pair args could still fail to match valid archived
+  conversations.
+- Fresh dialogue quality still has real WARN/FAIL signals, but this patch should
+  not change prompts or motif guards. The quality repair remains a separate
+  product task.
 
 Codex implementation:
 
-- Patched `emotionalSpecificityScore` to credit concrete care commitments while
-  preserving negative coverage for document-prop teasing.
-- Added `evals/conversations/metrics/opening_template.ts` and wired
-  `runRecentConversationEval.ts` to print `Cross-Conversation Opener Templates`.
-- Added tests for care-commitment credit, `收條` non-overcredit, and opener
-  clustering.
-- Split observe experience-log rejection inference so cap-saturated characters
-  show as `cap_reached_for:<角色>`.
+- Patched `scripts/run-soul-triad-single-sample.mjs` so a supplied focus pair is
+  the matching scope before falling back to original triad matching.
+- Added English aliases for `Ichinose`, `Maomao`, and `Sakiko`.
+- Added self-test coverage for non-original-triad focus pairs.
+- Patched `scripts/underworld-observe-once.mjs` with the missing `truncate`
+  helper used by opening-template report lines.
 
 Verification:
 
+- `node --check scripts/run-soul-triad-single-sample.mjs`: PASS.
+- `node scripts/run-soul-triad-single-sample.mjs --self-test`: PASS.
+- `node scripts/underworld-observe-once.mjs --self-test`: PASS.
 - `npm test -- evals/conversations/metrics/conversation_metrics.test.ts`: PASS
   20/20.
-- `node --check scripts/underworld-observe-once.mjs`: PASS.
-- `npm run underworld:observe:self-test`: PASS.
-- `npm run eval:conversation:recent -- --since-last-change`: completed; report
-  now includes cross-conversation opener templates.
-- `npm run eval:soul-triad`: PASS 8/8.
+- `npm test -- convex/agent/conversationMotifGuard.test.ts`: PASS 46/46.
+- `node scripts/run-soul-triad-single-sample.mjs --focus-pair=Tianze:Ichinose --timeout-ms=240000 --poll-interval-ms=7000 --pair-cooldown-ms=0 --provider-cooldown-ms=0 --require-archived=true`:
+  PASS; accepted focus sample `conversation-c:37914` after 5 polls.
+- `npm run eval:conversation:recent -- --since-last-change`: completed; still
+  0 PASS / 4 WARN / 8 FAIL, so dialogue quality is not fixed by this harness
+  patch.
 - `npx tsc --noEmit --pretty false`: PASS.
 - `npm run build`: PASS.
 - `npm run underworld:runtime-preflight`: PASS.
@@ -137,6 +170,5 @@ Verification:
 Next boundary:
 
 - Do not broad prompt-tune yet.
-- If the next fresh window repeats the same opener/object templates, make a
-  narrow proposal or tiny prompt/motif guard patch specifically for opener
-  template diversification.
+- Next safe task is a separate, bounded motif/voice calibration proposal or patch
+  using the latest 12 fresh samples.

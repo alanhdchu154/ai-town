@@ -38,6 +38,31 @@ Success criteria before calling v0.1 evidence review fair:
   misleading presence, or flicker that prevents observation.
 - At least one clean post-recovery evidence window is collected after the UI and
   runtime checks are stable.
+
+## 2026-06-16 State Sustainability (the real blocker behind repeated resets)
+
+The recurring "the world won't open / runtime is slow / conversations drop" was
+diagnosed to its real cause: the Convex **local** backend retains full document
+version history, and AI Town rewrites the engine + world docs ~every second, so
+the `documents` table grows ~150k rows/day even though real app data (memories,
+conversations, residue) is tiny (~35k rows / 33 MB). At ~1 GB the backend
+cold-opens in ~9 min and queries fail with "too many system operations". Cloud
+Convex compacts this automatically; the local OSS backend does not. This — not
+the app data — is why WORKLOG #9's fresh-world reset kept recurring.
+
+- Cure (data-preserving, keeps continuity): `scripts/underworld-compact-state.sh`
+  exports current data → archives the bloated state → fresh backend → imports →
+  restores env → resumes. 1 GB → ~tens of MB, cold-open back to seconds. First
+  run 2026-06-16: 690k→37k docs, all souls/continuity intact (same world id, sim
+  day preserved).
+- This is **recurring maintenance**, not a one-time fix: run
+  `scripts/underworld-compact-state.sh --check` periodically and compact (~weekly
+  or when it warns). `convex export/import` does NOT carry Convex env vars, so the
+  script backs them up + restores them; secrets stay in Alan's secure source
+  (`docs/current-env.md` lists the non-secret re-apply commands).
+- Longer-term if weekly compaction is too manual: move the deployment to Convex
+  cloud (auto-compacts) or reduce engine doc-churn frequency.
+
 - Alan's manual acceptance remains separate from machine checks; do not mark
   v0.1 closed without Alan seeing the actual experience.
 

@@ -315,6 +315,9 @@ function runSelfTest() {
   assertEqual(qwenModelName('qwen/qwen-plus'), 'qwen-plus', 'qwen model prefix is stripped');
   assertEqual(geminiModelName('gemini/gemini-2.5-flash'), 'gemini-2.5-flash', 'gemini model prefix is stripped');
   assertEqual(pairKey(['Umi', 'Tianze']), '天澤:海', 'English focus pair normalizes to Chinese pair key');
+  assertEqual(pairKey(['Tianze', 'Ichinose']), '一之瀨:天澤', 'Ichinose focus alias normalizes to Chinese pair key');
+  assertEqual(pairKey(['Ichinose', 'Maomao']), '一之瀨:貓貓', 'Maomao focus alias normalizes to Chinese pair key');
+  assertEqual(pairKey(['Sakiko', 'Mahiru']), '真晝:祥子', 'Sakiko focus alias normalizes to Chinese pair key');
   assertEqual(
     isExpectedFreshSample({
       id: 'conversation-c:selftest',
@@ -332,6 +335,30 @@ function runSelfTest() {
     }),
     false,
     'two-message triad sample is not enough for v0.1 evidence',
+  );
+  assertEqual(
+    sampleMatchesScope(
+      {
+        id: 'conversation-c:selftest',
+        involvedCharacters: ['天澤', '一之瀨'],
+        transcriptMessages: [{}, {}, {}],
+      },
+      pairKey(['Tianze', 'Ichinose']),
+    ),
+    true,
+    'focused samples outside the original triad roster are accepted',
+  );
+  assertEqual(
+    sampleMatchesScope(
+      {
+        id: 'conversation-c:selftest',
+        involvedCharacters: ['海', '真晝'],
+        transcriptMessages: [{}, {}, {}],
+      },
+      '一之瀨:天澤',
+    ),
+    false,
+    'focused samples reject other pairs',
   );
   const previousRequireArchived = REQUIRE_ARCHIVED;
   if (previousRequireArchived) {
@@ -374,6 +401,9 @@ function normalizeCharacterName(name) {
       Umi: '海',
       Mahiru: '真晝',
       Tianze: '天澤',
+      Ichinose: '一之瀨',
+      Maomao: '貓貓',
+      Sakiko: '祥子',
     }[name] ?? name
   );
 }
@@ -390,12 +420,17 @@ function conversationMessageCount(conversation) {
   return Number(conversation?.messageCount ?? conversation?.transcriptMessages?.length ?? 0);
 }
 
+function sampleMatchesScope(conversation, focusPairKey = FOCUS_PAIR_KEY) {
+  if (!conversation) return false;
+  if (focusPairKey) return pairKey(conversation?.involvedCharacters) === focusPairKey;
+  return isTriadPair(conversation?.involvedCharacters);
+}
+
 function isExpectedFreshSample(conversation) {
-  if (!conversation || !isTriadPair(conversation?.involvedCharacters)) return false;
+  if (!conversation || !sampleMatchesScope(conversation)) return false;
   if (REQUIRE_ARCHIVED && String(conversation?.id ?? '').startsWith('active-conversation-')) return false;
   if (conversationMessageCount(conversation) < 3) return false;
-  if (!FOCUS_PAIR_KEY) return true;
-  return pairKey(conversation?.involvedCharacters) === FOCUS_PAIR_KEY;
+  return true;
 }
 
 async function pollForFreshSample() {
@@ -424,10 +459,10 @@ async function pollForFreshSample() {
         return fresh;
       }
       const ignored = conversations.filter(
-        (conversation) => conversation?.createdAt >= RUN_TIMESTAMP && isTriadPair(conversation?.involvedCharacters),
+        (conversation) => conversation?.createdAt >= RUN_TIMESTAMP && sampleMatchesScope(conversation),
       );
       const ignoredNote = ignored.length
-        ? `; ignored ${ignored.length} fresh incomplete/non-focus triad candidate(s)`
+        ? `; ignored ${ignored.length} fresh incomplete/${FOCUS_PAIR_KEY ? 'wrong-shape focus' : 'non-triad'} candidate(s)`
         : '';
       console.log(
         `[soul-triad] poll #${attempts}: ${conversations.length} recent conversations, no expected fresh triad sample yet${ignoredNote}`,

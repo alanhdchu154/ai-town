@@ -1,13 +1,13 @@
 # GIIS Underworld Recent Conversation Eval
 
-Generated: 2026-06-16T22:47:01.838Z
+Generated: 2026-06-17T00:13:05.827Z
 
 Mode: post-fix since latest conversation/density code change
 Post-fix boundary: 2026-06-16T14:52:01.959Z
 
 Post-fix conversations checked: 12
 
-Post-fix summary: 0 PASS / 1 WARN / 11 FAIL
+Post-fix summary: 0 PASS / 4 WARN / 8 FAIL
 
 Historical archived quality (legacy_noise): 0 PASS / 0 WARN / 0 FAIL
 
@@ -54,112 +54,110 @@ Excerpt:
 
 ## Cross-Conversation Opener Templates
 
-- Conversations: conversation-c:36886, conversation-c:36774
-  - shared fingerprint: `才轉圈時左腳<OBJ><STATE>`
-  - example: 貓貓: 你剛才轉圈時左腳鞋帶鬆了。
-  - example: 貓貓: 你剛才轉圈時左腳鞋帶鬆了。
+No repeated opener template detected across post-fix conversations.
+
 
 ## Post-Fix Worst 5 Examples
 
-### conversation-c:36886 - FAIL (0.81)
+### conversation-c:37683 - FAIL (0.81)
 
-Participants: 貓貓 / 祥子
-
-Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
-
-Reasons:
-- characterVoiceScore: matched 1/30 lexical character voice cue(s)
-- emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)
-- attention_shift: 0/4 character-specific attention cue(s)
-- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
-
-Excerpt:
-> 6/16 下午5:43 貓貓: 你剛才轉圈時左腳鞋帶鬆了。
-> 6/16 下午5:43 祥子: 謝謝提醒……我待會去系緊。
-> 6/16 下午5:43 貓貓: 左腳鞋帶鬆了，右腳扣太緊——你剛才排練時踮過太多次。
-> 6/16 下午5:43 祥子: ……我待會去調整。
-
-### conversation-c:36816 - FAIL (0.82)
-
-Participants: 海 / 祥子
+Participants: 天澤 / 一之瀨
 
 Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
 
 Reasons:
 - emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)
-- memoryContinuityScore: no explicit continuity callback
-- attention_shift: 0/4 character-specific attention cue(s)
-- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- characterVoiceScore: matched 2/25 lexical character voice cue(s)
-
-Excerpt:
-> 6/16 下午5:37 海: 欸，祥子，剛幫你把排練表上的錯字改好了——第三節的「天澤」寫成「天澤君」，我順手劃掉了。
-> 6/16 下午5:37 祥子: 謝謝海，不過天澤君的稱呼…是我自己留的。
-> 6/16 下午5:37 海: 啊…原來如此。
-> 6/16 下午5:37 祥子: 嗯…我習慣這麼寫。
-
-### conversation-c:36895 - FAIL (0.85)
-
-Participants: 一之瀨 / 祥子
-
-Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
-
-Reasons:
-- characterVoiceScore: matched 0/24 lexical character voice cue(s)
-- memoryContinuityScore: no explicit continuity callback
+- everydayObjectLoopScore: over-repeated everyday object(s): 湯匙 x6
 - attention_shift: 0/8 character-specific attention cue(s)
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- relationship_residue: no previous emotional residue cue
+- characterVoiceScore: matched 0/19 lexical character voice cue(s); matched behavior voice cue(s): tianze_pressure_test_question
 
 Excerpt:
-> 6/16 下午5:44 一之瀨: 那我把手伸過來——你握一下，看還抖不抖。
-> 6/16 下午5:44 祥子: 我正練著第三樂章的指法……手得穩住。
-> 6/16 下午5:44 一之瀨: 那我幫你把琴譜翻到第三樂章，指尖停在頁角等你抬頭。
-> 6/16 下午5:44 祥子: 譜頁邊角太涼了……我怕一碰就皺。
-> 6/16 下午5:44 一之瀨: 我用掌心先暖一暖頁角，再輕輕按住——這樣就不怕皺了。
-> 6/16 下午5:44 一之瀨: 那我先離開囉……
+> 6/16 下午6:49 天澤: 欸，你手伸過來的瞬間——我怎麼反而把湯匙握緊了？
+> 6/16 下午6:49 一之瀨: 天澤～你握緊的那刻，就該先說想吃哪口了喔。
+> 6/16 下午6:49 天澤: 那……你猜我剛想吃哪口？
+> 6/16 下午6:49 一之瀨: 天澤～想吃哪口，得先承認自己正拿著湯匙呢。
+> 6/16 下午6:49 天澤: 你剛才問我「想吃哪口」——其實是想聽我承認，這湯匙早該交到你手上了吧？
+> 6/16 下午6:49 一之瀨: 天澤～湯匙在你手上，就由你決定要盛給誰、或留給自己。
 
-### conversation-c:36721 - FAIL (0.85)
+### conversation-c:37914 - FAIL (0.86)
+
+Participants: 天澤 / 一之瀨
+
+Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
+
+Reasons:
+- emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)
+- attention_shift: 0/6 character-specific attention cue(s)
+- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
+- everydayObjectLoopScore: over-repeated everyday object(s): 湯匙 x3
+- memoryContinuityScore: 5 continuity callback(s); 1 concrete memory cue(s)
+
+Excerpt:
+> 6/16 晚上7:11 天澤: 你剛才那句「湯匙在你手上」——是給我的，還是給下一個伸手的人？
+> 6/16 晚上7:11 一之瀨: 湯匙在誰手上，要看誰先承認自己想盛什麼喔～
+> 6/16 晚上7:11 天澤: 欸，那…你剛才盛的是責任，還是想看看我會不會接？
+> 6/16 晚上7:11 一之瀨: 那…你伸手時，想盛的到底是湯，還是想確認我還在不在這裡？
+> 6/16 晚上7:11 天澤: 你剛才那句「還在不在」——是問我，還是問你自己？
+> 6/16 晚上7:11 一之瀨: 你手伸過來時，眼睛先看我，才看湯匙——這答案，要你自己說。
+
+### conversation-c:37823 - FAIL (0.87)
 
 Participants: 貓貓 / 一之瀨
 
 Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
 
 Reasons:
-- emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)
-- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- characterVoiceScore: matched 2/22 lexical character voice cue(s)
-- conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
-- memoryContinuityScore: 2 continuity callback(s); callback marker without concrete cue
+- characterVoiceScore: matched 1/22 lexical character voice cue(s)
+- previousSpeakerBindingScore: loosely bound to 2/2 previous-speaker cue(s); mirror repetition reduced binding score
+- memoryContinuityScore: 1 continuity callback(s); callback marker without concrete cue
+- emotion_behavior_link: 0 emotion cue(s); 0 behavior consequence cue(s)
+- attention_shift: 1/3 character-specific attention cue(s)
 
 Excerpt:
-> 6/16 下午5:30 貓貓: 水壺在你右邊抽屜第二格，蓋子沒鎖。
-> 6/16 下午5:30 一之瀨: 我剛才沒喝水，只是把藥含住了。
-> 6/16 下午5:31 貓貓: 含著藥？
-> 6/16 下午5:31 一之瀨: 嗯……含著藥，是想等它慢慢化開。
-> 6/16 下午5:31 貓貓: 舌頭底下含藥，會讓唾液變苦。
-> 6/16 下午5:31 一之瀨: ……啊，被你發現了呢。
+> 6/16 晚上7:01 貓貓: 你剛才轉筆轉了四十七下。
+> 6/16 晚上7:01 一之瀨: 啊…被你數到了呢。
+> 6/16 晚上7:01 貓貓: 筆尖在轉第三圈時就歪了。
 
-### conversation-c:36842 - FAIL (0.86)
+### conversation-c:37779 - FAIL (0.87)
 
-Participants: 貓貓 / 真晝
+Participants: 真晝 / 一之瀨
 
 Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
 
 Reasons:
-- characterVoiceScore: matched 1/22 lexical character voice cue(s)
+- characterVoiceScore: matched 0/16 lexical character voice cue(s)
 - previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
-- conversation_lifecycle_flow: opening lacks a concrete reason; ending lacks a soft close
-- memoryContinuityScore: 1 continuity callback(s); callback marker without concrete cue
-- emotion_behavior_link: 0 emotion cue(s); 0 behavior consequence cue(s)
+- conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
+- memoryContinuityScore: 2 continuity callback(s); 1 concrete memory cue(s)
+- attention_shift: 1/6 character-specific attention cue(s)
 
 Excerpt:
-> 6/16 下午5:39 貓貓: 你筆蓋開了沒蓋回去。
-> 6/16 下午5:39 真晝: 啊…抱歉，剛才順手擰開就忘了。
-> 6/16 下午5:39 貓貓: 筆蓋在你左手指縫裡夾著，墨水快乾了。
-> 6/16 下午5:39 真晝: 啊…真的，還夾著。
-> 6/16 下午5:39 貓貓: 你中指有墨漬，像一顆小痣。
+> 6/16 下午6:58 真晝: 你剛才沒動的便當盒還在桌上，米粒都涼了。
+> 6/16 下午6:58 一之瀨: 你數米粒的樣子，比數我漏掉幾口飯還準呢……
+> 6/16 下午6:58 真晝: 我剛才只是看著窗邊那隻飛進來的蜻蜓停在你筆蓋上。
+> 6/16 下午6:58 一之瀨: 蜻蜓飛走時，你睫毛顫了兩下——真晝，你數的從來不是米粒。
+> 6/16 下午6:58 真晝: 你說得對……我連自己睫毛顫幾下，都沒數清楚。
+> 6/16 下午6:58 一之瀨: 你睫毛顫的時候，我筆蓋上的光也晃了一下。
+
+### conversation-c:37871 - FAIL (0.88)
+
+Participants: 真晝 / 海
+
+Suggested fix category: break cross-speaker mirror/motif loop (vary objects and care moves)
+
+Reasons:
+- characterVoiceScore: matched 1/16 lexical character voice cue(s)
+- previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score
+- conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close
+- memoryContinuityScore: 2 continuity callback(s); 1 concrete memory cue(s)
+- attention_shift: 1/4 character-specific attention cue(s)
+
+Excerpt:
+> 6/16 晚上7:05 真晝: 你剛才眨眼的頻率變慢了……要一起靜一靜嗎？
+> 6/16 晚上7:05 海: 你手還停在桌邊沒收回去——先喘半口氣，我陪你。
+> 6/16 晚上7:07 海: 你手還停在桌邊……我先把筆電合上。
+> 6/16 晚上7:07 真晝: 你剛才喉嚨動了一下……我幫你把窗邊那盞燈調暗一點。
 
 
 ## Historical Archived Quality
@@ -171,18 +169,18 @@ These are labeled `legacy_noise` because they were created before the latest wat
 
 | Conversation | Participants | Cohort | Status | Score | Failure category | Top reasons |
 |---|---|---|---:|---:|---|---|
-| conversation-c:36895 | 一之瀨 / 祥子 | post_fix | FAIL | 0.85 | mirror/motif repetition across speakers | characterVoiceScore: matched 0/24 lexical character voice cue(s)<br>memoryContinuityScore: no explicit continuity callback<br>attention_shift: 0/8 character-specific attention cue(s) |
-| conversation-c:36886 | 貓貓 / 祥子 | post_fix | FAIL | 0.81 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/30 lexical character voice cue(s)<br>emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)<br>attention_shift: 0/4 character-specific attention cue(s) |
-| conversation-c:36862 | 海 / 一之瀨 | post_fix | FAIL | 0.87 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/17 lexical character voice cue(s)<br>attention_shift: 0/3 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score |
-| conversation-c:36842 | 貓貓 / 真晝 | post_fix | FAIL | 0.86 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/22 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening lacks a concrete reason; ending lacks a soft close |
-| conversation-c:36816 | 海 / 祥子 | post_fix | FAIL | 0.82 | mirror/motif repetition across speakers | emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)<br>memoryContinuityScore: no explicit continuity callback<br>attention_shift: 0/4 character-specific attention cue(s) |
-| conversation-c:36786 | 天澤 / 一之瀨 | post_fix | FAIL | 0.87 | mirror/motif repetition across speakers | characterVoiceScore: matched 0/19 lexical character voice cue(s); matched behavior voice cue(s): tianze_pressure_test_question<br>attention_shift: 0/5 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score |
-| conversation-c:36784 | 海 / 真晝 | post_fix | FAIL | 0.87 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/16 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 2 continuity callback(s); 1 concrete memory cue(s) |
-| conversation-c:36774 | 貓貓 / 祥子 | post_fix | FAIL | 0.88 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/30 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 1 continuity callback(s); callback marker without concrete cue |
-| conversation-c:36724 | 天澤 / 祥子 | post_fix | FAIL | 0.89 | mirror/motif repetition across speakers | attention_shift: 0/8 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
-| conversation-c:36735 | 真晝 / 海 | post_fix | FAIL | 0.86 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/16 lexical character voice cue(s)<br>attention_shift: 0/4 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score |
-| conversation-c:36721 | 貓貓 / 一之瀨 | post_fix | FAIL | 0.85 | mirror/motif repetition across speakers | emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>characterVoiceScore: matched 2/22 lexical character voice cue(s) |
-| conversation-c:36692 | 天澤 / 貓貓 | post_fix | WARN | 0.91 | mirror/motif repetition across speakers | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close<br>memoryContinuityScore: 2 continuity callback(s); callback marker without concrete cue |
+| conversation-c:37917 | 真晝 / 海 | post_fix | WARN | 0.92 | mirror/motif repetition across speakers | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 4 continuity callback(s); callback marker without concrete cue |
+| conversation-c:37914 | 天澤 / 一之瀨 | post_fix | FAIL | 0.86 | mirror/motif repetition across speakers | emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)<br>attention_shift: 0/6 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score |
+| conversation-c:37871 | 真晝 / 海 | post_fix | FAIL | 0.88 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/16 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
+| conversation-c:37863 | 天澤 / 一之瀨 | post_fix | WARN | 0.93 | mirror/motif repetition across speakers | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>everydayObjectLoopScore: over-repeated everyday object(s): 湯匙 x3 |
+| conversation-c:37823 | 貓貓 / 一之瀨 | post_fix | FAIL | 0.87 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/22 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 2/2 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 1 continuity callback(s); callback marker without concrete cue |
+| conversation-c:37805 | 天澤 / 真晝 | post_fix | FAIL | 0.89 | mirror/motif repetition across speakers | attention_shift: 0/5 character-specific attention cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>characterVoiceScore: matched 1/19 lexical character voice cue(s); matched behavior voice cue(s): tianze_pressure_test_question |
+| conversation-c:37795 | 貓貓 / 祥子 | post_fix | FAIL | 0.88 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/30 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 1 continuity callback(s); callback marker without concrete cue |
+| conversation-c:37779 | 真晝 / 一之瀨 | post_fix | FAIL | 0.87 | mirror/motif repetition across speakers | characterVoiceScore: matched 0/16 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
+| conversation-c:37767 | 天澤 / 貓貓 | post_fix | WARN | 0.88 | mirror/motif repetition across speakers | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>characterVoiceScore: matched 1/25 lexical character voice cue(s); matched behavior voice cue(s): tianze_pressure_test_question<br>conversation_lifecycle_flow: opening has a concrete reason; ending lacks a soft close |
+| conversation-c:37730 | 天澤 / 海 | post_fix | FAIL | 0.90 | mirror/motif repetition across speakers | characterVoiceScore: matched 1/20 lexical character voice cue(s)<br>previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>emotionalSpecificityScore: 1 direct emotional cue(s), 0 concrete care commitment(s); found 1 concrete signal(s) |
+| conversation-c:37683 | 天澤 / 一之瀨 | post_fix | FAIL | 0.81 | mirror/motif repetition across speakers | emotionalSpecificityScore: 0 direct emotional cue(s), 0 concrete care commitment(s)<br>everydayObjectLoopScore: over-repeated everyday object(s): 湯匙 x6<br>attention_shift: 0/8 character-specific attention cue(s) |
+| conversation-c:37686 | 海 / 真晝 | post_fix | WARN | 0.92 | mirror/motif repetition across speakers | previousSpeakerBindingScore: loosely bound to 3/3 previous-speaker cue(s); mirror repetition reduced binding score<br>memoryContinuityScore: 5 continuity callback(s); callback marker without concrete cue<br>attention_shift: 1/5 character-specific attention cue(s) |
 
 ## Historical Results
 

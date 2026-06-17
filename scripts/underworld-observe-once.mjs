@@ -1093,6 +1093,12 @@ function openingTemplateLines(conversations) {
   );
 }
 
+function truncate(text, max) {
+  const value = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (value.length <= max) return value;
+  return `${value.slice(0, Math.max(0, max - 1))}…`;
+}
+
 function openingTemplateEvidence(conversations) {
   const openings = conversations
     .map((conversation) => {
