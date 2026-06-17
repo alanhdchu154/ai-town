@@ -114,12 +114,16 @@ const conversations = (Array.isArray(evalData?.conversations) ? evalData.convers
 
 const windows = buildWindows(conversations, WINDOW_HOURS);
 const evaluation = evaluateBestAdjacentPair(windows, WINDOW_HOURS);
+const peekHealth = await runPeek('health');
+const peekResidueDigest = await runPeek('talk');
 const report = buildReport({
   generatedAt: new Date().toISOString(),
   checkedAt: evalData?.checkedAt,
   conversations,
   windows,
   evaluation,
+  peekHealth,
+  peekResidueDigest,
 });
 await mkdir(dirname(REPORT_PATH), { recursive: true });
 await mkdir(dirname(OUT_PATH), { recursive: true });
@@ -345,7 +349,7 @@ function buildWindows(conversations, windowHours) {
   return windows;
 }
 
-function buildReport({ generatedAt, checkedAt, conversations, windows, evaluation }) {
+function buildReport({ generatedAt, checkedAt, conversations, windows, evaluation, peekHealth = '', peekResidueDigest = '' }) {
   const callbackMoment =
     evaluation.callbacks[0]?.callbackText ?? '尚未找到 rolling two-hour callback。';
   const lines = [
@@ -372,6 +376,14 @@ function buildReport({ generatedAt, checkedAt, conversations, windows, evaluatio
     `- Best continuity moment: ${callbackMoment}`,
     `- Convex checkedAt: ${checkedAt ? new Date(checkedAt).toISOString() : 'unknown'}`,
     `- Today conversations seen in query: ${conversations.length}`,
+    '',
+    '## Peek Health',
+    '',
+    ...formatPeekBlock(peekHealth),
+    '',
+    '## Peek Recent Residue Digest',
+    '',
+    ...formatPeekBlock(peekResidueDigest),
     '',
     '## Window Counts',
     '',
@@ -404,6 +416,27 @@ function buildReport({ generatedAt, checkedAt, conversations, windows, evaluatio
     '',
   ];
   return `${lines.join('\n')}\n`;
+}
+
+async function runPeek(mode) {
+  try {
+    const { stdout, stderr } = await execFileAsync('bash', [join(REPO_ROOT, 'scripts', 'underworld-peek.sh'), mode], {
+      cwd: REPO_ROOT,
+      timeout: 180_000,
+      maxBuffer: 1024 * 1024 * 4,
+    });
+    return truncatePeek(`${stdout}${stderr ? `\n${stderr}` : ''}`);
+  } catch (error) {
+    const output = truncatePeek(`${error?.stdout ?? ''}${error?.stderr ? `\n${error.stderr}` : ''}`.trim());
+    const summary = error instanceof Error ? error.message.split('\n')[0] : String(error);
+    return [`peek unavailable (${mode}): ${summary}`, output].filter(Boolean).join('\n');
+  }
+}
+
+function formatPeekBlock(text) {
+  const body = String(text ?? '').trim();
+  if (!body) return ['```text', '(no peek output)', '```'];
+  return ['```text', body, '```'];
 }
 
 function formatCandidates(candidates) {
@@ -653,6 +686,11 @@ function truncate(text, max) {
   return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
 }
 
+function truncatePeek(text, max = 6000) {
+  const normalized = String(text ?? '').trim();
+  return normalized.length > max ? `${normalized.slice(0, max - 1)}…` : normalized;
+}
+
 function fixtureConversation(id, localHour, involvedCharacters, transcriptMessages, memoryTraces = []) {
   return { id, localDate: '2026-06-04', localHour, involvedCharacters, transcriptMessages, memoryTraces };
 }
@@ -689,6 +727,19 @@ function runSelfTest() {
   const evaluation = evaluateBestAdjacentPair(windows, 2);
   assert(evaluation.status.label === 'PASS', 'strong rolling callback should pass');
   assert(evaluation.callbacks.length >= 1, 'expected rolling callback');
+  const report = buildReport({
+    generatedAt: '2026-06-04T18:00:00.000Z',
+    checkedAt: Date.now(),
+    conversations: [...source, ...callback],
+    windows,
+    evaluation,
+    peekHealth: 'world health ok',
+    peekResidueDigest: 'recent residue ok',
+  });
+  assert(report.includes('## Peek Health'), 'report should include peek health section');
+  assert(report.includes('world health ok'), 'report should include peek health output');
+  assert(report.includes('## Peek Recent Residue Digest'), 'report should include peek residue section');
+  assert(report.includes('recent residue ok'), 'report should include peek residue output');
 
   const weakWindows = buildWindows(
     [
