@@ -647,6 +647,17 @@ describe('soul-grounded LLM residue', () => {
     // The model is told to answer 無 when nothing resonated — this is the
     // resonance gate for characters that never had a hand-written branch.
     expect(prompt).toMatch(/就只輸出：無/);
+    // Stage ① inversion: 無 is a FIRST-CLASS outcome, not a buried escape hatch.
+    // The prompt must lead with "decide whether anything stuck", say most
+    // ordinary conversations leave nothing, and prefer 無 over forcing a
+    // low-weight micro-tell. Without this, the thin-situation substrate makes
+    // the model always grab a micro-prosodic detail (the 本末倒置 we observed).
+    expect(prompt).toMatch(/有沒有真的.*留下一點分量/);
+    expect(prompt).toMatch(/大多數平常的對話其實不會/);
+    expect(prompt).toMatch(/寧可常常是「無」/);
+    // The micro-body-movement rule now routes to 無 rather than to "use it only
+    // when meaningful" — the default for a micro-tell is now to drop it.
+    expect(prompt).toMatch(/當成預設殘留.*直接輸出「無」/s);
   });
 
   it('gives each character a distinct residue lens so traces do not collapse onto one template', () => {
