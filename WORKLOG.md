@@ -70,6 +70,42 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~11:30 CDT (CC, Alan-directed): **Soul loop CLOSED** (②→④ conversation
+  →emotion shipped, e8c9e3d4; ④→② already existed) + two Codex handoffs queued.
+  **>>> CODEX A — literature study on the affective soul loop.** Companion to
+  `docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md`, but for the FULL loop now that it is
+  closed: situation/event → speech → memory/residue → emotion → (colors next
+  speech) → … Research + translate the relevant science into UW design language
+  (conservative, no "agents have feelings" overclaim): appraisal theory of emotion
+  (Lazarus/Scherer — emotion as the appraisal of what an event means to me),
+  affect-as-information, mood-congruent memory & attention (a worried mind notices
+  & recalls different things — this is exactly our un-wired ④→③ edge), emotion
+  regulation, and memory consolidation during sleep (why a "nightly reflection"
+  that synthesizes the day matters). Output a `docs/soul/SOUL_LOOP_LITERATURE_BRIDGE.md`
+  design-lens doc; cite sources; mark which edges are live vs shallow (see the
+  loop-review considerations in this snapshot). Review-gated, not a runtime change.
+  **>>> CODEX B — short on closing the soul loop.** Through the WORKLOG #7
+  review-gated media pipeline (package-first, no auto-publish, evidence-grounded,
+  real before/after, no hype): the spine is the multi-day arc that converged today
+  — we built a one-way pipeline (situation→speech→memory), realized the FEEDBACK
+  edges were broken (a character's feelings never moved from what you said to them),
+  and closed it: conversation → emotion → how they talk next. Use the real verified
+  beat (a warm summary moved Umi serious→smiling, which then colors her next line).
+  Honest boundary: it's a functional affective loop / heuristic emotion, not claimed
+  sentience; deeper edges (emotion→memory, daily consolidation) are next.
+- 2026-06-18 ~11:30 CDT (CC): **Nightly reflection (sleep consolidation) NOT enabled
+  — blocked on a real issue.** Alan asked about turning the sleep mechanism to write.
+  The latest shadow report (06-18 04:31) shows all 6 characters "would reflect" but
+  every one returned "LLM returned no insights — provider unavailable" — i.e. the
+  04:00-area reflection generation is failing (cloud LLM unavailable at ~4am), so
+  there is NOT YET a single clean shadow report to judge consolidation quality. Per
+  the mechanism's own safety rule (enable write only after several clean shadow
+  reports), it stays in shadow. NEXT: diagnose why the ~04:00 reflection produces no
+  insights (cloud cooldown/quota at that hour? run it at a different time?) so it
+  actually generates, review the output for hallucination-free consolidation, THEN
+  consider write mode. This is the ③→明天 daily-synthesis edge of the loop and is
+  currently observed-only, not live.
+
 - 2026-06-18 ~10:30 CDT (CC): **Automation consolidation (Alan-directed) — recovery
   unified into the watchdog, morning-healthcheck retired (pushed 2f006727).**
   Liveness/recovery was split across 3 agents with duplicated restart logic + a gap
