@@ -15,6 +15,17 @@ const worldClock = v.object({
   lastUpdated: v.number(),
 });
 
+const portraitEmotion = v.union(
+  v.literal('neutral'),
+  v.literal('smiling'),
+  v.literal('worried'),
+  v.literal('serious'),
+  v.literal('tired'),
+  v.literal('flustered'),
+  v.literal('guarded'),
+  v.literal('calm'),
+);
+
 const schoolRelationshipDimensions = v.object({
   trust: v.number(),
   respect: v.number(),
@@ -59,16 +70,26 @@ export default defineSchema({
     shortTermMemory: v.array(v.string()),
     longTermMemory: v.array(v.string()),
     beliefs: v.array(v.string()),
-    currentEmotion: v.optional(
-      v.union(
-        v.literal('neutral'),
-        v.literal('smiling'),
-        v.literal('worried'),
-        v.literal('serious'),
-        v.literal('tired'),
-        v.literal('flustered'),
-        v.literal('guarded'),
-        v.literal('calm'),
+    currentEmotion: v.optional(portraitEmotion),
+    developmentState: v.optional(
+      v.object({
+        baselineEmotion: v.optional(portraitEmotion),
+        recurringConcernZh: v.optional(v.string()),
+        relationshipTendencyZh: v.optional(v.string()),
+        behaviorLeanZh: v.optional(v.string()),
+        updatedAt: v.number(),
+        day: v.optional(v.number()),
+      }),
+    ),
+    developmentLog: v.optional(
+      v.array(
+        v.object({
+          sourceEventId: v.optional(v.string()),
+          summaryZh: v.string(),
+          influenceZh: v.string(),
+          day: v.optional(v.number()),
+          createdAt: v.number(),
+        }),
       ),
     ),
     initialRelationships: v.optional(
@@ -116,6 +137,30 @@ export default defineSchema({
     lastEventId: v.optional(v.string()),
     updatedAt: v.number(),
   }).index('worldId', ['worldId']),
+
+  emotionChanges: defineTable({
+    worldId: v.id('worlds'),
+    name: v.string(),
+    previousEmotion: v.optional(portraitEmotion),
+    emotion: portraitEmotion,
+    reasonZh: v.string(),
+    causeKind: v.union(
+      v.literal('conversation'),
+      v.literal('event'),
+      v.literal('pressure'),
+      v.literal('decay'),
+    ),
+    causeEventId: v.optional(v.string()),
+    day: v.optional(v.number()),
+    clock: worldClock,
+    createdAt: v.number(),
+    createdAtUnix: v.optional(v.number()),
+    createdAtIso: v.optional(v.string()),
+    createdAtTimeZone: v.optional(v.string()),
+    worldTimeLabelZh: v.optional(v.string()),
+  })
+    .index('worldId', ['worldId', 'createdAt'])
+    .index('character', ['worldId', 'name', 'createdAt']),
 
   alanPresence: defineTable({
     worldId: v.id('worlds'),

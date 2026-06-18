@@ -1,8 +1,11 @@
 import {
   closingBeatPromptLineForTest,
   buildLastConversationHintFromTextsForTest,
+  compactEventTopicForTest,
   directObjectBindingPromptLinesForTest,
   hasFreeWorldQualityLeakForTest,
+  hasObjectAsEmotionMetaphorLeakForTest,
+  functionalScenePropsPromptLinesForTest,
   motifGuardPromptLinesForTest,
   recentPairContinuityPromptLinesForTest,
   relationshipDynamicPromptLinesForTest,
@@ -203,6 +206,75 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('週末小組活動');
     expect(lines).not.toContain('便當');
     expect(lines).not.toContain('茶杯');
+  });
+
+  test('supplies only real functional scene props to the prompt', () => {
+    const lines = functionalScenePropsPromptLinesForTest({
+      id: 'classroom',
+      labelZh: '教室',
+      functionalPropsZh: ['考卷', '黑板', '講義'],
+    }).join('\n');
+
+    expect(lines).toContain('此刻在場、真的能被使用的功能性道具');
+    expect(lines).toContain('考卷、黑板、講義');
+    expect(lines).toContain('遞考卷');
+    expect(lines).toContain('不要把道具拿來比喻感情');
+  });
+
+  test('compacts character life events as emotional conversation topics', () => {
+    const topic = compactEventTopicForTest({
+      descriptionZh: '今日角色事件：天澤在教室遇到「天澤小考一百分」。天澤小考拿了一百分，卻把考卷翻面壓在桌角。',
+      interpretationZh: '天澤不是單純開心；她想看別人會誇成績、怕她、還是看見她在測距離。 情緒方向：得意、想測別人會不會只看分數。',
+      futureImplicationsZh: '相關角色：天澤、一之瀨、真晝。之後對話若自然碰到這件事，應該各自帶出不同關心方式。',
+    });
+
+    expect(topic).toContain('天澤的今日事件');
+    expect(topic).toContain('天澤小考一百分');
+    expect(topic).toContain('得意、想測別人會不會只看分數');
+    expect(topic).toContain('天澤、一之瀨、真晝');
+  });
+
+  test('aborts object-as-emotion metaphor constructions before archive', () => {
+    // The named bug constructions.
+    expect(
+      hasObjectAsEmotionMetaphorLeakForTest('半塊橡皮擦得有點毛邊了，像你剛才講題停頓的那三秒。'),
+    ).toBe(true);
+    expect(
+      hasObjectAsEmotionMetaphorLeakForTest('窗簾動了半寸，就像你剛說那句話時的尾音。'),
+    ).toBe(true);
+    expect(
+      hasObjectAsEmotionMetaphorLeakForTest('那杯水好像你剛剛沉默的那兩秒。'),
+    ).toBe(true);
+    // Construction-based: generalises to NOVEL nouns not in any list.
+    expect(hasObjectAsEmotionMetaphorLeakForTest('風扇轉得有點慢，像你剛說那句的語氣。')).toBe(true);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('操場的雲，像你剛才的表情。')).toBe(true);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('樹葉飄下來，就像你剛剛沉默的那兩秒。')).toBe(true);
+  });
+
+  test('does NOT abort functional / caring / ordinary lines (no false positives)', () => {
+    // Functional object use — the whole point of Phase A.
+    expect(hasObjectAsEmotionMetaphorLeakForTest('我把考卷遞給你，這題先不用現在答。')).toBe(false);
+    // Caring line that merely contains 一樣 + 擔心 (old char-class version killed this).
+    expect(hasObjectAsEmotionMetaphorLeakForTest('你便當沒吃，我有點擔心，像上次一樣。')).toBe(false);
+    // Literal comparison of two real things.
+    expect(hasObjectAsEmotionMetaphorLeakForTest('這張考卷跟期中那張一樣重要，先寫第一題。')).toBe(false);
+    // The glyph 子 inside 孩子/樣子 must not register as an object.
+    expect(hasObjectAsEmotionMetaphorLeakForTest('這孩子就像你剛才一樣怕生。')).toBe(false);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('你的樣子好像剛才哭過。')).toBe(false);
+    // Epistemic 好像 ("seems"), not a simile — has 的表情 but no speech-moment ref.
+    expect(hasObjectAsEmotionMetaphorLeakForTest('你好像不太喜歡他的表情。')).toBe(false);
+  });
+
+  test('sanitizer aborts object-as-emotion metaphor output', () => {
+    const sanitized = sanitizePilotLineForTest(
+      '半塊橡皮擦得有點毛邊了，像你剛才講題停頓的那三秒。',
+      'Mahiru',
+      'Umi',
+      [],
+    );
+
+    expect(sanitized).toContain('[ABORT_CONVERSATION]');
+    expect(sanitized).toContain('object-as-emotion');
   });
 
   test('flags repeated transaction/debt language including price and exchange words', () => {

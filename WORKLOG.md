@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 11:24 CDT
+Last updated: 2026-06-18 14:40 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -55,7 +55,7 @@ historical evidence is needed.
 | 20 | Alan observed that 2026-06-13 is Saturday/weekend but autonomous characters were not naturally talking about weekend life. Diagnosis: calendar/weekend context existed in `schoolDayRhythmContext` and full prompts, but compact autonomous start/continue prompts mostly saw it as a buried `calendarHint` rather than a concrete conversation motive. Fix: compact autonomous prompts now add `週末生活錨點` / `週末場景 seed` lines when `clockContext.isWeekend` is true, steering openers or pivots toward free activity, homework, laundry, club practice, errands, walking, dorm choices, or private check-ins while avoiding saturated food/drink/utensil/rest/global-topic loops. Added regression test to ensure Saturday compact prompts include weekend life anchors and do not seed bento/teacup loops. Verification: targeted conversation/experience/memory Jest 104/104, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`. | Alan / Umi / Codex | compact_weekend_life_anchor_patched_watch_next_samples |
 | 21 | 2026-06-14 evening incident: Alan reported Underworld felt hung. Triage showed `/ai-town` HTTP 200 and old `underworld:runtime-preflight` PASS, but role-to-role conversation flow had stopped around 10:59-11:00 CDT. `debugInputQueue` latest processed inputs were still morning events, while `recentConversationEvalData` showed two stale active unarchived conversations (`海/一之瀨`, `祥子/貓貓`). Alan approved clearing them; `school:cleanupActiveConversationsByCharacterNamesForTest {"dryRun":false,"targetNames":["海","一之瀨","祥子","貓貓"]}` removed 2 active conversations, 10 unarchived messages, and 1 in-progress agent op. Alan then explicitly approved starting repairs tonight instead of waiting. Codex coordinated a cc read-only review, implemented `school:activeConversationRuntimeHealth`, `school:cleanupStaleActiveConversations`, `scripts/underworld-stale-conversation-watchdog.mjs`, and extended `underworld:runtime-preflight` so it fails on stale daytime agent inputs, stale active conversations, and due-but-unprocessed input backlog. The dev stack was restarted once in `underworld-mobile` screen to load the new functions. Post-restart evidence: `/ai-town` HTTP 200, `underworld:runtime-preflight` PASS, `underworld:stale-watchdog` dry-run stale=0/messages=0, runtime health due pending inputs=0, processedInputNumber advanced beyond the morning stall, typecheck/build passed. Treat 2026-06-14 afternoon as missing natural-conversation data; next plan is Monday/Tuesday observe-only collection and Wednesday v0.1 evidence review. | Alan / Umi / Codex / cc | runtime_freshness_guard_live_monday_tuesday_run_wednesday_review |
 | 22 | Underworld Media Pipeline v1 scaffold exists under `media/`. Alan's goal is a public record of AI society emergence, not generic AI education. The scaffold is package-first and review-gated: Topic, Research, Script, Asset, and Upload agents may generate reviewable packages, but must not mutate Convex/runtime state, change prompts/memory/souls, upload automatically, or make public claims without evidence and human approval. cc feasibility review was attempted in plan mode, but Claude Code is session-limited until 1:30am America/Chicago, so Umi implemented the conservative markdown scaffold only. Next useful work is a small script that reads existing reports and produces a ranked topic package, still read-only. | Alan / Umi / Codex | media_pipeline_v1_scaffolded_review_gated |
-| 23 | Underworld Field Notes Watcher role is defined at `media/watcher.md`, with current playtest-note candidates in `media/topics/watcher-inbox.md`. Central Codex automation `underworld-field-notes-watcher` is active daily at 23:00 America/Chicago. It is read-only and should scout for shareable moments such as repeated fallback lines, dirty memory pollution, runtime stalls, motif loops, or genuine social signals. It must not mutate Convex/runtime state, restart/kick/repair, upload, or change YouTube privacy. First watcher Short, `When an AI World Is Online but Not Alive | Field Note`, was uploaded public at `https://youtu.be/_to91-H3DEY` after Alan's explicit public approval; no runtime mutation was performed for the video. | Umi / Codex automation | active_read_only_content_scout_first_short_public |
+| 23 | Underworld Field Notes Watcher role is defined at `media/watcher.md`, with current playtest-note candidates in `media/topics/watcher-inbox.md`. Central Codex automation `underworld-field-notes-watcher` is active daily at 20:00 America/Chicago as an independent Field Notes channel operator. It may package/render/upload/publish only when Field Notes gates pass: channel identity verified, T9/storage OK, source evidence clear, conservative claims, no secrets/private data, package quality acceptable, and OAuth/upload credentials available. It must not mutate Convex/runtime state or repair the world just to make content. First watcher Short, `When an AI World Is Online but Not Alive | Field Note`, was uploaded public at `https://youtu.be/_to91-H3DEY` after Alan's explicit public approval; no runtime mutation was performed for the video. | Umi / Codex automation | active_independent_field_notes_operator |
 | 24 | 2026-06-15 morning health incident: frontend/dev stack looked alive (`/ai-town` HTTP 200, world status `running`, engineRunning true), but agent input freshness showed the world had not advanced for about 2h17m and stored `worldClock` was stuck near 05:59 while real local time was after 08:12 CDT. There were no stale active conversations or due pending inputs, so `testing:stop` -> wait -> `testing:resume` did not wake it. A controlled `underworld-mobile` dev-stack restart recovered the loop; logs showed `world:restartDeadWorlds`, runtime input advanced, and Umi/Mahiru started fresh conversation `c:20060`. `underworld:runtime-preflight` now uses real America/Chicago time from `payload.now` for day/night mode instead of trusting stale stored `worldClock.hour`, reports stored worldClock age, and fails if stored worldClock age exceeds the stale threshold during daytime. Verification after recovery: `/ai-town` HTTP 200, `underworld:runtime-preflight` PASS, `underworld:runtime-preflight:self-test` PASS, `underworld:stale-watchdog` dry-run stale=0/messages=0, `npx tsc --noEmit --pretty false`, and `npm run build`. Treat 2026-06-15 before about 08:18 CDT as missing/unreliable continuity data; collect Monday evidence only after this recovery point. | Umi / Codex | recovered_preflight_time_guard_patched_watch_next_two_hours |
 | 25 | 2026-06-15 evening data review showed the world is now producing continuity evidence but still has dialogue hygiene failures: `underworld:rolling-continuity` PASS for the 16:00-20:00 window, while `eval:conversation:recent -- --since-last-change` reported 0 PASS / 6 WARN / 6 FAIL with repeated small-object motifs and dangling autonomous endings (`啊……抱歉，祥子，`, `「糖紙剝開了...`, `嗯…待會琴房的燈，`). cc read-only review (`umi/reports/20260616T003312Z-workload.md`) agreed the repair should be narrow: ungate dangling-fragment rejection for non-Alan autonomous pairs and avoid broad memory/provider/schema changes. Patch landed in `convex/agent/conversation.ts`: same-pair motif cooldown line, extra prop-family prompt cooldowns for needle/candy/curtain/hand/sleeve loops, autonomous dangling-fragment abort before archive, and preserved Alan-facing repair behavior. Tests added in `conversationMotifGuard.test.ts`. Verification: targeted Jest 43/43, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Existing pre-patch eval reports will still show old failures; judge this fix on fresh post-patch samples. | Umi / Codex / cc | motif_cooldown_and_dangling_guard_patched_watch_fresh_samples |
 | 26 | 2026-06-15 Alan-facing human chat repair landed after Alan playtested 海/真晝/天澤. Evidence: 海 kept dragging an expired curry promise into unrelated current topics; 真晝 answered direct Alan questions with stage/action phrasing instead of answer-first; 天澤 archived a single-sided Alan-only conversation while the character was still typing. cc read-only review (`umi/reports/20260616T013551Z-workload.md`) recommended a bounded commitment cooldown and warned against broad prompt rewrites. Codex implemented the low-risk subset plus direct evidence guards: expired commitments now surface only when Alan explicitly mentions the object, Umi curry output is repaired when Alan asks feelings/current topics, Mahiru direct secret/invitation/check-in questions repair to answer-first lines, first-person stage-direction detection catches `我正/正在...推過來`, MessageInput blocks duplicate sends while the other participant is typing, and `leaveAlanConversationNow` delays leave/archive for up to 90s if Alan spoke last and the character is still typing. Verification: targeted Jest 54/54, `npx tsc --noEmit --pretty false`, `npm run build`, `git diff --check`, and `npm run underworld:runtime-preflight` PASS. Next: Alan human-test Umi/Mahiru/Tianze/Ichinose once; judge only fresh post-patch chats. | Umi / Codex / cc | alan_facing_smoothness_patched_human_test_next |
@@ -70,6 +70,88 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 14:40 CDT (Codex): **Alan explicitly approved doing Phase C/D too;
+  Phase A-D are now implemented and verified, pending cc/fresh-sample review.**
+  A/B summary remains: scene props now ground object use; object-as-emotion
+  metaphor outputs abort before archive; concrete character life events now
+  become prompt topics and update `schoolProfiles.currentEmotion`; old broad
+  keyword emotion clobbering was retired; temporary emotions decay after about
+  4h without reinforcement. C adds bounded character development on top of the
+  same emotion choke point: `schoolProfiles.developmentState` stores one short
+  behavior/relationship/concern digest and `developmentLog` is capped at 6
+  entries. This is not personality rewrite or transcript memory; it is long-term
+  coloring for future speech. `queryPromptData` now feeds a short development
+  digest into the visible-state prompt line. D adds `emotionChanges`, written
+  only from `updateEmotionByName`, with `previousEmotion`, `emotion`, `reasonZh`,
+  `causeKind` (`conversation` / `event` / `pressure` / `decay`), optional
+  `causeEventId`, day/clock/timestamps, and a `recentEmotionChanges` query.
+  The 內省 page now has a `情緒波動` sibling tab with per-character change chips
+  showing cause, transition, reason, and behavior signal. Guardrails: no
+  embeddings, no transcript storage, C log cap 6, D write path centralized.
+  Verification: targeted Jest 63/63 PASS,
+  `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS, `npm run underworld:runtime-preflight` PASS,
+  `npx convex run --typecheck disable --codegen disable school:recentEmotionChanges '{"limit":5}'`
+  returned the new query shape, `npm run underworld:state-audit` exited 0
+  (`db=558.8MB`, `state=1.7G`, `documents=361613`), and a small Chrome route
+  smoke for `/ai-town?view=introspection` verified both `語音內省` and `情緒波動`
+  tabs render without horizontal overflow or console errors. Caveat: the full
+  `npm run underworld:frontend-smoke` script did not finish within about 2
+  minutes and was interrupted, so do not count that full gate as PASS yet. One pre-existing
+  live row from before the causeKind patch may show a conversation reason with
+  `causeKind=event`; judge new rows only. Next: ask cc to review A-D diff plus
+  fresh samples, especially whether `emotionChanges` needs a retention script
+  before longer collection.
+- 2026-06-18 14:17 CDT (Codex): **cc workload Phase A completed for the
+  "Close the Soul Loop" program; stopped before Phase B by design.** Scope:
+  root-cause fix for 小物件 / object-as-emotion drift only. A1 added
+  `functionalPropsZh` to each `SchoolLocation` and passes the nearest scene's
+  real functional props into conversation prompts. Prompts now say props may be
+  used only for actual scene work such as handing over a test sheet, collecting
+  a tray, closing a light, or leaving a note; they must not become metaphors
+  for feelings, pauses, heartbeats, or "what you just said." A2 added a
+  construction-level sanitizer detector for object-as-emotion metaphors
+  (`物件 + 像/好像/就像 + 你剛才/停頓/那幾秒/語氣/心跳...`) and aborts before
+  archive. Added tests proving scene props appear, functional object use is not
+  blocked, and metaphor constructions like "半塊橡皮擦...像你剛才停頓的那三秒" are
+  rejected. Verification: `npm test -- convex/agent/conversationMotifGuard.test.ts`
+  51/51 PASS, `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS. Next: let fresh samples show whether object-invented
+  metaphor drift falls; do not proceed to Phase B event->emotion wiring until
+  Alan/cc review Phase A output.
+- 2026-06-18 13:52 CDT (Codex): **Field Notes independence restored at Alan's
+  request.** `automation_update` remains unavailable, so Codex updated the
+  local Codex TOML source-of-truth directly. `underworld-hourly-ops` stays
+  ACTIVE but no longer has a Field Notes branch; it now handles only
+  rolling/liveness gates and 23:00 nightly-reflection shadow. Restored
+  `/Users/alanhdchu/.codex/automations/underworld-field-notes-watcher/automation.toml`
+  to ACTIVE as `Underworld Field Notes Evening Producer`, daily 20:00 CT, in
+  the Field Notes thread. This keeps publish/upload authority inside the
+  Field Notes operator and its gates, not inside the Underworld runtime
+  dispatcher. `underworld-nightly-compaction` remains ACTIVE and separate;
+  old rolling/reflection configs remain PAUSED. Verification: Python
+  `tomllib` parsed all five Underworld automation TOMLs and reported active
+  configs as `underworld-hourly-ops`,
+  `underworld-field-notes-watcher`, and `underworld-nightly-compaction`.
+- 2026-06-18 13:43 CDT (Codex): **CODEX D automation merge completed in local
+  Codex TOML source-of-truth.** `automation_update` was still unavailable, so
+  Codex did not claim to modify the app panel. Created
+  `/Users/alanhdchu/.codex/automations/underworld-hourly-ops/automation.toml`
+  as the single hourly dispatcher. It keeps the existing rolling/liveness
+  branch on 08/10/12/14/16/18/20/22 CT, adds 20:00 Field Notes **read-only
+  scout/package suggestion only** (no publish/upload/OAuth/YouTube/privacy
+  actions), and adds 23:00 nightly-reflection SHADOW only (never write/approval
+  token). Paused the three replaced local configs:
+  `underworld-rolling-continuity-telegram`,
+  `underworld-field-notes-watcher`, and
+  `underworld-nightly-reflection-shadow`. Kept
+  `underworld-nightly-compaction` ACTIVE and unchanged at 04:00 because it
+  writes/cycles backend and uses the compaction/watchdog lock. Verification:
+  Python `tomllib` parsed all five Underworld automation TOMLs; end state is
+  `underworld-hourly-ops=ACTIVE`, `underworld-nightly-compaction=ACTIVE`, three
+  old read-only configs `PAUSED`. Central registry updated. Caveat: because the
+  app-level automation tool is unavailable, the next real confirmation is
+  observing the hourly dispatcher run from the Codex automation layer.
 - 2026-06-18 ~12:30 CDT (CC, Alan-directed): **>>> CODEX D — merge the 3 read-only
   UW automations into ONE hourly hour-dispatcher; keep compaction separate.**
   Goal: easier management (4 Codex automations → 2) without losing safety. Build a

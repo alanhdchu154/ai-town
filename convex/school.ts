@@ -43,6 +43,7 @@ import {
 import { schoolDayRhythmContext } from '../data/schoolCalendar';
 import { DailyLifePeriod, dailyLifeBulletinSourcesForDay } from '../data/dailyLifeBulletin';
 import { SPONTANEOUS_EVENTS } from '../data/spontaneousEvents';
+import { characterLifeEventForClock } from '../data/characterLifeEvents';
 import {
   conversationOutcomeCauseMetadata,
   emergentConsequencePlanForEvent,
@@ -136,6 +137,7 @@ type PortraitEmotion =
   | 'flustered'
   | 'guarded'
   | 'calm';
+type EmotionChangeCauseKind = 'conversation' | 'event' | 'pressure' | 'decay';
 type SchoolMood =
   | 'calm'
   | 'anxious'
@@ -887,6 +889,12 @@ async function appendRecentEvent(
   return insertedId;
 }
 
+// Retention cap for the emotionChanges observability table. It is written from
+// the always-on sim loop, so without a bound it grows unbounded on the no-GC
+// local backend (the #41 crash lesson). The dashboard reads ≤80, so keeping the
+// newest 80 per character loses nothing it shows.
+const EMOTION_CHANGES_PER_CHARACTER = 80;
+
 async function updateEmotionByName(
   ctx: MutationCtx,
   worldId: Id<'worlds'>,
@@ -895,6 +903,8 @@ async function updateEmotionByName(
   emotion: PortraitEmotion,
   reasonZh: string,
   clock: Clock,
+  causeKind: EmotionChangeCauseKind = 'event',
+  causeEventId?: string,
 ) {
   const description = [...descriptions.values()].find((item) => item.name === name);
   if (!description) return;
@@ -903,8 +913,32 @@ async function updateEmotionByName(
     .withIndex('player', (q) => q.eq('worldId', worldId).eq('playerId', description.playerId))
     .first();
   if (!profile || profile.currentEmotion === emotion) return;
+  const previousEmotion = profile.currentEmotion;
   await ctx.db.patch(profile._id, { currentEmotion: emotion });
   const metadata = timestampMeta(clock);
+  await ctx.db.insert('emotionChanges', {
+    worldId,
+    name,
+    previousEmotion,
+    emotion,
+    reasonZh,
+    causeKind,
+    causeEventId,
+    day: clock.day,
+    clock,
+    createdAt: metadata.createdAtUnix,
+    ...metadata,
+  });
+  // Bound the table: drop this character's rows beyond the newest N (see the
+  // EMOTION_CHANGES_PER_CHARACTER note). Steady-state surplus is ~1 per write.
+  const existingChanges = await ctx.db
+    .query('emotionChanges')
+    .withIndex('character', (q) => q.eq('worldId', worldId).eq('name', name))
+    .order('desc')
+    .collect();
+  for (const stale of existingChanges.slice(EMOTION_CHANGES_PER_CHARACTER)) {
+    await ctx.db.delete(stale._id);
+  }
   await ctx.db.insert('schoolNotifications', {
     worldId,
     notificationId: eventId('emotion_changed'),
@@ -915,6 +949,204 @@ async function updateEmotionByName(
     createdAt: metadata.createdAtUnix,
     ...metadata,
   });
+  await updateCharacterDevelopmentFromEmotion(ctx, profile, name, emotion, reasonZh, causeKind, clock, causeEventId);
+}
+
+type CharacterDevelopmentPlan = {
+  summaryZh: string;
+  influenceZh: string;
+  recurringConcernZh: string;
+  relationshipTendencyZh: string;
+  behaviorLeanZh: string;
+};
+
+function clippedDevelopmentText(text: string, max = 90) {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function characterDevelopmentPlanForEmotion(
+  name: string,
+  emotion: PortraitEmotion,
+  reasonZh: string,
+  causeKind: EmotionChangeCauseKind,
+): CharacterDevelopmentPlan {
+  const reason = clippedDevelopmentText(reasonZh, 58);
+  const displayName = displayNameZh(name);
+  if (name === 'Umi') {
+    if (emotion === 'tired' || emotion === 'calm') {
+      return {
+        summaryZh: `${displayName}因為「${reason}」把有用和休息重新放在一起看。`,
+        influenceZh: '下一次她可能少做一點總結，先替 Alan 或對方留空白。',
+        recurringConcernZh: '擔心 Alan 或世界被太多資訊壓住，也擔心自己只剩下有用。',
+        relationshipTendencyZh: '被看見時會更安靜一點，不急著把照顧翻成任務。',
+        behaviorLeanZh: '簡報變短；先問人，再整理事。',
+      };
+    }
+    return {
+      summaryZh: `${displayName}因為「${reason}」更想把混亂整理到可承受。`,
+      influenceZh: '下一次她會更快抓出最小下一步，但要避免把每件事都變成報告。',
+      recurringConcernZh: '擔心 Alan 一個人扛太多。',
+      relationshipTendencyZh: '靠近人的方式是降低噪音，而不是把情緒說滿。',
+      behaviorLeanZh: '收斂議題；少推一件事。',
+    };
+  }
+  if (name === 'Mahiru') {
+    return {
+      summaryZh: `${displayName}因為「${reason}」更注意誰把話吞回去了。`,
+      influenceZh: '下一次她可能先靠近那個變安靜的人，而不是立刻安慰所有人。',
+      recurringConcernZh: '擔心別人說沒事直到撐不住。',
+      relationshipTendencyZh: '用停留和小問題照顧人；疲憊時自己也會變安靜。',
+      behaviorLeanZh: '更早注意沉默；一對一靠近。',
+    };
+  }
+  if (name === 'Tianze') {
+    return {
+      summaryZh: `${displayName}因為「${reason}」重新估計玩笑和邊界的距離。`,
+      influenceZh: '下一次她可能仍然試探，但會在真正刺痛之前慢一拍。',
+      recurringConcernZh: '在意自己是不是被看穿，也在意對方能不能接住她的玩笑。',
+      relationshipTendencyZh: '用挑釁確認關係；被接住時會短暫收手。',
+      behaviorLeanZh: '玩笑更短；先看對方反應。',
+    };
+  }
+  if (name === 'Ichinose') {
+    return {
+      summaryZh: `${displayName}因為「${reason}」更清楚溫柔也需要邊界。`,
+      influenceZh: '下一次她可能會照顧人，但不一定替對方把所有尷尬包好。',
+      recurringConcernZh: '擔心自己的甜被當成理所當然。',
+      relationshipTendencyZh: '用照顧靠近，也用收回主權保護自己。',
+      behaviorLeanZh: '先幫一點，再讓對方自己扣上最後一格。',
+    };
+  }
+  if (name === 'Maomao') {
+    return {
+      summaryZh: `${displayName}因為「${reason}」把情緒先當成症狀觀察。`,
+      influenceZh: '下一次她可能少講漂亮話，先記下不對勁的地方。',
+      recurringConcernZh: '在意被忽略的代價和身體先露出的真相。',
+      relationshipTendencyZh: '用診斷式關心；不急著表白在意。',
+      behaviorLeanZh: '先看症狀；保留判斷。',
+    };
+  }
+  if (name === 'Sakiko') {
+    return {
+      summaryZh: `${displayName}因為「${reason}」更用端正保護裂縫。`,
+      influenceZh: '下一次她可能先把語氣收正式，再決定要不要讓人靠近。',
+      recurringConcernZh: '擔心失控的一瞬間被看見。',
+      relationshipTendencyZh: '用禮貌和距離維持秩序；信任時才露出不穩。',
+      behaviorLeanZh: '姿勢更端正；回答更短。',
+    };
+  }
+  return {
+    summaryZh: `${displayName}因為「${reason}」留下了一點新的反應習慣。`,
+    influenceZh: '下一次遇到相似情境時，反應可能會有一點點不同。',
+    recurringConcernZh: '還在理解這件事對自己的意義。',
+    relationshipTendencyZh: '關係靠近或退後時先看對方是否安全。',
+    behaviorLeanZh: '反應略微放慢；先觀察。',
+  };
+}
+
+export function characterDevelopmentPlanForTest(
+  name: string,
+  emotion: PortraitEmotion,
+  reasonZh: string,
+  causeKind: EmotionChangeCauseKind,
+) {
+  return characterDevelopmentPlanForEmotion(name, emotion, reasonZh, causeKind);
+}
+
+async function updateCharacterDevelopmentFromEmotion(
+  ctx: MutationCtx,
+  profile: Doc<'schoolProfiles'>,
+  name: string,
+  emotion: PortraitEmotion,
+  reasonZh: string,
+  causeKind: EmotionChangeCauseKind,
+  clock: Clock,
+  causeEventId?: string,
+) {
+  if (causeKind === 'decay') return;
+  const plan = characterDevelopmentPlanForEmotion(name, emotion, reasonZh, causeKind);
+  const existingLog = profile.developmentLog ?? [];
+  const duplicate = existingLog.some(
+    (entry) =>
+      (causeEventId && entry.sourceEventId === causeEventId) ||
+      entry.summaryZh === plan.summaryZh ||
+      entry.influenceZh === plan.influenceZh,
+  );
+  const nextLog = duplicate
+    ? existingLog.slice(0, 6)
+    : [
+        {
+          sourceEventId: causeEventId,
+          summaryZh: plan.summaryZh,
+          influenceZh: plan.influenceZh,
+          day: clock.day,
+          createdAt: Date.now(),
+        },
+        ...existingLog,
+      ].slice(0, 6);
+  await ctx.db.patch(profile._id, {
+    developmentState: {
+      baselineEmotion: emotion,
+      recurringConcernZh: plan.recurringConcernZh,
+      relationshipTendencyZh: plan.relationshipTendencyZh,
+      behaviorLeanZh: plan.behaviorLeanZh,
+      updatedAt: Date.now(),
+      day: clock.day,
+    },
+    developmentLog: nextLog,
+  });
+}
+
+const EMOTION_DECAY_AFTER_MS = 4 * 60 * 60 * 1000;
+
+function decayedEmotionFor(currentEmotion: PortraitEmotion | undefined): PortraitEmotion | undefined {
+  if (!currentEmotion || currentEmotion === 'neutral' || currentEmotion === 'calm') return undefined;
+  if (currentEmotion === 'smiling') return 'neutral';
+  return 'calm';
+}
+
+export function decayedEmotionForTest(currentEmotion: PortraitEmotion | undefined) {
+  return decayedEmotionFor(currentEmotion);
+}
+
+async function decayStaleCharacterEmotions(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  descriptions: Map<string, Doc<'playerDescriptions'>>,
+  clock: Clock,
+  now = Date.now(),
+) {
+  const profiles = await ctx.db
+    .query('schoolProfiles')
+    .withIndex('worldId', (q) => q.eq('worldId', worldId))
+    .collect();
+  const notifications = await ctx.db
+    .query('schoolNotifications')
+    .withIndex('worldId', (q) => q.eq('worldId', worldId))
+    .order('desc')
+    .take(120);
+  for (const profile of profiles) {
+    const name = descriptions.get(profile.playerId)?.name;
+    if (!name) continue;
+    const nextEmotion = decayedEmotionFor(profile.currentEmotion);
+    if (!nextEmotion) continue;
+    const lastEmotionChange = notifications.find(
+      (notification) =>
+        notification.type === 'emotion_changed' &&
+        notification.relatedCharacterName === name,
+    );
+    if (!lastEmotionChange || now - lastEmotionChange.createdAt < EMOTION_DECAY_AFTER_MS) continue;
+    await updateEmotionByName(
+      ctx,
+      worldId,
+      descriptions,
+      name,
+      nextEmotion,
+      '上一段情緒事件已經過了一些時間，狀態慢慢回到比較能呼吸的位置',
+      clock,
+      'decay',
+    );
+  }
 }
 
 function behaviorSignalForEmotion(name: string, emotion: PortraitEmotion, reasonZh: string) {
@@ -1048,23 +1280,10 @@ async function updateSocialLayerForEvent(
     });
   }
 
-  const text = `${event.descriptionZh} ${event.type}`;
-  if (text.includes('踢') || text.includes('焦慮') || text.includes('傳聞')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Mahiru', 'worried', '學生情緒出現壓力訊號', event.clock);
-  }
-  if (text.includes('貓貓') || text.includes('學生會')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Maomao', 'serious', '有人嘴上說沒事，身體卻露出症狀', event.clock);
-  }
-  if (text.includes('AI 社') || text.includes('規格') || text.includes('風險')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Ichinose', 'serious', '模糊的話需要被講清楚', event.clock);
-    await updateEmotionByName(ctx, worldId, descriptions, 'Umi', 'serious', 'Alan 需要先看見人的狀態再推進', event.clock);
-  }
-  if (text.includes('排除') || text.includes('操控')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Sakiko', 'worried', '有人把退場說得太禮貌', event.clock);
-  }
-  if (text.includes('底線') || text.includes('規則') || text.includes('破綻') || text.includes('測試')) {
-    await updateEmotionByName(ctx, worldId, descriptions, 'Tianze', 'serious', '有人把規則說得太穩，天澤想看看它會不會裂開', event.clock);
-  }
+  // Character-specific life events update emotion through
+  // applyCharacterLifeEventEmotion at the event source. Avoid broad keyword
+  // emotion writes here; they used to overwrite more meaningful event emotion
+  // merely because a summary contained words such as "規則" or "AI 社".
 }
 
 function rumorFromEvent(event: { type: string; descriptionZh: string; actorName?: string; targetName?: string }) {
@@ -1503,7 +1722,7 @@ async function maybeAddAwayAlanDrift(
   const futureImplicationsZh = modeIsFree
     ? '自由發展模式已開啟；Away Alan 仍會避免災難性決策，但世界可能更主動延伸他的習慣。'
     : '目前自由發展模式關閉；Away Alan 只能觀察、靠近場景、留下輕微回聲，不會替玩家做重大決定。';
-  await appendRecentEvent(ctx, world._id, {
+  const eventDocId = await appendRecentEvent(ctx, world._id, {
     type: 'awayAlanBehaviorDrift',
     actorName: DEFAULT_NAME,
     source: 'world_simulation_event',
@@ -1639,6 +1858,11 @@ type CampusEventThread = {
   locationId: string;
   locationZh: string;
   involvedNames: string[];
+  actorName?: string;
+  emotion?: PortraitEmotion;
+  affectedNames?: string[];
+  valenceZh?: string;
+  developmentHook?: string;
   descriptionZh: string;
   interpretationZh: string;
   reactionDialogueZh: string;
@@ -1658,6 +1882,25 @@ type DailyLifeBulletinItem = {
 
 function campusEventThreadForClock(clock: Clock, timeZone = 'America/Chicago', now = Date.now()): CampusEventThread | undefined {
   const rhythm = schoolDayRhythmContext(now, timeZone);
+  const lifeEvent = characterLifeEventForClock(clock.day, clock.hour);
+  if (lifeEvent) {
+    const location = SchoolLocations.find((candidate) => candidate.id === lifeEvent.locationId) ?? schoolLocationForClock(clock, timeZone, now);
+    return {
+      titleZh: lifeEvent.titleZh,
+      locationId: location.id,
+      locationZh: location.labelZh,
+      involvedNames: lifeEvent.affectedNames,
+      actorName: lifeEvent.actorName,
+      emotion: lifeEvent.emotion,
+      affectedNames: lifeEvent.affectedNames,
+      valenceZh: lifeEvent.valenceZh,
+      developmentHook: lifeEvent.developmentHook,
+      descriptionZh: `今日角色事件：${displayNameZh(lifeEvent.actorName)}在${location.labelZh}遇到「${lifeEvent.titleZh}」。${lifeEvent.descriptionZh}`,
+      interpretationZh: `${lifeEvent.interpretationZh} 情緒方向：${lifeEvent.valenceZh}。`,
+      reactionDialogueZh: lifeEvent.reactionDialogueZh,
+      futureImplicationsZh: `相關角色：${lifeEvent.affectedNames.map(displayNameZh).join('、')}。${lifeEvent.developmentHook} 之後對話若自然碰到這件事，應該各自帶出不同關心方式，而不是重複同一句事件摘要。`,
+    };
+  }
   const location = schoolLocationForClock(clock, timeZone, now);
   const eventIndex = Math.max(0, (clock.day + clock.hour) % Math.max(1, location.moodEvents.length));
   const moodEvent = location.moodEvents[eventIndex];
@@ -1747,7 +1990,7 @@ async function maybeSeedCampusEventThread(
   }
   const primaryName = thread.involvedNames[0] ?? 'Umi';
   const primary = findPlayerByName(world.players, descriptions, primaryName);
-  await appendRecentEvent(ctx, world._id, {
+  const eventDocId = await appendRecentEvent(ctx, world._id, {
     type: 'campusEventThread',
     actorPlayerId: primary?.id,
     actorName: primaryName,
@@ -1765,6 +2008,9 @@ async function maybeSeedCampusEventThread(
     importance: 7,
     clock,
   });
+  if (thread.emotion) {
+    await applyCharacterLifeEventEmotion(ctx, world._id, descriptions, thread, clock, eventDocId.toString());
+  }
   for (const name of thread.involvedNames) {
     const player = findPlayerByName(world.players, descriptions, name);
     if (!player) continue;
@@ -1778,6 +2024,33 @@ async function maybeSeedCampusEventThread(
   }
   activities.push(thread.descriptionZh);
   implications.push(thread.futureImplicationsZh);
+}
+
+async function applyCharacterLifeEventEmotion(
+  ctx: MutationCtx,
+  worldId: Id<'worlds'>,
+  descriptions: Map<string, Doc<'playerDescriptions'>>,
+  thread: CampusEventThread,
+  clock: Clock,
+  eventDocId?: string,
+) {
+  if (!thread.emotion) return;
+  const reason = `${thread.titleZh}${thread.valenceZh ? `：${thread.valenceZh}` : ''}`;
+  const affected = thread.affectedNames?.length ? thread.affectedNames : thread.involvedNames;
+  for (const name of affected) {
+    const emotion = name === thread.actorName ? thread.emotion : secondaryEmotionForLifeEvent(thread.emotion, name);
+    await updateEmotionByName(ctx, worldId, descriptions, name, emotion, reason, clock, 'event', eventDocId);
+  }
+}
+
+function secondaryEmotionForLifeEvent(emotion: PortraitEmotion, name: string): PortraitEmotion {
+  if (name === 'Mahiru' && (emotion === 'guarded' || emotion === 'tired')) return 'worried';
+  if (name === 'Umi' && emotion === 'worried') return 'serious';
+  if (name === 'Ichinose' && emotion === 'smiling') return 'serious';
+  if (name === 'Tianze' && emotion === 'flustered') return 'smiling';
+  if (emotion === 'flustered') return 'smiling';
+  if (emotion === 'guarded') return 'serious';
+  return emotion;
 }
 
 function dailyLifeBulletinForClock(clock: Clock, timeZone = 'America/Chicago', now = Date.now()): DailyLifeBulletinItem[] {
@@ -2322,7 +2595,16 @@ async function applyPressureToCharacters(
       ? [note.memory, ...profile.shortTermMemory.filter((item) => item !== note.memory)].slice(0, 12)
       : profile.shortTermMemory;
     if (note.emotion && profile.currentEmotion !== note.emotion) {
-      await updateEmotionByName(ctx, worldId, descriptions, name, note.emotion, worldMoodDescriptionZh(pressure), clock);
+      await updateEmotionByName(
+        ctx,
+        worldId,
+        descriptions,
+        name,
+        note.emotion,
+        worldMoodDescriptionZh(pressure),
+        clock,
+        'pressure',
+      );
     }
     await ctx.db.patch(profile._id, {
       currentEmotion: note.emotion ?? profile.currentEmotion,
@@ -3666,7 +3948,7 @@ export const recordConversationOutcome = internalMutation({
     const clock = await ensureClock(ctx, worldStatus);
     const location = schoolLocationForClock(clock);
     const eventStart = Date.now();
-    await appendRecentEvent(ctx, args.worldId, {
+    const conversationOutcomeEventId = await appendRecentEvent(ctx, args.worldId, {
       type: 'conversationOutcome',
       actorPlayerId: args.playerId,
       targetPlayerId: args.otherPlayerId,
@@ -3710,6 +3992,8 @@ export const recordConversationOutcome = internalMutation({
           felt,
           `剛和${displayNameZh(otherName)}的對話`,
           clock,
+          'conversation',
+          conversationOutcomeEventId.toString(),
         );
       }
     }
@@ -4223,6 +4507,48 @@ export const recentSpeechIntrospection = query({
         said: r.said,
         day: r.day,
         createdAt: r.createdAt,
+      })),
+    };
+  },
+});
+
+export const recentEmotionChanges = query({
+  args: { limit: v.optional(v.number()), day: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { world } = await defaultWorld(ctx);
+    const limit = Math.max(1, Math.min(args.limit ?? 80, 200));
+    const rows =
+      args.day !== undefined
+        ? (
+            await ctx.db
+              .query('emotionChanges')
+              .withIndex('worldId', (q) => q.eq('worldId', world._id))
+              .order('desc')
+              .take(Math.max(limit, 160))
+          )
+            .filter((row) => row.day === args.day)
+            .slice(0, limit)
+        : await ctx.db
+            .query('emotionChanges')
+            .withIndex('worldId', (q) => q.eq('worldId', world._id))
+            .order('desc')
+            .take(limit);
+    return {
+      count: rows.length,
+      changes: rows.map((row) => ({
+        id: row._id,
+        name: displayNameZh(row.name),
+        rawName: row.name,
+        previousEmotion: row.previousEmotion ?? null,
+        emotion: row.emotion,
+        reasonZh: row.reasonZh,
+        causeKind: row.causeKind,
+        causeEventId: row.causeEventId ?? null,
+        day: row.day ?? row.clock.day,
+        clock: row.clock,
+        createdAt: row.createdAt,
+        worldTimeLabelZh: row.worldTimeLabelZh ?? worldTimeLabelZh(row.clock),
+        behaviorSignalZh: behaviorSignalForEmotion(row.name, row.emotion, row.reasonZh),
       })),
     };
   },
@@ -6623,6 +6949,7 @@ export const enterCampus = mutation({
     await ensureDailyOpeningEvent(ctx, refreshedWorld, refreshedDescriptions, clock);
     await ensureDailyLifeBulletin(ctx, refreshedWorld, refreshedDescriptions, clock, 'online', timeZone);
     await maybeSeedSpontaneousEvent(ctx, refreshedWorld, refreshedDescriptions, clock, 'online');
+    await decayStaleCharacterEmotions(ctx, refreshedWorld._id, refreshedDescriptions, clock);
     await nudgeEngineForInput(ctx, world._id);
     return {
       descriptionZh: 'Alan 回到校園。玩家行動現在會以 Alan 的身分發生。',
@@ -7779,6 +8106,7 @@ async function simulateAutonomousSchoolLife(
     activities,
     implications,
   );
+  await decayStaleCharacterEmotions(ctx, world._id, descriptions, clock);
 
   const addActivity = async (
     player: PlayerDoc | undefined,

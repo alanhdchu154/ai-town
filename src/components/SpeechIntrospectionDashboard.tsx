@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import EmotionFluctuationDashboard from './EmotionFluctuationDashboard.tsx';
 
 type SpeechIntrospectionDashboardProps = {
   onOpenWorld: () => void;
@@ -54,6 +55,7 @@ export default function SpeechIntrospectionDashboard({
   onOpenWorld,
   onOpenWall,
 }: SpeechIntrospectionDashboardProps) {
+  const [activeTab, setActiveTab] = useState<'speech' | 'emotion'>('speech');
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(
     () => new Set(['layout-preview-1']),
   );
@@ -89,10 +91,11 @@ export default function SpeechIntrospectionDashboard({
       <header className="giis-speech-header">
         <div>
           <p className="giis-wall-kicker">Speech Introspection</p>
-          <h2>語音內省儀表板</h2>
+          <h2>{activeTab === 'speech' ? '語音內省儀表板' : '情緒波動儀表板'}</h2>
           <p>
-            把角色「想說」、「被 HIDE 或軟化」、「最後說出口」拆開看，讓我們檢查靈魂 gate
-            是否真的在影響對話。
+            {activeTab === 'speech'
+              ? '把角色「想說」、「被 HIDE 或軟化」、「最後說出口」拆開看，讓我們檢查靈魂 gate 是否真的在影響對話。'
+              : '把角色今天的情緒變化按來源攤開：對話、事件、壓力或沉澱。這不是情緒分數，是世界是否留下痕跡的觀察面。'}
           </p>
         </div>
         <div className="giis-speech-header-actions">
@@ -105,6 +108,29 @@ export default function SpeechIntrospectionDashboard({
         </div>
       </header>
 
+      <div className="giis-introspection-tabs" role="tablist" aria-label="內省檢查類型">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'speech'}
+          className={activeTab === 'speech' ? 'active' : ''}
+          onClick={() => setActiveTab('speech')}
+        >
+          語音內省
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === 'emotion'}
+          className={activeTab === 'emotion' ? 'active' : ''}
+          onClick={() => setActiveTab('emotion')}
+        >
+          情緒波動
+        </button>
+      </div>
+
+      {activeTab === 'emotion' ? <EmotionFluctuationDashboard /> : (
+        <>
       <div className="giis-speech-status-row">
         <div>
           <span>Live rows</span>
@@ -168,6 +194,8 @@ export default function SpeechIntrospectionDashboard({
           </section>
         ))}
       </div>
+        </>
+      )}
     </section>
   );
 }

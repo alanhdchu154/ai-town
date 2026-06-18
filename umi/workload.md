@@ -4,7 +4,99 @@ Time anchor: 2026-06-18 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
 Owner: Codex (hard/structural work). CC did the simple prompt fixes; CC returns to review each phase.
 Mode: Phased program — land + let Alan review between phases.
-Status: ready_for_codex
+Status: phase_a_b_c_d_completed_review_next
+
+Codex update 2026-06-18 14:18 CDT:
+- Phase A only is implemented and verified.
+- A1: `data/schoolLocations.ts` now supplies `functionalPropsZh` per scene, and
+  `convex/agent/conversation.ts` passes the nearest scene's real functional
+  props into the conversation prompt.
+- A2: sanitizer now aborts object-as-emotion metaphor constructions before
+  archive, while allowing functional object use.
+- Verification: `npm test -- convex/agent/conversationMotifGuard.test.ts`
+  51/51 PASS, `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS.
+- Stop condition honored: do not proceed to Phase B event->emotion wiring until
+  Alan/cc review fresh post-Phase-A output.
+
+Codex update 2026-06-18 14:30 CDT:
+- Alan approved continuing directly before cc review, so Codex implemented the
+  minimal Phase B loop and stopped before Phase C/D.
+- B1: added bounded `data/characterLifeEvents.ts` for concrete school-life
+  events tied to the current six-character roster.
+- B2: `campusEventThreadForClock` now emits those events and applies
+  event->currentEmotion via `updateEmotionByName`; the old broad keyword
+  emotion block in `updateSocialLayerForEvent` was retired.
+- B3: `compactEventTopic` now treats `今日角色事件` as a character-specific
+  emotional topic for dialogue, not a script to repeat.
+- B4: added conservative emotion decay using existing `emotion_changed`
+  notifications as timestamps; no schema/table added.
+- Verification: `npm test -- convex/agent/conversationMotifGuard.test.ts
+  data/characterLifeEvents.test.ts convex/schoolEmergentEvents.test.ts` 61/61
+  PASS, `npx tsc --noEmit --pretty false` PASS, `npm run build` PASS,
+  `git diff --check` PASS, `npm run underworld:runtime-preflight` PASS.
+- Alan then explicitly approved doing Phase C/D too; see the 14:40 update.
+
+Codex update 2026-06-18 14:40 CDT:
+- Alan explicitly asked to complete Phase C/D; Codex implemented them with
+  bounded guardrails.
+- C1/C2/C3: `schoolProfiles` now has bounded `developmentState` and capped
+  `developmentLog` (6 entries). Emotion changes update one short character-
+  specific behavior/relationship/concern digest. `queryPromptData` feeds a
+  short development digest into the next speech prompt as long-term coloring,
+  separate from `currentEmotion`.
+- D1/D2/D3: added `emotionChanges` table, written only by
+  `updateEmotionByName`; added `school:recentEmotionChanges`; added
+  `EmotionFluctuationDashboard.tsx` as a `情緒波動` sibling tab in the 內省
+  dashboard.
+- Guardrails: no transcript storage, no embeddings, no all-character rewrite,
+  no autonomous new behavior, centralized write path only. `emotionChanges`
+  is observable state and should get retention review before long runs.
+- Verification: targeted Jest 63/63 PASS, `npx tsc --noEmit --pretty false`
+  PASS, `npm run build` PASS, `git diff --check` PASS,
+  `npm run underworld:runtime-preflight` PASS,
+  `school:recentEmotionChanges {"limit":5}` returned the new shape, and
+  `npm run underworld:state-audit` exited 0. A small Chrome smoke verified
+  `/ai-town?view=introspection` renders both `語音內省` and `情緒波動` tabs
+  without horizontal overflow or console errors; the full
+  `npm run underworld:frontend-smoke` script was interrupted after about 2
+  minutes and is not counted as PASS.
+- Next review target for cc: inspect Phase A-D diff, fresh samples, prompt
+  coloring strength, and whether `emotionChanges` needs retention/cleanup before
+  overnight collection.
+
+CC review 2026-06-18 (post Phase A-D, 3-agent review + self-verified):
+- Verdict: architecture sound, most goals met. Two GOAL VIOLATIONS found and
+  FIXED by CC; three should-fixes remain for Codex.
+- **FIXED by CC — A2 detector was the wrong mechanism.** The noun-list regex
+  (`FUNCTIONAL_OBJECT_RE`) used a character-set containing the glyph 子, so
+  樣子/孩子/影子 registered as objects; bare 一樣/剛/擔心 were triggers. It both
+  over-aborted caring/functional lines ("你便當沒吃…擔心…像上次一樣") AND failed to
+  generalise past 橡皮擦/窗簾 (novel nouns 風扇/雲/樹葉 passed). Rewrote
+  `hasObjectAsEmotionMetaphorLeak` (`convex/agent/conversation.ts`) to be
+  CONSTRUCTION-based: a 像-connective whose VEHICLE is a temporal micro-beat
+  (那N秒/半秒) or a possessive emotional beat (的停頓/尾音/語氣/表情…) plus a
+  speech-moment ref (剛/那句/那時). Generalises to any subject, no noun list, no
+  false positives. Tests in `conversationMotifGuard.test.ts` now cover novel-noun
+  aborts AND functional/caring/子/epistemic-好像 no-abort. 53/53 pass.
+- **FIXED by CC — `emotionChanges` was unbounded** (hard-rule violation; written
+  every emotion change in the always-on sim loop, not in `crons` vacuum, no gate).
+  Added a per-character retention cap (newest 80 via the `character` index) inside
+  `updateEmotionByName` (`convex/school.ts`). Dashboard reads ≤80 so nothing is
+  lost. Typecheck/build/school tests pass.
+- **STILL FOR CODEX (should-fix):**
+  1. B4 decay uses WALL-CLOCK (`EMOTION_DECAY_AFTER_MS` vs notification.createdAt)
+     not in-world time, and scans only the top 120 `schoolNotifications` so a
+     genuinely STALE emotion can never decay (its last change scrolled out of the
+     window). Use the `emotionChanges.character` index and decide in-world vs
+     wall-clock intentionally.
+  2. `applyPressureToCharacters` double-writes: `updateEmotionByName` then a stale
+     `ctx.db.patch(profile._id, {currentEmotion})` on the pre-patch profile read.
+     Collapse to the single choke-point.
+  3. ARBITRATION still unimplemented (handoff asked for it): emotion writes are
+     last-writer-wins. Tag writes with intensity (event importance / cue score) and
+     only overwrite when stronger or sufficiently more recent.
+- Cosmetic only: `maomao-club-symptom-note` locationId aiClubRoom vs 餐廳 desc.
 
 ## Task ID
 

@@ -13,6 +13,9 @@ export type SchoolLocation = {
   position: { x: number; y: number };
   spawnPoints: Array<{ x: number; y: number }>;
   radius: number;
+  // Real, present, functional props the scene may use. They are not emotional
+  // metaphors; prompts may reference them only when they do actual scene work.
+  functionalPropsZh: string[];
   // Scene-anchored mood-event seeds. Added 2026-05-27 as design data for
   // future scene-mood overlays / event injection. Not yet consumed
   // anywhere — kept in-tree so the design copy (e.g. classroom 小考考差,
@@ -41,6 +44,7 @@ export const SchoolLocations: SchoolLocation[] = [
       { x: 13, y: 13 },
     ],
     radius: 1.9,
+    functionalPropsZh: ['考卷', '黑板', '講義', '課本', '粉筆', '作業本', '空座位'],
     moodEvents: [
       { id: 'caught-cheating', titleZh: '作弊被發現', emotionHintZh: '教室會變安靜，貓貓會在意公平，海會提醒 Alan 先不要公開羞辱。' },
       { id: 'late-homework', titleZh: '作業連兩天沒交', emotionHintZh: '天澤會測試這條作業規則到底保護誰，照顧型角色會注意背後是不是睡眠或家庭壓力。' },
@@ -61,6 +65,7 @@ export const SchoolLocations: SchoolLocation[] = [
       { x: 6, y: 15 },
     ],
     radius: 1.9,
+    functionalPropsZh: ['長椅', '公告欄', '社團傳單', '傘架', '花圃', '飲水機'],
     moodEvents: [
       { id: 'overheard-secret', titleZh: '秘密被聽到', emotionHintZh: '傳聞會變成第二層記憶，一之瀨會戳破太工整的說法。' },
       { id: 'confession', titleZh: '沒敢說完的告白', emotionHintZh: '角色會更在意沉默和停頓，而不是只看結果。' },
@@ -82,6 +87,7 @@ export const SchoolLocations: SchoolLocation[] = [
       { x: 14, y: 14 },
     ],
     radius: 1.9,
+    functionalPropsZh: ['餐盤', '托盤', '便當盒', '水杯', '菜單', '回收桶', '空座位'],
     moodEvents: [
       { id: 'saved-seat-empty', titleZh: '留好的座位空著', emotionHintZh: '關係的缺席會比事件本身更影響心情。' },
       { id: 'task-during-lunch', titleZh: '午餐時還在推規則', emotionHintZh: '海會縮短簡報，天澤會問誰把午餐也變成規則測試。' },
@@ -102,6 +108,7 @@ export const SchoolLocations: SchoolLocation[] = [
       { x: 14, y: 11 },
     ],
     radius: 1.9,
+    functionalPropsZh: ['簡報紙', '校務筆記', '備用鑰匙', '窗簾', '椅子', '水杯'],
     moodEvents: [
       { id: 'quiet-apology', titleZh: '很小聲的道歉', emotionHintZh: '海會把場面放輕，記下誰願意先低頭。' },
       { id: 'request-for-help', titleZh: '終於開口求助', emotionHintZh: '天澤會測求助裡藏了哪個逃避，真晝會保護對方不要被逼問。' },
@@ -122,6 +129,7 @@ export const SchoolLocations: SchoolLocation[] = [
       { x: 9, y: 15 },
     ],
     radius: 1.9,
+    functionalPropsZh: ['洗衣籃', '門牌', '床邊燈', '外套', '吹風機', '便條紙', '行李箱'],
     moodEvents: [
       { id: 'lights-on-too-late', titleZh: '深夜燈還亮著', emotionHintZh: '海或真晝會注意到疲憊比任務更早發生。' },
       { id: 'crying-behind-door', titleZh: '門後有人哭過', emotionHintZh: '角色不一定追問，可能只是留水、留紙條或待在附近。' },

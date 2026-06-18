@@ -4394,6 +4394,34 @@ body {
   padding: 0.62rem 0.76rem;
 }
 
+.giis-introspection-tabs {
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.28rem;
+  width: fit-content;
+}
+
+.giis-introspection-tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #b8c7dc;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 720;
+  min-height: 2rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.giis-introspection-tabs button.active {
+  background: rgba(14, 165, 233, 0.18);
+  color: #f8fafc;
+}
+
 .giis-speech-scroll {
   display: grid;
   gap: 0.9rem;
@@ -4520,6 +4548,166 @@ body {
   font-size: 0.72rem;
 }
 
+.giis-emotion-panel {
+  display: grid;
+  gap: 0.8rem;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.giis-emotion-empty {
+  align-items: center;
+  background: rgba(15, 23, 42, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  color: #cbd5e1;
+  display: flex;
+  font-size: 0.88rem;
+  justify-content: center;
+  line-height: 1.6;
+  min-height: 14rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.giis-emotion-overview {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.giis-emotion-overview > div {
+  background: rgba(15, 23, 42, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.22rem;
+  min-height: 3.8rem;
+  padding: 0.62rem 0.72rem;
+}
+
+.giis-emotion-overview span {
+  color: #a9b8cc;
+  font-size: 0.72rem;
+}
+
+.giis-emotion-overview b {
+  color: #f8fafc;
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.giis-emotion-timeline {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 0.2rem;
+}
+
+.giis-emotion-character {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  padding: 0.75rem;
+}
+
+.giis-emotion-character header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.giis-emotion-character h3 {
+  color: #f8fafc;
+  font-size: 0.98rem;
+  font-weight: 760;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.giis-emotion-character small {
+  color: #9fb2c9;
+  font-size: 0.72rem;
+}
+
+.giis-emotion-chip-row {
+  display: grid;
+  gap: 0.62rem;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+}
+
+.giis-emotion-chip {
+  background: rgba(8, 47, 73, 0.24);
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.38rem;
+  min-height: 9rem;
+  min-width: 0;
+  padding: 0.68rem;
+}
+
+.giis-emotion-event {
+  border-color: rgba(134, 239, 172, 0.24);
+}
+
+.giis-emotion-conversation {
+  border-color: rgba(125, 211, 252, 0.24);
+}
+
+.giis-emotion-pressure {
+  border-color: rgba(251, 191, 36, 0.28);
+}
+
+.giis-emotion-decay {
+  border-color: rgba(196, 181, 253, 0.22);
+}
+
+.giis-emotion-chip-top {
+  align-items: center;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+}
+
+.giis-emotion-chip-top span {
+  color: #99f6e4;
+  font-size: 0.68rem;
+  font-weight: 820;
+}
+
+.giis-emotion-chip-top time {
+  color: #9fb2c9;
+  font-size: 0.68rem;
+}
+
+.giis-emotion-transition,
+.giis-emotion-reason,
+.giis-emotion-behavior {
+  color: #e5edf7;
+  font-size: 0.8rem;
+  line-height: 1.42;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.giis-emotion-transition b {
+  color: #f8fafc;
+}
+
+.giis-emotion-reason {
+  color: #cbd5e1;
+}
+
+.giis-emotion-behavior {
+  color: #d9f99d;
+  font-size: 0.76rem;
+}
+
 @media (max-width: 1100px) {
   .giis-wall-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -4558,6 +4746,18 @@ body {
   }
 
   .giis-speech-status-row {
+    grid-template-columns: 1fr;
+  }
+
+  .giis-introspection-tabs {
+    width: 100%;
+  }
+
+  .giis-introspection-tabs button {
+    flex: 1 1 0;
+  }
+
+  .giis-emotion-overview {
     grid-template-columns: 1fr;
   }
 

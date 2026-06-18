@@ -4,6 +4,7 @@ import {
   emergentConsequencePlanForEvent,
   v02EmergentEventsEnabled,
 } from './schoolEmergentEvents';
+import { characterDevelopmentPlanForTest, decayedEmotionForTest } from './school';
 
 describe('v0.2 emergent event cause metadata', () => {
   test('is disabled unless explicitly env-gated', () => {
@@ -90,5 +91,36 @@ describe('v0.2 emergent event cause metadata', () => {
         chainDepth: 1,
       }),
     ).toBeUndefined();
+  });
+
+  test('emotion decay relaxes temporary states without inventing a new mood scale', () => {
+    expect(decayedEmotionForTest('worried')).toBe('calm');
+    expect(decayedEmotionForTest('serious')).toBe('calm');
+    expect(decayedEmotionForTest('guarded')).toBe('calm');
+    expect(decayedEmotionForTest('smiling')).toBe('neutral');
+    expect(decayedEmotionForTest('calm')).toBeUndefined();
+    expect(decayedEmotionForTest('neutral')).toBeUndefined();
+  });
+
+  test('character development plans turn emotion into bounded behavior color', () => {
+    expect(characterDevelopmentPlanForTest('Umi', 'tired', '海縮短了早晨簡報', 'event')).toMatchObject({
+      behaviorLeanZh: expect.stringContaining('簡報變短'),
+      relationshipTendencyZh: expect.stringContaining('被看見'),
+    });
+    expect(characterDevelopmentPlanForTest('Tianze', 'guarded', '玩笑碰到邊界', 'conversation')).toMatchObject({
+      behaviorLeanZh: expect.stringContaining('玩笑更短'),
+      relationshipTendencyZh: expect.stringContaining('挑釁'),
+    });
+  });
+
+  test('development plans stay character-specific for newer live roster members', () => {
+    expect(characterDevelopmentPlanForTest('Maomao', 'serious', '有人說身體沒事但手很冷', 'event')).toMatchObject({
+      behaviorLeanZh: expect.stringContaining('症狀'),
+      recurringConcernZh: expect.stringContaining('身體'),
+    });
+    expect(characterDevelopmentPlanForTest('Sakiko', 'guarded', '練習室裡聲音破了一次', 'event')).toMatchObject({
+      behaviorLeanZh: expect.stringContaining('端正'),
+      relationshipTendencyZh: expect.stringContaining('禮貌'),
+    });
   });
 });

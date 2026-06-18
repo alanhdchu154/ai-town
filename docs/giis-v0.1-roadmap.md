@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-16 16:48 CDT (data-collection readiness reset; cc review completed; human-flow gate ready)
+Last updated: 2026-06-18 14:40 CDT (soul loop A-D implemented; fresh evidence review next)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -22,6 +22,23 @@ than a metaphysical claim, and frames speech as situation appraisal -> private
 candidate speech -> social/pragmatic gate -> spoken line or silence. Use this
 for future review and planning; do not treat it as approval for a broad prompt
 rewrite before v0.1 evidence is collectible.
+
+## 2026-06-18 Soul Loop A-D Evidence Layer
+
+The current v0.1 evidence path now has an implemented, bounded loop:
+
+1. Real scene props constrain functional object use; object-as-emotion metaphor
+   leaks abort before archive.
+2. Concrete character life events become conversation topics and update
+   momentary `currentEmotion`.
+3. Emotion writes also update a capped per-character development digest in
+   `schoolProfiles`, used only as short long-term coloring in future speech.
+4. Structured `emotionChanges` rows make fluctuations visible in the 內省
+   dashboard's `情緒波動` tab.
+
+This does not prove v0.1 by itself. The next proof is fresh samples where Alan
+can inspect transcript -> emotion change -> development coloring -> later
+behavior and decide whether yesterday actually mattered.
 
 ## 2026-06-16 Data-Collection Readiness Reset
 

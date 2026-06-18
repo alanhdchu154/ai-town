@@ -1106,6 +1106,7 @@ type PromptCharacterState = {
   emotionZh?: string;
   intentionZh?: string;
   memoryZh?: string;
+  developmentDigestZh?: string;
 };
 
 function compactAutonomousStartPrompt({
@@ -1186,6 +1187,7 @@ function compactAutonomousStartPrompt({
       : `沒有具體的事時，就圍繞「${sceneContext?.labelZh ?? '校園'}此刻會發生的日常」開口，例如：${(sceneEverydayTopics(sceneContext) || []).slice(0, 4).join('、') || '剛發生的小事、手邊正在做的事'}。`,
     lastConversation ? `You have spoken before; open with continuity only if it sounds natural.` : '',
     ...recentPairContinuityPromptLines(lastConversationHint),
+    ...functionalScenePropsPromptLines(sceneContext),
     ...propDiversityPromptLines(
       undefined,
       [...(recentResidues ?? []), ...(recentSelfResidues ?? [])],
@@ -1320,6 +1322,7 @@ function compactAutonomousContinuePromptBase({
     dayAnchorPromptLine(clockContext),
     ...weekendLifePromptLines(clockContext, sceneContext),
     ...COMPACT_RHYTHM_AND_RECALL_GUARDS,
+    ...functionalScenePropsPromptLines(sceneContext),
     ...propDiversityPromptLines(
       previousMessages,
       [...(recentResidues ?? []), ...(recentSelfResidues ?? [])],
@@ -1656,6 +1659,7 @@ function richUmiMahiruPrompt({
     `Memory residue：${unresolvedMemory}`,
     ...residuePrompt,
     ...sleepNotePrompt,
+    ...functionalScenePropsPromptLines(sceneContext),
     ...propDiversityPromptLines(previousMessages, recentResidues, playerName, otherPlayerName, sceneContext),
     `Behavior signal：情緒要改變你的可用程度、沉默、行動或語氣；不要只解釋心理。`,
     `你的內在方向：${clipPromptText(agent?.plan ?? ownProfile?.plan ?? conversationMicroPurpose(playerName, otherPlayerName, sceneContext), 160)}`,
@@ -2220,6 +2224,7 @@ function stateLine(label: string, state?: PromptCharacterState) {
     state?.emotionZh ? `情緒像是${state.emotionZh}` : '',
     state?.intentionZh ? `正在想：${clipPromptText(state.intentionZh, 70)}` : '',
     state?.memoryZh ? `還留著：${clipPromptText(state.memoryZh, 80)}` : '',
+    state?.developmentDigestZh ? `最近的長期傾向：${clipPromptText(state.developmentDigestZh, 90)}` : '',
   ].filter(Boolean);
   return parts.length ? ` - ${label}：${parts.join('；')}` : '';
 }
@@ -2420,6 +2425,7 @@ function characterSoulPrompt(playerName: string, otherPlayerName: string): strin
 type SceneContext = {
   id: string;
   labelZh: string;
+  functionalPropsZh?: string[];
 };
 
 type ClockContext = {
@@ -2435,6 +2441,26 @@ function localDateContextForPrompt(now = Date.now(), timeZone = 'America/Chicago
 function promptClockLabel(clockContext?: ClockContext) {
   if (!clockContext) return 'today, current local school time unknown';
   return `${clockContext.dateLabelZh ?? 'today'} ${clockContext.weekdayZh ?? ''} ${clockContext.periodLabelZh} (${clockContext.hour}:00 hour block)`;
+}
+
+function functionalScenePropsPromptLines(sceneContext?: SceneContext): string[] {
+  const props = (sceneContext?.functionalPropsZh ?? [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  if (!props.length) {
+    return [
+      '場景道具規則：沒有明確在場的功能性道具時，不要自己發明橡皮擦、窗簾、紙鶴、杯子或其他小物件來表達情緒；直接說話、停一下、換話題，或用一件實際可做的小事。',
+    ];
+  }
+  return [
+    `此刻在場、真的能被使用的功能性道具：${props.join('、')}。`,
+    '道具使用規則：只能在它真的有功能時提到，例如遞考卷、收餐盤、拿講義、關燈、留便條；不要把道具拿來比喻感情、停頓、心跳、那幾秒或對方剛才說話的樣子。',
+  ];
+}
+
+export function functionalScenePropsPromptLinesForTest(sceneContext?: SceneContext) {
+  return functionalScenePropsPromptLines(sceneContext);
 }
 
 // A hard, high-priority calendar anchor. Characters kept inventing the weekday
@@ -3268,6 +3294,9 @@ function sanitizeUmiMahiruPilotLine(
   if (propEchoLeak && !humanFacingPair) {
     return '[ABORT_CONVERSATION] repeated prop relay';
   }
+  if (hasObjectAsEmotionMetaphorLeak(line)) {
+    return '[ABORT_CONVERSATION] object-as-emotion metaphor';
+  }
   const blocked =
     /Single-purpose|conversationMode|conversation state|You are|你是海|你是真晝|你是天澤|你是天澤|正在.*和.*說話|Output|prompt|labels|role|system|user|海 to|真晝 to|天澤 to|天澤 to|Umi to|Mahiru to|Tianze to|上一句|承認自己的狀態|反問海|多問一下|照抄指令|能讓我知道|一起說個什麼|我看見你|大家辛苦|同志|真晚|真晩|太有意思|課程|課後|哪一堂|有什麼感受|隨時找我|幫助|日程安排|活動安排|日課|打發時間|好玩的事|想像|我是[。！!]?|歇一歇|思考問題|大病|提前開始|等你睡覺|睡覺去了|準備明天的課|我要準備|復習課|複習課|睡眠質量|睡眠质量|嘗試|尝试|talking|建議|繼續休息吧|好[，,。！!]*感謝|美少女|小可愛|小可爱|図々|囧事|伊藤|华木|華木|真晧|我們選擇|請問你|無法提供|不能滿足|不能满足|相关内容|相關內容|小貼士|小贴士|介紹|推荐|推薦|管理|適齡|适龄|生活空間|室友|睡眠時|陽光中沉睡|電器|刷業|刷业|紙鶴|星光|月光|海風|花瓣|最近過得好|開心.*聊天|高興.*聊天|笑容.*美|日子.*美好|時光.*無價|會議流程|流程表|公告欄|通知文書|明天.*會議|海邊|海景|風景|景色|海浪|海面|海洋/.test(
       line,
@@ -3309,6 +3338,39 @@ function sanitizeUmiMahiruPilotLine(
     return '[ABORT_CONVERSATION] pilot quality leak';
   }
   return soulRepaired.length > 90 ? `${soulRepaired.slice(0, 89)}。` : soulRepaired;
+}
+
+// Object-as-emotion metaphor guard — construction-based, NOT a noun list.
+// The 文青 tell is a simile whose VEHICLE is an emotional/temporal micro-beat:
+// "[any subject] 像 …那三秒 / …的尾音 / …剛才的表情". Keying on that construction
+// makes it generalise past 橡皮擦/窗簾 to ANY subject (風扇/雲/樹葉…), while leaving
+// functional/caring lines alone — the old char-class version mis-fired on
+// 樣子/孩子/便當…擔心…一樣 (the glyph 子 was inside the object character-set, and
+// bare 一樣/剛/擔心 were treated as triggers). Bias toward false negatives:
+// plainSpeechRule is the primary defence, so this only aborts the clearest
+// constructions and never kills good dialogue.
+const SIMILE_CONNECTIVE_RE = /(?:就?像|好像|彷彿|宛如|仿佛)/;
+// Tier 1 — the unmistakable "那N秒 / 半秒" micro-beat (no one says this literally).
+const TEMPORAL_MICRO_BEAT_RE = /那[一二兩三四五六七八九十百零\d]+秒|半秒/;
+// Tier 2 — a possessive emotional beat used as the simile vehicle, but ONLY when
+// the vehicle also points at a speech-moment (剛/那句/那時). That separates the
+// 文青 simile from an ordinary epistemic 好像 (e.g. 「你好像不太喜歡他的表情」).
+const POSSESSIVE_EMOTION_BEAT_RE = /的(?:停頓|沉默|尾音|心跳|呼吸|語氣|表情|眼神)/;
+const SPEECH_MOMENT_REF_RE = /剛才|剛剛|剛說|剛問|剛講|那句|那時|那一刻|那幾秒|那[一二兩三四五六七八九十\d]+秒/;
+
+function hasObjectAsEmotionMetaphorLeak(line: string) {
+  const compact = stripConversationPrefix(line).replace(/\s+/g, '');
+  const connective = compact.match(SIMILE_CONNECTIVE_RE);
+  if (!connective) return false;
+  // Only the simile VEHICLE matters — what comes after the connective.
+  const vehicle = compact.slice((connective.index ?? 0) + connective[0].length);
+  if (TEMPORAL_MICRO_BEAT_RE.test(vehicle)) return true; // Tier 1
+  if (POSSESSIVE_EMOTION_BEAT_RE.test(vehicle) && SPEECH_MOMENT_REF_RE.test(vehicle)) return true; // Tier 2
+  return false;
+}
+
+export function hasObjectAsEmotionMetaphorLeakForTest(line: string) {
+  return hasObjectAsEmotionMetaphorLeak(line);
 }
 
 function stripRepeatedPilotOpener(line: string, previous: LLMMessage[]) {
@@ -4052,6 +4114,13 @@ function compactEventTopic(event: {
     const related = event.futureImplicationsZh?.match(/相關角色：([^。]+)/)?.[1];
     return `${location ? `${location}的` : ''}今日事件「${title ?? '未命名事件'}」正在被${related ?? '幾位角色'}用不同方式消化`;
   }
+  if (event.descriptionZh.includes('今日角色事件')) {
+    const actor = event.descriptionZh.match(/^今日角色事件：([^在]+)在/)?.[1];
+    const title = event.descriptionZh.match(/「([^」]+)」/)?.[1];
+    const emotion = event.interpretationZh?.match(/情緒方向：([^。]+)/)?.[1];
+    const related = event.futureImplicationsZh?.match(/相關角色：([^。]+)/)?.[1];
+    return `${actor ?? '某位角色'}的今日事件「${title ?? '未命名事件'}」留下${emotion ?? '一點情緒變化'}，可能被${related ?? '相關角色'}用不同方式提起`;
+  }
   if (
     event.descriptionZh.includes('睡') ||
     event.descriptionZh.includes('午餐') ||
@@ -4074,6 +4143,15 @@ function compactEventTopic(event: {
     return 'Alan 讓校園模擬產生了新的事件與關係變化';
   }
   return event.interpretationZh || event.descriptionZh.slice(0, 36);
+}
+
+export function compactEventTopicForTest(event: {
+  descriptionZh: string;
+  interpretationZh?: string;
+  reactionDialogueZh?: string;
+  futureImplicationsZh?: string;
+}) {
+  return compactEventTopic(event);
 }
 
 function normalizeSemanticText(text: string) {
@@ -5352,6 +5430,12 @@ export const queryPromptData = internalQuery({
       emotionZh: emotionLabelForPrompt(profile?.currentEmotion),
       intentionZh: profile?.shortTermIntentions?.[0],
       memoryZh: profile?.shortTermMemory?.[0],
+      developmentDigestZh: [
+        profile?.developmentState?.behaviorLeanZh,
+        profile?.developmentState?.relationshipTendencyZh,
+      ]
+        .filter(Boolean)
+        .join('；'),
     });
     return {
       player: { name: playerDescription.name, ...player },
@@ -5378,7 +5462,7 @@ export const queryPromptData = internalQuery({
       selfState: stateForProfile(selfProfile),
       otherState: stateForProfile(otherProfile),
       sceneContext: sceneLocation
-        ? { id: sceneLocation.id, labelZh: sceneLocation.labelZh }
+        ? { id: sceneLocation.id, labelZh: sceneLocation.labelZh, functionalPropsZh: sceneLocation.functionalPropsZh }
         : undefined,
       clockContext: {
         hour,
