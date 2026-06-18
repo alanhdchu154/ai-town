@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-17 21:10 CDT
+Last updated: 2026-06-17 22:35 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,24 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 22:35 CDT (Codex): **Speech-introspection dashboard UI built and
+  wired.** New route `?view=introspection` renders a read-only dashboard separate
+  from Conversation Wall, with expandable conversation groups by day and three
+  columns: `想說` / `被 HIDE + gateReason` / `說出口`. Entry points now exist from
+  the main view switch (`內省`) and Conversation Wall (`語音內省`). The dashboard
+  calls `school:recentSpeechIntrospection { limit: 80 }`; while runtime capture is
+  empty or loading, it clearly shows layout-preview sample rows and states they
+  are not real conversation evidence. Codex touched only frontend route/UI/CSS
+  files: `src/App.tsx`, `src/components/Game.tsx`,
+  `src/components/ConversationWall.tsx`, `src/components/SpeechIntrospectionDashboard.tsx`,
+  and `src/index.css`. Verification: `npm run build` PASS,
+  `npm run underworld:introspection:self-test` PASS (7/7), `git diff --check`
+  PASS, and browser smoke at `http://127.0.0.1:5173/ai-town?view=introspection`
+  confirmed the new page and route buttons. Direct Convex check
+  `school:recentSpeechIntrospection {"limit":1}` returned `enabled=false`,
+  `count=0`, `samples=[]`, matching the expected pre-capture state. **CC next
+  remains runtime capture:** write gated/sampled ①②③ rows into
+  `speechIntrospection`; until then live row count may be 0 / loading.
 - 2026-06-17 ~22:15 CDT (CC): **Speech-introspection dashboard — spec'd + data
   contract built; Codex to build the UI.** Alan wants the literature-bridge speech
   flow made visible: ①內心想說 → ②被HIDE/軟化 → ③說出口. Today's runtime only
@@ -81,9 +99,16 @@ historical evidence is needed.
   dashboard per that spec — NEW page separate from the Conversation Wall, 3-column
   flow (想說 | 被HIDE+why | 說出口), group-by-day, expandable, **mockup-first** for
   Alan to approve layout, then wire to `recentSpeechIntrospection`. Read-only, no
-  runtime/schema changes. **>>> CC next:** wire the gated/sampled 3-layer
-  generation that writes `speechIntrospection` (the runtime capture — the
-  philosophy-sensitive speech-inversion piece; table is empty until then).
+  runtime/schema changes. **>>> CC DONE (commit 1ac8f75a):** runtime capture
+  shipped — `agent/speechIntrospectionPrompt.ts` (pure prompt+parser, 7 tests),
+  `school:turnsForSpeechIntrospection` + `school:writeSpeechIntrospectionRows`,
+  `agent/memory:captureSpeechIntrospection` action (POST-HOC + decoupled: given the
+  SAID line unchanged, generates ①innerWant + ②heldBack + why; baseline untouched;
+  dry-run / env-gated by `UNDERWORLD_SPEECH_INTROSPECTION`; bounded; dedup by
+  messageUuid). Live dry-run verified (海→Alan: said「校長室的燈我會留一盞」/ wanted
+  「怕你累倒，想抱你進休息室蓋毯」/ held fear+touch as metaphor, why 怕加重負擔). Populate:
+  `convex env set UNDERWORLD_SPEECH_INTROSPECTION true` then `npx convex run
+  agent/memory:captureSpeechIntrospection '{"write":true,"max":8}'`.
 - 2026-06-17 ~22:05 CDT (CC): **Two human-play-path bugs found (manually worked
   around tonight; need a real fix so Alan can play without hand-holding).** (1)
   **Enter:** Alan invited 海 but `debugAlanConversationState.alan` was `null` — the
