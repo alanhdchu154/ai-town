@@ -70,6 +70,19 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 21:15 CDT (CC): **Inversion Stage ① (memory layer) VERIFIED DONE.** Watcher
+  cycle 4 (post-20:47 batch, 12 conversations) confirms the summary patch (b,
+  e83a28b8) worked: 記住 summary micro-tell ratio dropped from ~6/9 pre-patch
+  (喉結動 ×3 etc.) to **0/11** — summaries now anchor on real substance (「抹布晾在
+  二樓洗衣間」「鑰匙在筆盒旁沒動過」「利息得你親口說想換什麼」). Residue stays
+  SELECTIVE (~4/12 leave a trace on weighty moments, ~8/12 leave 無) — not
+  over-corrected. Both memory-layer exits (residue + summary) are now off the
+  micro-tell template. NEXT (Alan's call, not started): (c) EVENTS — safely enable
+  Codex's E1→E2 (UNDERWORLD_V02_EMERGENT_EVENTS) for the first consequential event,
+  the prerequisite for the speech-layer "unsaid" gate (SOUL_SPEECH_LITERATURE_BRIDGE).
+  World stability: stable since the 20:46 recovery; watchdog installed + quiet (no
+  crash). In-session watcher stood down (watchdog owns uptime; no quality patch pending).
+
 - 2026-06-17 20:01 CDT: Central Umi aligned Alan's soul/speech literature-review
   insight into the Underworld roadmap. Added
   `docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md` as a design seed connecting
