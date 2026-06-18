@@ -37,6 +37,19 @@ const TablesToVacuum: TableNames[] = [
   // are safe to age out.
   'inputs',
 
+  // 2026-06-18 (CC audit, Tier 4): these two are the unbounded heavy writers on
+  // the always-on sim loop and the top near-term crash risk on the no-GC local
+  // backend. They are observability/log data, NOT permanent soul data:
+  //   - worldEvents: appendRecentEvent (12 call-sites) + one per Alan chat message.
+  //   - schoolNotifications: one row on every emotion change + several other paths.
+  // All readers are recency-based (dashboards / eval / recent feed read the last
+  // hours-to-days), so age-based vacuum (VACUUM_MAX_AGE = 14d) bounds growth
+  // without dropping anything a reader needs. The structured emotion timeline now
+  // lives in the separately-capped `emotionChanges` table, so vacuuming the
+  // emotion_changed notifications loses nothing the 情緒波動 dashboard shows.
+  'worldEvents',
+  'schoolNotifications',
+
   // 2026-06-16 (Alan, explicit): SOUL DATA IS PERMANENT. `memories` and
   // `memoryEmbeddings` are the emotional-residue research record — the whole
   // point of long-term soul growth — so they are intentionally NOT vacuumed.
