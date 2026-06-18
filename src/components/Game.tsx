@@ -1808,7 +1808,15 @@ function activityLabelFromStatus({
 }
 
 function portraitEmotionFrom(emotion?: string): PortraitEmotion {
-  if (emotion === 'smiling' || emotion === 'worried' || emotion === 'serious') return emotion;
+  if (
+    emotion === 'smiling' ||
+    emotion === 'worried' ||
+    emotion === 'serious' ||
+    emotion === 'tired' ||
+    emotion === 'flustered' ||
+    emotion === 'guarded' ||
+    emotion === 'calm'
+  ) return emotion;
   return 'neutral';
 }
 
@@ -1816,6 +1824,10 @@ function emotionLabelZh(emotion?: string) {
   if (emotion === 'smiling') return '微笑';
   if (emotion === 'worried') return '擔心';
   if (emotion === 'serious') return '認真';
+  if (emotion === 'tired') return '疲憊';
+  if (emotion === 'flustered') return '害羞';
+  if (emotion === 'guarded') return '防備';
+  if (emotion === 'calm') return '平靜';
   return '平穩';
 }
 

@@ -1,0 +1,55 @@
+1
+00:00:00,000 --> 00:00:02,000
+We finally closed one of the most important loops
+
+2
+00:00:02,000 --> 00:00:04,000
+in my AI world.
+
+3
+00:00:04,000 --> 00:00:07,000
+For a while, Underworld was one-way.
+
+4
+00:00:07,000 --> 00:00:10,000
+Something happened. A character talked.
+
+5
+00:00:10,000 --> 00:00:12,000
+The conversation became memory.
+
+6
+00:00:12,000 --> 00:00:15,000
+But the character's state did not really move forward.
+
+7
+00:00:15,000 --> 00:00:18,000
+The missing edge was conversation changes emotion.
+
+8
+00:00:18,000 --> 00:00:21,000
+And emotion changes the next conversation.
+
+9
+00:00:21,000 --> 00:00:24,000
+Not as "happy plus five."
+
+10
+00:00:24,000 --> 00:00:27,000
+More like: warmer, worried, guarded, quieter.
+
+11
+00:00:27,000 --> 00:00:30,000
+This is not sentience.
+
+12
+00:00:30,000 --> 00:00:33,000
+It is a functional affective loop.
+
+13
+00:00:33,000 --> 00:00:37,000
+And the test is simple:
+
+14
+00:00:37,000 --> 00:00:41,000
+when you return tomorrow, is yesterday still there?

@@ -7,26 +7,50 @@ Current transparent default-emotion assets:
 - `umi-smiling.png`
 - `umi-worried.png`
 - `umi-serious.png`
+- `umi-tired.png`
+- `umi-flustered.png`
+- `umi-guarded.png`
+- `umi-calm.png`
 - `mahiru-neutral.png`
 - `mahiru-worried.png`
 - `mahiru-smiling.png`
 - `mahiru-serious.png`
+- `mahiru-tired.png`
+- `mahiru-flustered.png`
+- `mahiru-guarded.png`
+- `mahiru-calm.png`
 - `ichinose-neutral.png`
 - `ichinose-smiling.png`
 - `ichinose-worried.png`
 - `ichinose-serious.png`
+- `ichinose-tired.png`
+- `ichinose-flustered.png`
+- `ichinose-guarded.png`
+- `ichinose-calm.png`
 - `tianze-neutral.png`
 - `tianze-smiling.png`
 - `tianze-worried.png`
 - `tianze-serious.png`
+- `tianze-tired.png`
+- `tianze-flustered.png`
+- `tianze-guarded.png`
+- `tianze-calm.png`
 - `maomao-neutral.png`
 - `maomao-smiling.png`
 - `maomao-worried.png`
 - `maomao-serious.png`
+- `maomao-tired.png`
+- `maomao-flustered.png`
+- `maomao-guarded.png`
+- `maomao-calm.png`
 - `sakiko-neutral.png`
 - `sakiko-smiling.png`
 - `sakiko-worried.png`
 - `sakiko-serious.png`
+- `sakiko-tired.png`
+- `sakiko-flustered.png`
+- `sakiko-guarded.png`
+- `sakiko-calm.png`
 
 These are original generated art assets processed from chroma-key sources in
 `tmp/imagegen/`. The current set covers the active core cast with transparent
@@ -46,10 +70,16 @@ Sakiko's current set is palette-corrected toward her recognizable cold
 blue-gray / navy identity colors rather than the earlier purple design drift.
 
 Core emotion switching is landed for all six stage characters across
-`neutral`, `smiling`, `worried`, and `serious`. Scene Mode reads
+`neutral`, `smiling`, `worried`, `serious`, `tired`, `flustered`, `guarded`,
+and `calm`. Scene Mode reads
 `campusSocialState.emotions.currentEmotion` and selects a matching large render
 when a variant exists, falling back to each character's default render
 otherwise.
+
+The `tired`, `flustered`, `guarded`, and `calm` variants are provisional
+derived assets made from the existing approved render set so the expanded
+palette has non-missing UI assets. They are review-gated and can be replaced by
+final hand-authored/generated character-sheet variants later.
 
 These are good enough for the current Scene Mode polish pass, but they are not
 a locked production character sheet. If final consistency matters, regenerate

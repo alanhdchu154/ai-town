@@ -20,6 +20,24 @@ describe('conversation -> emotion (②→④ feedback edge)', () => {
     expect(inferEmotionFromConversation('沒什麼，先這樣，東西收好了。')).toBe('neutral');
   });
 
+  test('exhaustion / overload -> tired without stealing ordinary worry', () => {
+    expect(inferEmotionFromConversation('今天先到這裡，我真的睡不太夠，少接一件事吧。')).toBe('tired');
+  });
+
+  test('affection that breaks composure -> flustered without stealing normal warmth', () => {
+    expect(inferEmotionFromConversation('你說喜歡你，我也喜歡，可是我有點不好意思，心跳亂了一下。')).toBe('flustered');
+    expect(inferEmotionFromConversation('謝謝你記得我，我們明天一起去吧。')).toBe('smiling');
+  });
+
+  test('defensive distance / withheld trust -> guarded without stealing confrontation', () => {
+    expect(inferEmotionFromConversation('我先保留，不想說滿，也請你先不要問。')).toBe('guarded');
+    expect(inferEmotionFromConversation('我拒絕，你不能一直測試我的底線。')).toBe('serious');
+  });
+
+  test('de-escalated repair / safe pause -> calm', () => {
+    expect(inferEmotionFromConversation('事情說開了，先安靜一下，不用急，也不催你。')).toBe('calm');
+  });
+
   test('no clear signal -> null (do not wipe a meaningful emotion)', () => {
     expect(inferEmotionFromConversation('窗外的天色變了一點。')).toBeNull();
     expect(inferEmotionFromConversation('')).toBeNull();

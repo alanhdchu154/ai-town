@@ -60,7 +60,16 @@ export default defineSchema({
     longTermMemory: v.array(v.string()),
     beliefs: v.array(v.string()),
     currentEmotion: v.optional(
-      v.union(v.literal('neutral'), v.literal('smiling'), v.literal('worried'), v.literal('serious')),
+      v.union(
+        v.literal('neutral'),
+        v.literal('smiling'),
+        v.literal('worried'),
+        v.literal('serious'),
+        v.literal('tired'),
+        v.literal('flustered'),
+        v.literal('guarded'),
+        v.literal('calm'),
+      ),
     ),
     initialRelationships: v.optional(
       v.array(

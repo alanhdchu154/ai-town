@@ -1,4 +1,12 @@
-export type PortraitEmotion = 'neutral' | 'smiling' | 'worried' | 'serious';
+export type PortraitEmotion =
+  | 'neutral'
+  | 'smiling'
+  | 'worried'
+  | 'serious'
+  | 'tired'
+  | 'flustered'
+  | 'guarded'
+  | 'calm';
 
 export type CharacterVisual = {
   tint: number;
@@ -40,6 +48,10 @@ function portraitSet(
     smiling: emotionPath('smiling'),
     worried: emotionPath('worried'),
     serious: emotionPath('serious'),
+    tired: emotionPath('tired'),
+    flustered: emotionPath('flustered'),
+    guarded: emotionPath('guarded'),
+    calm: emotionPath('calm'),
   };
 }
 
@@ -68,13 +80,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0x2f66b2,
     label: '海',
     portraitPath: `${PORTRAIT_BASE}/umi.png`,
-    portraitPaths: portraitSet('umi'),
+    portraitPaths: portraitSet('umi', { tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/umi-smiling.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/umi-neutral.png`,
       worried: `${RENDER_BASE}/umi-worried.png`,
       smiling: `${RENDER_BASE}/umi-smiling.png`,
       serious: `${RENDER_BASE}/umi-serious.png`,
+      tired: `${RENDER_BASE}/umi-tired.png`,
+      flustered: `${RENDER_BASE}/umi-flustered.png`,
+      guarded: `${RENDER_BASE}/umi-guarded.png`,
+      calm: `${RENDER_BASE}/umi-calm.png`,
     },
     renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/umi.png`,
@@ -90,13 +106,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0xd83a45,
     label: '天澤',
     portraitPath: `${PORTRAIT_BASE}/tianze.png`,
-    portraitPaths: portraitSet('tianze'),
+    portraitPaths: portraitSet('tianze', { tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/tianze-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/tianze-neutral.png`,
       smiling: `${RENDER_BASE}/tianze-smiling.png`,
       worried: `${RENDER_BASE}/tianze-worried.png`,
       serious: `${RENDER_BASE}/tianze-serious.png`,
+      tired: `${RENDER_BASE}/tianze-tired.png`,
+      flustered: `${RENDER_BASE}/tianze-flustered.png`,
+      guarded: `${RENDER_BASE}/tianze-guarded.png`,
+      calm: `${RENDER_BASE}/tianze-calm.png`,
     },
     renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/tianze.png`,
@@ -112,13 +132,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0xd84f8f,
     label: '一之瀨',
     portraitPath: `${PORTRAIT_BASE}/ichinose.png`,
-    portraitPaths: portraitSet('ichinose'),
+    portraitPaths: portraitSet('ichinose', { tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/ichinose-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/ichinose-neutral.png`,
       smiling: `${RENDER_BASE}/ichinose-smiling.png`,
       worried: `${RENDER_BASE}/ichinose-worried.png`,
       serious: `${RENDER_BASE}/ichinose-serious.png`,
+      tired: `${RENDER_BASE}/ichinose-tired.png`,
+      flustered: `${RENDER_BASE}/ichinose-flustered.png`,
+      guarded: `${RENDER_BASE}/ichinose-guarded.png`,
+      calm: `${RENDER_BASE}/ichinose-calm.png`,
     },
     renderFraming: { zoom: 1.16, y: 'top' },
     spritePath: `${SPRITE_BASE}/ichinose.png`,
@@ -134,13 +158,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0x2f8a62,
     label: '貓貓',
     portraitPath: `${PORTRAIT_BASE}/maomao.png`,
-    portraitPaths: portraitSet('maomao', { serious: true }),
+    portraitPaths: portraitSet('maomao', { serious: true, tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/maomao-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/maomao-neutral.png`,
       smiling: `${RENDER_BASE}/maomao-smiling.png`,
       worried: `${RENDER_BASE}/maomao-worried.png`,
       serious: `${RENDER_BASE}/maomao-serious.png`,
+      tired: `${RENDER_BASE}/maomao-tired.png`,
+      flustered: `${RENDER_BASE}/maomao-flustered.png`,
+      guarded: `${RENDER_BASE}/maomao-guarded.png`,
+      calm: `${RENDER_BASE}/maomao-calm.png`,
     },
     renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/maomao.png`,
@@ -163,13 +191,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0x3f6fa8,
     label: '祥子',
     portraitPath: `${PORTRAIT_BASE}/sakiko.png`,
-    portraitPaths: portraitSet('sakiko', { serious: true }),
+    portraitPaths: portraitSet('sakiko', { serious: true, tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/sakiko-serious.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/sakiko-neutral.png`,
       smiling: `${RENDER_BASE}/sakiko-smiling.png`,
       worried: `${RENDER_BASE}/sakiko-worried.png`,
       serious: `${RENDER_BASE}/sakiko-serious.png`,
+      tired: `${RENDER_BASE}/sakiko-tired.png`,
+      flustered: `${RENDER_BASE}/sakiko-flustered.png`,
+      guarded: `${RENDER_BASE}/sakiko-guarded.png`,
+      calm: `${RENDER_BASE}/sakiko-calm.png`,
     },
     renderFraming: { zoom: 1.24, y: 'top', offsetY: '-1.3rem' },
     spritePath: `${SPRITE_BASE}/sakiko.png`,
@@ -185,13 +217,17 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
     accent: 0xf28abd,
     label: '真晝',
     portraitPath: `${PORTRAIT_BASE}/mahiru.png`,
-    portraitPaths: portraitSet('mahiru'),
+    portraitPaths: portraitSet('mahiru', { tired: true, flustered: true, guarded: true, calm: true }),
     renderPath: `${RENDER_BASE}/mahiru-worried.png`,
     renderPaths: {
       neutral: `${RENDER_BASE}/mahiru-neutral.png`,
       smiling: `${RENDER_BASE}/mahiru-smiling.png`,
       worried: `${RENDER_BASE}/mahiru-worried.png`,
       serious: `${RENDER_BASE}/mahiru-serious.png`,
+      tired: `${RENDER_BASE}/mahiru-tired.png`,
+      flustered: `${RENDER_BASE}/mahiru-flustered.png`,
+      guarded: `${RENDER_BASE}/mahiru-guarded.png`,
+      calm: `${RENDER_BASE}/mahiru-calm.png`,
     },
     renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/mahiru.png`,

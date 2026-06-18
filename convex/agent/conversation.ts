@@ -2293,6 +2293,10 @@ function emotionLabelForPrompt(emotion?: string) {
   if (emotion === 'smiling') return '稍微放鬆';
   if (emotion === 'worried') return '擔心';
   if (emotion === 'serious') return '認真或繃緊';
+  if (emotion === 'tired') return '疲憊，回應可能更短';
+  if (emotion === 'flustered') return '有點害羞或不太穩';
+  if (emotion === 'guarded') return '防備，會保留一點';
+  if (emotion === 'calm') return '平靜下來';
   return emotion ? '中性但有事在心上' : undefined;
 }
 

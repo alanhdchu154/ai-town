@@ -16,12 +16,25 @@ Optional expression variants:
 - /portraits/<slug>-smiling.png
 - /portraits/<slug>-worried.png
 - /portraits/<slug>-serious.png
+- /portraits/<slug>-tired.png
+- /portraits/<slug>-flustered.png
+- /portraits/<slug>-guarded.png
+- /portraits/<slug>-calm.png
 
 The base file is treated as the neutral expression. The UI can request:
 - neutral
 - smiling
 - worried
 - serious
+- tired
+- flustered
+- guarded
+- calm
+
+The `tired`, `flustered`, `guarded`, and `calm` assets are provisional derived
+portraits generated from the existing final portraits to prevent missing UI
+assets while the expanded palette is reviewed. Replace them later with final
+expression-specific art if a locked character sheet is approved.
 
 Global style:
 Anime-inspired visual novel portrait, half-body or chest-up composition, cinematic school/social-sim lighting, expressive eyes, distinct silhouette, polished modern anime rendering, soft gradients, subtle glow, transparent background preferred. Keep all art original; do not copy official anime/game art or screenshots.

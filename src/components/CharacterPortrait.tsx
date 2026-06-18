@@ -123,5 +123,9 @@ function emotionLabel(emotion: PortraitEmotion) {
   if (emotion === 'smiling') return '微笑';
   if (emotion === 'worried') return '擔心';
   if (emotion === 'serious') return '認真';
+  if (emotion === 'tired') return '疲憊';
+  if (emotion === 'flustered') return '害羞';
+  if (emotion === 'guarded') return '防備';
+  if (emotion === 'calm') return '平靜';
   return '中性';
 }

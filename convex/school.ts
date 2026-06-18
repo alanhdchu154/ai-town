@@ -127,7 +127,15 @@ type WorldEventSource =
   | 'agent_action'
   | 'time_advance';
 type AlanPresenceStatus = 'online' | 'away' | 'unknown';
-type PortraitEmotion = 'neutral' | 'smiling' | 'worried' | 'serious';
+type PortraitEmotion =
+  | 'neutral'
+  | 'smiling'
+  | 'worried'
+  | 'serious'
+  | 'tired'
+  | 'flustered'
+  | 'guarded'
+  | 'calm';
 type SchoolMood =
   | 'calm'
   | 'anxious'
@@ -925,6 +933,26 @@ function behaviorSignalForEmotion(name: string, emotion: PortraitEmotion, reason
     if (name === 'Sakiko') return `${displayName}把姿勢收得更端正，像是在避免裂縫露出來：${reasonZh}`;
     return `${displayName}開始放慢語氣，先確認狀況：${reasonZh}`;
   }
+  if (emotion === 'tired') {
+    if (name === 'Umi') return `${displayName}把簡報收短，先留一點空白：${reasonZh}`;
+    if (name === 'Mahiru') return `${displayName}沒有立刻去照顧別人，只是在窗邊停久了一點：${reasonZh}`;
+    if (name === 'Maomao') return `${displayName}把筆記本合上，少說了半句：${reasonZh}`;
+    return `${displayName}回應變短，先把節奏放慢：${reasonZh}`;
+  }
+  if (emotion === 'flustered') {
+    if (name === 'Umi') return `${displayName}把話題整理了一下，卻比平常慢半拍：${reasonZh}`;
+    if (name === 'Ichinose') return `${displayName}笑了一下，但沒有立刻把善意包得太完整：${reasonZh}`;
+    return `${displayName}語氣變輕，短暫避開了正面回答：${reasonZh}`;
+  }
+  if (emotion === 'guarded') {
+    if (name === 'Tianze') return `${displayName}把玩笑收回一點，先看對方會不會追上來：${reasonZh}`;
+    if (name === 'Sakiko') return `${displayName}把情緒收進更正式的語氣裡：${reasonZh}`;
+    if (name === 'Maomao') return `${displayName}先保留診斷，不急著把話說滿：${reasonZh}`;
+    return `${displayName}先保持距離，沒有把真正的反應全說出來：${reasonZh}`;
+  }
+  if (emotion === 'calm') {
+    return `${displayName}把語氣放平，願意讓這件事先停在這裡：${reasonZh}`;
+  }
   if (emotion === 'smiling') {
     return `${displayName}比較願意留在附近多說兩句：${reasonZh}`;
   }
@@ -1499,6 +1527,10 @@ function emotionZh(emotion: PortraitEmotion) {
   if (emotion === 'smiling') return '微笑';
   if (emotion === 'worried') return '擔心';
   if (emotion === 'serious') return '認真';
+  if (emotion === 'tired') return '疲憊';
+  if (emotion === 'flustered') return '害羞';
+  if (emotion === 'guarded') return '防備';
+  if (emotion === 'calm') return '平靜';
   return '平靜';
 }
 
