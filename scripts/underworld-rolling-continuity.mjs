@@ -116,6 +116,25 @@ const windows = buildWindows(conversations, WINDOW_HOURS);
 const evaluation = evaluateBestAdjacentPair(windows, WINDOW_HOURS);
 const peekHealth = await runPeek('health');
 const peekResidueDigest = await runPeek('talk');
+
+// Best-effort: when speech-introspection is enabled, refresh the dashboard's
+// data on this same 2h cadence so the /introspection view (想說→被HIDE→說出口)
+// is never stale — Alan can drop in and see fresh rows any time. Gated by
+// UNDERWORLD_SPEECH_INTROSPECTION; the capture is post-hoc + decoupled (it never
+// touches the baseline spoken lines), and any failure here must not affect the
+// continuity verdict.
+let speechIntrospection = 'introspection: disabled (set UNDERWORLD_SPEECH_INTROSPECTION=true)';
+if (process.env.UNDERWORLD_SPEECH_INTROSPECTION === 'true') {
+  try {
+    const result = await convexRun('agent/memory:captureSpeechIntrospection', { write: true, max: 8 });
+    speechIntrospection = `introspection: ${result?.inserted ?? 0} new / ${result?.generated ?? 0} generated / ${result?.candidates ?? 0} candidates`;
+    console.log(`[rolling-continuity] ${speechIntrospection}`);
+  } catch (error) {
+    speechIntrospection = `introspection capture skipped: ${error?.message ?? error}`;
+    console.warn(`[rolling-continuity] ${speechIntrospection}`);
+  }
+}
+
 const report = buildReport({
   generatedAt: new Date().toISOString(),
   checkedAt: evalData?.checkedAt,
@@ -124,6 +143,7 @@ const report = buildReport({
   evaluation,
   peekHealth,
   peekResidueDigest,
+  speechIntrospection,
 });
 await mkdir(dirname(REPORT_PATH), { recursive: true });
 await mkdir(dirname(OUT_PATH), { recursive: true });
@@ -349,7 +369,7 @@ function buildWindows(conversations, windowHours) {
   return windows;
 }
 
-function buildReport({ generatedAt, checkedAt, conversations, windows, evaluation, peekHealth = '', peekResidueDigest = '' }) {
+function buildReport({ generatedAt, checkedAt, conversations, windows, evaluation, peekHealth = '', peekResidueDigest = '', speechIntrospection = '' }) {
   const callbackMoment =
     evaluation.callbacks[0]?.callbackText ?? '尚未找到 rolling two-hour callback。';
   const lines = [
@@ -376,6 +396,7 @@ function buildReport({ generatedAt, checkedAt, conversations, windows, evaluatio
     `- Best continuity moment: ${callbackMoment}`,
     `- Convex checkedAt: ${checkedAt ? new Date(checkedAt).toISOString() : 'unknown'}`,
     `- Today conversations seen in query: ${conversations.length}`,
+    `- Speech introspection (dashboard): ${speechIntrospection || 'n/a'}`,
     '',
     '## Peek Health',
     '',

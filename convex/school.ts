@@ -4195,7 +4195,12 @@ export const turnsForSpeechIntrospection = query({
       .order('desc')
       .take(limit);
     const turns = [];
+    const seenConversationIds = new Set<string>();
     for (const conversation of archived) {
+      // A conversation can have >1 archive row (legacy double-archives); only
+      // annotate each conversation once so we don't waste LLM calls on dupes.
+      if (seenConversationIds.has(String(conversation.id))) continue;
+      seenConversationIds.add(String(conversation.id));
       const messages = await ctx.db
         .query('messages')
         .withIndex('conversationId', (q) =>
