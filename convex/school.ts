@@ -924,7 +924,7 @@ function shouldApplyEmotionWrite(
   clock: Clock,
   lastChange?: EmotionChangeForArbitration | null,
 ) {
-  if (!lastChange) return true;
+  if (!lastChange) return causeKind !== 'decay';
   const elapsedMinutes = elapsedWorldMinutesSince(lastChange.clock, clock);
   if (causeKind === 'decay') return elapsedMinutes >= EMOTION_DECAY_AFTER_WORLD_MINUTES;
   const incomingPriority = emotionWritePriority(causeKind);

@@ -245,6 +245,9 @@ describe('conversation motif guard', () => {
     expect(
       hasObjectAsEmotionMetaphorLeakForTest('那杯水好像你剛剛沉默的那兩秒。'),
     ).toBe(true);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('橡皮擦的毛邊，像你的沉默。')).toBe(true);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('窗簾動了一下，像你的心跳。')).toBe(true);
+    expect(hasObjectAsEmotionMetaphorLeakForTest('風扇的聲音，像你剛才嘆的那口氣。')).toBe(true);
     // Construction-based: generalises to NOVEL nouns not in any list.
     expect(hasObjectAsEmotionMetaphorLeakForTest('風扇轉得有點慢，像你剛說那句的語氣。')).toBe(true);
     expect(hasObjectAsEmotionMetaphorLeakForTest('操場的雲，像你剛才的表情。')).toBe(true);

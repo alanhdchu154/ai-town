@@ -132,6 +132,14 @@ describe('v0.2 emergent event cause metadata', () => {
     expect(shouldApplyEmotionWriteForTest('event', testClock(31, 10, 10), recentConversation)).toBe(true);
   });
 
+  test('emotion decay does not flatten seeded baseline emotions before any live change exists', () => {
+    const clock = testClock(31, 10, 0);
+    expect(shouldApplyEmotionWriteForTest('decay', clock, null)).toBe(false);
+    expect(shouldApplyEmotionWriteForTest('conversation', clock, null)).toBe(true);
+    expect(shouldApplyEmotionWriteForTest('event', clock, null)).toBe(true);
+    expect(shouldApplyEmotionWriteForTest('pressure', clock, null)).toBe(true);
+  });
+
   test('emotion arbitration lets lower-priority signals or decay win after enough in-world time', () => {
     const oldConversation = {
       causeKind: 'conversation' as const,

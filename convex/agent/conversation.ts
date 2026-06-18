@@ -3357,6 +3357,8 @@ const TEMPORAL_MICRO_BEAT_RE = /那[一二兩三四五六七八九十百零\d]+�
 // 文青 simile from an ordinary epistemic 好像 (e.g. 「你好像不太喜歡他的表情」).
 const POSSESSIVE_EMOTION_BEAT_RE = /的(?:停頓|沉默|尾音|心跳|呼吸|語氣|表情|眼神)/;
 const SPEECH_MOMENT_REF_RE = /剛才|剛剛|剛說|剛問|剛講|那句|那時|那一刻|那幾秒|那[一二兩三四五六七八九十\d]+秒/;
+const DIRECT_EMOTION_BEAT_VEHICLE_RE =
+  /^(?:你(?:的|剛才|剛剛)?|妳(?:的|剛才|剛剛)?|我們的|那段|剛才|剛剛)?(?:沉默|心跳|呼吸|停頓|尾音|眼神|嘆(?:的)?那口氣|那口氣)/;
 
 function hasObjectAsEmotionMetaphorLeak(line: string) {
   const compact = stripConversationPrefix(line).replace(/\s+/g, '');
@@ -3366,6 +3368,7 @@ function hasObjectAsEmotionMetaphorLeak(line: string) {
   const vehicle = compact.slice((connective.index ?? 0) + connective[0].length);
   if (TEMPORAL_MICRO_BEAT_RE.test(vehicle)) return true; // Tier 1
   if (POSSESSIVE_EMOTION_BEAT_RE.test(vehicle) && SPEECH_MOMENT_REF_RE.test(vehicle)) return true; // Tier 2
+  if (DIRECT_EMOTION_BEAT_VEHICLE_RE.test(vehicle)) return true; // Tier 2b: short slogan-like simile vehicle
   return false;
 }
 

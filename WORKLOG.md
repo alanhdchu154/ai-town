@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 15:11 CDT
+Last updated: 2026-06-18 15:29 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,27 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 15:29 CDT (Codex): **Tier 1 hardening from cc audit completed,
+  awaiting cc review before Phase E/F or Tier 3/4.** Fix 1: baseline emotions
+  seeded on profiles are no longer flattened by the first passive decay tick.
+  `shouldApplyEmotionWrite` now treats `causeKind=decay` with no prior
+  `emotionChanges` row as not stale yet, while still allowing
+  `event`/`conversation`/`pressure` to write when there is no prior history.
+  Added a regression test proving `decay` returns false for no-history baseline
+  and the live causes still return true. Fix 2: the A2 object-as-emotion metaphor
+  guard now aborts short simile vehicles like `像你的沉默`, `像你的心跳`, and
+  `像你剛才嘆的那口氣`, without reintroducing the epistemic `你好像不太喜歡他的表情`
+  false positive. Added guard tests for the three cc examples plus existing
+  functional/caring/ordinary-line protections. Verification:
+  `npm test -- convex/schoolEmergentEvents.test.ts convex/agent/conversationMotifGuard.test.ts data/characterLifeEvents.test.ts convex/agent/memory.test.ts`
+  113/113 PASS; `npx tsc --noEmit --pretty false` PASS; `npm run build` PASS;
+  `git diff --check` PASS; `npm run underworld:runtime-preflight` PASS. cc
+  review was attempted with `python umi/orchestrator.py run umi/workload.md
+  --skip-codex --timeout 600` but was manually stopped after about two minutes
+  of no output; no findings/report and no file edits resulted. Treat this as a
+  timeout/stall, not approval. Next: retry cc with a narrower direct review over
+  the four Tier 1 files; do not start Phase E/F or Tier 3/4 until review confirms
+  no regression.
 - 2026-06-18 15:11 CDT (Codex): **cc follow-up
   `underworld-soul-loop-emotion-fixes-20260618` completed.** This was a bounded
   correctness pass on the A-D emotion edge, not a new system. Fix 1:

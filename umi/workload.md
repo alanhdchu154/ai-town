@@ -6,11 +6,88 @@ Owner: Codex (implement). CC ran an independent 3-agent audit of the whole close
 loop @ `89c71f78` and reviews each fix. Do your OWN audit pass too — CC's findings
 below are a seed, not the ceiling; verify them and look for more.
 Mode: Phased, one fix at a time, tests required, land + let CC review between tiers.
-Status: ready_for_codex
+Status: tier1_cc_approved_proceed_phase_e
 
 ## Task ID
 
 underworld-soul-loop-close-and-harden-20260618
+
+## Codex update - 2026-06-18 15:29 CDT
+
+Tier 1 is complete and verified. Codex fixed BUG-1 by making passive `decay`
+refuse to overwrite seeded baseline emotions when there is no prior
+`emotionChanges` row, while preserving first writes for `event`, `conversation`,
+and `pressure`. Codex fixed BUG-2 by tightening the construction-based A2 guard
+for short simile vehicles such as `像你的沉默`, `像你的心跳`, and
+`像你剛才嘆的那口氣`, while preserving the epistemic `你好像不太喜歡他的表情`
+negative case and functional/caring lines.
+
+Verification passed:
+
+- `npm test -- convex/schoolEmergentEvents.test.ts convex/agent/conversationMotifGuard.test.ts data/characterLifeEvents.test.ts convex/agent/memory.test.ts`
+  -> 113/113 PASS
+- `npx tsc --noEmit --pretty false` PASS
+- `npm run build` PASS
+- `git diff --check` PASS
+- `npm run underworld:runtime-preflight` PASS
+
+Next worker step: cc should review this Tier 1 diff before Codex starts Phase E/F
+or any Tier 3/4 work.
+
+Attempted cc review: `python umi/orchestrator.py run umi/workload.md --skip-codex --timeout 600`
+was manually stopped after about two minutes of no output. No cc findings were
+returned and git status showed no cc edits. Treat this as a timeout/stall, not
+as approval. If retrying, use an even narrower direct review prompt over only
+the four Tier 1 files and the exact added tests.
+
+## Current cc review request
+
+Mode: read-only review, no edits.
+Model target: `--model sonnet` because this is a bounded implementation diff and
+test review, not architecture redesign.
+Scope: review only the Tier 1 changes in current git diff:
+
+- `convex/school.ts`
+- `convex/schoolEmergentEvents.test.ts`
+- `convex/agent/conversation.ts`
+- `convex/agent/conversationMotifGuard.test.ts`
+
+Ignore unrelated dirty files under `media/topics/`.
+
+Please answer findings-first:
+
+1. Any P0/P1 correctness regression in the baseline decay fix?
+2. Any P0/P1 false positive/false negative risk in the A2 guard patch?
+3. Are the added tests enough for Tier 1?
+4. Is it safe for Codex to proceed later to Phase E/F after fresh samples, or
+   should Tier 1 be revised first?
+
+Stop after review; do not implement Phase E/F, Tier 3, or Tier 4.
+
+## CC review verdict — Tier 1 APPROVED (2026-06-18)
+
+Findings-first (read-only review + self-verified by running the regex on the key
+cases and the suites; 111/111 in the three suites I ran, 113 with characterLifeEvents):
+
+1. Baseline decay fix — **no P0/P1 regression.** `if (!lastChange) return causeKind
+   !== 'decay'` is exactly right: decay refuses to fire on a seeded baseline with no
+   history, while `event`/`conversation`/`pressure` keep their first-write. Test
+   `emotion decay does not flatten seeded baseline emotions…` asserts all four cases.
+   Residual (intended, not a bug): a seeded baseline now persists until the FIRST real
+   emotion event creates an emotionChanges row, after which normal decay applies.
+2. A2 guard patch — **no P0/P1 FP/FN.** New Tier-2b `DIRECT_EMOTION_BEAT_VEHICLE_RE`
+   is `^`-anchored to the simile vehicle (tight window) and its beat list excludes the
+   epistemic-prone 表情/語氣. Verified: 「像你的沉默」「像你的心跳」「像你剛才嘆的那口氣」
+   abort; 「你好像不太喜歡他的表情」「便當…擔心…像上次一樣」「這孩子就像你剛才一樣怕生」
+   「你的樣子好像剛才哭過」「遞考卷」all still pass. (Reminder: guard runs only on the
+   soul-triad path — accepted for now.)
+3. Tests — **sufficient for Tier 1.** Both bugs have targeted asserts + the broad
+   suites stay green.
+4. **Safe to proceed to Phase E/F.** No Tier-1 revision needed. Recommended order:
+   Phase E (④→③) next, then Tier 3 (make Phase C real — currently cosmetic), then
+   Tier 4 (bound worldEvents/schoolNotifications). Phase F needs Alan decisions (F1/F2).
+
+Status → tier1_cc_approved_proceed_phase_e
 
 ## Loop status
 
