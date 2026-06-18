@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 14:40 CDT
+Last updated: 2026-06-18 15:11 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,31 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 15:11 CDT (Codex): **cc follow-up
+  `underworld-soul-loop-emotion-fixes-20260618` completed.** This was a bounded
+  correctness pass on the A-D emotion edge, not a new system. Fix 1:
+  `decayStaleCharacterEmotions` no longer scans the newest 120
+  `schoolNotifications`; it reads the latest per-character row through the
+  `emotionChanges.character` index, so old stuck emotions cannot fall out of the
+  lookup window. Decay timing is now deliberate in-world time:
+  `day/hour/minute` deltas, 4 in-world hours, same direction as before
+  (`smiling -> neutral`, other temporary emotions -> `calm`). Fix 2:
+  `applyPressureToCharacters` no longer patches `currentEmotion` again from a
+  stale profile after calling `updateEmotionByName`; the choke point remains the
+  only emotion write path. Fix 3: `updateEmotionByName` now arbitrates by
+  cause priority and in-world recency. `event`/`conversation` are high priority,
+  `pressure` lower, `decay` lowest but guaranteed after 4 in-world hours. Low
+  priority pressure/early decay cannot clobber a fresh conversation emotion;
+  event/conversation can still set emotion immediately; pressure can take over
+  after 2 in-world hours. No new tables, no A2 detector changes, no
+  `emotionChanges` cap changes. Verification: `npm test --
+  convex/schoolEmergentEvents.test.ts` 12/12 PASS; full targeted suite
+  `npm test -- convex/schoolEmergentEvents.test.ts data/characterLifeEvents.test.ts convex/agent/conversationMotifGuard.test.ts`
+  67/67 PASS; `npx tsc --noEmit --pretty false` PASS; `npm run build` PASS;
+  `git diff --check` PASS; `npm run underworld:runtime-preflight` PASS; live
+  `school:recentEmotionChanges {"limit":5}` returned new rows with
+  `causeKind=conversation`. Next: collect fresh post-fix samples and ask cc to
+  review whether the arbitration feels right in actual transcripts.
 - 2026-06-18 14:40 CDT (Codex): **Alan explicitly approved doing Phase C/D too;
   Phase A-D are now implemented and verified, pending cc/fresh-sample review.**
   A/B summary remains: scene props now ground object use; object-as-emotion

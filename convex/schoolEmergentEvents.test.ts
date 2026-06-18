@@ -4,7 +4,22 @@ import {
   emergentConsequencePlanForEvent,
   v02EmergentEventsEnabled,
 } from './schoolEmergentEvents';
-import { characterDevelopmentPlanForTest, decayedEmotionForTest } from './school';
+import {
+  characterDevelopmentPlanForTest,
+  decayedEmotionForTest,
+  elapsedWorldMinutesSinceForTest,
+  shouldApplyEmotionWriteForTest,
+} from './school';
+
+const testClock = (day: number, hour: number, minute = 0) => ({
+  day,
+  hour,
+  minute,
+  week: 1,
+  semester: 1,
+  timeSpeed: 60,
+  lastUpdated: 0,
+});
 
 describe('v0.2 emergent event cause metadata', () => {
   test('is disabled unless explicitly env-gated', () => {
@@ -100,6 +115,31 @@ describe('v0.2 emergent event cause metadata', () => {
     expect(decayedEmotionForTest('smiling')).toBe('neutral');
     expect(decayedEmotionForTest('calm')).toBeUndefined();
     expect(decayedEmotionForTest('neutral')).toBeUndefined();
+  });
+
+  test('emotion decay timing uses in-world clock deltas, including day rollover', () => {
+    expect(elapsedWorldMinutesSinceForTest(testClock(1, 22, 30), testClock(2, 3, 0))).toBe(270);
+    expect(elapsedWorldMinutesSinceForTest(testClock(4, 9, 0), testClock(4, 8, 0))).toBe(0);
+  });
+
+  test('emotion arbitration protects fresh high-priority changes from pressure and early decay', () => {
+    const recentConversation = {
+      causeKind: 'conversation' as const,
+      clock: testClock(31, 10, 0),
+    };
+    expect(shouldApplyEmotionWriteForTest('pressure', testClock(31, 10, 10), recentConversation)).toBe(false);
+    expect(shouldApplyEmotionWriteForTest('decay', testClock(31, 10, 10), recentConversation)).toBe(false);
+    expect(shouldApplyEmotionWriteForTest('event', testClock(31, 10, 10), recentConversation)).toBe(true);
+  });
+
+  test('emotion arbitration lets lower-priority signals or decay win after enough in-world time', () => {
+    const oldConversation = {
+      causeKind: 'conversation' as const,
+      clock: testClock(31, 10, 0),
+    };
+    expect(shouldApplyEmotionWriteForTest('pressure', testClock(31, 12, 0), oldConversation)).toBe(true);
+    expect(shouldApplyEmotionWriteForTest('decay', testClock(31, 13, 59), oldConversation)).toBe(false);
+    expect(shouldApplyEmotionWriteForTest('decay', testClock(31, 14, 0), oldConversation)).toBe(true);
   });
 
   test('character development plans turn emotion into bounded behavior color', () => {

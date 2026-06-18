@@ -7,7 +7,31 @@ violations (A2 detector → construction-based; emotionChanges → capped); thos
 committed at `c5e7d803`. This file is the NEXT task: three should-fixes CC's
 review surfaced on the event→emotion edge.
 Mode: Bounded implementation, one fix at a time, tests required.
-Status: ready_for_codex
+Status: completed_pending_cc_review
+
+Codex update 2026-06-18 15:11 CDT:
+- All three should-fixes are implemented.
+- Fix 1: decay now reads the latest per-character `emotionChanges` row via the
+  `character` index and uses in-world `day/hour/minute` elapsed time. The decay
+  threshold is 4 in-world hours; stale emotions no longer disappear from the
+  lookup window just because notifications are noisy.
+- Fix 2: `applyPressureToCharacters` no longer patches `currentEmotion` after
+  calling `updateEmotionByName`; it patches only short-term intentions/memory.
+- Fix 3: `updateEmotionByName` now arbitrates by cause priority and in-world
+  recency. `event`/`conversation` can set immediately, fresh high-priority
+  emotions are protected from `pressure` and early `decay`, `pressure` may take
+  over after 2 in-world hours, and `decay` wins after 4 in-world hours.
+- No new table, no A2 detector change, no emotionChanges cap change, no provider
+  or automation changes.
+- Verification: `npm test -- convex/schoolEmergentEvents.test.ts` 12/12 PASS;
+  targeted suite 67/67 PASS; `npx tsc --noEmit --pretty false` PASS;
+  `npm run build` PASS; `git diff --check` PASS;
+  `npm run underworld:runtime-preflight` PASS; live
+  `school:recentEmotionChanges {"limit":5}` returned current rows with
+  `causeKind=conversation`.
+- Next: cc review the diff and fresh samples; Alan should watch whether emotion
+  now changes less randomly and whether decay feels like settling rather than
+  abrupt forgetting.
 
 ## Task ID
 

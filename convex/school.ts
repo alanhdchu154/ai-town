@@ -894,6 +894,59 @@ async function appendRecentEvent(
 // local backend (the #41 crash lesson). The dashboard reads ≤80, so keeping the
 // newest 80 per character loses nothing it shows.
 const EMOTION_CHANGES_PER_CHARACTER = 80;
+const EMOTION_DECAY_AFTER_WORLD_MINUTES = 4 * 60;
+const LOW_PRIORITY_EMOTION_OVERRIDE_AFTER_WORLD_MINUTES = 2 * 60;
+
+type EmotionChangeForArbitration = {
+  causeKind: EmotionChangeCauseKind;
+  clock: Clock;
+};
+
+function worldClockMinutes(clock: Pick<Clock, 'day' | 'hour' | 'minute'>) {
+  return clock.day * 24 * 60 + clock.hour * 60 + (clock.minute ?? 0);
+}
+
+function elapsedWorldMinutesSince(
+  previousClock: Pick<Clock, 'day' | 'hour' | 'minute'>,
+  currentClock: Pick<Clock, 'day' | 'hour' | 'minute'>,
+) {
+  return Math.max(0, worldClockMinutes(currentClock) - worldClockMinutes(previousClock));
+}
+
+function emotionWritePriority(causeKind: EmotionChangeCauseKind) {
+  if (causeKind === 'event' || causeKind === 'conversation') return 3;
+  if (causeKind === 'pressure') return 1;
+  return 0;
+}
+
+function shouldApplyEmotionWrite(
+  causeKind: EmotionChangeCauseKind,
+  clock: Clock,
+  lastChange?: EmotionChangeForArbitration | null,
+) {
+  if (!lastChange) return true;
+  const elapsedMinutes = elapsedWorldMinutesSince(lastChange.clock, clock);
+  if (causeKind === 'decay') return elapsedMinutes >= EMOTION_DECAY_AFTER_WORLD_MINUTES;
+  const incomingPriority = emotionWritePriority(causeKind);
+  const previousPriority = emotionWritePriority(lastChange.causeKind);
+  if (incomingPriority >= previousPriority) return true;
+  return elapsedMinutes >= LOW_PRIORITY_EMOTION_OVERRIDE_AFTER_WORLD_MINUTES;
+}
+
+export function elapsedWorldMinutesSinceForTest(
+  previousClock: Pick<Clock, 'day' | 'hour' | 'minute'>,
+  currentClock: Pick<Clock, 'day' | 'hour' | 'minute'>,
+) {
+  return elapsedWorldMinutesSince(previousClock, currentClock);
+}
+
+export function shouldApplyEmotionWriteForTest(
+  causeKind: EmotionChangeCauseKind,
+  clock: Clock,
+  lastChange?: EmotionChangeForArbitration | null,
+) {
+  return shouldApplyEmotionWrite(causeKind, clock, lastChange);
+}
 
 async function updateEmotionByName(
   ctx: MutationCtx,
@@ -913,6 +966,12 @@ async function updateEmotionByName(
     .withIndex('player', (q) => q.eq('worldId', worldId).eq('playerId', description.playerId))
     .first();
   if (!profile || profile.currentEmotion === emotion) return;
+  const lastEmotionChange = await ctx.db
+    .query('emotionChanges')
+    .withIndex('character', (q) => q.eq('worldId', worldId).eq('name', name))
+    .order('desc')
+    .first();
+  if (!shouldApplyEmotionWrite(causeKind, clock, lastEmotionChange)) return;
   const previousEmotion = profile.currentEmotion;
   await ctx.db.patch(profile._id, { currentEmotion: emotion });
   const metadata = timestampMeta(clock);
@@ -1097,8 +1156,6 @@ async function updateCharacterDevelopmentFromEmotion(
   });
 }
 
-const EMOTION_DECAY_AFTER_MS = 4 * 60 * 60 * 1000;
-
 function decayedEmotionFor(currentEmotion: PortraitEmotion | undefined): PortraitEmotion | undefined {
   if (!currentEmotion || currentEmotion === 'neutral' || currentEmotion === 'calm') return undefined;
   if (currentEmotion === 'smiling') return 'neutral';
@@ -1114,28 +1171,22 @@ async function decayStaleCharacterEmotions(
   worldId: Id<'worlds'>,
   descriptions: Map<string, Doc<'playerDescriptions'>>,
   clock: Clock,
-  now = Date.now(),
 ) {
   const profiles = await ctx.db
     .query('schoolProfiles')
     .withIndex('worldId', (q) => q.eq('worldId', worldId))
     .collect();
-  const notifications = await ctx.db
-    .query('schoolNotifications')
-    .withIndex('worldId', (q) => q.eq('worldId', worldId))
-    .order('desc')
-    .take(120);
   for (const profile of profiles) {
     const name = descriptions.get(profile.playerId)?.name;
     if (!name) continue;
     const nextEmotion = decayedEmotionFor(profile.currentEmotion);
     if (!nextEmotion) continue;
-    const lastEmotionChange = notifications.find(
-      (notification) =>
-        notification.type === 'emotion_changed' &&
-        notification.relatedCharacterName === name,
-    );
-    if (!lastEmotionChange || now - lastEmotionChange.createdAt < EMOTION_DECAY_AFTER_MS) continue;
+    const lastEmotionChange = await ctx.db
+      .query('emotionChanges')
+      .withIndex('character', (q) => q.eq('worldId', worldId).eq('name', name))
+      .order('desc')
+      .first();
+    if (!shouldApplyEmotionWrite('decay', clock, lastEmotionChange)) continue;
     await updateEmotionByName(
       ctx,
       worldId,
@@ -2607,7 +2658,6 @@ async function applyPressureToCharacters(
       );
     }
     await ctx.db.patch(profile._id, {
-      currentEmotion: note.emotion ?? profile.currentEmotion,
       shortTermIntentions: nextIntentions,
       shortTermMemory: nextMemory,
     });
