@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nightly auto-compaction launchd agent (PREPARED, not auto-installed).
+     This is the WORKLOG #41 schedule that was delegated to Codex but never built.
+     Activate when you want the DB to self-compact during deep sleep:
+
+       chmod +x scripts/underworld-nightly-compaction.sh
+       cp scripts/com.giis.underworld.nightly-compaction.plist ~/Library/LaunchAgents/
+       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.giis.underworld.nightly-compaction.plist
+       launchctl list | grep nightly-compaction   # verify loaded
+
+     Deactivate:
+       launchctl bootout gui/$(id -u)/com.giis.underworld.nightly-compaction
+
+     Runs scripts/underworld-nightly-compaction.sh at 04:00 local every day. That
+     script is a NO-OP below 250k docs and only compacts when the DB has grown
+     past it (so most nights it does nothing; ~every 2-3 nights it compacts). The
+     compaction backs up + restores Convex env and keeps a recoverable archive.
+     Logs to umi/reports/compact-auto.log. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.giis.underworld.nightly-compaction</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/alanhdchu/ai-town/scripts/underworld-nightly-compaction.sh</string>
+	</array>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>4</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>StandardErrorPath</key>
+	<string>/Users/alanhdchu/ai-town/umi/reports/nightly-compaction.launchd.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/alanhdchu/ai-town/umi/reports/nightly-compaction.launchd.out.log</string>
+	<key>WorkingDirectory</key>
+	<string>/Users/alanhdchu/ai-town</string>
+</dict>
+</plist>
