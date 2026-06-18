@@ -75,16 +75,28 @@ historical evidence is needed.
   Goal: easier management (4 Codex automations → 2) without losing safety. Build a
   single `kind=heartbeat` automation `underworld-hourly-ops`, `FREQ=HOURLY;BYMINUTE=0`,
   that branches on the current America/Chicago hour:
-  - **every hour** → the rolling-continuity work (it already runs `npm run
-    underworld:rolling-continuity`, which also does the speech-introspection capture
-    when `UNDERWORLD_SPEECH_INTROSPECTION=true`).
-  - **hour == 20** → ALSO the field-notes-watcher pass (read-only content scout).
-  - **hour == 23** → ALSO the nightly-reflection SHADOW pass (`npm run
+  - **every hour wake**, run the rolling-continuity work on ITS existing allowed
+    hours only (the current automation gates to 08/10/12/14/16/18/20/22, not every
+    hour) — keep that gating + its narrow-liveness-recovery/Telegram behavior. It
+    already runs `npm run underworld:rolling-continuity` (which also does the
+    speech-introspection capture when `UNDERWORLD_SPEECH_INTROSPECTION=true`).
+  - **hour == 20** → ALSO a field-notes pass, but **DOWNGRADED to read-only scout /
+    package-suggest ONLY**. >>> SAFETY (Codex caught this, CC agrees): the standalone
+    field-notes-watcher prompt currently ALLOWS publish/upload of Field Notes when
+    gates pass, and lives in the Field Notes channel/thread. Do NOT carry that
+    publish/upload authority into the unattended hourly Underworld dispatcher —
+    publishing the Umi channel must stay a separate, human-gated Field Notes operator.
+    The hourly branch only scouts + suggests packages; it never publishes/uploads.
+  - **hour == 23 (or 23:30)** → ALSO the nightly-reflection SHADOW pass (`npm run
     underworld:nightly-reflection`, shadow only — NEVER `--write`/approval token;
     reflection now actually produces insights after the max_tokens fix, so the shadow
     reports are finally meaningful — watch them, do not auto-enable write).
-  Carry each task's existing safety rules verbatim into the merged prompt's per-hour
-  branch. After the merged automation is confirmed running, PAUSE/retire the 3
+  Carry each task's existing safety rules into the merged prompt's per-hour branch,
+  EXCEPT the field-notes publish/upload permission (dropped, per above). The
+  `automation_update` tool is not exposed, so Codex edits the LOCAL source-of-truth
+  `~/.codex/automations/*/automation.toml` and labels it as local config (does not
+  claim to have operated the app panel). After the merged automation is confirmed
+  running, PAUSE/retire the 3
   separate ones (`underworld-rolling-continuity-telegram`,
   `underworld-field-notes-watcher`, `underworld-nightly-reflection-shadow`).
   **KEEP `underworld-nightly-compaction` (04:00) SEPARATE and unchanged** — it is the
