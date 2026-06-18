@@ -8,6 +8,7 @@ import {
   HUMAN_IDLE_TOO_LONG,
   MAX_HUMAN_PLAYERS,
   MAX_PATHFINDS_PER_STEP,
+  DEFAULT_NAME,
 } from '../constants';
 import { pointsEqual, pathPosition } from '../util/geometry';
 import type { Game } from './game';
@@ -88,7 +89,11 @@ export class Player {
 
   tick(game: Game, now: number) {
     this.enforceClassroomBounds();
-    if (this.human && this.lastInput < now - HUMAN_IDLE_TOO_LONG) {
+    // Alan is a PERSISTENT presence (he hides in the principal's office even when
+    // no human is controlling him), so he is exempt from the idle-human cleanup —
+    // otherwise the engine removes him ~5min after the human stops driving him and
+    // `alan: null` / "can't invite" comes back. Other human players still time out.
+    if (this.human && this.human !== DEFAULT_NAME && this.lastInput < now - HUMAN_IDLE_TOO_LONG) {
       const inConversation = [...game.world.conversations.values()].some((conversation) =>
         conversation.participants.has(this.id),
       );

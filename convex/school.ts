@@ -6479,6 +6479,28 @@ export const repairWorldState = mutation({
   },
 });
 
+// Race-proof persistent Alan: create him through the engine `join` input (NOT a
+// direct world patch — the busy morning engine clobbers the patch, which was the
+// `alan: null` regression). Idempotent: no-op if Alan already exists. Combined
+// with the player-tick idle exemption (player.ts), once Alan exists he stays
+// forever, so this only ever has to win the race once.
+export const ensurePersistentAlan = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const existing = resolveAlanPlayer(world, descriptions);
+    if (existing) return { status: 'already_present' as const, playerId: existing.id };
+    await insertInput(ctx, world._id, 'join', {
+      name: DEFAULT_NAME,
+      character: AlanProfile.character,
+      description: AlanProfile.persona,
+      tokenIdentifier: DEFAULT_NAME,
+    });
+    return { status: 'join_queued' as const };
+  },
+});
+
 export const enterCampus = mutation({
   args: { timeZone: v.optional(v.string()) },
   handler: async (ctx, args) => {
