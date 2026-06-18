@@ -9239,8 +9239,17 @@ export const recentConversationEvalData = query({
       );
     };
     const conversations = [];
+    // Dedup: a conversation can appear in `archivedConversations` more than once
+    // (e.g. a human leave that raced the running engine and re-archived it — see
+    // the leave-race bug). Rows are ordered by `ended` desc, so keep only the
+    // first (most recent) archive row per conversation id; otherwise the wall
+    // renders the same conversation multiple times (and React dup-key warns).
+    const seenArchivedConversationIds = new Set<string>();
     for (const conversation of archivedConversations) {
-      archivedConversationIds.add(String(conversation.id));
+      const conversationIdStr = String(conversation.id);
+      archivedConversationIds.add(conversationIdStr);
+      if (seenArchivedConversationIds.has(conversationIdStr)) continue;
+      seenArchivedConversationIds.add(conversationIdStr);
       if (args.sinceCreatedAt && conversation.ended < args.sinceCreatedAt) continue;
       const messages = await ctx.db
         .query('messages')
