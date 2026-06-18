@@ -70,6 +70,26 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 ~23:05 CDT (CC): **Codex speech-introspection dashboard accepted +
+  3 user bugs fixed, all pushed (320771b1..a8e87142).** (1) Reviewed + committed
+  Codex's `SpeechIntrospectionDashboard.tsx` (new `/introspection` view, 3-column
+  flow, mockup-labelled, reachable from world 內省 tab / Wall 語音內省 button;
+  frontend tsc clean). (2) **Duplicate conversations in the wall** — dedup the
+  archived loop in `recentConversationEvalData` by conversation id (c:51740 had 9
+  archive rows → 30 entries became 22 unique). (3) **Leave-race** — route
+  `leaveAlanConversationNow` through the engine `leaveConversation` input instead
+  of a clobbered direct patch (also kills the double-archive root cause);
+  live-verified Alan leaves in ~3s with the engine running. (4) **Persistent Alan
+  (Alan-directed design)** — Alan no longer leaves the world: `leaveCampus` keeps
+  him as a passive presence hiding in the principal's office (flips `human` off,
+  rotating solo activity 彈鋼琴/看樂譜/泡茶, ends conversations via engine input);
+  `agentOperations.otherFreePlayers` excludes agent-less Alan so characters never
+  autonomously invite the passive Alan. Fixes `alan: null` / can't-invite at the
+  root (no transient re-creation race). Offline Alan stays PASSIVE (no AI drives
+  him to talk → human-facing sample pool not polluted). Live-verified: leave keeps
+  Alan present (was null before), re-enter online works. full tsc + 155 agent
+  tests + preflight green.
+
 - 2026-06-17 22:35 CDT (Codex): **Speech-introspection dashboard UI built and
   wired.** New route `?view=introspection` renders a read-only dashboard separate
   from Conversation Wall, with expandable conversation groups by day and three
