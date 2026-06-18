@@ -1,5 +1,6 @@
 import Game from './components/Game.tsx';
 import ConversationWall from './components/ConversationWall.tsx';
+import SpeechIntrospectionDashboard from './components/SpeechIntrospectionDashboard.tsx';
 
 import { ToastContainer } from 'react-toastify';
 import { Component, useEffect, useState } from 'react';
@@ -15,7 +16,7 @@ export default function Home() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
-  const setRouteView = (nextView: 'world' | 'conversations') => {
+  const setRouteView = (nextView: AppView) => {
     const url = new URL(window.location.href);
     if (nextView === 'world') {
       url.searchParams.delete('view');
@@ -33,7 +34,15 @@ export default function Home() {
 
         <AppErrorBoundary key={view}>
           {view === 'conversations' ? (
-            <ConversationWall onOpenWorld={() => setRouteView('world')} />
+            <ConversationWall
+              onOpenIntrospection={() => setRouteView('introspection')}
+              onOpenWorld={() => setRouteView('world')}
+            />
+          ) : view === 'introspection' ? (
+            <SpeechIntrospectionDashboard
+              onOpenWall={() => setRouteView('conversations')}
+              onOpenWorld={() => setRouteView('world')}
+            />
           ) : (
             <Game view={view} onChangeView={setRouteView} />
           )}
@@ -86,9 +95,11 @@ class AppErrorBoundary extends Component<
   }
 }
 
-function currentView(): 'world' | 'conversations' {
+type AppView = 'world' | 'conversations' | 'introspection';
+
+function currentView(): AppView {
   if (typeof window === 'undefined') return 'world';
-  return new URLSearchParams(window.location.search).get('view') === 'conversations'
-    ? 'conversations'
-    : 'world';
+  const view = new URLSearchParams(window.location.search).get('view');
+  if (view === 'conversations' || view === 'introspection') return view;
+  return 'world';
 }

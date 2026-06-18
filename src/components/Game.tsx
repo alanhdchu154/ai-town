@@ -51,8 +51,8 @@ type FloatingActionSummary = {
 };
 
 type GameProps = {
-  view?: 'world' | 'conversations';
-  onChangeView?: (next: 'world' | 'conversations') => void;
+  view?: 'world' | 'conversations' | 'introspection';
+  onChangeView?: (next: 'world' | 'conversations' | 'introspection') => void;
 };
 type NotebookTab = '今日' | '日程' | '約定' | '回響';
 type NotebookCommitmentsData = {
@@ -1089,6 +1089,14 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
                 onClick={() => onChangeView('conversations')}
               >
                 對話
+              </button>
+              <button
+                role="tab"
+                aria-selected={view === 'introspection'}
+                className={view === 'introspection' ? 'active' : ''}
+                onClick={() => onChangeView('introspection')}
+              >
+                內省
               </button>
             </div>
           ) : null}

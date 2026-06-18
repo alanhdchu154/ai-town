@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api';
 import { CharacterPortrait } from './CharacterPortrait';
 
 type ConversationWallProps = {
+  onOpenIntrospection: () => void;
   onOpenWorld: () => void;
 };
 
@@ -66,7 +67,7 @@ const WALL_VIEWS: Array<[WallView, string]> = [
   ['sleep', '睡眠筆記'],
 ];
 
-export default function ConversationWall({ onOpenWorld }: ConversationWallProps) {
+export default function ConversationWall({ onOpenIntrospection, onOpenWorld }: ConversationWallProps) {
   const [selectedCharacter, setSelectedCharacter] = useState('all');
   const [wallView, setWallView] = useState<WallView>('talk');
   const [showHelp, setShowHelp] = useState(false);
@@ -129,9 +130,14 @@ export default function ConversationWall({ onOpenWorld }: ConversationWallProps)
           <p className="giis-wall-kicker">GIIS Underworld</p>
           <h2>對話牆</h2>
         </div>
-        <button className="giis-wall-world-button" type="button" onClick={onOpenWorld}>
-          回到世界
-        </button>
+        <div className="giis-wall-header-actions">
+          <button className="giis-wall-world-button" type="button" onClick={onOpenIntrospection}>
+            語音內省
+          </button>
+          <button className="giis-wall-world-button" type="button" onClick={onOpenWorld}>
+            回到世界
+          </button>
+        </div>
       </header>
 
       <div className="giis-wall-segments giis-wall-tabs" aria-label="data layer tabs">
