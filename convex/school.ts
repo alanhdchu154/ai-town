@@ -6652,17 +6652,6 @@ export const leaveAlanConversationNow = mutation({
       conversation.participants.some((participant) => participant.playerId === alan.id),
     );
     const hadConversation = alanConversations.length > 0;
-    // Archive each conversation before removing it from the world. Removing it via
-    // a direct patch bypasses the engine's saveDiff archival, so without this the
-    // transcript (and Alan's chatMessage timeline events) would be orphaned and
-    // never reach `archivedConversations` — the root cause of playtest chats not
-    // being recorded.
-    const playerNames = new Map<string, string>(
-      [...descriptions.entries()].map(([id, description]) => [id, description.name]),
-    );
-    const humanPlayers = new Map<string, boolean>(
-      world.players.map((player) => [player.id, Boolean(player.human)]),
-    );
     const now = Date.now();
     for (const conversation of alanConversations) {
       if (!conversation.isTyping || conversation.isTyping.playerId === alan.id) continue;
@@ -6699,47 +6688,21 @@ export const leaveAlanConversationNow = mutation({
         };
       }
     }
+    // Route the leave through the engine's `leaveConversation` input instead of
+    // directly patching the world doc. The old direct patch RACED the running
+    // engine's saveDiff — the engine overwrote it, so the leave silently failed
+    // and Alan "couldn't leave the conversation". Worse, combined with the
+    // explicit archive it created DUPLICATE `archivedConversations` rows (the
+    // duplicate-cards-in-the-wall bug — c:51740 was archived 9×). The engine's own
+    // `Conversation.leave()` removes the conversation, sets `toRemember` on the
+    // other participant (so the character still remembers the chat), and archives
+    // it exactly once via saveDiff — no race, no double-archive.
     for (const conversation of alanConversations) {
-      await archiveDeletedConversation(ctx, world._id, conversation, playerNames, humanPlayers);
+      await insertInput(ctx, world._id, 'leaveConversation', {
+        playerId: alan.id,
+        conversationId: conversation.id,
+      });
     }
-    // The engine's Conversation.stop() sets `toRemember` on participating
-    // agents so they run rememberConversation (memory + residue + commitment
-    // extraction). This direct-leave path bypassed that, which is why NO
-    // Alan-facing conversation produced character memories after the 6/4
-    // archival fix — characters archived the transcript but never "thought
-    // back" on it (found 2026-06-11 night: zero new commitments since 6/4).
-    const alanConversationByAgentPlayer = new Map<string, string>();
-    for (const conversation of alanConversations) {
-      for (const participant of conversation.participants) {
-        if (participant.playerId !== alan.id) {
-          alanConversationByAgentPlayer.set(participant.playerId, conversation.id);
-        }
-      }
-    }
-    await ctx.db.patch(world._id, {
-      conversations: world.conversations.filter(
-        (conversation) =>
-          !conversation.participants.some((participant) => participant.playerId === alan.id),
-      ),
-      agents: world.agents.map((agent) =>
-        alanConversationByAgentPlayer.has(agent.playerId)
-          ? {
-              ...agent,
-              lastConversation: now,
-              toRemember: agent.toRemember ?? alanConversationByAgentPlayer.get(agent.playerId),
-            }
-          : agent,
-      ),
-      players: world.players.map((player) =>
-        player.id === alan.id
-          ? {
-              ...player,
-              activity: undefined,
-              speed: 0,
-            }
-          : player,
-      ),
-    });
     await nudgeEngineForInput(ctx, world._id);
     return {
       descriptionZh: hadConversation ? 'Alan 離開了目前對話。' : 'Alan 目前沒有正在進行的對話。',
