@@ -815,6 +815,30 @@ export function residueEligible(
 // person privately fears or wants — the depth that used to live only in the
 // residue now also shapes the everyday memory. Falls back to a plain
 // first-person prompt when the speaker has no authored profile.
+// ④→③ edge: the mood a character carried OUT of the conversation colors what
+// they notice/remember about it. Maps the portrait emotion onto a felt state
+// phrase; returns null for neutral/unknown so a flat mood adds no coloring line.
+export function emotionResidueColorZh(currentEmotion?: string | null): string | null {
+  switch (currentEmotion) {
+    case 'smiling':
+      return '溫暖、比較放得開';
+    case 'worried':
+      return '擔心、心還懸著';
+    case 'serious':
+      return '緊繃、守著一條線';
+    case 'tired':
+      return '疲憊、想少扛一點';
+    case 'flustered':
+      return '被觸動、有點亂';
+    case 'guarded':
+      return '防備、留了距離';
+    case 'calm':
+      return '平靜、放下了一些';
+    default:
+      return null;
+  }
+}
+
 export function buildSubjectiveSummaryPrompt(
   selfName: string,
   otherName: string,
@@ -822,6 +846,7 @@ export function buildSubjectiveSummaryPrompt(
     coreValues: string[];
     stakes: { hiddenFear: string; hiddenDesire: string };
   } | null,
+  currentEmotion?: string | null,
 ) {
   const soul = profile
     ? [
@@ -832,9 +857,17 @@ export function buildSubjectiveSummaryPrompt(
         ``,
       ]
     : [];
+  const moodColor = emotionResidueColorZh(currentEmotion);
+  const moodLine = moodColor
+    ? [
+        `你結束這段對話時，心裡的狀態偏向「${moodColor}」。讓它影響你「記得什麼、用什麼語氣回想」——但不要把這個狀態直接寫出來。`,
+        ``,
+      ]
+    : [];
   return [
     `You are ${selfName}.`,
     ...soul,
+    ...moodLine,
     `You just finished a conversation with ${otherName}.`,
     `Write a short first-person memory of it in Traditional Chinese, the way ${selfName} would privately`,
     `remember it later — a felt memory, not a report. In 2 to 3 plain sentences, using "我":`,
@@ -1018,6 +1051,7 @@ export function buildResiduePrompt(
   // 天澤) and keeps "what they did" inside what that character would plausibly do.
   otherPublic: { role: string; persona: string; communicationStyle: string } | null,
   transcript: string,
+  currentEmotion?: string | null,
 ) {
   const lines = [
     `You are ${self}. The lines below are your private inner soul. Use them only to interpret what you felt — never quote them, never state them outright.`,
@@ -1041,6 +1075,13 @@ export function buildResiduePrompt(
       `${other} 的角色：${otherPublic.role}`,
       `${other} 平常的樣子：${otherPublic.persona}`,
       `${other} 說話的方式：${otherPublic.communicationStyle}`,
+    );
+  }
+  const moodColor = emotionResidueColorZh(currentEmotion);
+  if (moodColor) {
+    lines.push(
+      ``,
+      `你走出這段對話時，心裡的狀態偏向「${moodColor}」。讓它影響你「會不會在意、注意到什麼、用什麼語氣記住」——但不要把這個狀態直接寫進殘留裡。`,
     );
   }
   lines.push(
@@ -1095,7 +1136,7 @@ export function sanitizeLlmResidue(raw: string, self: string): string | null {
 
 async function llmResidueSentence(
   ctx: ActionCtx,
-  player: { id?: string; name: string },
+  player: { id?: string; name: string; currentEmotion?: string | null },
   otherPlayer: { id?: string; name: string; human?: string },
   messages: Doc<'messages'>[],
   allowShortAutonomousSoulMemory = false,
@@ -1120,7 +1161,10 @@ async function llmResidueSentence(
   const raw = await safeMemoryCompletion(
     {
       messages: [
-        { role: 'user', content: buildResiduePrompt(self, other, profile, otherPublic, transcript) },
+        {
+          role: 'user',
+          content: buildResiduePrompt(self, other, profile, otherPublic, transcript, player.currentEmotion),
+        },
       ],
       max_tokens: 120,
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
@@ -1434,6 +1478,7 @@ export async function rememberConversation(
         player.name,
         otherPlayer.name,
         giisProfileForName(player.name),
+        player.currentEmotion,
       ),
     },
   ];
@@ -2032,8 +2077,18 @@ export const loadConversation = internalQuery({
     if (!otherPlayerDescription) {
       throw new Error(`Player description for ${otherPlayerId} not found`);
     }
+    // ④→③ edge: the mood the speaker carried out of this conversation (set by the
+    // prior ②→④ inference + decay) so residue/summary can be colored by how they felt.
+    const selfProfile = await ctx.db
+      .query('schoolProfiles')
+      .withIndex('player', (q) => q.eq('worldId', args.worldId).eq('playerId', args.playerId))
+      .first();
     return {
-      player: { ...player, name: playerDescription.name },
+      player: {
+        ...player,
+        name: playerDescription.name,
+        currentEmotion: selfProfile?.currentEmotion ?? null,
+      },
       conversation,
       otherPlayer: { ...otherPlayer, name: otherPlayerDescription.name },
     };

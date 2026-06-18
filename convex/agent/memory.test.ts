@@ -4,6 +4,7 @@ import {
   buildReflectionPrompt,
   buildResiduePrompt,
   buildSubjectiveSummaryPrompt,
+  emotionResidueColorZh,
   residueEligible,
   sanitizeLlmResidue,
   localDayKey,
@@ -698,6 +699,32 @@ describe('soul-grounded LLM residue', () => {
     const plain = buildSubjectiveSummaryPrompt('海', 'Alan', null);
     expect(plain).toContain('You are 海');
     expect(plain).not.toContain('隱藏的恐懼：');
+  });
+
+  it('④→③: the carried-out emotion colors residue + summary, neutral adds nothing', () => {
+    // A guarded vs calm 海 must NOT remember identically (the missing loop edge).
+    const guarded = buildResiduePrompt('海', '天澤', profile, null, '天澤：你今天很安靜。', 'guarded');
+    const calm = buildResiduePrompt('海', '天澤', profile, null, '天澤：你今天很安靜。', 'calm');
+    expect(guarded).toContain('防備、留了距離');
+    expect(calm).toContain('平靜、放下了一些');
+    expect(guarded).not.toEqual(calm);
+    // It's a coloring nudge, not a fact to write out.
+    expect(guarded).toMatch(/不要把這個狀態直接寫進殘留/);
+    // neutral / unknown → no mood line at all (a flat mood must not add noise).
+    const neutral = buildResiduePrompt('海', '天澤', profile, null, '天澤：你今天很安靜。', 'neutral');
+    const none = buildResiduePrompt('海', '天澤', profile, null, '天澤：你今天很安靜。');
+    expect(neutral).toEqual(none);
+    expect(neutral).not.toContain('心裡的狀態偏向');
+    // Same for the subjective summary path.
+    const worriedSummary = buildSubjectiveSummaryPrompt('海', 'Alan', profile, 'worried');
+    expect(worriedSummary).toContain('擔心、心還懸著');
+    expect(buildSubjectiveSummaryPrompt('海', 'Alan', profile, 'neutral')).toEqual(
+      buildSubjectiveSummaryPrompt('海', 'Alan', profile),
+    );
+    // The mapping itself: neutral/garbage → null, the 7 felt states → a phrase.
+    expect(emotionResidueColorZh('neutral')).toBeNull();
+    expect(emotionResidueColorZh(undefined)).toBeNull();
+    expect(emotionResidueColorZh('tired')).toBe('疲憊、想少扛一點');
   });
 
   it('lets a pilot carry a residue from talking to a pilot OR to the human Alan', () => {
