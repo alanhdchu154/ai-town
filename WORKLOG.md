@@ -70,6 +70,26 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 ~22:00 CDT (CC): **Forgetting mechanism F0–F3 BUILT + deployed (env OFF).**
+  `docs/soul/FORGETTING_MECHANISM_SPEC.md` implemented: `convex/schoolForgetting.ts`
+  (pure `forgettingTier` — sink only OLD + importance≤4 + long-idle, never
+  reflections; 9 unit tests), `agent/schema.ts` (`memoryEmbeddingsArchive` table
+  with NO vectorIndex + optional `memories.dormant/dormantSince/archivedEmbeddingId`),
+  `school.ts` `forgettingAudit` (F0 read-only) / `archiveDormantEmbeddings` (F2
+  dry-run/env-gated write — sink = copy embedding to archive, delete from active
+  vector index, mark dormant, **never touch description**) / `reactivateMemory`
+  (F3 restore). Live-verified: F0 = **4539 memories/embeddings, 0 sink candidates**
+  under conservative defaults (world only ~5 days old since the 6/12 reset). F2
+  dry-run + write-block gate proven. tsc + 9 tests + preflight green. Env-gated
+  OFF; live world untouched until `UNDERWORLD_FORGETTING=true`. **HONEST
+  RECALIBRATION of WORKLOG #47's crash hypothesis:** the index is only ~4.5k
+  embeddings yet the backend still crashes — so index SIZE is NOT the dominant
+  near-term crash driver at this scale; the search-cleanup-thread bug + 16GB
+  memory pressure is. Forgetting is the right LONG-TERM hygiene + the #42 soul
+  feature (matters as the index grows over weeks), but it will NOT noticeably cut
+  crashes in the 3-week window. **The watchdog remains the near-term stability
+  answer.** Forgetting starts having candidates naturally once memories age past
+  14 days (~9 days out) or if thresholds are tuned.
 - 2026-06-17 21:15 CDT (CC): **Inversion Stage ① (memory layer) VERIFIED DONE.** Watcher
   cycle 4 (post-20:47 batch, 12 conversations) confirms the summary patch (b,
   e83a28b8) worked: 記住 summary micro-tell ratio dropped from ~6/9 pre-patch
