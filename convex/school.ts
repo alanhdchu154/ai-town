@@ -4138,6 +4138,44 @@ export const reactivateMemory = mutation({
   },
 });
 
+// Read query for the speech-introspection dashboard (Codex builds the UI against
+// this). Returns recent ①②③ samples newest-first. `enabled` tells the UI whether
+// the gated capture is on, so it can show the right empty state. Read-only.
+export const recentSpeechIntrospection = query({
+  args: { limit: v.optional(v.number()), day: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const { world } = await defaultWorld(ctx);
+    const limit = Math.max(1, Math.min(args.limit ?? 50, 200));
+    const rows =
+      args.day !== undefined
+        ? await ctx.db
+            .query('speechIntrospection')
+            .withIndex('worldDay', (q) => q.eq('worldId', world._id).eq('day', args.day as number))
+            .order('desc')
+            .take(limit)
+        : await ctx.db
+            .query('speechIntrospection')
+            .withIndex('worldId', (q) => q.eq('worldId', world._id))
+            .order('desc')
+            .take(limit);
+    return {
+      enabled: process.env.UNDERWORLD_SPEECH_INTROSPECTION === 'true',
+      count: rows.length,
+      samples: rows.map((r) => ({
+        conversationId: r.conversationId,
+        characterName: r.characterName,
+        otherCharacterName: r.otherCharacterName,
+        innerWant: r.innerWant,
+        heldBack: r.heldBack,
+        gateReason: r.gateReason ?? null,
+        said: r.said,
+        day: r.day,
+        createdAt: r.createdAt,
+      })),
+    };
+  },
+});
+
 export const ensureWorldProfiles = internalMutation({
   args: { worldId: v.id('worlds') },
   handler: async (ctx, args) => {

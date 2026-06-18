@@ -359,6 +359,31 @@ export default defineSchema({
     .index('motif', ['subjectName', 'motifHash'])
     .index('status', ['reviewStatus', 'updatedAt']),
 
+  // Speech-introspection samples (the "unsaid" made visible). Gated + sampled
+  // capture (UNDERWORLD_SPEECH_INTROSPECTION) records, for a sampled turn, the
+  // three speech-flow layers: what the character internally wanted to say
+  // (innerWant ①), what they held back / softened / chose not to say (heldBack ②
+  // + gateReason), and what they actually said (said ③ = the real message). The
+  // speech-introspection dashboard renders these. Baseline collection (non-sampled
+  // turns) is NOT written here. See docs/SPEECH_INTROSPECTION_DASHBOARD_SPEC.md.
+  speechIntrospection: defineTable({
+    worldId: v.id('worlds'),
+    conversationId: v.string(),
+    playerId: v.string(),
+    characterName: v.string(),
+    otherCharacterName: v.string(),
+    messageUuid: v.optional(v.string()),
+    innerWant: v.string(),
+    heldBack: v.string(),
+    gateReason: v.optional(v.string()),
+    said: v.string(),
+    day: v.number(),
+    createdAt: v.number(),
+  })
+    .index('worldId', ['worldId', 'createdAt'])
+    .index('worldDay', ['worldId', 'day'])
+    .index('conversation', ['conversationId']),
+
   ...agentTables,
   ...aiTownTables,
   ...engineTables,
