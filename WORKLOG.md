@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-17 23:45 CDT
+Last updated: 2026-06-18 09:46 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,42 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~10:30 CDT (CC): **Fixed 3 collection-blocking issues (pushed
+  a5c5934d).** (1) **Compaction↔watchdog conflict** (would have broken tonight's
+  04:00 run): the nightly compaction cycles the backend ~10min, and the
+  world-watchdog (every 120s) would `kickstart -k` the dev-stack mid-compaction and
+  corrupt it. Added a maintenance lock (`umi/reports/.compaction-in-progress`):
+  `underworld-compact-state.sh` holds it across the backend-down window
+  (trap-cleaned), the watchdog stands down while a fresh lock exists (ignores a
+  >20min stale lock). Codex's automation rules forbid launchctl, so the lock-file
+  approach is the right coordination. Also fixed the compaction's hardcoded
+  `STAMP=20260616` → dynamic. (2) **Day/night background flicker** (Alan's report:
+  校長室 flips to a night image): `sceneVisualStyle` used `periodLabel`, which dropped
+  to the '讀取中' loading sentinel every time the worldClock query re-subscribed
+  (minuteTick) → no day/night variant → the base image flashed. Background now uses
+  a retained last-good period (`lastGoodPeriodRef`) so it never flickers during
+  reloads. (3) **Alan position**: `ensurePersistentAlan` now walks Alan back to the
+  principal office (`moveTo` engine input) if `join` spawned him at a random tile.
+  NOTE: 校長室 (=studentCouncilRoom) is shared by 海 + Alan; other characters showing
+  there is proximity-based occupancy (normal movement), not a bug. build + tsc +
+  preflight PASS.
+
+- 2026-06-18 09:46 CDT (Codex): Read cc's nightly-compaction handoff and
+  validated the prepared pieces. This Codex session did not expose
+  `automation_update` after tool discovery, but the local Codex automation
+  source-of-truth is available under `~/.codex/automations/*/automation.toml`.
+  Codex therefore created Codex-level config
+  `/Users/alanhdchu/.codex/automations/underworld-nightly-compaction/automation.toml`
+  for daily 04:00 America/Chicago. This is **not** launchd/system-level
+  scheduling. Verified: `scripts/underworld-nightly-compaction.sh`
+  exists/executable, `scripts/com.giis.underworld.nightly-compaction.plist`
+  linted OK but remains uninstalled, `bash -n` passed for both compaction
+  scripts, and `scripts/underworld-compact-state.sh --check` reports
+  `documents=309609`, `db=478 MB`, WARN not CRIT. The compaction script backs up
+  Convex env with `convex env list` and restores with `convex env set`;
+  `docs/current-env.md` includes `UNDERWORLD_SPEECH_INTROSPECTION=true` for
+  manual restore/audit visibility. Next: confirm the first 04:00 run no-ops or
+  compacts successfully.
 - 2026-06-18 ~09:45 CDT (CC): **>>> CODEX — set up a Codex-level nightly
   compaction automation (Alan-directed).** The #41 launchd schedule was delegated
   to Codex but never built, so the DB grew unchecked overnight to ~304k docs (past
