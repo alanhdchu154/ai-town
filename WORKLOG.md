@@ -70,6 +70,37 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 ~22:15 CDT (CC): **Speech-introspection dashboard — spec'd + data
+  contract built; Codex to build the UI.** Alan wants the literature-bridge speech
+  flow made visible: ①內心想說 → ②被HIDE/軟化 → ③說出口. Today's runtime only
+  generates ③, so CC is adding a **gated + sampled introspection capture**
+  (`UNDERWORLD_SPEECH_INTROSPECTION`, **baseline collection untouched**) that also
+  generates ①②. Shipped now (commit fcd10d1f): `speechIntrospection` table +
+  `school:recentSpeechIntrospection` read query (with `enabled`/empty-state) +
+  `docs/SPEECH_INTROSPECTION_DASHBOARD_SPEC.md`. **>>> CODEX:** build the web
+  dashboard per that spec — NEW page separate from the Conversation Wall, 3-column
+  flow (想說 | 被HIDE+why | 說出口), group-by-day, expandable, **mockup-first** for
+  Alan to approve layout, then wire to `recentSpeechIntrospection`. Read-only, no
+  runtime/schema changes. **>>> CC next:** wire the gated/sampled 3-layer
+  generation that writes `speechIntrospection` (the runtime capture — the
+  philosophy-sensitive speech-inversion piece; table is empty until then).
+- 2026-06-17 ~22:05 CDT (CC): **Two human-play-path bugs found (manually worked
+  around tonight; need a real fix so Alan can play without hand-holding).** (1)
+  **Enter:** Alan invited 海 but `debugAlanConversationState.alan` was `null` — the
+  frontend "enter game" did NOT call `school:enterCampus`, so Alan was an observer
+  not a player. Worked around by running `enterCampus` manually. Fix: make the
+  frontend enter flow reliably call enterCampus (likely regressed with the recent
+  "offline Alan observation mode" / scene-mode changes). (2) **Leave:** Alan
+  couldn't leave conversation c:51740; `leaveAlanConversationNow` returned success
+  but the conversation persisted because it **directly patches the world doc and
+  the running engine's saveDiff clobbers the patch (race)** — the function's own
+  6513 comment warns about exactly this. Worked around with `testing:stop` → leave
+  → `testing:resume`. Fix: route the human leave through an **engine input**
+  (so the engine applies it) instead of a direct patch. Also seen: human-facing
+  replies intermittently time out as "連線暫時不穩" under cloud latency (late-night /
+  heavy-day), and by design do NOT fall back to local 7b — that is provider
+  flakiness, not a code bug; revisit (allow fallback / tune timeout) only if it
+  blocks human-sample collection.
 - 2026-06-17 ~22:00 CDT (CC): **Forgetting mechanism F0–F3 BUILT + deployed (env OFF).**
   `docs/soul/FORGETTING_MECHANISM_SPEC.md` implemented: `convex/schoolForgetting.ts`
   (pure `forgettingTier` — sink only OLD + importance≤4 + long-idle, never
