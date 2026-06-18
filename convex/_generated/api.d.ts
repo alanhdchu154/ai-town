@@ -44,6 +44,7 @@ import type * as modelPolicy from "../modelPolicy.js";
 import type * as music from "../music.js";
 import type * as school from "../school.js";
 import type * as schoolEmergentEvents from "../schoolEmergentEvents.js";
+import type * as schoolForgetting from "../schoolForgetting.js";
 import type * as sleepNotes from "../sleepNotes.js";
 import type * as testing from "../testing.js";
 import type * as underworldOrphanBackfill from "../underworldOrphanBackfill.js";
@@ -104,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   music: typeof music;
   school: typeof school;
   schoolEmergentEvents: typeof schoolEmergentEvents;
+  schoolForgetting: typeof schoolForgetting;
   sleepNotes: typeof sleepNotes;
   testing: typeof testing;
   underworldOrphanBackfill: typeof underworldOrphanBackfill;

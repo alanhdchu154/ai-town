@@ -48,6 +48,14 @@ import {
   type EmergentEventCauseMetadata,
   v02EmergentEventsEnabled,
 } from './schoolEmergentEvents';
+import {
+  DEFAULT_FORGETTING_THRESHOLDS,
+  forgettingEnabled,
+  forgettingTier,
+  ageDaysOf,
+  idleDaysOf,
+  type ForgettingThresholds,
+} from './schoolForgetting';
 import { DEFAULT_NAME } from './constants';
 
 const DEFAULT_CLOCK = {
@@ -3895,6 +3903,237 @@ export const applyEmergentEventCandidates = mutation({
       checked: candidates.length,
       write,
       results,
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Forgetting mechanism (F0 audit / F2 archive / F3 reactivate). Sink = move an
+// embedding out of the active vector index into the (non-indexed) archive so
+// vectorSearch can no longer reach the memory, while the `description` text is
+// ALWAYS preserved and the embedding is recoverable. Shrinks the search index
+// that crashes the backend cleanup thread (WORKLOG #47) AND implements the #42
+// forgetting design. See docs/soul/FORGETTING_MECHANISM_SPEC.md.
+// ---------------------------------------------------------------------------
+
+function resolveForgettingThresholds(a: {
+  minAgeDays?: number;
+  maxImportance?: number;
+  minIdleDays?: number;
+}): ForgettingThresholds {
+  return {
+    minAgeDays: a.minAgeDays ?? DEFAULT_FORGETTING_THRESHOLDS.minAgeDays,
+    maxImportance: a.maxImportance ?? DEFAULT_FORGETTING_THRESHOLDS.maxImportance,
+    minIdleDays: a.minIdleDays ?? DEFAULT_FORGETTING_THRESHOLDS.minIdleDays,
+  };
+}
+
+function memoryForgettingView(m: Doc<'memories'>) {
+  return {
+    creationTime: m._creationTime,
+    importance: m.importance,
+    lastAccess: m.lastAccess,
+    dataType: m.data.type,
+    dormant: m.dormant,
+  };
+}
+
+// F0 — READ-ONLY audit. Reports the current index size and how many memories
+// WOULD sink under the given thresholds, with samples. No writes, no schema use
+// beyond reading. Run: npx convex run school:forgettingAudit '{}'
+export const forgettingAudit = query({
+  args: {
+    scan: v.optional(v.number()),
+    minAgeDays: v.optional(v.number()),
+    maxImportance: v.optional(v.number()),
+    minIdleDays: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    // Default scan kept modest: each memory row carries `description` text, and
+    // Convex caps a single function at 16MB of reads. We deliberately do NOT read
+    // the `memoryEmbeddings` table here (each row is a large float vector — bulk
+    // reading it blows the byte limit); embedding counts are DERIVED from the
+    // memory scan instead. Memories are returned oldest-first, which is exactly
+    // where dormant candidates live.
+    const scan = Math.max(1, Math.min(args.scan ?? 6000, 12000));
+    const t = resolveForgettingThresholds(args);
+    const now = Date.now();
+    const memories = await ctx.db.query('memories').take(scan);
+    let active = 0;
+    let dormantCandidate = 0;
+    let alreadyDormant = 0;
+    let reflectionProtected = 0;
+    const samples: Array<{
+      importance: number;
+      ageDays: number;
+      idleDays: number;
+      type: string;
+      desc: string;
+    }> = [];
+    for (const m of memories) {
+      if (m.dormant) {
+        alreadyDormant++;
+        continue;
+      }
+      if (m.data.type === 'reflection') reflectionProtected++;
+      const tier = forgettingTier(memoryForgettingView(m), now, t);
+      if (tier === 'dormant_candidate') {
+        dormantCandidate++;
+        if (samples.length < 10) {
+          samples.push({
+            importance: m.importance,
+            ageDays: Math.round(ageDaysOf(m._creationTime, now)),
+            idleDays: Math.round(idleDaysOf(m.lastAccess, now)),
+            type: m.data.type,
+            desc: m.description.slice(0, 40),
+          });
+        }
+      } else {
+        active++;
+      }
+    }
+    return {
+      thresholds: t,
+      scannedMemories: memories.length,
+      hitScanCap: memories.length === scan,
+      memories: { active, dormantCandidate, alreadyDormant, reflectionProtected },
+      // Derived, NOT read from the embeddings table (avoids the 16MB vector read):
+      // every non-dormant memory holds one ACTIVE embedding in the vector index;
+      // dormant ones have been archived out of it.
+      activeEmbeddingsApprox: active + dormantCandidate,
+      archivedEmbeddingsApprox: alreadyDormant,
+      wouldSinkPctOfActive:
+        active + dormantCandidate > 0
+          ? Math.round((dormantCandidate / (active + dormantCandidate)) * 100)
+          : 0,
+      samples,
+    };
+  },
+});
+
+// F2 — archive dormant candidates. `{write:false}` is a no-side-effect dry-run.
+// `{write:true}` is blocked unless UNDERWORLD_FORGETTING=true. Never touches
+// `description`. Run: npx convex run school:archiveDormantEmbeddings '{"write":false,"max":20}'
+export const archiveDormantEmbeddings = mutation({
+  args: {
+    write: v.optional(v.boolean()),
+    max: v.optional(v.number()),
+    scan: v.optional(v.number()),
+    minAgeDays: v.optional(v.number()),
+    maxImportance: v.optional(v.number()),
+    minIdleDays: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const write = args.write === true;
+    const enabled = forgettingEnabled();
+    const max = Math.max(1, Math.min(args.max ?? 50, 200));
+    const scan = Math.max(1, Math.min(args.scan ?? 4000, 16000));
+    const t = resolveForgettingThresholds(args);
+    const now = Date.now();
+    if (write && !enabled) {
+      return {
+        status: 'write_blocked',
+        enabled,
+        reason: 'Set UNDERWORLD_FORGETTING=true before sinking embeddings.',
+      };
+    }
+    const memories = await ctx.db.query('memories').take(scan);
+    const candidates = memories
+      .filter(
+        (m) =>
+          !m.dormant && forgettingTier(memoryForgettingView(m), now, t) === 'dormant_candidate',
+      )
+      .slice(0, max);
+    const results: Array<{
+      memoryId: string;
+      importance: number;
+      ageDays: number;
+      status: 'dry_run' | 'sunk' | 'skipped';
+      reason?: string;
+      desc: string;
+    }> = [];
+    let sunk = 0;
+    for (const m of candidates) {
+      const base = {
+        memoryId: String(m._id),
+        importance: m.importance,
+        ageDays: Math.round(ageDaysOf(m._creationTime, now)),
+        desc: m.description.slice(0, 40),
+      };
+      if (!write) {
+        results.push({ ...base, status: 'dry_run' });
+        continue;
+      }
+      const emb = await ctx.db.get(m.embeddingId);
+      if (!emb) {
+        // Active embedding already gone — just mark dormant (text preserved).
+        await ctx.db.patch(m._id, { dormant: true, dormantSince: now });
+        results.push({ ...base, status: 'skipped', reason: 'no_active_embedding' });
+        continue;
+      }
+      const archiveId = await ctx.db.insert('memoryEmbeddingsArchive', {
+        playerId: emb.playerId,
+        embedding: emb.embedding,
+        memoryId: m._id,
+        archivedAt: now,
+      });
+      await ctx.db.delete(m.embeddingId); // remove from the ACTIVE vector index
+      await ctx.db.patch(m._id, {
+        // NEVER touch `description` — soul text stays permanent.
+        dormant: true,
+        dormantSince: now,
+        archivedEmbeddingId: archiveId,
+      });
+      sunk++;
+      results.push({ ...base, status: 'sunk' });
+    }
+    return {
+      status: write ? 'applied' : 'dry_run',
+      enabled,
+      scannedMemories: memories.length,
+      candidates: candidates.length,
+      sunk,
+      thresholds: t,
+      results,
+    };
+  },
+});
+
+// F3 — reactivate (cued recall): bring one sunk memory back so vectorSearch can
+// reach it again. Restorative; re-inserts the archived embedding. Manual by id.
+// Run: npx convex run school:reactivateMemory '{"memoryId":"..."}'
+export const reactivateMemory = mutation({
+  args: { memoryId: v.id('memories') },
+  handler: async (ctx, args) => {
+    const m = await ctx.db.get(args.memoryId);
+    if (!m) return { status: 'not_found' as const };
+    if (!m.dormant) return { status: 'already_active' as const, memoryId: String(m._id) };
+    const now = Date.now();
+    if (!m.archivedEmbeddingId) {
+      await ctx.db.patch(m._id, { dormant: undefined, dormantSince: undefined, lastAccess: now });
+      return { status: 'reactivated_no_archive' as const, memoryId: String(m._id) };
+    }
+    const arch = await ctx.db.get(m.archivedEmbeddingId);
+    if (!arch) {
+      await ctx.db.patch(m._id, { dormant: undefined, dormantSince: undefined, lastAccess: now });
+      return { status: 'reactivated_archive_missing' as const, memoryId: String(m._id) };
+    }
+    const newEmbeddingId = await ctx.db.insert('memoryEmbeddings', {
+      playerId: arch.playerId,
+      embedding: arch.embedding,
+    });
+    await ctx.db.patch(m._id, {
+      embeddingId: newEmbeddingId,
+      dormant: undefined,
+      dormantSince: undefined,
+      archivedEmbeddingId: undefined,
+      lastAccess: now, // resurfacing counts as being accessed
+    });
+    await ctx.db.delete(arch._id);
+    return {
+      status: 'reactivated' as const,
+      memoryId: String(m._id),
+      newEmbeddingId: String(newEmbeddingId),
     };
   },
 });

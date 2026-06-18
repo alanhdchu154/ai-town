@@ -45,6 +45,14 @@ export const memoryFields = {
   embeddingId: v.id('memoryEmbeddings'),
   importance: v.number(),
   lastAccess: v.number(),
+  // Forgetting mechanism (see docs/soul/FORGETTING_MECHANISM_SPEC.md). When a
+  // memory "sinks" (becomes deep-dormant), its embedding is moved out of the
+  // active vector index into `memoryEmbeddingsArchive` so vectorSearch can no
+  // longer reach it — but `description` (the TEXT) is ALWAYS kept. Reversible:
+  // `archivedEmbeddingId` lets it be reactivated (cued recall). Absent = active.
+  dormant: v.optional(v.boolean()),
+  dormantSince: v.optional(v.number()),
+  archivedEmbeddingId: v.optional(v.id('memoryEmbeddingsArchive')),
   data: v.union(
     // Setting up dynamics between players
     v.object({
@@ -78,6 +86,17 @@ export const memoryTables = {
     filterFields: ['playerId'],
     dimensions: EMBEDDING_DIMENSION,
   }),
+  // Sunk embeddings (forgetting). Deliberately has NO vectorIndex, so archived
+  // vectors never load the search cache and are never returned by vectorSearch —
+  // that is exactly what makes the memory "forgotten" (unreachable by
+  // association) while staying fully recoverable. `memoryId` links back so a
+  // memory can be reactivated. See docs/soul/FORGETTING_MECHANISM_SPEC.md.
+  memoryEmbeddingsArchive: defineTable({
+    playerId,
+    embedding: v.array(v.float64()),
+    memoryId: v.id('memories'),
+    archivedAt: v.number(),
+  }).index('memoryId', ['memoryId']),
 };
 
 export const experienceLogTables = {
