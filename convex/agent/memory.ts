@@ -2228,6 +2228,19 @@ export const insertMemory = internalMutation({
     ...memoryFieldsWithoutEmbeddingId,
   },
   handler: async (ctx, { agentId: _, embedding, ...memory }): Promise<void> => {
+    // F3 idempotency: a re-archive/backfill can call this twice for one
+    // conversation. Skip if this (player, conversation) memory already exists, so
+    // we never double-write the core memory + its embedding.
+    if (memory.data.type === 'conversation') {
+      const { playerId, data } = memory;
+      const existing = await ctx.db
+        .query('memories')
+        .withIndex('playerId_conversation', (q) =>
+          q.eq('playerId', playerId).eq('data.conversationId', data.conversationId),
+        )
+        .first();
+      if (existing) return;
+    }
     const embeddingId = await ctx.db.insert('memoryEmbeddings', {
       playerId: memory.playerId,
       embedding,
@@ -2294,10 +2307,21 @@ async function reflectOnMemories(
 
 // The prompt is intentionally separate so the nightly "睡前回響" path and the
 // legacy threshold-triggered path build the exact same reflection instruction.
+// F2 safety (before nightly reflection WRITE is ever enabled): reflection must be
+// about relational/emotional stance, never a specific commitment/date — otherwise a
+// confabulated `具體承諾：…明天…` could harden into a permanent belief outside the
+// recall-correction net. Strip the commitment segment from the reflection input.
+export function stripCommitmentForReflectionInput(description: string): string {
+  return description
+    .replace(/具體承諾：[^；;。\n]+[；;。]?/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export function buildReflectionPrompt(name: string, memories: Pick<Memory, 'description'>[]) {
   const prompt = ['[no prose]', '[Output only JSON]', `You are ${name}, statements about you:`];
   memories.forEach((m, idx) => {
-    prompt.push(`Statement ${idx}: ${m.description}`);
+    prompt.push(`Statement ${idx}: ${stripCommitmentForReflectionInput(m.description)}`);
   });
   prompt.push(
     'Infer at most 3 long-term character memories from the above statements. Only promote patterns that change relationship stance, self-understanding, repeated concern, trust/distance, or future behavior. Do not turn one ordinary daily event into a permanent trait.',

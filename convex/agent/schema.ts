@@ -77,6 +77,9 @@ export const memoryTables = {
   memories: defineTable(memoryFields)
     .index('embeddingId', ['embeddingId'])
     .index('playerId_type', ['playerId', 'data.type'])
+    // F3: dedupe conversation memories so a re-archive/backfill cannot double-write
+    // the same conversation's memory + embedding.
+    .index('playerId_conversation', ['playerId', 'data.conversationId'])
     .index('playerId', ['playerId']),
   memoryEmbeddings: defineTable({
     playerId,

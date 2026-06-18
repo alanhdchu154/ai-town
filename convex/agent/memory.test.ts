@@ -5,6 +5,7 @@ import {
   buildResiduePrompt,
   buildSubjectiveSummaryPrompt,
   emotionResidueColorZh,
+  stripCommitmentForReflectionInput,
   residueEligible,
   sanitizeLlmResidue,
   localDayKey,
@@ -595,6 +596,18 @@ describe('nightly reflection (睡前回響)', () => {
     // talk does not harden into a permanent trait.
     expect(prompt).toMatch(/Do NOT invent or assert any external world fact/);
     expect(prompt).toMatch(/Reflect only on this character's own feelings/);
+  });
+
+  it('F2: strips 具體承諾/date text from the reflection input (no confabulated commitment can harden)', () => {
+    const prompt = buildReflectionPrompt('海', [
+      { description: '與 Alan 的對話：海覺得被需要。具體承諾：海答應明天幫 Alan 做咖哩飯。' },
+    ]);
+    // The relational stance stays; the specific commitment/date is gone.
+    expect(prompt).toContain('海覺得被需要');
+    expect(prompt).not.toContain('具體承諾');
+    expect(prompt).not.toContain('咖哩飯');
+    expect(stripCommitmentForReflectionInput('我很累。具體承諾：海答應明天交報告。')).toBe('我很累。');
+    expect(stripCommitmentForReflectionInput('沒有承諾的普通記憶。')).toBe('沒有承諾的普通記憶。');
   });
 
   it('localDayKey is stable within a local day and changes across days', () => {

@@ -4437,6 +4437,13 @@ export const forgettingAudit = query({
 // F2 — archive dormant candidates. `{write:false}` is a no-side-effect dry-run.
 // `{write:true}` is blocked unless UNDERWORLD_FORGETTING=true. Never touches
 // `description`. Run: npx convex run school:archiveDormantEmbeddings '{"write":false,"max":20}'
+// F1 (2026-06-18, Alan decision): this manual archiver is intentionally NOT
+// scheduled. It is honestly NOT the near-term crash fix — the local-backend crash
+// is the no-GC version HISTORY of the search index, and archiving (delete + 2
+// inserts + patch) actually ADDS churn. The real near-term mitigation is Tier 4
+// (age-vacuuming worldEvents/schoolNotifications); the real long-term fix for the
+// embedding vector count is the unbounded-embeddings ticket (#41). Kept as a
+// hand-run tool only; do not wire a cron expecting it to prevent crashes.
 export const archiveDormantEmbeddings = mutation({
   args: {
     write: v.optional(v.boolean()),
