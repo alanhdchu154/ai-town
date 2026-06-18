@@ -20,6 +20,7 @@ import { archiveDeletedConversation } from './aiTown/game';
 import { chatCompletion } from './util/llm';
 import { isGeneratedFallbackText } from './modelPolicy';
 import { hasDialogueSystemPhraseLeak } from './agent/dialogueHygiene';
+import { inferEmotionFromConversation } from './agent/conversationEmotion';
 import {
   COMMITMENT_FULFILLED_MARKER,
   RECALL_CORRECTED_MARKER,
@@ -3661,6 +3662,25 @@ export const recordConversationOutcome = internalMutation({
       actor: playerName,
       target: otherName,
     });
+    // ②→④ feedback edge: let the conversation actually move how the speaker FEELS.
+    // Their `currentEmotion` is already read into their next conversation prompt, so
+    // updating it here closes the loop (conversation → emotion → next conversation).
+    // Only changes on a clear signal (inferEmotion returns null otherwise) and never
+    // for repeated_noise, so flat exchanges don't churn the emotion.
+    if (outcomeQuality !== 'repeated_noise') {
+      const felt = inferEmotionFromConversation(`${args.summary} ${decisionZh}`);
+      if (felt) {
+        await updateEmotionByName(
+          ctx,
+          args.worldId,
+          descriptions,
+          playerName,
+          felt,
+          `剛和${displayNameZh(otherName)}的對話`,
+          clock,
+        );
+      }
+    }
     const alanCounterpart =
       playerName === DEFAULT_NAME ? otherName : otherName === DEFAULT_NAME ? playerName : undefined;
     if (alanCounterpart) {
