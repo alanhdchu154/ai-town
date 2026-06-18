@@ -1,128 +1,149 @@
-# Codex Task — Soul-loop emotion fixes (decay correctness, double-write, arbitration)
+# Codex Task — Close + harden the soul loop (Phase E/F + audit fixes)
 
 Time anchor: 2026-06-18 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
-Owner: Codex (structural). CC reviewed Phase A-D and fixed the two goal
-violations (A2 detector → construction-based; emotionChanges → capped); those are
-committed at `c5e7d803`. This file is the NEXT task: three should-fixes CC's
-review surfaced on the event→emotion edge.
-Mode: Bounded implementation, one fix at a time, tests required.
-Status: completed_pending_cc_review
-
-Codex update 2026-06-18 15:11 CDT:
-- All three should-fixes are implemented.
-- Fix 1: decay now reads the latest per-character `emotionChanges` row via the
-  `character` index and uses in-world `day/hour/minute` elapsed time. The decay
-  threshold is 4 in-world hours; stale emotions no longer disappear from the
-  lookup window just because notifications are noisy.
-- Fix 2: `applyPressureToCharacters` no longer patches `currentEmotion` after
-  calling `updateEmotionByName`; it patches only short-term intentions/memory.
-- Fix 3: `updateEmotionByName` now arbitrates by cause priority and in-world
-  recency. `event`/`conversation` can set immediately, fresh high-priority
-  emotions are protected from `pressure` and early `decay`, `pressure` may take
-  over after 2 in-world hours, and `decay` wins after 4 in-world hours.
-- No new table, no A2 detector change, no emotionChanges cap change, no provider
-  or automation changes.
-- Verification: `npm test -- convex/schoolEmergentEvents.test.ts` 12/12 PASS;
-  targeted suite 67/67 PASS; `npx tsc --noEmit --pretty false` PASS;
-  `npm run build` PASS; `git diff --check` PASS;
-  `npm run underworld:runtime-preflight` PASS; live
-  `school:recentEmotionChanges {"limit":5}` returned current rows with
-  `causeKind=conversation`.
-- Next: cc review the diff and fresh samples; Alan should watch whether emotion
-  now changes less randomly and whether decay feels like settling rather than
-  abrupt forgetting.
+Owner: Codex (implement). CC ran an independent 3-agent audit of the whole closed
+loop @ `89c71f78` and reviews each fix. Do your OWN audit pass too — CC's findings
+below are a seed, not the ceiling; verify them and look for more.
+Mode: Phased, one fix at a time, tests required, land + let CC review between tiers.
+Status: ready_for_codex
 
 ## Task ID
 
-underworld-soul-loop-emotion-fixes-20260618
+underworld-soul-loop-close-and-harden-20260618
 
-## Context
+## Loop status
 
-Phase A-D landed the event→emotion→development loop + the 情緒波動 dashboard.
-The emotion-fluctuation edge works but has three correctness gaps. All emotion
-writes go through the single choke-point `updateEmotionByName`
-(`convex/school.ts`, ~:897 after CC added the retention cap). The new
-`emotionChanges` table (indexes: `worldId`=`['worldId','createdAt']`,
-`character`=`['worldId','name','createdAt']`) is the reliable source of "this
-character's last emotion change" and should be used by the fixes below.
+```
+①event → ②speech → ③memory → ④emotion → ②next speech
+✅①→④ events move emotion  ✅decay  ✅arbitration  ✅dashboard  ✅④→②emotion colors speech
+❌④→③ emotion→memory (Phase E, never wired)   ⚠️Phase F (forgetting/nightly/idempotency)
+```
+The audit also found real defects in what already shipped (Tier 1/3/4 below).
 
-## Fix 1 — Decay correctness (highest value)
+## TIER 1 — Real bugs (fix first)
 
-`decayStaleCharacterEmotions` currently finds a character's last emotion change
-by scanning only the top ~120 `schoolNotifications` and `.find()`-ing the latest
-`emotion_changed`. Two bugs:
-- **Stale emotions never decay.** If the last change has scrolled past the
-  120-row window (schoolNotifications is high-volume: rumors, events, intentions),
-  the lookup returns undefined and decay is SKIPPED — i.e. the older/stucker the
-  emotion, the less likely it decays. Exactly backwards.
-- **Wall-clock, not in-world.** `EMOTION_DECAY_AFTER_MS` (~4h) is compared against
-  `notification.createdAt` (real `Date.now()`), but the goal is in-world time.
+- **BUG-1: Seeded baseline emotions are decayed away on the first decay tick.**
+  Profiles seed a NON-neutral `currentEmotion` (`emotionForProfile`,
+  `convex/school.ts:~11361`: Umi/Maomao/Sakiko=smiling, Mahiru=worried,
+  Tianze/Ichinose=serious) with NO `emotionChanges` row. `shouldApplyEmotionWrite`
+  (`school.ts:~922`) starts with `if (!lastChange) return true`, so a `decay`
+  write skips the 4-in-world-hour gate entirely → the first `decayStaleCharacterEmotions`
+  pass flattens every authored baseline to neutral/calm. Fix: decay must treat
+  "no history" as NOT-yet-stale — e.g. `if (causeKind === 'decay') return lastChange ? elapsed >= THRESHOLD : false;`
+  (keep `!lastChange → true` for event/conversation/pressure). OR seed an initial
+  `emotionChanges` row at profile creation. Add a test proving a seeded baseline
+  survives the first decay tick.
 
-Fix:
-- Find the last change via the new `emotionChanges` `character` index
-  (`q.eq('worldId', worldId).eq('name', name)`, `.order('desc').first()`) — no
-  window to fall out of.
-- Decide wall-clock vs in-world DELIBERATELY. The `emotionChanges` row stores both
-  `clock`/`day` (in-world) and `createdAt` (wall). Prefer an in-world delta
-  (clock/day) per the stated goal; if you keep wall-clock, document why.
-- Keep the existing decay direction (smiling→neutral, everything else→calm) and
-  the no-thrash equality early-return in `updateEmotionByName`. Decay must still
-  skip development (`causeKind === 'decay'`).
+- **BUG-2: A2 metaphor guard Tier-2 leaks "object 像 你的沉默/心跳/呼吸".**
+  `hasObjectAsEmotionMetaphorLeak` (`convex/agent/conversation.ts:~3361`) Tier 2
+  requires possessive-beat AND a speech-moment ref, so these LEAK (verified):
+  「橡皮擦的毛邊，像你的沉默。」「窗簾動了一下，像你的心跳。」「風扇的聲音，像你剛才嘆的那口氣。」
+  Tighten Tier 2 — e.g. abort when a possessive/bare emotional beat (你的/我們的/那段 +
+  沉默/心跳/呼吸/停頓/尾音/眼神) sits in a TIGHT window right after the 像-connective —
+  WITHOUT reintroducing the epistemic-好像 false positive: 「你好像不太喜歡他的表情。」
+  MUST still pass (it has 的表情 but the beat is far from 好像 and there's no simile).
+  Add tests for both the new aborts and that epistemic/functional/caring lines still pass.
+  (Note: the guard only runs on the soul-triad path `sanitizeUmiMahiruPilotLine`;
+  compact/Alan-facing paths have no runtime A2 backstop — acceptable for now, but note it.)
 
-## Fix 2 — Double-write in applyPressureToCharacters
+## TIER 2 — The two planned edges
 
-`applyPressureToCharacters` (`convex/school.ts`, ~:2581-2596) calls
-`updateEmotionByName(..., 'pressure')` (the choke-point, which patches
-`currentEmotion` + writes the `emotionChanges` row + runs development) and THEN
-also does `ctx.db.patch(profile._id, { currentEmotion: note.emotion ?? profile.currentEmotion })`
-using the STALE pre-patch `profile`. Remove the redundant second patch and rely on
-the choke-point. Confirm the patch sets only `currentEmotion` (if it carries other
-fields, route those through the proper path, not a stale-doc clobber).
+- **Phase E — wire ④→③ (emotion shapes memory).** Confirmed absent:
+  `rememberConversation`/`buildResiduePrompt`/`buildSubjectiveSummaryPrompt` never
+  read the speaker's emotion; a guarded vs calm 海 remembers identically. Wiring
+  point: `loadConversation` (`convex/agent/memory.ts:~1975-2039`) doesn't query
+  `schoolProfiles`. Add a `schoolProfiles` lookup by `playerId` (mirror `profileFor`
+  at `conversation.ts:~5422`), surface `currentEmotion` in its return, and thread
+  ONE line into both prompt builders: "你結束這段對話時的狀態偏向 X；讓它影響你*注意到/
+  記得*什麼，但不要直接寫出來." Keep it a coloring nudge, not a fact to state. The
+  emotion read = the just-settled mood the character carried out — correct timing.
 
-## Fix 3 — Arbitration (stop blind last-writer-wins)
+- **Phase F — memory/forgetting honest items (needs Alan decisions, flag don't guess):**
+  - F1 Forgetting is INERT: `archiveDormantEmbeddings` (`school.ts:~4069`) has no
+    scheduled caller, budget ≤200/call vs ~150k docs/day, and the crash root cause
+    is no-GC version HISTORY — archiving (delete+2 inserts+patch) ADDS churn. It is
+    NOT the near-term crash fix; the real fix is the unbounded-embeddings ticket
+    (#41). Surface options to Alan (cron / loosen / defer), don't silently wire it.
+  - F2 Before flipping nightly reflection to WRITE: reflections are
+    never-forgettable + never-vacuumed (permanent unbounded class) and the input
+    includes `具體承諾：`/date text that can harden a confabulated commitment outside
+    the recall-correction net. Address before enabling write mode.
+  - F3 `insertMemory`: add a `conversationId` idempotency guard (re-archive can
+    double-write the core memory + embedding; the experience log already dedupes).
 
-`updateEmotionByName` only short-circuits on equality (`profile.currentEmotion ===
-emotion`); otherwise ANY source overwrites. So an event and a conversation in the
-same tick clobber each other, and a low-priority signal can wipe a fresh
-high-priority emotion. Add lightweight arbitration:
-- Give each write an intensity/priority. Simplest sound version: a `causeKind`
-  priority (e.g. `conversation` ≈ `event` > `pressure` > `decay`), optionally
-  refined by event `importance` or conversation cue-score.
-- Before overwriting, read the character's last `emotionChanges` row; only
-  overwrite when the new signal is stronger OR sufficiently more recent (e.g.
-  in-world time elapsed). 
-- SAFETY: never deadlock emotion — a strong event must always be able to set
-  emotion, and decay must always eventually win once enough in-world time passes.
-  Add a test proving a low-priority `pressure`/`decay` write does NOT clobber a
-  just-set `conversation` emotion, but a fresh strong event does.
+## TIER 3 — Make Phase C ("character development") REAL — it is currently fake
+
+`characterDevelopmentPlanForEmotion` (`school.ts:~1026-1104`) only branches on
+`emotion` for **Umi**; Mahiru/Tianze/Ichinose/Maomao/Sakiko return a FIXED object
+regardless of emotion/cause. And the prompt digest (`conversation.ts:~5433-5438`)
+reads only the static `behaviorLeanZh`+`relationshipTendencyZh`, while the only
+event-specific field (`influenceZh`, built from `reason`) goes to `developmentLog`
+— which **nothing reads** (verified: no query/dashboard/prompt consumes
+`developmentLog`, `recurringConcernZh`, or `baselineEmotion`). So "最近的長期傾向"
+is a per-character constant, and the whole development layer writes dead data on
+every tick. Fix one of:
+  - (a) Make it real: feed `developmentLog[0].influenceZh` (carries what actually
+    happened) into the prompt digest, and/or emotion-condition the non-Umi plans so
+    a just-hurt Mahiru differs from a just-bonded Mahiru; OR
+  - (b) Trim it: stop writing the unread fields and drop the constant digest until
+    it can carry real signal.
+  Also fix the `；`-join double-semicolon artifact in the digest.
+
+## TIER 4 — Unbounded growth on the always-on loop (crash risk)
+
+`vacuumOldEntries` (`convex/crons.ts:35`) vacuums ONLY `inputs`. Two heavy writers
+are unbounded and on the 24/7 sim loop:
+  - `worldEvents` — `appendRecentEvent` (`school.ts:~872`, 12 call-sites) + one per
+    Alan chat (`messages.ts:~260`). Fastest grower, not capped/vacuumed.
+  - `schoolNotifications` — a row on EVERY emotion change (`school.ts:~1001`, incl.
+    decay) + 5 other paths. Not capped/vacuumed.
+Add both to an age-based vacuum (`TablesToVacuum`) OR a per-character/-world cap like
+`emotionChanges`. CAUTION: `worldEvents` is read by dashboards/eval by recency — use
+age-based pruning that preserves recent rows; don't break those reads. (`memoryEmbeddings`
+is the acknowledged #41 vector-index mode — out of scope unless Alan reopens #41.)
+
+## TIER 5 — Latent landmine + nits
+
+- `worldClockMinutes` (`school.ts:~905`) = `day*24*60+hour*60+minute`, ignoring
+  `week`/`semester`. The file has TWO `day` semantics (monotonic `clockAt` vs wrapped
+  1..5 `addWorldHours`). Today only monotonic clocks reach arbitration so it's latent,
+  but if a wrapped clock ever reaches `shouldApplyEmotionWrite`, elapsed goes negative
+  → clamped 0 → pressure/decay starve across week boundaries. Either include
+  week/semester in the minute math or assert/enforce the monotonic-day invariant.
+- `developmentLog` cap is a bare literal `6` (`school.ts:~1135,1145`) — make it a
+  named constant beside `EMOTION_CHANGES_PER_CHARACTER`.
+- decay writes a `schoolNotifications` "狀態變化" row on passive relaxation — product
+  call whether that's noise (esp. combined with BUG-1's first-tick mass decay).
 
 ## Hard constraints
 
-- ALL emotion writes stay on the single choke-point `updateEmotionByName`. Do not
-  add a second write path.
-- Do NOT create any new unbounded table. `emotionChanges` is capped at 80/char —
-  keep it that way; if arbitration needs prior-state, READ it, don't add storage.
-- Do not touch the A2 detector or the emotionChanges cap CC just landed.
-- Do not change provider config, compaction, or launchd/system automations.
-- One fix at a time; typecheck + targeted tests + build after each.
+- All emotion writes stay on the single choke-point `updateEmotionByName`.
+- Do NOT create any new unbounded table; keep `emotionChanges` capped at 80/char and
+  `developmentLog` at its cap. If you need prior state, READ it.
+- Do NOT weaken the A2 construction-based approach back to a noun list.
+- Do NOT touch provider config, compaction, or launchd/system automations.
+- One tier at a time: typecheck + targeted tests + build after each; land Tier 1
+  first and let CC review before Tier 3/4.
 
 ## Suggested commands
 
 ```bash
 git status --short
 npx tsc --noEmit --pretty false
-npm test -- convex/schoolEmergentEvents.test.ts data/characterLifeEvents.test.ts convex/agent/conversationMotifGuard.test.ts
+npm test -- convex/schoolEmergentEvents.test.ts convex/agent/conversationMotifGuard.test.ts data/characterLifeEvents.test.ts convex/agent/memory.test.ts
 npm run build
 npm run underworld:runtime-preflight
 git diff --check
 ```
 
-## Expected output (per fix)
+## Expected output (per tier)
 
-1. Files changed + the precise mechanism.
-2. For decay: the wall-clock-vs-in-world decision and why; proof a long-stale
-   emotion now decays.
-3. For arbitration: the priority model + a test showing no-clobber and
-   strong-event-wins and decay-eventually-wins.
-4. Tests added + results; what Alan should watch in-world.
+1. Files changed + precise mechanism.
+2. BUG-1: proof a seeded baseline survives the first decay tick. BUG-2: the new
+   abort cases + proof epistemic/functional lines still pass.
+3. Phase E: show a residue/summary that differs by the carried-out emotion.
+4. Tier 3 decision (make-real vs trim) + why. Tier 4: which tables, vacuum-vs-cap,
+   and that recency reads still work.
+5. Your own audit: anything CC's seed missed.
+6. Tests added + results; what Alan should watch in-world.
