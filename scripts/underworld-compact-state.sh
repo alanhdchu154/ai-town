@@ -36,8 +36,14 @@ export CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS="${CONVEX_LOCAL_BACKEND_STARTUP
 STATE_BASE="/Volumes/T9-Active/convex-backend-state"
 LIVE="$STATE_BASE/local-alan_chu-ai_town"
 SQLITE="$LIVE/convex_local_backend.sqlite3"
-STAMP="20260616"   # update or pass via env if running on a different day
+STAMP="${COMPACT_STAMP:-$(date +%Y%m%d)}"   # dynamic so nightly archives never collide
 CONVEX="./node_modules/.bin/convex"
+
+# Maintenance lock: while this file exists, the world-watchdog skips its recovery
+# so it does NOT kickstart-restart the dev-stack mid-compaction (the two would
+# fight and corrupt the compaction). Created right before the backend goes down,
+# removed on any exit via trap. The watchdog also ignores a stale lock (>20min).
+LOCK="$REPO_ROOT/umi/reports/.compaction-in-progress"
 
 # Size thresholds (documents-table row count from the sqlite).
 WARN_DOCS=250000     # getting big — plan a compaction soon
@@ -82,6 +88,13 @@ fi
 ARCHIVE="$STATE_BASE/local-alan_chu-ai_town-archive-precompact-$STAMP-$(doc_count)"
 EXPORT_ZIP="$STATE_BASE/../underworld-compaction-export-$STAMP.zip"
 ENV_BACKUP="$(mktemp /tmp/underworld-env-backup.XXXXXX)"
+
+# Hold the maintenance lock for the whole backend-down window so the watchdog
+# stands down. Removed on ANY exit (success, failure, or interrupt).
+mkdir -p "$(dirname "$LOCK")"
+date +%s > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+echo "[compact-state] maintenance lock set ($LOCK) — world-watchdog will skip recovery during compaction."
 
 echo "==> 1/8 Backing up env vars (CRITICAL — export/import does NOT carry these)"
 $CONVEX env list > "$ENV_BACKUP" 2>/dev/null

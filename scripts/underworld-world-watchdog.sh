@@ -49,6 +49,23 @@ if port_open; then
   exit 0
 fi
 
+# --- stand down during a scheduled compaction (maintenance lock) ---
+# The nightly compaction intentionally cycles the backend for ~5-10min. If the
+# watchdog kickstart-restarts the dev-stack during that window, the two fight and
+# corrupt the compaction. So while the lock is fresh, do nothing. A STALE lock
+# (>20min, e.g. a compaction that died without cleanup) is ignored so the watchdog
+# can still recover a genuinely-dead backend.
+MAINTENANCE_LOCK="${REPO_ROOT}/umi/reports/.compaction-in-progress"
+if [ -f "$MAINTENANCE_LOCK" ]; then
+  lock_ts=$(cat "$MAINTENANCE_LOCK" 2>/dev/null || echo 0)
+  lock_age=$(( $(date +%s) - lock_ts ))
+  if [ "$lock_age" -ge 0 ] && [ "$lock_age" -lt 1200 ]; then
+    log "DOWN but maintenance lock present (${lock_age}s old) — compaction in progress; standing down."
+    exit 0
+  fi
+  log "DOWN with a STALE maintenance lock (${lock_age}s) — ignoring it and proceeding with recovery."
+fi
+
 # --- backend is genuinely down: rate-limit before restarting ---
 now_epoch=$(date +%s)
 if [ -f "$STAMP_FILE" ]; then

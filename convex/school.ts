@@ -6490,7 +6490,17 @@ export const ensurePersistentAlan = mutation({
     const { world } = await defaultWorld(ctx);
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const existing = resolveAlanPlayer(world, descriptions);
-    if (existing) return { status: 'already_present' as const, playerId: existing.id };
+    const home = clampToClassroom(sceneSpawnPointWithPresence(ALAN_HOME_LOCATION_ID, 0, DEFAULT_NAME));
+    if (existing) {
+      // `join` spawns at a random tile, so Alan can end up outside the principal's
+      // office. Walk him home via the engine moveTo input (race-proof) if he drifted.
+      const here = nearestSchoolLocation(existing.position);
+      if (here?.id !== ALAN_HOME_LOCATION_ID && !existing.pathfinding) {
+        await insertInput(ctx, world._id, 'moveTo', { playerId: existing.id, destination: home });
+        return { status: 'already_present_returning_home' as const, playerId: existing.id };
+      }
+      return { status: 'already_present' as const, playerId: existing.id };
+    }
     await insertInput(ctx, world._id, 'join', {
       name: DEFAULT_NAME,
       character: AlanProfile.character,

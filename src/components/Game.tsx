@@ -180,6 +180,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
   }>();
   const [minuteTick, setMinuteTick] = useState(() => Math.floor(Date.now() / 60_000));
   const lastAlanFocusKey = useRef('');
+  const lastGoodPeriodRef = useRef('');
   // Camera-follow switch. It may refocus Alan inside the current scene, but it
   // does not keep changing selectedSceneId after the initial lock; otherwise
   // tiny position updates near room boundaries make the scene view flicker.
@@ -674,6 +675,13 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
     };
   })();
   const periodLabel = clockState?.periodLabelZh ?? '讀取中';
+  // Stable period for the scene BACKGROUND only. `clockState` briefly becomes
+  // undefined every time the worldClock query re-subscribes (minuteTick changes),
+  // which dropped periodLabel to '讀取中' → no day/night variant → the base image,
+  // making the 校長室 background flash to a different/night-looking picture. Keep
+  // the last real period so the background never flickers during those reloads.
+  if (clockState?.periodLabelZh) lastGoodPeriodRef.current = clockState.periodLabelZh;
+  const backgroundPeriodLabel = clockState?.periodLabelZh ?? lastGoodPeriodRef.current ?? periodLabel;
   // Visual cue for time of day. Scene tone already shifts with period,
   // but a glyph in the topbar lets the player read it without parsing
   // the Chinese label.
@@ -1057,7 +1065,7 @@ export default function Game({ view = 'world', onChangeView }: GameProps = {}) {
         } ${shellPeriodClass} ${isConversationMode ? 'giis-conversation-active' : ''} ${
           panelCollapsed && !isConversationMode ? 'giis-panel-is-collapsed' : ''
         } giis-scene-first`}
-        style={sceneVisualStyle(currentScene.id, periodLabel)}
+        style={sceneVisualStyle(currentScene.id, backgroundPeriodLabel)}
       >
         <div className="giis-topbar">
           <div className="giis-topbar-title">
