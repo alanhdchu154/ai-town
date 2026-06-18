@@ -5433,11 +5433,16 @@ export const queryPromptData = internalQuery({
       emotionZh: emotionLabelForPrompt(profile?.currentEmotion),
       intentionZh: profile?.shortTermIntentions?.[0],
       memoryZh: profile?.shortTermMemory?.[0],
+      // Tier 3: carry a REAL development signal — the most recent event-shaped
+      // entry (developmentLog[0].summaryZh embeds what actually happened) plus the
+      // now emotion-conditioned behaviour lean. Strip trailing ；/。 per segment so
+      // the join doesn't produce a 。；artifact.
       developmentDigestZh: [
+        profile?.developmentLog?.[0]?.summaryZh,
         profile?.developmentState?.behaviorLeanZh,
-        profile?.developmentState?.relationshipTendencyZh,
       ]
         .filter(Boolean)
+        .map((segment) => segment!.replace(/[；。]+$/, ''))
         .join('；'),
     });
     return {

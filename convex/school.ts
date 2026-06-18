@@ -1023,7 +1023,31 @@ function clippedDevelopmentText(text: string, max = 90) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-function characterDevelopmentPlanForEmotion(
+// Shared emotion→development lean. Tier 3: previously only Umi varied by emotion,
+// so the prompt digest was a per-character constant. This makes behaviorLeanZh
+// move with the character's recent emotional trajectory for EVERYONE. neutral → ''.
+function emotionDevelopmentLeanZh(emotion: PortraitEmotion): string {
+  switch (emotion) {
+    case 'tired':
+      return '最近偏累，想少扛一件事、把話說短';
+    case 'worried':
+      return '最近懸著心，更想先確認對方沒事';
+    case 'serious':
+      return '最近繃著，更會守住一條底線';
+    case 'guarded':
+      return '最近防備，把距離拉開一點';
+    case 'flustered':
+      return '最近被觸動，節奏容易亂、藏不住';
+    case 'smiling':
+      return '最近放得開，比較願意先靠近';
+    case 'calm':
+      return '最近平靜，放慢、不急著接話';
+    default:
+      return '';
+  }
+}
+
+function characterDevelopmentBasePlan(
   name: string,
   emotion: PortraitEmotion,
   reasonZh: string,
@@ -1101,6 +1125,19 @@ function characterDevelopmentPlanForEmotion(
     relationshipTendencyZh: '關係靠近或退後時先看對方是否安全。',
     behaviorLeanZh: '反應略微放慢；先觀察。',
   };
+}
+
+// Tier 3: the character's signature plan, with behaviorLeanZh conditioned by the
+// current emotion so a tired Mahiru leans differently from a guarded Mahiru.
+function characterDevelopmentPlanForEmotion(
+  name: string,
+  emotion: PortraitEmotion,
+  reasonZh: string,
+  causeKind: EmotionChangeCauseKind,
+): CharacterDevelopmentPlan {
+  const base = characterDevelopmentBasePlan(name, emotion, reasonZh, causeKind);
+  const lean = emotionDevelopmentLeanZh(emotion);
+  return lean ? { ...base, behaviorLeanZh: `${base.behaviorLeanZh}；${lean}` } : base;
 }
 
 export function characterDevelopmentPlanForTest(

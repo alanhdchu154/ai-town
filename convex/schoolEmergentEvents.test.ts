@@ -161,6 +161,21 @@ describe('v0.2 emergent event cause metadata', () => {
     });
   });
 
+  test('Tier 3: behaviorLean now varies by emotion for non-Umi characters (not a constant)', () => {
+    // The audit found Mahiru/Tianze/etc. returned a FIXED plan regardless of
+    // emotion. Now the emotion lean is appended, so a tired Mahiru leans
+    // differently from a guarded Mahiru, while keeping the character signature.
+    const tired = characterDevelopmentPlanForTest('Mahiru', 'tired', '又有人說沒事', 'event');
+    const guarded = characterDevelopmentPlanForTest('Mahiru', 'guarded', '又有人說沒事', 'event');
+    expect(tired.behaviorLeanZh).not.toEqual(guarded.behaviorLeanZh);
+    expect(tired.behaviorLeanZh).toContain('一對一靠近'); // signature preserved
+    expect(tired.behaviorLeanZh).toContain('少扛一件事'); // tired lean
+    expect(guarded.behaviorLeanZh).toContain('距離'); // guarded lean
+    // neutral adds no lean (no noise).
+    const neutral = characterDevelopmentPlanForTest('Mahiru', 'neutral', '又有人說沒事', 'event');
+    expect(neutral.behaviorLeanZh).not.toContain('；最近');
+  });
+
   test('development plans stay character-specific for newer live roster members', () => {
     expect(characterDevelopmentPlanForTest('Maomao', 'serious', '有人說身體沒事但手很冷', 'event')).toMatchObject({
       behaviorLeanZh: expect.stringContaining('症狀'),
