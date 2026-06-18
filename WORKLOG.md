@@ -70,6 +70,32 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~12:00 CDT (CC, Alan-directed): **Nightly reflection BUG FOUND + FIXED
+  (07740de7) — the sleep/daily-consolidation edge was silently broken.** Investigated
+  why the shadow reflection returned "no insights" for all 6: the LLM request had no
+  `max_tokens`, so output was truncated mid-string and JSON.parse always threw →
+  reflection NEVER consolidated anything (the ③→明天 daily-synthesis edge has been
+  dead). Fixed (max_tokens=700 + valid-JSON example + tolerant parser); shadow now
+  produces clean, grounded daily consolidations (relationship-stance shifts, no
+  fabricated facts) for all 6 — the first usable shadow reports. **Open decision for
+  Alan:** now that shadow output exists and is clean, whether to flip nightly
+  reflection to WRITE mode (writes permanent `reflection` memories; needs the
+  approval token). Recommend 1–2 more clean shadow nights, then enable.
+- 2026-06-18 ~12:00 CDT (CC, Alan-directed): **>>> CODEX C — expand the emotion
+  palette + portrait art.** Only 4 emotions exist (neutral/smiling/worried/serious),
+  too few for the loop now that conversations drive emotion (②→④). Add a small,
+  soul-relevant set with portrait art for all 6 characters. Proposed additions
+  (Codex/Alan refine): **tired/疲憊** (exhaustion — a core 海/真晝 theme), **flustered/
+  害羞** (warmth/fluster — Alan's confession case), **guarded/防備** (boundary
+  defensiveness — 天澤/一之瀨), and optionally **calm/平靜** (settled, distinct from the
+  neutral default). Work: add the values to `PortraitEmotion` (`data/characterVisuals.ts`
+  + the duplicate in `convex/school.ts`), produce portrait images per character/emotion
+  and wire `portraitPaths`, keeping the existing art style. **Coordination — tell
+  Codex:** CC then updates the ②→④ inference (`convex/agent/conversationEmotion.ts`)
+  and the `emotionZh` label map to use the new emotions; so Codex's PR should land the
+  type + art + portraitPaths, and ping CC to extend the inference. Review-gated; do
+  not change the conversation/residue pipeline.
+
 - 2026-06-18 ~11:30 CDT (CC, Alan-directed): **Soul loop CLOSED** (②→④ conversation
   →emotion shipped, e8c9e3d4; ④→② already existed) + two Codex handoffs queued.
   **>>> CODEX A — literature study on the affective soul loop.** Companion to
