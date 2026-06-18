@@ -2260,10 +2260,10 @@ export function buildReflectionPrompt(name: string, memories: Pick<Memory, 'desc
     'Do NOT invent or assert any external world fact, place, object, schedule, or what another person said or did. If a statement looks like a factual claim about Alan or the world that was corrected or is uncertain, do not promote it. Reflect only on this character\'s own feelings, stance, and relationship change.',
   );
   prompt.push(
-    'Return in JSON format, where the key is a list of input statements that contributed to your insights and value is your insight. Make the response parseable by Typescript JSON.parse() function. DO NOT escape characters or include "\n" or white space in response.',
+    'Return ONLY a JSON array, parseable by JSON.parse(). Each element is an object with EXACTLY two keys: "insight" (a Traditional-Chinese string) and "statementIds" (an array of the integer Statement indices that led to it). Keys MUST be double-quoted. No prose, no markdown, no code fences, nothing before or after the array. If nothing is worth promoting, return [].',
   );
   prompt.push(
-    'Example: [{insight: "...", statementIds: [1,2]}, {insight: "...", statementIds: [1]}, ...]',
+    'Example: [{"insight":"我開始把真晝的安靜當成需要被接住的訊號，而不是疏遠","statementIds":[1,2]},{"insight":"我不再急著替天澤的玩笑解釋，他得自己承認","statementIds":[4]}]',
   );
   return prompt.join('\n');
 }
@@ -2328,6 +2328,10 @@ export async function computeReflectionInsights(
   const rawReflection = await safeMemoryCompletion(
     {
       messages: [{ role: 'user', content: buildReflectionPrompt(name, memories) }],
+      // Without an explicit cap the model truncated the JSON mid-string (the
+      // "Unterminated string" parse errors that left every reflection empty); 700
+      // is enough for up to 3 Traditional-Chinese insights + their statementIds.
+      max_tokens: 700,
       timeoutMs: MEMORY_LLM_TIMEOUT_MS,
     },
     '[]',
@@ -2336,7 +2340,24 @@ export async function computeReflectionInsights(
 
   let insights: { insight: string; statementIds: number[] }[] = [];
   try {
-    insights = JSON.parse(rawReflection) as { insight: string; statementIds: number[] }[];
+    // Tolerate code fences / stray prose around the array (the model does not
+    // always return a bare array even when asked). Extract the outermost [...].
+    const match = rawReflection.match(/\[[\s\S]*\]/);
+    const parsed = JSON.parse(match ? match[0] : rawReflection) as unknown;
+    if (Array.isArray(parsed)) {
+      insights = parsed
+        .filter(
+          (item): item is { insight: string; statementIds: number[] } =>
+            !!item &&
+            typeof (item as { insight?: unknown }).insight === 'string' &&
+            Array.isArray((item as { statementIds?: unknown }).statementIds),
+        )
+        .map((item) => ({
+          insight: item.insight.trim(),
+          statementIds: item.statementIds.filter((n) => typeof n === 'number'),
+        }))
+        .filter((item) => item.insight.length > 0);
+    }
   } catch (e) {
     console.error('error parsing reflection', e);
     return { ...empty, rawReflection };
