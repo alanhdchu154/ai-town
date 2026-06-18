@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 09:46 CDT
+Last updated: 2026-06-18 11:24 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,48 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~12:30 CDT (CC, Alan-directed): **>>> CODEX D — merge the 3 read-only
+  UW automations into ONE hourly hour-dispatcher; keep compaction separate.**
+  Goal: easier management (4 Codex automations → 2) without losing safety. Build a
+  single `kind=heartbeat` automation `underworld-hourly-ops`, `FREQ=HOURLY;BYMINUTE=0`,
+  that branches on the current America/Chicago hour:
+  - **every hour** → the rolling-continuity work (it already runs `npm run
+    underworld:rolling-continuity`, which also does the speech-introspection capture
+    when `UNDERWORLD_SPEECH_INTROSPECTION=true`).
+  - **hour == 20** → ALSO the field-notes-watcher pass (read-only content scout).
+  - **hour == 23** → ALSO the nightly-reflection SHADOW pass (`npm run
+    underworld:nightly-reflection`, shadow only — NEVER `--write`/approval token;
+    reflection now actually produces insights after the max_tokens fix, so the shadow
+    reports are finally meaningful — watch them, do not auto-enable write).
+  Carry each task's existing safety rules verbatim into the merged prompt's per-hour
+  branch. After the merged automation is confirmed running, PAUSE/retire the 3
+  separate ones (`underworld-rolling-continuity-telegram`,
+  `underworld-field-notes-watcher`, `underworld-nightly-reflection-shadow`).
+  **KEEP `underworld-nightly-compaction` (04:00) SEPARATE and unchanged** — it is the
+  only one that WRITES + cycles the backend ~10min and is coordinated with the
+  world-watchdog via the maintenance lock; do NOT fold the dangerous compaction into
+  the hourly dispatcher. End state: 2 Codex UW automations (hourly-ops + compaction).
+
+- 2026-06-18 11:24 CDT (Codex): **Handled cc's CODEX A/B/C homework,
+  keeping runtime behavior bounded.** A: added
+  `docs/soul/SOUL_LOOP_LITERATURE_BRIDGE.md` as the conservative literature
+  bridge for the full affective loop (situation/appraisal -> speech/residue ->
+  emotion -> next speech -> sleep/tomorrow), and linked it from
+  `docs/soul/README.md`. B: added review-gated Short package
+  `media/shorts/2026-06-18-01-close-soul-loop/` with script, captions,
+  thumbnail prompt, metadata, and `FIX_FIRST` review status; no render/upload.
+  C: expanded `PortraitEmotion` display/type/schema support to include `tired`,
+  `flustered`, `guarded`, and `calm`; generated provisional derived portrait
+  and render assets for all 6 active stage characters; wired UI labels,
+  prompt-facing emotion labels, and `portraitPaths`/`renderPaths`. Codex then
+  attempted the cc inference handoff, but Claude returned a session-limit
+  blocker (`resets 1:30pm America/Chicago`). Because the scope was already
+  narrowed, Codex fallback completed the bounded `conversationEmotion`
+  inference/test update directly: `tired`, `flustered`, `guarded`, and `calm`
+  now infer from conservative cues while normal warmth/stress/confrontation
+  still map to `smiling`/`worried`/`serious`. **Important boundary:** no
+  memory/residue/sleep pipeline or provider config changed. The existing dirty
+  `media/topics/mystery-candidates-latest.md` was pre-existing and unrelated.
 - 2026-06-18 ~12:00 CDT (CC, Alan-directed): **Nightly reflection BUG FOUND + FIXED
   (07740de7) — the sleep/daily-consolidation edge was silently broken.** Investigated
   why the shadow reflection returned "no insights" for all 6: the LLM request had no
