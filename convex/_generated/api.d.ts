@@ -13,6 +13,7 @@ import type * as agent_dialogueHygiene from "../agent/dialogueHygiene.js";
 import type * as agent_embeddingsCache from "../agent/embeddingsCache.js";
 import type * as agent_experienceLog from "../agent/experienceLog.js";
 import type * as agent_memory from "../agent/memory.js";
+import type * as agent_speechIntrospectionPrompt from "../agent/speechIntrospectionPrompt.js";
 import type * as aiTown_addresseeRepair from "../aiTown/addresseeRepair.js";
 import type * as aiTown_agent from "../aiTown/agent.js";
 import type * as aiTown_agentDescription from "../aiTown/agentDescription.js";
@@ -74,6 +75,7 @@ declare const fullApi: ApiFromModules<{
   "agent/embeddingsCache": typeof agent_embeddingsCache;
   "agent/experienceLog": typeof agent_experienceLog;
   "agent/memory": typeof agent_memory;
+  "agent/speechIntrospectionPrompt": typeof agent_speechIntrospectionPrompt;
   "aiTown/addresseeRepair": typeof aiTown_addresseeRepair;
   "aiTown/agent": typeof aiTown_agent;
   "aiTown/agentDescription": typeof aiTown_agentDescription;

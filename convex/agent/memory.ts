@@ -1,7 +1,13 @@
 import { v } from 'convex/values';
 import { ActionCtx, DatabaseReader, action, internalAction, internalMutation, internalQuery } from '../_generated/server';
 import { Doc, Id } from '../_generated/dataModel';
-import { internal } from '../_generated/api';
+import { api, internal } from '../_generated/api';
+import {
+  buildSpeechIntrospectionPrompt,
+  parseSpeechIntrospection,
+  speechIntrospectionEnabled,
+  SPEECH_INTROSPECTION_FAILED,
+} from './speechIntrospectionPrompt';
 import { EMBEDDING_DIMENSION, LLMMessage, chatCompletion, fetchEmbedding } from '../util/llm';
 import { asyncMap } from '../util/asyncMap';
 import { GameId, agentId, conversationId, playerId } from '../aiTown/ids';
@@ -1821,6 +1827,129 @@ export const nightlyReflectionForWorld = action({
     }
 
     return { mode, todayKey, threshold, characters: perCharacter, written };
+  },
+});
+
+// Speech-introspection capture (the "unsaid" made visible). POST-HOC + DECOUPLED:
+// given the line a character actually SAID (unchanged), generate ①what they
+// wanted to say + ②what they held back / why. Baseline collection is NOT touched.
+// `{write:false}` = dry-run (generates + returns, no write). `{write:true}` is
+// blocked unless UNDERWORLD_SPEECH_INTROSPECTION=true. Bounded by `max`.
+// Run: npx convex run agent/memory:captureSpeechIntrospection '{"write":false,"max":3}'
+export const captureSpeechIntrospection = action({
+  args: {
+    max: v.optional(v.number()),
+    write: v.optional(v.boolean()),
+    timeZone: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const write = args.write === true;
+    const enabled = speechIntrospectionEnabled();
+    const max = Math.max(1, Math.min(args.max ?? 4, 20));
+    if (write && !enabled) {
+      return {
+        status: 'write_blocked' as const,
+        enabled,
+        reason: 'Set UNDERWORLD_SPEECH_INTROSPECTION=true before writing introspection rows.',
+      };
+    }
+    // Explicit types break the api<->this-file inference cycle (Convex TS7022).
+    type IntroTurn = {
+      conversationId: string;
+      day: number;
+      messageUuid?: string;
+      speakerPlayerId: string;
+      speakerName: string;
+      otherName: string;
+      said: string;
+      transcript: string;
+    };
+    const queryResult = (await ctx.runQuery(api.school.turnsForSpeechIntrospection, {
+      timeZone: args.timeZone,
+      limit: Math.min(max * 2, 20),
+    })) as { worldId: Id<'worlds'>; turns: IntroTurn[] };
+    const worldId = queryResult.worldId;
+    const turns = queryResult.turns;
+    const candidates = turns.filter((t: IntroTurn) => giisProfileForName(t.speakerName)).slice(0, max);
+    const rows: Array<{
+      conversationId: string;
+      playerId: string;
+      characterName: string;
+      otherCharacterName: string;
+      messageUuid?: string;
+      innerWant: string;
+      heldBack: string;
+      gateReason?: string;
+      said: string;
+      day: number;
+    }> = [];
+    const results: Array<Record<string, unknown>> = [];
+    for (const turn of candidates) {
+      const profile = giisProfileForName(turn.speakerName);
+      const prompt = buildSpeechIntrospectionPrompt(
+        turn.speakerName,
+        turn.otherName,
+        profile
+          ? {
+              role: profile.role,
+              persona: profile.persona,
+              communicationStyle: profile.communicationStyle,
+              stakes: profile.stakes,
+              coreValues: profile.coreValues,
+            }
+          : null,
+        turn.transcript,
+        turn.said,
+      );
+      const raw = await safeMemoryCompletion(
+        { messages: [{ role: 'user', content: prompt }], max_tokens: 240, timeoutMs: MEMORY_LLM_TIMEOUT_MS },
+        SPEECH_INTROSPECTION_FAILED,
+        memoryCloudModel('summary'),
+      );
+      const parsed = parseSpeechIntrospection(raw);
+      if (!parsed) {
+        results.push({ conversationId: turn.conversationId, speaker: turn.speakerName, status: 'no_output' });
+        continue;
+      }
+      rows.push({
+        conversationId: turn.conversationId,
+        playerId: turn.speakerPlayerId,
+        characterName: turn.speakerName,
+        otherCharacterName: turn.otherName,
+        messageUuid: turn.messageUuid,
+        innerWant: parsed.innerWant,
+        heldBack: parsed.heldBack,
+        gateReason: parsed.gateReason,
+        said: turn.said,
+        day: turn.day,
+      });
+      results.push({
+        conversationId: turn.conversationId,
+        speaker: turn.speakerName,
+        to: turn.otherName,
+        said: turn.said.slice(0, 30),
+        innerWant: parsed.innerWant,
+        heldBack: parsed.heldBack,
+        gateReason: parsed.gateReason,
+        status: write ? 'captured' : 'dry_run',
+      });
+    }
+    let inserted = 0;
+    if (write && rows.length) {
+      const res = (await ctx.runMutation(internal.school.writeSpeechIntrospectionRows, {
+        worldId,
+        rows,
+      })) as { inserted: number };
+      inserted = res.inserted;
+    }
+    return {
+      status: write ? ('written' as const) : ('dry_run' as const),
+      enabled,
+      candidates: candidates.length,
+      generated: rows.length,
+      inserted,
+      results,
+    };
   },
 });
 

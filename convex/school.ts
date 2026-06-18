@@ -4176,6 +4176,110 @@ export const recentSpeechIntrospection = query({
   },
 });
 
+// One representative turn per recent conversation, for the speech-introspection
+// action to annotate (the last substantive non-Alan line + the transcript so
+// far). Read-only; the action (agent/memory:captureSpeechIntrospection) calls
+// this, generates ①②, and writes via writeSpeechIntrospectionRows.
+export const turnsForSpeechIntrospection = query({
+  args: { limit: v.optional(v.number()), timeZone: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const timeZone = args.timeZone || 'America/Chicago';
+    const limit = Math.max(1, Math.min(args.limit ?? 8, 20));
+    const { worldStatus, world } = await defaultWorld(ctx);
+    const descriptions = await descriptionsByPlayer(ctx.db, world._id);
+    const nameByPlayerId = (id: string) => displayNameZh(descriptions.get(id)?.name ?? id);
+    const worldStartRealDate = giisWorldStartRealDate(worldStatus.worldStartRealDate);
+    const archived = await ctx.db
+      .query('archivedConversations')
+      .withIndex('ended', (q) => q.eq('worldId', world._id))
+      .order('desc')
+      .take(limit);
+    const turns = [];
+    for (const conversation of archived) {
+      const messages = await ctx.db
+        .query('messages')
+        .withIndex('conversationId', (q) =>
+          q.eq('worldId', world._id).eq('conversationId', conversation.id),
+        )
+        .collect();
+      const ordered = messages
+        .filter((m) => m.text.trim())
+        .sort((a, b) => a._creationTime - b._creationTime);
+      if (ordered.length < 2) continue;
+      // last substantive non-Alan line is the "said" we annotate
+      let idx = -1;
+      for (let i = ordered.length - 1; i >= 0; i--) {
+        if (nameByPlayerId(ordered[i].author) !== DEFAULT_NAME) {
+          idx = i;
+          break;
+        }
+      }
+      if (idx < 0) continue;
+      const said = ordered[idx];
+      const speakerName = nameByPlayerId(said.author);
+      const participants = conversation.participants.map(nameByPlayerId);
+      const otherName = participants.find((n) => n !== speakerName) ?? '對方';
+      const transcript = ordered
+        .slice(0, idx + 1)
+        .map((m) => `${nameByPlayerId(m.author)}：${m.text}`)
+        .join('\n');
+      const clock = clockAt(said._creationTime, timeZone, worldStartRealDate);
+      turns.push({
+        conversationId: String(conversation.id),
+        day: clock.day,
+        messageUuid: said.messageUuid,
+        speakerPlayerId: String(said.author),
+        speakerName,
+        otherName,
+        said: said.text,
+        transcript,
+      });
+    }
+    return { worldId: world._id, turns };
+  },
+});
+
+export const writeSpeechIntrospectionRows = internalMutation({
+  args: {
+    worldId: v.id('worlds'),
+    rows: v.array(
+      v.object({
+        conversationId: v.string(),
+        playerId: v.string(),
+        characterName: v.string(),
+        otherCharacterName: v.string(),
+        messageUuid: v.optional(v.string()),
+        innerWant: v.string(),
+        heldBack: v.string(),
+        gateReason: v.optional(v.string()),
+        said: v.string(),
+        day: v.number(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    let inserted = 0;
+    for (const row of args.rows) {
+      // Skip if we already captured this exact turn (avoid dup rows on reruns).
+      const existing = await ctx.db
+        .query('speechIntrospection')
+        .withIndex('conversation', (q) => q.eq('conversationId', row.conversationId))
+        .collect();
+      if (
+        existing.some(
+          (e) => e.messageUuid && row.messageUuid && e.messageUuid === row.messageUuid,
+        )
+      ) {
+        continue;
+      }
+      await ctx.db.insert('speechIntrospection', { worldId: args.worldId, ...row, createdAt: now });
+      inserted += 1;
+    }
+    return { inserted };
+  },
+});
+
 export const ensureWorldProfiles = internalMutation({
   args: { worldId: v.id('worlds') },
   handler: async (ctx, args) => {
