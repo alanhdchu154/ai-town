@@ -70,6 +70,32 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~09:45 CDT (CC): **>>> CODEX — set up a Codex-level nightly
+  compaction automation (Alan-directed).** The #41 launchd schedule was delegated
+  to Codex but never built, so the DB grew unchecked overnight to ~304k docs (past
+  the 250k WARN; #47 crash risk rises with DB/index size). CC prepared the pieces
+  (commit 7a768e7d): `scripts/underworld-nightly-compaction.sh` (wrapper: cd +
+  `CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=900` + `underworld-compact-state.sh
+  --auto`, logs to `umi/reports/compact-auto.log`) and a prepared launchd plist
+  `scripts/com.giis.underworld.nightly-compaction.plist` (04:00 daily). **Codex
+  task:** wire a Codex-level automation that runs `bash
+  scripts/underworld-nightly-compaction.sh` **nightly at 04:00 America/Chicago**
+  (deep sim-sleep 23:00-06:00 → the ~10-min world pause loses no conversations).
+  `--auto` is a NO-OP below 250k docs and only compacts when grown past it (backs
+  up + restores Convex env, keeps a recoverable archive), so it is safe every
+  night. Confirm the compaction backs up/restores the live Convex env (incl.
+  `UNDERWORLD_SPEECH_INTROSPECTION=true`) so the dashboard keeps refreshing after a
+  compaction. DB is WARN not CRIT (500k) and the world was stable overnight, so the
+  first scheduled 04:00 run handling it is fine — no urgent manual compaction.
+- 2026-06-18 ~09:30 CDT (CC): **Persistent-Alan overnight regression FIXED
+  (pushed cd6a0494).** Alan vanished overnight: the engine removes idle human
+  players after 5min (`HUMAN_IDLE_TOO_LONG`) and the leave/create direct patches
+  race the busy engine. Fix: exempt Alan (`human === DEFAULT_NAME`) from
+  idle-removal in `player.ts` + `school:ensurePersistentAlan` recreates him
+  race-proof via the engine `join` input. Live-verified: Alan recreated (p:54823)
+  and survived past the 5-min idle threshold. Effect visible in samples —
+  characters reference Alan naturally again (送藥/撿筆/偷喝茶).
+
 - 2026-06-17 23:45 CDT (Codex): **UW speech-introspection + UI review wrap-up.**
   CC's small handoff is handled: Central confirmed the Codex heartbeat automation
   `underworld-rolling-continuity-telegram` runs `npm run
