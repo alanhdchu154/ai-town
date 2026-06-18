@@ -70,6 +70,20 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 ~23:25 CDT (CC): **Speech-introspection dashboard now auto-refreshes
+  every 2h.** `scripts/underworld-rolling-continuity.mjs` (the existing 2h job)
+  now runs `agent/memory:captureSpeechIntrospection` (write, max 8) when
+  `UNDERWORLD_SPEECH_INTROSPECTION=true` — best-effort, gated, doesn't affect the
+  continuity verdict; adds a result line to the report. Flag is SET on the local
+  deployment; live capture wrote rows and `school:recentSpeechIntrospection`
+  returns them, so the `/introspection` view shows real 想說→被HIDE→說出口 data.
+  Pushed (e4f4aeea). **>>> CODEX (small):** (1) confirm the every-2h
+  Underworld Rolling Continuity automation actually runs `npm run
+  underworld:rolling-continuity` (it should, per #40) so the capture fires on
+  schedule; (2) add `UNDERWORLD_SPEECH_INTROSPECTION=true` to `docs/current-env.md`
+  so compaction (export/import wipes env, see #39) restores it — otherwise the
+  dashboard silently stops refreshing after a compaction.
+
 - 2026-06-17 ~23:05 CDT (CC): **Codex speech-introspection dashboard accepted +
   3 user bugs fixed, all pushed (320771b1..a8e87142).** (1) Reviewed + committed
   Codex's `SpeechIntrospectionDashboard.tsx` (new `/introspection` view, 3-column
