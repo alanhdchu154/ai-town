@@ -413,8 +413,17 @@ export const loadAgentDoSomethingContext = internalQuery({
         busyPlayerIds.add(participant.playerId);
       }
     }
+    const agentPlayerIds = new Set<string>(world.agents.map((candidate: any) => candidate.playerId));
     const otherFreePlayers = world.players.filter(
-      (candidate: any) => candidate.id !== player.id && !busyPlayerIds.has(candidate.id),
+      (candidate: any) =>
+        candidate.id !== player.id &&
+        !busyPlayerIds.has(candidate.id) &&
+        // Only agent-backed NPCs are autonomous-invite targets. Alan is now a
+        // persistent presence in the world (he hides in the principal's office)
+        // but has NO agent — he never replies on his own — so characters must not
+        // autonomously invite him and stall. The human still initiates Alan's
+        // conversations by inviting characters; this only blocks the reverse.
+        agentPlayerIds.has(candidate.id),
     );
     return { player, agent, map, otherFreePlayers };
   },

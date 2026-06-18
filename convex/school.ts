@@ -6545,6 +6545,21 @@ export const enterCampus = mutation({
   },
 });
 
+// A quiet solo activity for offline Alan while he stays in the principal's
+// office — present and alive, but NOT conversing (so the human-facing sample
+// pool is never polluted by an AI standing in for Alan). Rotates slowly.
+function offlineAlanAmbientActivity(now: number) {
+  const options = [
+    { description: '在校長室彈鋼琴', emoji: '🎹' },
+    { description: '在校長室翻看舊樂譜', emoji: '🎼' },
+    { description: '在校長室泡了壺茶，望著窗外', emoji: '🍵' },
+    { description: '在校長室整理明天的安排', emoji: '🗂️' },
+    { description: '在校長室聽著走廊的動靜', emoji: '🎧' },
+  ];
+  const pick = options[Math.floor(now / 600_000) % options.length];
+  return { description: pick.description, emoji: pick.emoji, until: now + 30 * 60_000 };
+}
+
 export const leaveCampus = mutation({
   args: { timeZone: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -6556,49 +6571,43 @@ export const leaveCampus = mutation({
     const descriptions = await descriptionsByPlayer(ctx.db, world._id);
     const alan = resolveAlanPlayer(world, descriptions);
     if (alan) {
-      // Archive any in-progress Alan conversation before dropping it from the
-      // world, otherwise leaving campus mid-chat orphans the transcript (same
-      // root cause fixed in leaveAlanConversationNow).
-      const playerNames = new Map<string, string>(
-        [...descriptions.entries()].map(([id, description]) => [id, description.name]),
-      );
-      const humanPlayers = new Map<string, boolean>(
-        world.players.map((player) => [player.id, Boolean(player.human)]),
-      );
+      // End any in-progress Alan conversation through the engine's
+      // `leaveConversation` input (archives once + sets toRemember) — not a direct
+      // patch (which the running engine clobbers and double-archives).
       const alanConversations = world.conversations.filter((conversation) =>
         conversation.participants.some((participant) => participant.playerId === alan.id),
       );
       for (const conversation of alanConversations) {
-        await archiveDeletedConversation(ctx, world._id, conversation, playerNames, humanPlayers);
+        await insertInput(ctx, world._id, 'leaveConversation', {
+          playerId: alan.id,
+          conversationId: conversation.id,
+        });
       }
-      // Same fix as leaveAlanConversationNow: the engine path sets toRemember
-      // on participants when a conversation stops; this direct patch must too,
-      // or characters never write memories of Alan chats ended this way.
-      const alanConversationByAgentPlayer = new Map<string, string>();
-      for (const conversation of alanConversations) {
-        for (const participant of conversation.participants) {
-          if (participant.playerId !== alan.id) {
-            alanConversationByAgentPlayer.set(participant.playerId, conversation.id);
-          }
-        }
-      }
+      // Alan does NOT leave the world anymore — he stays as a persistent, passive
+      // presence hiding in the principal's office. We only flip `human` off (so
+      // the frontend shows "接手 Alan" and the human is no longer driving him) and
+      // give him a quiet solo activity. Because Alan has no agent, characters never
+      // autonomously invite him (see agentOperations otherFreePlayers), so he never
+      // stalls a conversation. Re-entering just flips `human` back on — no
+      // re-creation, no race, so `alan: null` / "can't invite" can no longer happen.
       await ctx.db.patch(world._id, {
-        conversations: world.conversations.filter(
-          (conversation) =>
-            !conversation.participants.some((participant) => participant.playerId === alan.id),
-        ),
-        agents: world.agents.map((agent) =>
-          alanConversationByAgentPlayer.has(agent.playerId)
+        players: world.players.map((player) =>
+          player.id === alan.id
             ? {
-                ...agent,
-                lastConversation: now,
-                toRemember: agent.toRemember ?? alanConversationByAgentPlayer.get(agent.playerId),
+                ...player,
+                human: undefined,
+                position: clampToClassroom(
+                  sceneSpawnPointWithPresence(ALAN_HOME_LOCATION_ID, 0, DEFAULT_NAME),
+                ),
+                facing: { dx: 0, dy: 1 },
+                speed: 0,
+                activity: offlineAlanAmbientActivity(now),
               }
-            : agent,
+            : player,
         ),
-        players: world.players.filter((player) => player.id !== alan.id),
       });
     }
+    await nudgeEngineForInput(ctx, world._id);
     const existingPresence = await ctx.db
       .query('alanPresence')
       .withIndex('worldId', (q) => q.eq('worldId', world._id))
