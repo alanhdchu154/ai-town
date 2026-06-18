@@ -15,6 +15,7 @@ characters to remember, care, change, and leave emotional traces over time.
 ## Start Here
 
 - [Underworld Soul Architecture](./UNDERWORLD_SOUL_ARCHITECTURE.md)
+- [Soul, Speech, and the Unsaid - Literature Bridge](./SOUL_SPEECH_LITERATURE_BRIDGE.md)
 - [Soul Progression Plan](./SOUL_PROGRESSION_PLAN.md)
 - [Autonomous Director Loop](./AUTONOMOUS_DIRECTOR_LOOP.md)
 
@@ -39,6 +40,11 @@ beyond the emotional continuity loop.
 ## Current Principle
 
 Soul definitions are only Character DNA.
+
+The current research bridge is: soul should become visible through what a
+character notices, privately considers, socially filters, says, softens, delays,
+or leaves unsaid. See
+`docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md`.
 
 The next step is to make soul visible through:
 

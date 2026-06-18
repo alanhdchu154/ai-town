@@ -29,6 +29,23 @@ if there is a **rich situation** to speak *from*. That situation IS the events,
 the relationship state, the day's real happenings. So enriching the situation
 fixes the speech AND the memory at once — they are one lever, not two projects.
 
+## Literature bridge: speech includes the unsaid
+
+Use `docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md` as the research-backed lens for
+this roadmap. The important design shift is:
+
+```text
+situation appraisal
+-> communicative intention
+-> private candidate speech
+-> social / pragmatic gate
+-> spoken line, softened line, redirect, or silence
+```
+
+This keeps Stage ① from becoming another style prompt. A character's soul should
+shape what they notice and what they decide not to say, not only the final
+surface wording.
+
 ## The inversion, in three stages (do not big-bang)
 
 The guards are scar tissue from real failures; ripping them out at once brings
@@ -75,3 +92,7 @@ relationship map, if dropped into a doc later, would make the spine richer.
 - 2026-06-17: roadmap written. (Prior groundwork: per-character residue lens,
   the opening-grounding block, and the 15-min pair cooldown — all early moves
   toward Stage ①.)
+- 2026-06-17: literature bridge added for soul/self, speech intention,
+  common-ground, self-monitoring, and inhibition. Treat it as a design lens for
+  future Stage ①/② review, not a reason to rewrite runtime architecture before
+  v0.1 evidence is collectible.

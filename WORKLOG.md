@@ -69,6 +69,17 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 20:01 CDT: Central Umi aligned Alan's soul/speech literature-review
+  insight into the Underworld roadmap. Added
+  `docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md` as a design seed connecting
+  soul/self, speech intention, common ground, inner speech, self-monitoring,
+  inhibition, and face-work to the existing Speech & Situation inversion plan.
+  Updated `docs/soul/README.md`, `docs/soul/SPEECH_AND_SITUATION_INVERSION.md`,
+  and `docs/giis-v0.1-roadmap.md` to route future work through the bridge. This
+  is not a runtime change and not a v0.1 completion claim. Next useful use:
+  evaluate future speech-quality work for situation appraisal -> private
+  candidate speech -> social/pragmatic gate -> spoken line/silence, without
+  broad prompt rewrites before fresh v0.1 evidence is collectible.
 - 2026-06-17 16:42 CDT: Completed cc WORKLOG #45 handoff items A/B, and also
   packaged the requested Shorts candidates for review. v0.2 emergent-events
   substrate is now implemented but runtime-default-off: `worldEvents` has

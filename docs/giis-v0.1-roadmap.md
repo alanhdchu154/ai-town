@@ -15,6 +15,14 @@ existing state / relationship / events from "background" into the centre), ②
 retire arbitrary guards as quality holds, ③ (v0.2) make events emergent +
 consequential. **Full plan + progress log: `docs/soul/SPEECH_AND_SITUATION_INVERSION.md`.**
 
+Research bridge:
+`docs/soul/SOUL_SPEECH_LITERATURE_BRIDGE.md` is the current design lens for
+human-like speech. It frames "soul" as durable identity/memory/commitment rather
+than a metaphysical claim, and frames speech as situation appraisal -> private
+candidate speech -> social/pragmatic gate -> spoken line or silence. Use this
+for future review and planning; do not treat it as approval for a broad prompt
+rewrite before v0.1 evidence is collectible.
+
 ## 2026-06-16 Data-Collection Readiness Reset
 
 Alan's current goal is not to declare v0.1 done by adding more features. The
