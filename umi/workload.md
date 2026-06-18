@@ -1,203 +1,163 @@
-# CC Workload - Underworld v0.1 Data Collection Gate
+# Codex Task — Close the Soul Loop: Event → Emotion → Dialogue → Character Development
 
-Time anchor: 2026-06-17 09:18 America/Chicago
+Time anchor: 2026-06-18 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
-Model target: opus
-Mode: Split-work, code-mode findings-first with bounded implementation allowed
-Status: active
+Owner: Codex (hard/structural work). CC did the simple prompt fixes; CC returns to review each phase.
+Mode: Phased program — land + let Alan review between phases.
+Status: ready_for_codex
 
 ## Task ID
 
-underworld-v01-data-collection-gate-20260617-0918
+underworld-soul-loop-events-and-development-20260618
 
-## Current Goal
+## Architecture / Why
 
-Alan's current priority is not to declare v0.1 complete and not to build a new
-dashboard. The goal is to make Underworld able to collect and interpret the data
-needed for v0.1 reliably.
+Soul loop: ①event → ②speech → ③memory → ④emotion → (colors next speech).
+Forward edges work. After a 3-agent review (2026-06-18), two feedback edges are
+still OPEN, and Alan wants a richer event model on top:
 
-Specifically: identify the smallest missing evidence and pipeline fixes needed
-so we can collect fresh v0.1 data for character soul, concrete memory callback,
-and event-thread continuity, then rerun the v0.1 completion audit from current
-reports.
+- **①→④ event→emotion: missing.** `moodEvents` only become prompt TEXT; they
+  never patch `currentEmotion`. The only event→emotion wiring is a brittle
+  keyword block (`convex/school.ts:1051-1067`) that almost never matches real
+  bulletin descriptions.
+- **④→③ emotion→memory: missing.** `rememberConversation` never reads
+  `currentEmotion`; a guarded 海 and a calm 海 remember the same exchange
+  identically.
+- **No decay / no arbitration / not observable.** Emotion is last-writer-wins,
+  never relaxes, and there is no structured log to chart it.
 
-## Current Evidence From Umi
+Alan's sharpened intent (2026-06-18 chat):
+- **小物件:** characters must NOT invent objects, and must NOT route emotion
+  THROUGH an object at all. Objects appear ONLY when literally functional
+  (遞考卷, 提醒便當沒吃, 桌上那隻貓). Emotion is expressed like a real person
+  (直接講 / 沉默 / 岔到一件實際的事 / 開玩笑 / 換話題).
+- **event:** wants CONCRETE, character-specific life events with clear valence
+  (天澤 考試一百分→開心; 今天是誰的生日→大家有反應) — not the current ambient
+  mood atmosphere. And these should reach all three layers below.
+- **Chosen scope: all three layers, including character development.**
 
-- Runtime is currently healthy. Latest `npm run underworld:runtime-preflight`
-  report passed on 2026-06-17 around 09:09 CDT.
-- Latest completion audit is still failing: `umi/reports/v01-completion-audit-latest.md`
-  generated 2026-06-17T03:18:07.256Z, overall FAIL, v0.1 goal audit PENDING.
-- Failing requirements:
-  - `character_soul_expression`: latest life-signals evidence does not pass
-    character-soul and role-action checks; recent eval shows 0 PASS / 4 WARN /
-    8 FAIL.
-  - `memory_continuity_yesterday_matters`: rolling callbacks are weak or
-    generic; needs concrete residue -> callback evidence.
-  - `event_thread_continuity`: needs latest life-signals PASS with ordinary
-    scenes and daily rhythm evidence.
-- Passing requirements: conversation-to-emotional-residue, Alan-facing
-  conversation quality, provider/fallback hygiene, motif hygiene/repair gate,
-  and night quiet policy.
-- Previous CC/Codex pass fixed the forced-sample harness:
-  - `scripts/run-soul-triad-single-sample.mjs` now handles non-original-triad
-    focus pairs and English aliases.
-  - `scripts/underworld-observe-once.mjs` has the missing `truncate` helper.
-  - Targeted sample `Tianze:Ichinose` accepted `conversation-c:37914`.
-  - `npm run eval:conversation:recent -- --since-last-change` still showed
-    0 PASS / 4 WARN / 8 FAIL, so data collection can run, but quality evidence
-    is not yet good enough.
-- Current dirty file to preserve: `scripts/underworld-runtime-preflight.mjs`
-  has Codex's small localhost healthcheck fix. Do not overwrite or revert it.
+## Already done by CC — DO NOT redo (only the PROMPT side)
 
-## Questions For CC
+In `convex/agent/conversation.ts`:
+- `plainSpeechRule` (~:1595): bans object-as-emotion metaphor; objects are
+  functional-only; emotion expressed like a real person. (prompt-only)
+- `characterFlawRule` (~:1601/:1606): 天澤 "危險的問題用最直白一句問出來，不要
+  包裝成物件意象"; 海 "盔甲是普通提醒，不是系統/流程的比喻".
+- `bindingRule` (:1644) + continue-mode line (:1694): removed the
+  "岔開到一個小物件 / 用小物件繞開" instructions that contradicted the above.
 
-Findings first, then patch only if the smallest useful fix is clear:
+These are PROMPT-only. Codex adds the ENFORCEMENT detector (Phase A2) and the
+SCENE-prop supply (Phase A1) so the rule has teeth and ② has real props to use.
 
-1. Given the latest v0.1 audit failures, what exact fresh data do we need next?
-   Name the commands/reports that should produce that data.
-2. Is the current v0.1 data collection path reliable enough after the harness
-   fixes? If not, what is the smallest fix in sampling, eval, or report scripts?
-3. Which failures are "need more fresh data" versus actual product behavior
-   problems that require a narrow prompt/runtime change?
-4. What is the smallest safe action today to make progress toward collectable
-   v0.1 evidence?
-5. What commands should Codex/Umi run afterward to verify the path?
+## Phases (priority order; land + review between each)
 
-## Candidate Files To Inspect
+### Phase A — Ground objects in the real scene (小物件根治)
+- **A1.** Make the scene supply real, present, FUNCTIONAL props. Extend
+  `data/schoolLocations.ts` / the `sceneContext` builder so each scene hands the
+  prompt a short list of "此刻在場、真的能被使用的具體道具", and constrain ② to
+  only reference those (or none). Root cause of invented 橡皮擦/窗簾 is that ①
+  gives no real props.
+- **A2.** Object-as-emotion DETECTOR (teeth for CC's prompt rule). In
+  `sanitizeUmiMahiruPilotLine` (~`conversation.ts:3246`), detect the simile
+  CONSTRUCTION, not specific nouns: a comparison connective binding a concrete
+  physical noun to an emotional/temporal beat (e.g. `像…的那[數字]秒`,
+  `像你剛(才|說)…時`, `就像…一樣`) → `[ABORT_CONVERSATION]`. Add unit tests
+  (this module is well-tested). Generalizes past the 橡皮擦/窗簾 whack-a-mole.
 
-- `umi/COMMAND_REFERENCE.md`
-- `umi/reports/v01-completion-audit-latest.md`
-- `umi/reports/life-signals-latest.md`
-- `umi/reports/rolling-continuity-latest.md`
-- `umi/reports/am-pm-continuity-latest.md`
-- `evals/conversations/reports/latest.md`
-- `evals/conversations/reports/soul-triad-latest.md`
-- `scripts/underworld-v01-completion-audit.mjs`
-- `scripts/underworld-observe-once.mjs`
-- `scripts/run-soul-triad-single-sample.mjs`
-- `scripts/underworld-life-signals.mjs`
-- `scripts/underworld-rolling-continuity.mjs`
-- `scripts/underworld-am-pm-continuity.mjs`
-- `evals/conversations/runRecentConversationEval.ts`
-- `evals/conversations/metrics/conversation_metrics.ts`
-- `convex/agent/conversation.ts`
-- `convex/agent/experienceLog.ts`
-- `convex/aiTown/agent.ts`
+### Phase B — Concrete character life-events (the new event model) + ①→④
+- **B1.** New event type: a character life event carrying
+  `{ actorName, type ('考試'|'生日'|'比賽'|'社團'|'成果'|…), valenceZh,
+  emotion (PortraitEmotion), affectedNames[], developmentHook }`. Author a small
+  seed set — real, character-specific, clear valence (e.g. 天澤 考試一百分→
+  `smiling`; X 的生日→大家). Keep it data-driven like `moodEvents`.
+- **B2.** Layer 1 (①→④ 即時情緒): when such an event is emitted, call
+  `updateEmotionByName` (`convex/school.ts:890`, the single choke-point) for the
+  actor + `affectedNames`. RETIRE / replace the brittle keyword block
+  (`school.ts:1051-1067`). **This changes live emotion behavior Alan is
+  observing — land it, then pause for Alan review before going further.**
+- **B3.** Layer 2 (①→② 進對話): the event becomes a TOPIC. Feed it into the
+  recent-events / sceneContext channel the speech prompt already reads so others
+  can congratulate / tease / mention it naturally (not as narration).
+- **B4.** Emotion DECAY: on the existing clock/day tick, relax `currentEmotion`
+  toward `calm`/`neutral` after N in-world hours unless reinforced. Stops stuck
+  emotion. (Currently NONE — grep decay/衰減 finds nothing.)
+- **B5.** ARBITRATION: tag each emotion write with an intensity (event
+  `importance` or cue score); overwrite only when stronger or sufficiently more
+  recent. At minimum fix the silent clobber where the keyword block overrode
+  `applyPressureToCharacters` within one event.
 
-## Allowed Changes
+### Phase C — Character development (Layer 3 — deepest, NEW)
+- **C1.** Accumulation mechanism: events DRIFT long-term character state
+  (trait leanings / relationship deltas / recurring concerns) — NOT overwriting
+  momentary `currentEmotion`, but slowly shaping a baseline. E.g. repeated
+  boundary-tests → more `guarded` baseline; birthday remembered → more trust
+  toward that person.
+- **C2.** Storage + use: a per-character development state/log (distinct from
+  `currentEmotion`). Feed a short digest into the speech prompt as LONG-TERM
+  coloring, separate from the short-term emotion line.
+- **C3.** Keep it BOUNDED and observable — do not create another unbounded table
+  (see the crash lesson in Phase F). Decay/cap old drift.
 
-You may make bounded repo-local edits if they directly improve v0.1 data
-collection, report clarity, or verification reliability.
+### Phase D — Make fluctuation visible (the dashboard Alan asked for)
+- **D1.** Add an `emotionChanges` structured table, written from the single
+  choke-point `updateEmotionByName`:
+  `{ worldId, name, previousEmotion, emotion, reasonZh,
+  causeKind ('conversation'|'event'|'pressure'), causeEventId?, day, clock,
+  createdAt }` + worldId/day indexes.
+- **D2.** `recentEmotionChanges` query — mirror `recentSpeechIntrospection`
+  (`convex/school.ts:4196`).
+- **D3.** `EmotionFluctuationDashboard.tsx` — mirror
+  `src/components/SpeechIntrospectionDashboard.tsx`: per-character timeline,
+  each chip = one change (tooltip = `reasonZh` + linked event), left=event →
+  right=emotion + `behaviorSignalForEmotion` gloss. Add as a sibling/sub-tab of
+  the 內省 view (`src/App.tsx`, `src/components/Game.tsx`).
 
-Allowed examples:
+### Phase E — ④→③ emotion→memory (close the other open edge)
+- **E.** Pass the speaker's `currentEmotion` into `buildResiduePrompt` and
+  `buildSubjectiveSummaryPrompt` (`convex/agent/memory.ts`) as ONE line:
+  "你現在心情偏向 X；讓它影響你*注意到*什麼，但不要直接寫出來." So a guarded 海
+  and a calm 海 remember differently. Cheap, high narrative payoff.
 
-- Fix a sampling/report script that misclassifies or fails to surface v0.1
-  evidence.
-- Add a small self-test for the collection/report path.
-- Improve a report so it says exactly which evidence is missing and which
-  command should collect it.
-- Make a minimal runtime/eval guard if evidence proves the collection path is
-  blocked by a small code defect.
+### Phase F — Honest memory/forgetting items (lower priority; needs Alan decision)
+- **F1.** Forgetting is INERT: `archiveDormantEmbeddings` (`school.ts:4069`) has
+  NO scheduled caller, budget ≤200/call vs ~150k docs/day, and the crash root
+  cause is the no-GC version HISTORY of the search index — archiving (delete + 2
+  inserts + patch) ADDS churn. Reframe honestly: it is NOT the near-term crash
+  fix; the real fix is the unbounded-embeddings ticket (#41). Alan to decide:
+  cron it anyway / loosen thresholds / defer to #41.
+- **F2.** Before flipping nightly reflection to WRITE: reflections are
+  never-forgettable + never-vacuumed = a permanent unbounded memory class; the
+  reflection input still includes `具體承諾：` / date text that could harden a
+  confabulated commitment outside the recall-correction net. Address first.
+- **F3.** `insertMemory`: add a `conversationId` idempotency guard (residual
+  double-write on the re-archive/backfill path; the experience log already
+  dedupes, the core memory does not).
 
-Do not:
+## Hard constraints
 
-- Broad prompt-tune.
-- Rewrite souls, memory architecture, provider config, Convex schema, map, or
-  character system.
-- Delete/migrate/reset Convex state.
-- Run watch/dev servers.
-- Run unbounded generation loops.
-- Treat old chats or old reports as current without checking timestamps.
+- Phase by phase. Land, typecheck + tests + build, THEN let Alan review. Do not
+  chain all phases blind.
+- Do NOT break v0.1 data collection.
+- Do NOT create new unbounded tables without a forgetting/TTL/decay plan — this
+  is the crash lesson (no-GC version history). Applies to `emotionChanges` and
+  the Phase C development state.
+- Compaction stays separate; do NOT touch launchd / system automations.
+- Keep emotion expressed like a real person — never re-introduce object-as-
+  emotion (Phase A is the whole point).
 
-## Suggested Commands
-
-Start read-only:
+## Suggested commands
 
 ```bash
 git status --short
-sed -n '1,220p' umi/COMMAND_REFERENCE.md
-sed -n '1,220p' umi/reports/v01-completion-audit-latest.md
-sed -n '1,220p' umi/reports/life-signals-latest.md
-sed -n '1,220p' umi/reports/rolling-continuity-latest.md
-npm run underworld:runtime-preflight
-npm run underworld:v01-completion-audit
-npm run eval:conversation:recent -- --since-last-change
+npx tsc --noEmit --pretty false
+npm test -- convex/agent/conversationEmotion.test.ts
+npm run build
+git diff --check
 ```
 
-If you edit scripts, run the narrow checks relevant to the files touched, for
-example:
+## Expected output (per phase)
 
-```bash
-node --check scripts/underworld-v01-completion-audit.mjs
-node --check scripts/underworld-observe-once.mjs
-npm run underworld:v01-completion-audit:self-test
-npm run underworld:harness:self-test
-```
-
-Do not run `npm run underworld:observe:daytime-samples`,
-`npm run underworld:v01-daytime-check`, or other live sample generation unless
-your findings explicitly justify it and you state why the bounded run is needed.
-
-## Expected Output
-
-Return:
-
-1. Top findings by severity with file/report references.
-2. Whether the immediate blocker is data collection, data quality, or product
-   behavior.
-3. Any bounded patch made, with files changed and why.
-4. Commands run and results.
-5. The exact next command Umi/Codex should run to collect or validate v0.1 data.
-6. Boundaries: what should not be changed yet.
-
-## Acceptance Criteria
-
-- We know the next smallest data-collection action for v0.1.
-- If the collection pipeline is broken, the smallest safe fix is made or clearly
-  identified.
-- The v0.1 audit remains the acceptance gate; no one declares completion from a
-  single green report.
-- Alan gets a clear Central Umi summary without being sent to inspect raw logs.
-
-## Worker Result - 2026-06-17 09:27 CDT
-
-Status: active, waiting for fresh 2026-06-17 evening evidence.
-
-CC code-mode pass completed with no file edits. Umi accepts the main finding:
-the current blocker is not a broken collection pipeline. The pipeline can
-produce archived conversations and soul-triad PASS samples, but the latest
-6/16 evening evidence shows a real product-quality issue:
-
-- `life-signals-latest.md` is WARN / `life_signal_repeated`; repeated surface
-  lines are gating both character-soul and event-thread continuity.
-- `rolling-continuity-latest.md` is WARN / `weak_continuity`; callbacks exist
-  but rely on generic cue overlap rather than concrete residue -> callback.
-- `evals/conversations/reports/latest.md` still shows the same mirror/motif
-  repetition pattern across recent WARN/FAIL rows.
-- `soul-triad-latest.md` can PASS targeted pairs while the broader recent-eval
-  still FAILs; do not treat a soul-triad pass as whole-product v0.1 proof.
-
-Accepted next action:
-
-Do not run more forced daytime samples this morning. Wait for natural 2026-06-17
-evening evidence, then after about 21:00 CDT run the read-only gate chain:
-
-```bash
-npm run underworld:life-signals
-npm run underworld:rolling-continuity
-npm run underworld:am-pm-continuity
-npm run eval:conversation:recent -- --since-last-change
-npm run underworld:v01-completion-audit
-```
-
-If the 6/17 evening evidence repeats the same surface-line / mirror-motif
-pattern, open a new bounded implementation task for narrow echo prevention,
-likely around `convex/agent/conversation.ts`, instead of broad prompt tuning.
-
-Do not change yet:
-
-- No broad soul/prompt rewrite.
-- No memory/provider/schema/map reset.
-- No unbounded generation loop.
-- Do not revert the localhost preflight fix in
-  `scripts/underworld-runtime-preflight.mjs`.
+1. Files changed.
+2. What the phase wired and how it avoids over-triggering / unbounded growth.
+3. Tests added/updated + results.
+4. What Alan should watch in-world before the next phase.

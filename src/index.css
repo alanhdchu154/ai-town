@@ -1566,7 +1566,10 @@ body {
   bottom: 8.2rem;
   left: 0.9rem;
   max-width: min(21rem, 28vw);
-  top: 5.2rem;
+  /* Clear the floating topbar above it: the topbar (top 0.85rem) renders ~4.5rem
+     tall with its two lines (scene｜period + Alan｜time), so its bottom sits near
+     5.3rem — the old 5.2rem made the 手帳 pill row overlap the topbar's box. */
+  top: 6.6rem;
 }
 
 .giis-live-room-shell .giis-left-pill {
