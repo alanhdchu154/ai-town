@@ -688,6 +688,12 @@ describe('soul-grounded LLM residue', () => {
     // Grounded, de-philosophised: no "原來" aphorisms, no projecting the other.
     expect(grounded).toMatch(/不要用「原來/);
     expect(grounded).toMatch(/不要替 Alan 臆測/);
+    // Inversion follow-up: after residue went 無-first, the micro-tell relocated
+    // into the subjective summary memory (喉結動了一下 ×3 in one runtime batch).
+    // The summary must redirect AWAY from micro-body-tells toward substance
+    // (choice/words/decision), or it becomes the new template treadmill.
+    expect(grounded).toMatch(/不要習慣性地把記憶寫成「喉結動了一下」/);
+    expect(grounded).toMatch(/那是模板，不是記憶/);
     // Without a profile it still produces a valid plain first-person prompt.
     const plain = buildSubjectiveSummaryPrompt('海', 'Alan', null);
     expect(plain).toContain('You are 海');
