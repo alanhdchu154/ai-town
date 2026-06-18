@@ -70,6 +70,25 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 ~10:30 CDT (CC): **Automation consolidation (Alan-directed) — recovery
+  unified into the watchdog, morning-healthcheck retired (pushed 2f006727).**
+  Liveness/recovery was split across 3 agents with duplicated restart logic + a gap
+  (a stopped-but-backend-up engine was only caught once a day at 06:00). Folded the
+  two unique morning-healthcheck recoveries into `world-watchdog`: engine
+  stopped/inactive → `testing:resume` (throttled ~10min), LLM-host DNS broken →
+  `networksetup` DNS swap (~20min); both skip during a compaction (maintenance
+  lock) and self-pace so the 120s loop stays cheap (port-down kickstart unchanged).
+  Live-verified: watchdog detected `testing:stop` and resumed the engine. Retired
+  the `com.giis.underworld.morning-healthcheck` launchd agent (bootout + plist
+  removed; rollback copy `scripts/*.plist.retired` + the script stays in repo).
+  **Now: ONE fast recovery agent (every 120s) covering port-down + engine-stopped +
+  DNS, instead of watchdog + a once-daily healthcheck.** Remaining automation map:
+  launchd = dev-stack (KeepAlive) + world-watchdog (120s, recovery); Codex =
+  rolling-continuity (hourly, observe+introspection), nightly-compaction (04:00,
+  coordinates with the watchdog via the lock), field-notes (20:00), reflection
+  (23:30). The Codex underworld nightly trio run at distinct times by design — not
+  worth merging.
+
 - 2026-06-18 ~10:30 CDT (CC): **Fixed 3 collection-blocking issues (pushed
   a5c5934d).** (1) **Compaction↔watchdog conflict** (would have broken tonight's
   04:00 run): the nightly compaction cycles the backend ~10min, and the
