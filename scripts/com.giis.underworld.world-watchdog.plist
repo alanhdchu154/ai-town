@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Underworld world watchdog launchd agent (PREPARED, not auto-installed).
+     Activate when you want the world to self-heal during data collection:
+
+       cp scripts/com.giis.underworld.world-watchdog.plist ~/Library/LaunchAgents/
+       launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.giis.underworld.world-watchdog.plist
+       launchctl list | grep world-watchdog   # verify loaded
+
+     Deactivate:
+       launchctl bootout gui/$(id -u)/com.giis.underworld.world-watchdog
+
+     It runs scripts/underworld-world-watchdog.sh every 120s: if backend port
+     3210 is down on two checks, it kickstart-restarts com.giis.underworld.dev-stack
+     (rate-limited to 1 restart / 5 min). Healthy runs are silent no-ops.
+     Actions are logged to umi/reports/world-watchdog.log. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.giis.underworld.world-watchdog</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/bash</string>
+		<string>/Users/alanhdchu/ai-town/scripts/underworld-world-watchdog.sh</string>
+	</array>
+	<key>StartInterval</key>
+	<integer>120</integer>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/alanhdchu/ai-town/umi/reports/world-watchdog.launchd.err.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/alanhdchu/ai-town/umi/reports/world-watchdog.launchd.out.log</string>
+	<key>WorkingDirectory</key>
+	<string>/Users/alanhdchu/ai-town</string>
+</dict>
+</plist>
