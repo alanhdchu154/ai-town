@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
@@ -62,7 +62,18 @@ export default function SpeechIntrospectionDashboard({
   const showingPreview = data === undefined || liveSamples.length === 0;
   const samples = showingPreview ? MOCK_SAMPLES : liveSamples;
   const groupsByDay = useMemo(() => groupSamples(samples), [samples]);
+  const firstConversationId = groupsByDay[0]?.conversations[0]?.id;
   const totalTurns = liveSamples.length;
+
+  useEffect(() => {
+    if (showingPreview || !firstConversationId) return;
+    setExpandedConversationIds((current) => {
+      if (current.has(firstConversationId)) return current;
+      const next = new Set(current);
+      next.add(firstConversationId);
+      return next;
+    });
+  }, [firstConversationId, showingPreview]);
 
   const toggleConversation = (id: string) => {
     setExpandedConversationIds((current) => {
@@ -137,7 +148,7 @@ export default function SpeechIntrospectionDashboard({
                       {first.characterName} ↔ {first.otherCharacterName}
                     </span>
                     <small>
-                      {conversation.samples.length} turns · {formatTime(first.createdAt)}-
+                      {expanded ? '收起' : '展開'} · {conversation.samples.length} turns · {formatTime(first.createdAt)}-
                       {formatTime(last.createdAt)}
                     </small>
                   </button>

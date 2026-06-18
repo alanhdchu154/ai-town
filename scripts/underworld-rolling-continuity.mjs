@@ -119,12 +119,22 @@ const peekResidueDigest = await runPeek('talk');
 
 // Best-effort: when speech-introspection is enabled, refresh the dashboard's
 // data on this same 2h cadence so the /introspection view (想說→被HIDE→說出口)
-// is never stale — Alan can drop in and see fresh rows any time. Gated by
-// UNDERWORLD_SPEECH_INTROSPECTION; the capture is post-hoc + decoupled (it never
-// touches the baseline spoken lines), and any failure here must not affect the
-// continuity verdict.
-let speechIntrospection = 'introspection: disabled (set UNDERWORLD_SPEECH_INTROSPECTION=true)';
-if (process.env.UNDERWORLD_SPEECH_INTROSPECTION === 'true') {
+// is never stale — Alan can drop in and see fresh rows any time. Gated by the
+// Convex deployment env, with the local shell env accepted as a convenience for
+// one-off runs. The capture is post-hoc + decoupled (it never touches the
+// baseline spoken lines), and any failure here must not affect the continuity
+// verdict.
+let speechIntrospection = 'introspection: disabled (set Convex env UNDERWORLD_SPEECH_INTROSPECTION=true)';
+let speechIntrospectionEnabled = process.env.UNDERWORLD_SPEECH_INTROSPECTION === 'true';
+if (!speechIntrospectionEnabled) {
+  try {
+    const status = await convexRun('school:recentSpeechIntrospection', { limit: 1 });
+    speechIntrospectionEnabled = status?.enabled === true;
+  } catch (error) {
+    speechIntrospection = `introspection gate check skipped: ${error?.message ?? error}`;
+  }
+}
+if (speechIntrospectionEnabled) {
   try {
     const result = await convexRun('agent/memory:captureSpeechIntrospection', { write: true, max: 8 });
     speechIntrospection = `introspection: ${result?.inserted ?? 0} new / ${result?.generated ?? 0} generated / ${result?.candidates ?? 0} candidates`;

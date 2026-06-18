@@ -50,6 +50,7 @@ npx convex env set SOUL_PILOT_PAIR_COOLDOWN_MS 600000          # 10-min cooldown
 npx convex env set AGENT_GENERATE_MESSAGE_TIMEOUT_MS 150000    # operation backstop (was a bad 600000 default)
 npx convex env set UNDERWORLD_KEEP_WORLD_ALIVE true
 npx convex env set UNDERWORLD_RESIDUE_LLM true
+npx convex env set UNDERWORLD_SPEECH_INTROSPECTION true        # Convex-gated speech introspection capture for /introspection
 
 # then: testing:stop -> wait ~20s -> testing:resume  (clean restart, never testing:kick)
 ```

@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-17 22:35 CDT
+Last updated: 2026-06-17 23:45 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,29 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-17 23:45 CDT (Codex): **UW speech-introspection + UI review wrap-up.**
+  CC's small handoff is handled: Central confirmed the Codex heartbeat automation
+  `underworld-rolling-continuity-telegram` runs `npm run
+  underworld:rolling-continuity` in the allowed 2h daytime/evening windows, and
+  `docs/current-env.md` now records `UNDERWORLD_SPEECH_INTROSPECTION=true` for
+  Convex env restore after compaction/export resets. Codex also tightened
+  `scripts/underworld-rolling-continuity.mjs` so capture is gated by the Convex
+  deployment env exposed through `school:recentSpeechIntrospection.enabled`, not
+  only by the shell's `process.env`; this avoids silent non-refresh in Codex
+  automation shells. Live verification: Convex env list shows
+  `UNDERWORLD_SPEECH_INTROSPECTION=true`; `school:recentSpeechIntrospection
+  {"limit":10}` returns `enabled=true` and 8 live samples after a real
+  `npm run underworld:rolling-continuity` run, which logged `introspection: 7 new
+  / 8 generated / 8 candidates`. UI review: Conversation Wall tabs
+  (`對話`/`殘留`/`記憶`/`睡眠筆記`) are clear enough as data-layer tabs on desktop
+  and mobile with no horizontal overflow; the new speech-introspection page now
+  auto-expands the first live conversation and labels conversation headers with
+  `展開`/`收起`, so Alan sees the three-column evidence immediately. Verification:
+  `npm run underworld:rolling-continuity:self-test`, `npm run
+  underworld:introspection:self-test` (7/7), `npm run build`, browser desktop +
+  390px mobile UI checks. Important product caveat: the refreshed rolling report
+  is still `WARN / weak_continuity` and the v0.1 audit remains `FAIL` with 3
+  fail / 5 pass; dashboard visibility is improved, but product v0.1 is not done.
 - 2026-06-17 ~23:25 CDT (CC): **Speech-introspection dashboard now auto-refreshes
   every 2h.** `scripts/underworld-rolling-continuity.mjs` (the existing 2h job)
   now runs `agent/memory:captureSpeechIntrospection` (write, max 8) when
