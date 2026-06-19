@@ -8115,28 +8115,31 @@ async function advanceWorldTimeImpl(ctx: MutationCtx, hours: number, timeZone = 
   await moveCharactersForWorldTime(ctx, world, descriptions, visibleClock);
   const currentLocation = schoolLocationForClock(visibleClock);
   const alanIsOnline = !!alan;
-  await appendRecentEvent(ctx, world._id, {
-    type: 'advanceWorldTime',
-    actorPlayerId: alan?.id,
-    actorName: DEFAULT_NAME,
-    source: 'world_simulation_event',
-    happenedDuringAlanPresence: alanIsOnline ? 'online' : 'away',
-    observerPlayerIds: world.players.map((player) => player.id),
-    descriptionZh: alanIsOnline
-      ? `Alan 觀察了接下來 ${hours} 小時可能發生的校園變化。`
-      : `Alan 離校處理其他公司的事情時，校園自然演化了接下來 ${hours} 小時的可能變化。`,
-    descriptionEn: alanIsOnline
-      ? `Alan simulated ${hours} hours of campus evolution without changing the visible clock.`
-      : `The campus evolved for ${hours} hours while Alan was away.`,
-    locationId: currentLocation.id,
-    locationZh: currentLocation.labelZh,
-    interpretationZh: alanIsOnline
-      ? '這不是把時鐘跳到未來，而是讓校園根據目前狀態生成新的事件、意圖與情緒變化。'
-      : '這不是 Alan 親自做決定；他不在校園時，只讓角色、日程和世界壓力自然流動。',
-    reactionDialogueZh: '校園沒有脫離現實時間，但角色們的關係與記憶出現了新的變化。',
-    importance: 5,
-    clock: visibleClock,
-  });
+  // worldEvents growth control (2026-06-18): the 'advanceWorldTime' event is
+  // meta-narration ("the campus evolved for N hours") that nothing reads as data.
+  // It fired on EVERY sim advance — the dominant low-value writer (~1.4k/day) and
+  // the main worldEvents growth driver. Keep it ONLY when Alan is online (the rare
+  // "Alan observed" case with UI relevance); skip the autonomous away-bulk. The
+  // real content (conversation outcomes, campus threads, life events) is unaffected.
+  if (alanIsOnline) {
+    await appendRecentEvent(ctx, world._id, {
+      type: 'advanceWorldTime',
+      actorPlayerId: alan?.id,
+      actorName: DEFAULT_NAME,
+      source: 'world_simulation_event',
+      happenedDuringAlanPresence: 'online',
+      observerPlayerIds: world.players.map((player) => player.id),
+      descriptionZh: `Alan 觀察了接下來 ${hours} 小時可能發生的校園變化。`,
+      descriptionEn: `Alan simulated ${hours} hours of campus evolution without changing the visible clock.`,
+      locationId: currentLocation.id,
+      locationZh: currentLocation.labelZh,
+      interpretationZh:
+        '這不是把時鐘跳到未來，而是讓校園根據目前狀態生成新的事件、意圖與情緒變化。',
+      reactionDialogueZh: '校園沒有脫離現實時間，但角色們的關係與記憶出現了新的變化。',
+      importance: 5,
+      clock: visibleClock,
+    });
+  }
   const story = await simulateAutonomousSchoolLife(
     ctx,
     world,
