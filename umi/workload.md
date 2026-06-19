@@ -1,73 +1,72 @@
-# Codex Task — FINAL adversarial review of the closed soul loop (CC implemented)
+# Codex Task — Enable nightly reflection write (+ creative follow-ups)
 
 Time anchor: 2026-06-18 America/Chicago
 Repo cwd: `/Users/alanhdchu/ai-town`
-Owner: Codex (final reviewer). Alan asked CC to implement ALL remaining tiers, then
-have Codex do the final review with a fresh adversarial perspective.
-Mode: read-only review, findings-first. Do NOT implement unless you find a real bug
-and Alan approves; otherwise report and stop.
-Status: cc_implemented_all_tiers_ready_for_codex_final_review
+Owner: Codex. CC finished all the repo/world-readiness engineering today; the world
+is now in a clean, data-collectable state. The remaining items are an automation
+flip (CC must not touch Codex automations) + creative work.
+Status: ready_for_codex
 
-## Task ID
+## Context — what CC shipped today (all on main, all tested)
 
-underworld-soul-loop-close-and-harden-20260618
+Backend health + loop hardening (the world is data-ready now):
+- Compacted the Convex local backend: 650MB/408k docs → 220MB/76k docs; the "too
+  many system operations" query timeout is gone (preflight PASS). World continuity
+  preserved (day 31).
+- worldEvents growth: stopped writing the per-advance `advanceWorldTime` meta-event
+  when Alan is away (the dominant low-value writer). `840da24d`
+- 文青腔: ran the object-as-emotion guard on EVERY sanitize path (was pilot-only, so
+  海↔Alan bypassed it) + banned scenery-projection in the Alan-facing prompt +
+  plainSpeechRule. `c6a02b17`
+- 咖哩飯 fix: recency-gated the greeting "callback to a previous conversation" nudge
+  (`40e0c665`) + a systematic topic-fixation guard (≥3× repeated everyday topic →
+  nudge to move on) + surfaced the dead `recurringConcernZh` field. `2b259877`
+- Earlier: closed the soul loop (Phase E ④→③), made Phase C development real, bounded
+  emotionChanges/worldEvents/schoolNotifications, reflection-input safety (F2),
+  memory idempotency (F3). Codex reviewed + patched 2 P1s.
 
-## What CC implemented (commits on main, all tsc-clean, full suite 338/338)
+## TASK 1 — Flip nightly reflection to WRITE mode (the long-term-memory data unlock)
 
-- **Tier 1 (`c28a7d65`)** — already reviewed/approved earlier: seeded-baseline decay
-  fix + A2 Tier-2b metaphor leak fix.
-- **Phase E (`ef98537b`) — ④→③ emotion→memory (the last open loop edge).**
-  `loadConversation` now surfaces the speaker's `schoolProfiles.currentEmotion`;
-  `emotionResidueColorZh` maps the 8-emotion palette → a felt-state phrase (neutral/
-  unknown → null); `buildResiduePrompt` + `buildSubjectiveSummaryPrompt` add ONE
-  coloring nudge so a guarded 海 and a calm 海 no longer remember identically. Test
-  proves guarded≠calm and neutral adds nothing.
-- **Tier 3 (`6646257b`) — made Phase C ("character development") REAL.** It was a
-  per-character constant. Now `emotionDevelopmentLeanZh` conditions `behaviorLeanZh`
-  by emotion for ALL characters (not just Umi), and the prompt digest carries the
-  most recent `developmentLog[0].summaryZh` (the event-shaped entry that was written
-  but never read). Fixed the `。；`join artifact. Test proves non-Umi lean varies by
-  emotion.
-- **Tier 4 (`877108b3`) — bounded the unbounded crash-risk tables.** Added
-  `worldEvents` + `schoolNotifications` to `crons.ts TablesToVacuum` (14-day
-  age-based; all readers are recency-based; structured emotion timeline lives in the
-  capped `emotionChanges` table).
-- **Phase F (`f828244a`)** per Alan's decisions:
-  - F2 (keep nightly write SHADOW + make safe): `stripCommitmentForReflectionInput`
-    removes `具體承諾`/date from reflection input so a confabulated commitment can't
-    harden once write is ever enabled. Write mode stays OFF.
-  - F3: new memories index `['playerId','data.conversationId']` + idempotency guard
-    in `insertMemory` (no more double-write on re-archive).
-  - F1: documented at `archiveDormantEmbeddings` that forgetting is intentionally
-    unscheduled and is NOT the near-term crash fix (deferred to #41; Tier 4 is the
-    real mitigation).
+The code + safety are READY (CC did F2: `stripCommitmentForReflectionInput` keeps a
+confabulated commitment from hardening). Enabling it is the last piece for richer
+data collection. It is intentionally left to Codex because it is a Codex-automation
+change + a behavior decision.
 
-## Please review (findings-first)
+- Mechanism: `scripts/underworld-nightly-reflection.mjs --write
+  --approval=alan-approved-nightly-reflection-2026-06-12` (shadow is the default).
+  The hourly-ops automation currently runs it in SHADOW.
+- DO FIRST: confirm ONE clean shadow night reads sane post-today's-changes (the
+  script's own guidance: only enable --write once the day's memories read clean —
+  check each character's "would keep" list is not consolidating fabricated world
+  facts). Today had many prompt changes, so do not flip blind.
+- THEN: update the `underworld-hourly-ops` automation to pass `--write --approval=…`
+  on the nightly slot. Surface to Alan before flipping.
+- WATCH after enabling: reflections write into `memories` (excluded from vacuum =
+  permanent). Volume is low (a few/character/night) so it is acceptable, but note it
+  is a permanent class; revisit retention if it grows.
 
-1. **Phase E** — any P0/P1: does the emotion read at remember-time use the correct
-   (just-settled) mood? Any null/timing issue? Is the coloring a nudge (not a fact)?
-2. **Tier 3** — does the digest now carry real, varying signal without prompt-budget
-   blowup or leaking the event verbatim as a script? Is `summaryZh` safe to surface?
-3. **Tier 4** — is 14-day age-vacuum safe for every `worldEvents`/`schoolNotifications`
-   reader (confirm nothing needs >14-day-old rows)? Any reader that breaks?
-4. **Phase F** — F3 idempotency guard correctness (the narrowing/closure + index
-   eq on `data.conversationId`); F2 strip regex (does it over/under-strip?).
-5. **Anything CC missed** across the whole closed loop — race, unbounded write, dead
-   field, contradiction. (Known/accepted, do NOT re-flag: `recurringConcernZh` +
-   `baselineEmotion` are still written-not-read but cheap on a bounded object;
-   nightly write stays shadow; forgetting deferred to #41; A2 guard runs only on the
-   soul-triad path.)
+## TASK 2 (creative, separate) — Soul-loop short
 
-## Verification CC ran
+Turn the now-closed loop (situation→speech→memory→emotion→back, with the dashboards)
+into a short. CC's media handoffs from earlier exist under `media/`. Package-first,
+review-gated, no runtime mutation, human-approved before any publish.
 
-```
-npx tsc --noEmit            # clean
-npm test                    # 338/338, 26 suites
-npm run build               # PASS
-```
+## TASK 3 (feature, separate) — Emergent events deepening
 
-Suggested for Codex: `npm run underworld:runtime-preflight` + fresh in-world samples
-(文青腔 down? emotion changing less randomly? decay feels like settling? development
-digest reads as real?).
+Events→chained events (E2-E4 scaffolding exists in schoolEmergentEvents). Gated
+behind `UNDERWORLD_V02_EMERGENT_EVENTS`. Design a bounded one-hop-then-stop chain;
+do not create unbounded follow-up loops.
 
-Stop after review; report findings. Implement only a real bug, and only with Alan's OK.
+## Notes for Alan (CC could not / should not do these autonomously)
+
+- The 2.1GB pre-compaction rollback archive is still on disk (classifier correctly
+  blocked CC from deleting your backup). Once you've eyeballed the world in the
+  browser and it looks right, reclaim the space yourself:
+  `rm -rf "/Volumes/T9-Active/convex-backend-state/local-alan_chu-ai_town-archive-precompact-manual-20260618-2033"`
+  (the 54MB `underworld-compaction-export-MANUAL.zip` is a smaller pre-compaction
+  snapshot you can keep as a minimal safety net, or delete too.)
+
+## Hard constraints
+- Do not weaken the object-as-emotion guard, the bounded tables, or the F2/F3 safety.
+- Do not enable --write without a clean shadow night + surfacing to Alan.
+- Package-first / review-gated for any media; no autonomous publish.
