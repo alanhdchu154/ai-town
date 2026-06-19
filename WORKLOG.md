@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 18:36 CDT
+Last updated: 2026-06-18 21:25 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,26 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 21:25 CDT (Codex): **cc's nightly-write + creative follow-up
+  handoff is implemented with fail-closed gates.** Added
+  `underworld:nightly-reflection:gated-write`: it runs shadow first, reads the
+  export/report, and only calls the approval-token write path if the shadow is
+  clean. Updated local Codex TOML `underworld-hourly-ops` Branch B to run this
+  gated launcher at the 23:00 hour; this is not a blind `--write` flip. Manual
+  run stopped safely with `SHADOW_NOT_CLEAN`, `written=0` because one unsafe
+  insight was rejected, so no permanent reflection memories were written.
+  Hardened reflection safety/normalization for prop/location/body-detail
+  microfacts, exact seconds/counts, current display-name aliases, and rejected
+  insight reporting. Added `underworld:emergent-events:scout` as a dry-run-only
+  one-hop consequence preview; latest scout found 0 pending candidates and wrote
+  `umi/reports/emergent-events-scout-latest.md`. The soul-loop short already
+  exists as a review-gated package at
+  `media/shorts/2026-06-18-01-close-soul-loop/`; no render/upload was triggered.
+  Verification so far: `npm test -- convex/agent/memory.test.ts` PASS,
+  `npm run underworld:nightly-reflection:gated-write:self-test` PASS,
+  `npm run underworld:emergent-events:scout:self-test` PASS,
+  `npm run underworld:nightly-reflection:gated-write` fail-closed PASS,
+  `npm run underworld:emergent-events:scout` PASS.
 - 2026-06-18 18:36 CDT (Codex): **sleep-state UI assets are generated and
   wired.** Added six 512x512 sleep illustrations for the active visual cast
   under `public/renders/sleep/` (`umi`, `mahiru`, `maomao`, `tianze`,
@@ -80,6 +100,9 @@ historical evidence is needed.
   to record the distinction. Verification: `npx tsc --noEmit --pretty false`
   PASS; `npm run build` PASS; `git diff --check` PASS. Next: visually check at
   night/resting state in the browser when the world naturally enters sleep mode.
+  20:17 CDT correction: replaced `mahiru-sleep.png` and
+  `ichinose-sleep.png` after Alan flagged hair-color drift; Mahiru is now warm
+  blonde/cream-pink, and Ichinose is clearly rose-pink.
 - 2026-06-18 17:08 CDT (Codex): **two Codex final-review P1 semantics are now
   patched and verified.** Phase E no longer lets a stale/mutable profile emotion
   dominate memory coloring when the current transcript has a clear emotion:

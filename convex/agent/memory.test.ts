@@ -6,6 +6,8 @@ import {
   buildSubjectiveSummaryPrompt,
   carriedOutEmotionForMemory,
   emotionResidueColorZh,
+  normalizeReflectionInsightForPermanentMemory,
+  reflectionInsightSafetyReasons,
   stripCommitmentForReflectionInput,
   residueEligible,
   sanitizeLlmResidue,
@@ -597,6 +599,10 @@ describe('nightly reflection (睡前回響)', () => {
     // talk does not harden into a permanent trait.
     expect(prompt).toMatch(/Do NOT invent or assert any external world fact/);
     expect(prompt).toMatch(/Reflect only on this character's own feelings/);
+    expect(prompt).toMatch(/Do NOT preserve prop\/location\/body-detail microfacts/);
+    expect(prompt).toContain('exact seconds/counts');
+    expect(prompt).toMatch(/Do NOT use quote marks or repeat exact phrases/);
+    expect(prompt).toMatch(/Use only current display names/);
   });
 
   it('F2: strips 具體承諾/date text from the reflection input (no confabulated commitment can harden)', () => {
@@ -609,6 +615,40 @@ describe('nightly reflection (睡前回響)', () => {
     expect(prompt).not.toContain('咖哩飯');
     expect(stripCommitmentForReflectionInput('我很累。具體承諾：海答應明天交報告。')).toBe('我很累。');
     expect(stripCommitmentForReflectionInput('沒有承諾的普通記憶。')).toBe('沒有承諾的普通記憶。');
+  });
+
+  it('blocks prop-heavy or quote-like reflection insights before permanent memory write', () => {
+    expect(
+      reflectionInsightSafetyReasons(
+        'Umi 把「順路」說三次、把紙船挪到抽屜最上層、把沒拆封的考卷留在原處。',
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        'concrete_prop_or_place_microfact',
+        'action_stage_direction_fact',
+      ]),
+    );
+    expect(reflectionInsightSafetyReasons('我開始相信真晝的靠近不是催促，而是願意等我慢慢說。')).toEqual([]);
+    expect(reflectionInsightSafetyReasons('真晝的靠近讓我第一次覺得，留白也可以被允許。')).toEqual([]);
+    expect(reflectionInsightSafetyReasons('我開始相信天澤把選擇權交給我，不是試探。')).toEqual([]);
+    expect(normalizeReflectionInsightForPermanentMemory('我確認海的守候不是把『等』說成決定。')).toBe(
+      '我確認海的守候不是把等說成決定。',
+    );
+    expect(normalizeReflectionInsightForPermanentMemory('我對Ichinose的信任變得比較安靜。')).toBe(
+      '我對一之瀨的信任變得比較安靜。',
+    );
+    expect(reflectionInsightSafetyReasons('我願意讓一之瀨走開，因為他離開時會帶走整張傳單。')).toEqual([
+      'concrete_prop_or_place_microfact',
+    ]);
+    expect(reflectionInsightSafetyReasons('他把症狀和地點一起交出來。')).toEqual([
+      'concrete_prop_or_place_microfact',
+    ]);
+    expect(reflectionInsightSafetyReasons('他不再藏起症狀，而是把觀察交給我命名。')).toEqual([
+      'concrete_prop_or_place_microfact',
+    ]);
+    expect(reflectionInsightSafetyReasons('我逐漸放下對麻桜的戒備。')).toEqual([
+      'legacy_or_unknown_character_name',
+    ]);
   });
 
   it('localDayKey is stable within a local day and changes across days', () => {

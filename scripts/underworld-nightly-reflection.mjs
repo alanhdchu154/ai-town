@@ -70,6 +70,12 @@ function buildReport(result) {
   lines.push(`Local day: ${result?.todayKey ?? 'unknown'}`);
   lines.push(`Threshold (new-memory importance sum to trigger): ${result?.threshold ?? '?'}`);
   lines.push(`Characters reflected/written: ${result?.written ?? 0}`);
+  const rejectedCount = (result?.characters ?? []).reduce(
+    (sum, ch) => sum + (ch.rejectedInsights?.length ?? 0),
+    0,
+  );
+  lines.push(`Rejected unsafe insights: ${rejectedCount}`);
+  lines.push(`Clean shadow candidate: ${rejectedCount === 0 ? 'yes' : 'no'}`);
   lines.push('');
   lines.push(
     'Shadow mode writes nothing. Read each character\'s "would keep" list and check it is NOT consolidating fabricated world facts (places, objects, who-said-what) into permanent traits. Only enable --write once the day\'s memories read clean.',
@@ -91,6 +97,12 @@ function buildReport(result) {
       }
     } else if (ch.shouldReflect) {
       lines.push('- would keep: (LLM returned no insights — likely provider unavailable or nothing worth promoting)');
+    }
+    if (ch.rejectedInsights?.length) {
+      lines.push('- rejected by safety filter:');
+      for (const k of ch.rejectedInsights) {
+        lines.push(`  - (${k.reasons.join(', ')}) ${k.insight}`);
+      }
     }
     lines.push('');
   }

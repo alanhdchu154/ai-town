@@ -1687,7 +1687,13 @@ function SceneStage({
               }
               title={character.quietLineZh ? `${character.statusZh}\n${character.quietLineZh}` : character.statusZh}
             >
-              <CharacterPortrait name={character.name} size="lg" showName={false} emotion={character.emotion} />
+              <CharacterPortrait
+                name={character.name}
+                size="lg"
+                showName={false}
+                emotion={character.emotion}
+                mode={character.activityKind === 'resting' ? 'sleep' : undefined}
+              />
               <span
                 className={`giis-scene-standee-label giis-activity-${character.activityKind} giis-emotion-${character.emotion}`}
               >

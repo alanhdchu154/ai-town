@@ -1876,6 +1876,11 @@ export const nightlyReflectionForWorld = action({
           importance: m.importance,
           relatedCount: m.relatedMemoryIds.length,
         })),
+        rejectedInsights: result.rejectedInsights.map((item) => ({
+          insight: item.insight,
+          reasons: item.reasons,
+          relatedCount: item.statementIds.length,
+        })),
         wrote: didWrite,
       });
     }
@@ -2336,7 +2341,7 @@ export function buildReflectionPrompt(name: string, memories: Pick<Memory, 'desc
     'Infer at most 3 long-term character memories from the above statements. Only promote patterns that change relationship stance, self-understanding, repeated concern, trust/distance, or future behavior. Do not turn one ordinary daily event into a permanent trait.',
   );
   prompt.push(
-    'Each insight should sound like an internal memory in Traditional Chinese, not a report. Prefer concrete relationship/emotional consequences over generic worldview summaries.',
+    'Each insight should sound like a short internal memory in Traditional Chinese, not a report. Keep each insight under 48 Chinese characters when possible. Prefer the character\'s changed stance over scenic detail.',
   );
   // Anti-confabulation: a single bad daily memory must not become a permanent
   // belief. Objective facts about Alan and the world (who lives where, who said
@@ -2346,6 +2351,12 @@ export function buildReflectionPrompt(name: string, memories: Pick<Memory, 'desc
   // trait. See SOUL_PROGRESSION_PLAN nightly-reflection note.
   prompt.push(
     'Do NOT invent or assert any external world fact, place, object, schedule, or what another person said or did. If a statement looks like a factual claim about Alan or the world that was corrected or is uncertain, do not promote it. Reflect only on this character\'s own feelings, stance, and relationship change.',
+  );
+  prompt.push(
+    'Do NOT preserve prop/location/body-detail microfacts (paper boats, flyers, drawers, exam papers, pen caps, sleeves, window seats, exact seconds/counts, who moved what, who handed over which object, or where a symptom happened). Do NOT use quote marks or repeat exact phrases someone said. Good insight: "我開始相信真晝的靠近不是催促，而是願意等我慢慢說。"',
+  );
+  prompt.push(
+    'Use only current display names when needed: 海、真晝、貓貓、天澤、一之瀨、祥子. Do not output legacy or Japanese-alias names such as 曹操、劉備、麻桜、麻櫻、明日奈、麻衣.',
   );
   prompt.push(
     'Return ONLY a JSON array, parseable by JSON.parse(). Each element is an object with EXACTLY two keys: "insight" (a Traditional-Chinese string) and "statementIds" (an array of the integer Statement indices that led to it). Keys MUST be double-quoted. No prose, no markdown, no code fences, nothing before or after the array. If nothing is worth promoting, return [].',
@@ -2366,6 +2377,7 @@ export type ReflectionInsightResult = {
   lastReflectionTs?: number;
   rawReflection: string;
   insights: { insight: string; statementIds: number[] }[];
+  rejectedInsights: { insight: string; statementIds: number[]; reasons: string[] }[];
   memoriesToSave: {
     description: string;
     embedding: number[];
@@ -2407,6 +2419,7 @@ export async function computeReflectionInsights(
     lastReflectionTs,
     rawReflection: '[]',
     insights: [],
+    rejectedInsights: [],
     memoriesToSave: [],
   };
   if (!shouldReflect) {
@@ -2441,7 +2454,7 @@ export async function computeReflectionInsights(
             Array.isArray((item as { statementIds?: unknown }).statementIds),
         )
         .map((item) => ({
-          insight: item.insight.trim(),
+          insight: normalizeReflectionInsightForPermanentMemory(item.insight),
           statementIds: item.statementIds.filter((n) => typeof n === 'number'),
         }))
         .filter((item) => item.insight.length > 0);
@@ -2451,7 +2464,14 @@ export async function computeReflectionInsights(
     return { ...empty, rawReflection };
   }
 
-  const memoriesToSave = await asyncMap(insights, async (item) => {
+  const rejectedInsights = insights
+    .map((item) => ({ ...item, reasons: reflectionInsightSafetyReasons(item.insight) }))
+    .filter((item) => item.reasons.length > 0);
+  const safeInsights = insights.filter(
+    (item) => reflectionInsightSafetyReasons(item.insight).length === 0,
+  );
+
+  const memoriesToSave = await asyncMap(safeInsights, async (item) => {
     const relatedMemoryIds = item.statementIds
       .map((idx: number) => memories[idx]?._id)
       .filter((id): id is Id<'memories'> => Boolean(id));
@@ -2464,8 +2484,53 @@ export async function computeReflectionInsights(
     ...empty,
     rawReflection,
     insights,
+    rejectedInsights,
     memoriesToSave,
   };
+}
+
+export function reflectionInsightSafetyReasons(insight: string): string[] {
+  const reasons: string[] = [];
+  const normalized = normalizeReflectionInsightForPermanentMemory(insight);
+  if (!normalized) return ['empty'];
+  if (
+    /[0-9０-９]/.test(normalized) ||
+    /第[一二三四五六七八九十\d]+(圈|下|秒|張|行|道|層|頁)/.test(normalized)
+  ) {
+    reasons.push('over_specific_counting');
+  }
+  if (normalized.length > 92) reasons.push('too_long_for_permanent_reflection');
+  if (
+    /(紙船|抽屜|考卷|筆蓋|指節|筆尖|袖口|折痕|紙角|領結|便當|咖哩|海報|鑰匙|衣櫃|宿舍|校長室|窗台|窗邊|作業本|粉筆|橡皮|桌角|餐盤|鍋蓋|紅茶|咖啡|手機|傳單|地點|症狀)/.test(
+      normalized,
+    )
+  ) {
+    reasons.push('concrete_prop_or_place_microfact');
+  }
+  if (/(曹操|劉備|麻桜|麻櫻|明日奈|麻衣)/.test(normalized)) {
+    reasons.push('legacy_or_unknown_character_name');
+  }
+  if (
+    /(把[^，。]*(紙船|抽屜|考卷|筆蓋|袖口|紙角|領結|餐盤|鍋蓋|手機)[^，。]*(挪|放|壓|擦|收|推|遞|交到|調整|打開|關上)|數[^，。]*(筆蓋|指節|筆尖|折痕|紙角|圈|秒|次))/.test(
+      normalized,
+    )
+  ) {
+    reasons.push('action_stage_direction_fact');
+  }
+  return reasons;
+}
+
+export function normalizeReflectionInsightForPermanentMemory(insight: string): string {
+  return insight
+    .replace(/[「」『』“”"']/g, '')
+    .replace(/\bUmi\b/g, '海')
+    .replace(/\bMahiru(?: Shiina)?\b/g, '真晝')
+    .replace(/\bMaomao\b/g, '貓貓')
+    .replace(/\bTianze\b/g, '天澤')
+    .replace(/\bIchinose\b/g, '一之瀨')
+    .replace(/\bSakiko\b/g, '祥子')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 // Memory summary/residue completion. When MEMORY_LLM_CLOUD=true, the same

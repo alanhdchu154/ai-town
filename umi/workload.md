@@ -5,7 +5,23 @@ Repo cwd: `/Users/alanhdchu/ai-town`
 Owner: Codex. CC finished all the repo/world-readiness engineering today; the world
 is now in a clean, data-collectable state. The remaining items are an automation
 flip (CC must not touch Codex automations) + creative work.
-Status: ready_for_codex
+Status: codex_implemented_gated_write_and_scouts_2026-06-18
+
+## Codex Result — 2026-06-18 21:25 CDT
+
+- Nightly write was **not** blindly enabled. Codex added
+  `npm run underworld:nightly-reflection:gated-write`, which runs shadow first
+  and only calls the approval-token write path if the shadow is clean.
+- `underworld-hourly-ops` Branch B now runs the gated launcher at the 23:00
+  hour. Dirty shadow nights stop before permanent reflection writes.
+- Manual verification: latest gated run returned `SHADOW_NOT_CLEAN`, `written=0`
+  because one unsafe reflection candidate was rejected. This is the desired
+  fail-closed behavior; wait for a clean shadow night before expecting writes.
+- Emergent events follow-up is independent and read-only: added
+  `npm run underworld:emergent-events:scout`, which previews one-hop consequence
+  candidates with `write:false`; latest scout found 0 pending candidates.
+- Soul-loop short already exists as a review-gated package at
+  `media/shorts/2026-06-18-01-close-soul-loop/`; no render/upload was triggered.
 
 ## Context — what CC shipped today (all on main, all tested)
 

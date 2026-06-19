@@ -1,6 +1,6 @@
 # GIIS Underworld v0.1 Roadmap
 
-Last updated: 2026-06-18 14:40 CDT (soul loop A-D implemented; fresh evidence review next)
+Last updated: 2026-06-18 21:25 CDT (nightly reflection gated-write installed; fresh evidence review next)
 
 This file is the current v0.1 contract. Historical shipped work belongs in git
 history and reports, not in the active roadmap.
@@ -39,6 +39,12 @@ The current v0.1 evidence path now has an implemented, bounded loop:
 This does not prove v0.1 by itself. The next proof is fresh samples where Alan
 can inspect transcript -> emotion change -> development coloring -> later
 behavior and decide whether yesterday actually mattered.
+
+Nightly reflection write is now automation-ready but still gated: the 23:00
+`underworld-hourly-ops` branch runs `npm run underworld:nightly-reflection:gated-write`,
+which first runs shadow and writes permanent reflection memories only if the
+shadow is clean. Dirty shadow nights stop before write mode. The 2026-06-18
+test run stopped safely with `SHADOW_NOT_CLEAN`, `written=0`.
 
 ## 2026-06-16 Data-Collection Readiness Reset
 
@@ -254,10 +260,12 @@ What is active:
 
 - Rolling continuity monitor: Codex-level local automation is ACTIVE and should
   keep running observe/report-only every 120 minutes.
-- Nightly reflection / 睡前回響: Codex-level local automation is ACTIVE at 23:30
-  local time, but **shadow only**. It runs `npm run underworld:nightly-reflection`
-  and must not pass `--write`, import sleepNotes, mutate Convex state, restart
-  the world, or send Telegram.
+- Nightly reflection / 睡前回響: Codex-level local automation is ACTIVE in the
+  23:00 hourly branch as a **gated write**. It runs
+  `npm run underworld:nightly-reflection:gated-write`, which shadows first and
+  stops without writes unless the shadow report is clean. It must not import
+  sleepNotes, restart the world, send Telegram, or run any blind approval-token
+  write.
 - Free-world runtime: keep the world alive overnight if the dev stack remains
   healthy. Do not force conversations at night.
 
