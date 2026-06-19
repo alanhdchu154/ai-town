@@ -280,6 +280,24 @@ describe('conversation motif guard', () => {
     expect(sanitized).toContain('object-as-emotion');
   });
 
+  test('object-as-emotion guard now also runs on the Alan-facing (non-pilot) path', () => {
+    // 海↔Alan is NOT a soul-triad pilot pair, so it used to SKIP the metaphor guard
+    // entirely — which is where the 文青 metaphor leaked worst. The clear
+    // constructions must now abort on this path too.
+    const aborted = sanitizeConversationContentForTest(
+      '橡皮擦的毛邊，像你的沉默。',
+      '海',
+      'Alan',
+      '你今天好嗎',
+      [],
+    );
+    expect(aborted).toContain('[ABORT_CONVERSATION]');
+    expect(aborted).toContain('object-as-emotion');
+    // A plain caring Alan-facing line still passes (no false abort).
+    const ok = sanitizeConversationContentForTest('我有點擔心你最近太累了。', '海', 'Alan', '你今天好嗎', []);
+    expect(ok).not.toContain('[ABORT_CONVERSATION]');
+  });
+
   test('flags repeated transaction/debt language including price and exchange words', () => {
     const lines = motifGuardPromptLinesForTest(
       [

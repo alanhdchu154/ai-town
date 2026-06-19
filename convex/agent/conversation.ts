@@ -273,6 +273,7 @@ export async function startConversationMessage(
         ...(humanInConversation
           ? [
               `Human opening rule: Alan is present. Greet him first in one natural sentence, then offer one small ordinary topic for the current scene. Do not open with a report, big thesis, or whole-school analysis.`,
+              `口語真實感（重要）：用普通人會說出口的話直接回應 Alan。不要把感受或一句話投射到景物／物件上、再用抒情比喻或擬人動作。禁用例：「窗邊還留著一點夕照，像沒趕上放學的光」「這句話我得先收好，怕它從窗邊溜出去跟夕照一起跑掉」「橡皮擦毛邊了，像你停頓的那三秒」。要表達感受就直接講，或沉默、岔到一件眼前實際的事、開個玩笑、換話題。物件只在它真的有功能時才提。`,
               ...alanFacingCharacterPromptLines(player.name, undefined, clockContext),
             ]
           : []),
@@ -1597,7 +1598,7 @@ function richUmiMahiruPrompt({
           : '具體動作：情緒可以讓你更甜、更慢、更會停在拒絕前一秒，像大姊姊一樣把照顧變成條件；台詞裡不要寫第一人稱動作，只讓溫柔的長短、停頓和問題本身變得有壓力。';
   const plainSpeechRule =
     '口語真實感：先用一句普通人會說出口的話回應對方，再帶動作；不要把照顧寫成象徵物或詩化手工（例如紙鶴、星光、海風、花、月光），不要讓動作比話更大。' +
-    '最假的文青腔（嚴禁）：不要把想說的感受（擔心、在乎、心動）翻譯成一個身邊平凡物件的比喻，再把那個物件連回對方的某個動作或停頓。禁用例：「半塊橡皮擦得有點毛邊了，像你剛才講題停頓的那三秒」「你剛說這句時，窗簾動了半寸」「筆記本上那塊痕跡」。如果心裡想的是「你最近太累了，我擔心你撐不住」，就把這句話的七成直接講出來，最多留三成不說——不要繞成一個物件的意象。物件只在它「真的有實際功能」時才出現（遞考卷、提醒便當沒吃、桌上那隻貓）；情緒永遠不透過物件表達。要表達感受就用真人會用的方式：直接講、沉默、岔到一件實際的事、開個玩笑、或換話題。';
+    '最假的文青腔（嚴禁）：不要把想說的感受（擔心、在乎、心動）翻譯成一個身邊平凡物件的比喻，再把那個物件連回對方的某個動作或停頓。禁用例：「半塊橡皮擦得有點毛邊了，像你剛才講題停頓的那三秒」「你剛說這句時，窗簾動了半寸」「筆記本上那塊痕跡」。如果心裡想的是「你最近太累了，我擔心你撐不住」，就把這句話的七成直接講出來，最多留三成不說——不要繞成一個物件的意象。物件只在它「真的有實際功能」時才出現（遞考卷、提醒便當沒吃、桌上那隻貓）；情緒永遠不透過物件表達。同樣禁止把感受或一句話投射到景物上（夕照、窗邊、晚霞、暮色、霧、風、雲、光）再用抒情比喻或擬人動作（溜出去、跑掉、留下來、追上、沒趕上）——例如「窗邊還留著夕照，像沒趕上放學的光」。要表達感受就用真人會用的方式：直接講、沉默、岔到一件實際的事、開個玩笑、或換話題。';
   const imperfectSpeechRule =
     `不完美規則：${self}不需要每句都把心理說清楚。可以誤會一點、閃開真正的問題、答得太實際、沉默、換話題、說少一點，或說一句不太公平但像人會說的話。` +
     '一段對話裡只允許少數句子情緒精準；其他句子要有保留、笨拙、防衛或普通日常。';
@@ -2637,6 +2638,13 @@ function sanitizeConversationContent(
   clockContext?: ClockContext,
 ) {
   const withoutSeparatorArtifacts = stripSeparatorArtifacts(content);
+  // Object-as-emotion metaphor guard runs on EVERY path now, not only the
+  // soul-triad pair: the 文青 metaphor leaked worst on 海↔Alan lines, which skip
+  // sanitizeUmiMahiruPilotLine entirely. Cheap + conservative (false-negative bias),
+  // so it is safe to run before the Alan-facing/generic branches too.
+  if (hasObjectAsEmotionMetaphorLeak(withoutSeparatorArtifacts)) {
+    return '[ABORT_CONVERSATION] object-as-emotion metaphor';
+  }
   if (characterSoulPilotPair(playerName, otherPlayerName)) {
     return sanitizeUmiMahiruPilotLine(withoutSeparatorArtifacts, playerName, otherPlayerName, previous);
   }
