@@ -19,6 +19,7 @@ import {
   shouldPersistCharacterSoulTranscript,
 } from '../modelPolicy';
 import { conversationEligibleForLLM, pilotCloudCompletion } from './conversation';
+import { inferEmotionFromConversation } from './conversationEmotion';
 import { pilotExperienceLogName } from './experienceLog';
 import {
   hasFirstPersonStageDirectionLeak,
@@ -839,6 +840,10 @@ export function emotionResidueColorZh(currentEmotion?: string | null): string | 
   }
 }
 
+export function carriedOutEmotionForMemory(conversationText: string, priorEmotion?: string | null): string | null {
+  return inferEmotionFromConversation(conversationText) ?? priorEmotion ?? null;
+}
+
 export function buildSubjectiveSummaryPrompt(
   selfName: string,
   otherName: string,
@@ -1471,6 +1476,10 @@ export async function rememberConversation(
   const fallbackSummary = deterministicConversationSummary(player, otherPlayer, messages, {
     saidAt: data.conversation.created ?? data.conversation._creationTime,
   });
+  const carriedOutEmotion = carriedOutEmotionForMemory(
+    `${fallbackSummary}\n${meaningfulMessages.map((message) => message.text).join('\n')}`,
+    player.currentEmotion,
+  );
   const llmMessages: LLMMessage[] = [
     {
       role: 'user',
@@ -1478,7 +1487,7 @@ export async function rememberConversation(
         player.name,
         otherPlayer.name,
         giisProfileForName(player.name),
-        player.currentEmotion,
+        carriedOutEmotion,
       ),
     },
   ];
@@ -1552,7 +1561,7 @@ export async function rememberConversation(
   // respected — we do not paper over that with a template residue.
   const llmResidue = await llmResidueSentence(
     ctx,
-    player,
+    { ...player, currentEmotion: carriedOutEmotion },
     otherPlayer,
     messages,
     allowShortAutonomousSoulMemory,

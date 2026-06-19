@@ -894,6 +894,7 @@ async function appendRecentEvent(
 // local backend (the #41 crash lesson). The dashboard reads ≤80, so keeping the
 // newest 80 per character loses nothing it shows.
 const EMOTION_CHANGES_PER_CHARACTER = 80;
+const DEVELOPMENT_LOG_ENTRIES_PER_CHARACTER = 6;
 const EMOTION_DECAY_AFTER_WORLD_MINUTES = 4 * 60;
 const LOW_PRIORITY_EMOTION_OVERRIDE_AFTER_WORLD_MINUTES = 2 * 60;
 
@@ -1140,6 +1141,26 @@ function characterDevelopmentPlanForEmotion(
   return lean ? { ...base, behaviorLeanZh: `${base.behaviorLeanZh}；${lean}` } : base;
 }
 
+function isDuplicateDevelopmentLogEntry(
+  existingLog: Array<{ sourceEventId?: string; summaryZh: string }>,
+  plan: Pick<CharacterDevelopmentPlan, 'summaryZh'>,
+  causeEventId?: string,
+) {
+  return existingLog.some(
+    (entry) =>
+      (causeEventId && entry.sourceEventId === causeEventId) ||
+      entry.summaryZh === plan.summaryZh,
+  );
+}
+
+export function isDuplicateDevelopmentLogEntryForTest(
+  existingLog: Array<{ sourceEventId?: string; summaryZh: string }>,
+  plan: Pick<CharacterDevelopmentPlan, 'summaryZh'>,
+  causeEventId?: string,
+) {
+  return isDuplicateDevelopmentLogEntry(existingLog, plan, causeEventId);
+}
+
 export function characterDevelopmentPlanForTest(
   name: string,
   emotion: PortraitEmotion,
@@ -1162,14 +1183,9 @@ async function updateCharacterDevelopmentFromEmotion(
   if (causeKind === 'decay') return;
   const plan = characterDevelopmentPlanForEmotion(name, emotion, reasonZh, causeKind);
   const existingLog = profile.developmentLog ?? [];
-  const duplicate = existingLog.some(
-    (entry) =>
-      (causeEventId && entry.sourceEventId === causeEventId) ||
-      entry.summaryZh === plan.summaryZh ||
-      entry.influenceZh === plan.influenceZh,
-  );
+  const duplicate = isDuplicateDevelopmentLogEntry(existingLog, plan, causeEventId);
   const nextLog = duplicate
-    ? existingLog.slice(0, 6)
+    ? existingLog.slice(0, DEVELOPMENT_LOG_ENTRIES_PER_CHARACTER)
     : [
         {
           sourceEventId: causeEventId,
@@ -1179,7 +1195,7 @@ async function updateCharacterDevelopmentFromEmotion(
           createdAt: Date.now(),
         },
         ...existingLog,
-      ].slice(0, 6);
+      ].slice(0, DEVELOPMENT_LOG_ENTRIES_PER_CHARACTER);
   await ctx.db.patch(profile._id, {
     developmentState: {
       baselineEmotion: emotion,

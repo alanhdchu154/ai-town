@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 15:29 CDT
+Last updated: 2026-06-18 18:36 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,34 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 18:36 CDT (Codex): **sleep-state UI assets are generated and
+  wired.** Added six 512x512 sleep illustrations for the active visual cast
+  under `public/renders/sleep/` (`umi`, `mahiru`, `maomao`, `tianze`,
+  `ichinose`, `sakiko`). `CharacterPortrait` now supports `mode="sleep"` and
+  Scene Mode passes that mode only when a character activity/status classifies
+  as `resting`; this keeps sleep as a visible availability/behavior display
+  state, not a new backend emotion enum or memory signal. Updated render docs
+  to record the distinction. Verification: `npx tsc --noEmit --pretty false`
+  PASS; `npm run build` PASS; `git diff --check` PASS. Next: visually check at
+  night/resting state in the browser when the world naturally enters sleep mode.
+- 2026-06-18 17:08 CDT (Codex): **two Codex final-review P1 semantics are now
+  patched and verified.** Phase E no longer lets a stale/mutable profile emotion
+  dominate memory coloring when the current transcript has a clear emotion:
+  `rememberConversation` now computes `carriedOutEmotionForMemory` from the
+  deterministic conversation summary plus the actual message text, and only
+  falls back to `player.currentEmotion` when the current conversation has no
+  clear signal. This fixes the fact that memory/residue prompts are built before
+  `recordConversationOutcome` formally writes the profile emotion. Tier 3
+  `developmentLog` dedupe no longer treats repeated `influenceZh` as duplicate;
+  prompt-facing latest development logs now dedupe only by same `sourceEventId`
+  or exact `summaryZh`, so a newer event with a different reason can become
+  `developmentLog[0]`. Added tests for both semantics. Verification:
+  targeted `npm test -- convex/agent/memory.test.ts convex/schoolEmergentEvents.test.ts`
+  63/63 PASS; full `npm test` 340/340 PASS; `npx tsc --noEmit --pretty false`
+  PASS; `npm run build` PASS; `git diff --check` PASS;
+  `npm run underworld:runtime-preflight` PASS. Next: collect fresh post-fix
+  samples; judge only conversations/memory after this patch as clean closed-loop
+  evidence.
 - 2026-06-18 15:29 CDT (Codex): **Tier 1 hardening from cc audit completed,
   awaiting cc review before Phase E/F or Tier 3/4.** Fix 1: baseline emotions
   seeded on profiles are no longer flattened by the first passive decay tick.

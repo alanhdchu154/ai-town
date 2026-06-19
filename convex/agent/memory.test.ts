@@ -4,6 +4,7 @@ import {
   buildReflectionPrompt,
   buildResiduePrompt,
   buildSubjectiveSummaryPrompt,
+  carriedOutEmotionForMemory,
   emotionResidueColorZh,
   stripCommitmentForReflectionInput,
   residueEligible,
@@ -738,6 +739,16 @@ describe('soul-grounded LLM residue', () => {
     expect(emotionResidueColorZh('neutral')).toBeNull();
     expect(emotionResidueColorZh(undefined)).toBeNull();
     expect(emotionResidueColorZh('tired')).toBe('疲憊、想少扛一點');
+  });
+
+  it('④→③: current transcript emotion beats stale profile emotion for memory coloring', () => {
+    expect(
+      carriedOutEmotionForMemory('Alan 說他喜歡你，海心跳快了一下，臉紅到不太敢看。', 'smiling'),
+    ).toBe('flustered');
+    expect(
+      carriedOutEmotionForMemory('只是普通打招呼，沒有明顯情緒轉折。', 'worried'),
+    ).toBe('worried');
+    expect(carriedOutEmotionForMemory('只是普通打招呼，沒有明顯情緒轉折。', null)).toBeNull();
   });
 
   it('lets a pilot carry a residue from talking to a pilot OR to the human Alan', () => {

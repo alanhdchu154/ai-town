@@ -8,6 +8,7 @@ import {
   characterDevelopmentPlanForTest,
   decayedEmotionForTest,
   elapsedWorldMinutesSinceForTest,
+  isDuplicateDevelopmentLogEntryForTest,
   shouldApplyEmotionWriteForTest,
 } from './school';
 
@@ -174,6 +175,27 @@ describe('v0.2 emergent event cause metadata', () => {
     // neutral adds no lean (no noise).
     const neutral = characterDevelopmentPlanForTest('Mahiru', 'neutral', '又有人說沒事', 'event');
     expect(neutral.behaviorLeanZh).not.toContain('；最近');
+  });
+
+  test('Tier 3: development log dedupe does not hide a newer event just because influence text repeats', () => {
+    const existing = [
+      {
+        sourceEventId: 'event:old',
+        summaryZh: '真晝因為「昨天有人說沒事」更注意誰把話吞回去了。',
+      },
+    ];
+    expect(
+      isDuplicateDevelopmentLogEntryForTest(existing, {
+        summaryZh: '真晝因為「今天有人把話吞回去」更注意誰把話吞回去了。',
+      }),
+    ).toBe(false);
+    expect(
+      isDuplicateDevelopmentLogEntryForTest(
+        existing,
+        { summaryZh: '真晝因為「今天有人把話吞回去」更注意誰把話吞回去了。' },
+        'event:old',
+      ),
+    ).toBe(true);
   });
 
   test('development plans stay character-specific for newer live roster members', () => {
