@@ -4091,6 +4091,30 @@ function previousConversationPrompt(
   return prompt;
 }
 
+// Topic-fixation guard (the systematic 咖哩飯 fix): when the surfaced memories keep
+// circling the SAME everyday topic, a character re-raises it every chat and it
+// re-reinforces itself (海 kept reopening 咖哩 days later). If one recurring topic
+// shows up ≥3× across the memories, nudge the character to move on instead.
+const RECURRING_TOPIC_PATTERNS: Array<{ label: string; re: RegExp }> = [
+  { label: '咖哩飯', re: /咖哩|咖喱/g },
+  { label: '早餐', re: /早餐/g },
+  { label: '便當／午餐', re: /便當|午餐/g },
+  { label: '奶茶', re: /珍珠奶茶|奶茶/g },
+  { label: '宿舍', re: /宿舍/g },
+  { label: '簡報', re: /簡報/g },
+];
+export function overRepeatedTopicLines(memories: Pick<memory.Memory, 'description'>[]): string[] {
+  if (memories.length < 2) return [];
+  const text = memories.map((m) => m.description).join('\n');
+  const fixated = RECURRING_TOPIC_PATTERNS.filter(
+    ({ re }) => (text.match(re) || []).length >= 3,
+  ).map(({ label }) => label);
+  if (!fixated.length) return [];
+  return [
+    `話題不要卡住：你和對方最近的記憶反覆繞著「${fixated.join('、')}」——今天不要再主動回到這些舊話題，從眼前的場景開新的；只有對方先提起時才接。`,
+  ];
+}
+
 function relatedMemoriesPrompt(memories: memory.Memory[]): string[] {
   const prompt = [];
   if (memories.length > 0) {
@@ -4098,6 +4122,7 @@ function relatedMemoriesPrompt(memories: memory.Memory[]): string[] {
     for (const memory of memories) {
       prompt.push(' - ' + memory.description);
     }
+    prompt.push(...overRepeatedTopicLines(memories));
   }
   return prompt;
 }
@@ -5459,6 +5484,10 @@ export const queryPromptData = internalQuery({
       developmentDigestZh: [
         profile?.developmentLog?.[0]?.summaryZh,
         profile?.developmentState?.behaviorLeanZh,
+        // recurringConcernZh was written-but-never-read (audit dead field); surface
+        // it as the lowest-priority long-term-coloring segment (the 90-char clip
+        // drops it when the fresher signals already fill the budget).
+        profile?.developmentState?.recurringConcernZh,
       ]
         .filter(Boolean)
         .map((segment) => segment!.replace(/[；。]+$/, ''))

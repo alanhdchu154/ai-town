@@ -7,6 +7,7 @@ import {
   hasObjectAsEmotionMetaphorLeakForTest,
   functionalScenePropsPromptLinesForTest,
   motifGuardPromptLinesForTest,
+  overRepeatedTopicLines,
   recentPairContinuityPromptLinesForTest,
   relationshipDynamicPromptLinesForTest,
   repairFreeWorldSoulLineForTest,
@@ -278,6 +279,23 @@ describe('conversation motif guard', () => {
 
     expect(sanitized).toContain('[ABORT_CONVERSATION]');
     expect(sanitized).toContain('object-as-emotion');
+  });
+
+  test('topic-fixation guard nudges away from an over-repeated topic (the 咖哩飯 fix)', () => {
+    const fixated = overRepeatedTopicLines([
+      { description: '與 Alan 的對話：又聊到咖哩飯。' },
+      { description: '與 Alan 的對話：咖哩飯還算數嗎。' },
+      { description: '與 Alan 的對話：咖哩飯明天煮。' },
+    ]);
+    expect(fixated.join('')).toContain('咖哩飯');
+    expect(fixated.join('')).toContain('不要再主動回到');
+    // A varied memory set (no topic repeats ≥3×) produces no nudge.
+    expect(
+      overRepeatedTopicLines([
+        { description: '與真晝聊了週末的社團。' },
+        { description: '和天澤談了考試。' },
+      ]),
+    ).toEqual([]);
   });
 
   test('object-as-emotion guard now also runs on the Alan-facing (non-pilot) path', () => {
