@@ -109,24 +109,69 @@ $CONVEX export --path "$EXPORT_ZIP" --include-file-storage 2>&1 | tail -2
 [ -s "$EXPORT_ZIP" ] || { echo "❌ export failed — aborting BEFORE any destructive step. Env backup at $ENV_BACKUP"; exit 1; }
 echo "    export: $(du -h "$EXPORT_ZIP" | cut -f1)"
 
-echo "==> 4/8 Stopping convex dev + archiving old state (recoverable)"
-pkill -f "convex dev" 2>/dev/null; sleep 4
-mv "$LIVE" "$ARCHIVE" || { echo "❌ archive move failed"; exit 1; }
+# Is the dev-stack launchd-managed? Its KeepAlive would RESTART convex dev the moment
+# the pkill below kills it, racing the fresh backend for the SQLite lock — which
+# leaves the fresh backend half-initialised and makes the import return 500 (observed
+# 2026-06-18: silent EMPTY world). When launchd-managed we bootout/bootstrap instead.
+DEV_STACK_LABEL="com.giis.underworld.dev-stack"
+DEV_STACK_PLIST="$HOME/Library/LaunchAgents/$DEV_STACK_LABEL.plist"
+DEV_STACK_GUI="gui/$(id -u)"
+DEV_STACK_LAUNCHD=0
+if launchctl print "$DEV_STACK_GUI/$DEV_STACK_LABEL" >/dev/null 2>&1 && [ -f "$DEV_STACK_PLIST" ]; then
+  DEV_STACK_LAUNCHD=1
+fi
+
+echo "==> 4/8 Stopping backend + archiving old state (recoverable)"
+if [ "$DEV_STACK_LAUNCHD" = "1" ]; then
+  echo "    dev-stack is launchd-managed → bootout (no KeepAlive restart race)"
+  launchctl bootout "$DEV_STACK_GUI/$DEV_STACK_LABEL" 2>/dev/null
+  sleep 5
+fi
+pkill -f "convex dev" 2>/dev/null; pkill -f "npm-run-all" 2>/dev/null; sleep 4
+mv "$LIVE" "$ARCHIVE" || {
+  echo "❌ archive move failed";
+  [ "$DEV_STACK_LAUNCHD" = "1" ] && launchctl bootstrap "$DEV_STACK_GUI" "$DEV_STACK_PLIST" 2>/dev/null;
+  exit 1;
+}
 mkdir -p "$LIVE"; cp "$ARCHIVE/config.json" "$LIVE/config.json"
 echo "    archived to $ARCHIVE"
 
 echo "==> 5/8 Starting fresh empty backend"
-nohup env CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=900 $CONVEX dev --tail-logs \
-  >> umi/reports/mobile-dev-stack.log 2>&1 &
-disown 2>/dev/null
+if [ "$DEV_STACK_LAUNCHD" = "1" ]; then
+  echo "    bootstrapping launchd dev-stack (fresh backend + vite, launchd-owned)"
+  launchctl bootstrap "$DEV_STACK_GUI" "$DEV_STACK_PLIST" 2>/dev/null
+else
+  nohup env CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=900 $CONVEX dev --tail-logs \
+    >> umi/reports/mobile-dev-stack.log 2>&1 &
+  disown 2>/dev/null
+fi
 s=$SECONDS; until nc -z -w2 127.0.0.1 3210 2>/dev/null; do
-  [ $((SECONDS-s)) -gt 180 ] && { echo "❌ fresh backend did not come up — restore: mv \"$ARCHIVE\" \"$LIVE\""; exit 1; }
+  [ $((SECONDS-s)) -gt 200 ] && { echo "❌ fresh backend did not come up — RESTORE: mv \"$ARCHIVE\" \"$LIVE\""; exit 1; }
   sleep 3
 done
-sleep 25  # let convex dev push schema/functions
+sleep 40  # let convex dev push schema/functions before importing (port-open != ready)
 
-echo "==> 6/8 Importing snapshot (--replace-all)"
-$CONVEX import --replace-all "$EXPORT_ZIP" -y 2>&1 | tail -2
+echo "==> 6/8 Importing snapshot (--replace-all, verified)"
+# CRITICAL: the import can return 500 if the backend is not fully ready. The original
+# script did NOT check this and resumed an EMPTY world (data loss). Retry, then VERIFY
+# data actually loaded; if it never loads, ABORT without resuming — data stays safe in
+# the archive + export.
+import_ok=0
+for attempt in 1 2 3; do
+  $CONVEX import --replace-all "$EXPORT_ZIP" -y 2>&1 | tail -2
+  loaded=$(doc_count)
+  case "$loaded" in (''|*[!0-9]*) loaded=0;; esac
+  if [ "$loaded" -gt 1000 ]; then import_ok=1; echo "    imported OK ($loaded docs)"; break; fi
+  echo "    import attempt $attempt loaded only '$loaded' docs (backend not ready) — waiting 25s, retrying"
+  sleep 25
+done
+if [ "$import_ok" != "1" ]; then
+  echo "❌ IMPORT FAILED after 3 attempts — NOT resuming an EMPTY world. Your data is SAFE in:"
+  echo "     archive: $ARCHIVE"
+  echo "     export:  $EXPORT_ZIP"
+  echo "   RESTORE: pkill -f 'convex dev'; mv \"$ARCHIVE\" \"$LIVE\"; relaunch the dev-stack."
+  exit 1
+fi
 
 echo "==> 7/8 Restoring env vars"
 while IFS= read -r line; do

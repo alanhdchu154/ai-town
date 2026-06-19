@@ -81,6 +81,14 @@ historical evidence is needed.
   also left dirty because its diff is timestamp-only churn. The only safe
   commit candidate from this review is the editorial
   `media/topics/watcher-inbox.md` soul-loop topic-bank entry.
+- 2026-06-18 22:40 CDT (Codex): `scripts/underworld-compact-state.sh` had an
+  additional safety diff after the initial push-safety review. It is a real
+  compaction protection fix, not generated report noise: launchd-managed
+  dev-stack is booted out/bootstraped to avoid KeepAlive racing the fresh
+  backend for SQLite locks, and `convex import --replace-all` now retries and
+  verifies loaded document count before resuming so an import 500 cannot resume
+  an empty world. Verification: `bash -n scripts/underworld-compact-state.sh`
+  PASS. No compaction was run.
 - 2026-06-18 21:25 CDT (Codex): **cc's nightly-write + creative follow-up
   handoff is implemented with fail-closed gates.** Added
   `underworld:nightly-reflection:gated-write`: it runs shadow first, reads the
