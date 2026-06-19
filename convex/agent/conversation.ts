@@ -282,9 +282,20 @@ export async function startConversationMessage(
         ...everydayLifePrompt(player.name, otherPlayer.name, sceneContext, clockContext),
         ...singlePurposeConversationPrompt(player.name, otherPlayer.name, sceneContext),
       ];
-  if (memoryWithOtherPlayer) {
+  // Recency-gate the "callback to a previous conversation" nudge. Without this it
+  // FORCED a reference to the most salient shared memory every greeting — and when
+  // that memory was a days-old repeated topic (咖哩飯), 海 kept reopening it as if it
+  // were still on the table, each time creating a fresh 咖哩 memory (a self-reinforcing
+  // loop). A callback is only natural when the memory is recent.
+  const recentSharedMemory =
+    memoryWithOtherPlayer && Date.now() - memoryWithOtherPlayer._creationTime < 36 * 60 * 60 * 1000;
+  if (recentSharedMemory) {
     prompt.push(
-      `Be sure to include some detail or question about a previous conversation in your greeting.`,
+      `如果上一次和 ${otherPlayer.name} 的對話還和今天有關，問候時可以輕輕帶一句回應它——但不要硬接，也不要重複同一件事。`,
+    );
+  } else if (memoryWithOtherPlayer) {
+    prompt.push(
+      `你和 ${otherPlayer.name} 最有印象的那次對話已經是前幾天的事了。不要把那件舊事（某個約定、某樣食物、某個玩笑）當成今天還沒結束的話題重新提起；從眼前的場景自然開場，除非 ${otherPlayer.name} 自己先提到它。`,
     );
   }
   for (const line of commitmentPromptLines(openCommitments, otherPlayer.name)) {
