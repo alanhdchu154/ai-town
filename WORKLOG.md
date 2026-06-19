@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 21:25 CDT
+Last updated: 2026-06-18 22:32 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,17 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-18 22:32 CDT (Central Umi / cc push-safety review): recent
+  conversation eval was refreshed locally and reports 12 checked conversations
+  with 0 PASS / 4 WARN / 8 FAIL; dominant failures remain mirror/motif
+  repetition, weak behavior consequence, and continuity callbacks without
+  enough concrete action. The raw
+  `evals/conversations/reports/latest.md` file is intentionally **not**
+  committed tonight because it contains verbatim Alan chat excerpts and is
+  regenerable local evidence. `media/topics/mystery-candidates-latest.md` is
+  also left dirty because its diff is timestamp-only churn. The only safe
+  commit candidate from this review is the editorial
+  `media/topics/watcher-inbox.md` soul-loop topic-bank entry.
 - 2026-06-18 21:25 CDT (Codex): **cc's nightly-write + creative follow-up
   handoff is implemented with fail-closed gates.** Added
   `underworld:nightly-reflection:gated-write`: it runs shadow first, reads the

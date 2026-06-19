@@ -4,6 +4,36 @@ Time anchor: 2026-06-15 America/Chicago
 
 This inbox collects possible playtest-note style content from Underworld.
 
+## 2026-06-18 Soul Loop Literature Candidates
+
+Type:
+Umi channel / Alan's AI Field Notes topic bank.
+
+Status:
+Fresh topic candidates from `docs/soul/SOUL_LOOP_LITERATURE_BRIDGE.md`. These
+are not upload packages and not proof claims. Use them as evening watcher
+options when no stronger fresh transcript story appears.
+
+Topic packet:
+- `media/topics/2026-06-18-soul-loop-literature-topic-candidates.md`
+
+Best first candidates:
+- `The Missing Loop In My AI World`: conversation should change the next
+  conversation, not only become memory.
+- `Emotion Is Not Happy Plus Five`: why Underworld uses residue, attention,
+  tone, and behavior instead of numeric emotion stats.
+- `Why My AI World Needs Sleep`: sleep as selective memory compression, held
+  until clean shadow reflection evidence exists.
+
+Claim boundary:
+Frame as a functional affective loop / design lens from psychology. Do not claim
+AI feelings, sentience, or proof of artificial emotion.
+
+Recommended watcher action:
+If tonight's fresh Underworld evidence has a clear conversation -> emotion ->
+later-speech beat, package Candidate 1. If not, Candidate 2 is the safer
+evergreen design Short.
+
 ## 2026-06-16 Midday Scout
 
 ### Why did an AI remember the light on someone's hand?
