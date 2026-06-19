@@ -16,6 +16,7 @@ export type CharacterVisual = {
   portraitPaths: Record<PortraitEmotion, string>;
   renderPath?: string;
   renderPaths?: Partial<Record<PortraitEmotion, string>>;
+  sleepRenderPath?: string;
   renderFraming?: {
     zoom: number;
     y: string;
@@ -34,6 +35,7 @@ export type CharacterVisual = {
 const ASSET_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
 const PORTRAIT_BASE = `${ASSET_BASE}/portraits`;
 const RENDER_BASE = `${ASSET_BASE}/renders`;
+const SLEEP_RENDER_BASE = `${RENDER_BASE}/sleep`;
 const SPRITE_BASE = `${ASSET_BASE}/sprites`;
 
 function portraitSet(
@@ -92,6 +94,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/umi-guarded.png`,
       calm: `${RENDER_BASE}/umi-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/umi-sleep.png`,
     renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/umi.png`,
     archetypeZh: '聰明吐槽系助理校長',
@@ -118,6 +121,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/tianze-guarded.png`,
       calm: `${RENDER_BASE}/tianze-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/tianze-sleep.png`,
     renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/tianze.png`,
     archetypeZh: '笑著拆系統的壓力測試者',
@@ -144,6 +148,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/ichinose-guarded.png`,
       calm: `${RENDER_BASE}/ichinose-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/ichinose-sleep.png`,
     renderFraming: { zoom: 1.16, y: 'top' },
     spritePath: `${SPRITE_BASE}/ichinose.png`,
     archetypeZh: '用善意收債的粉紅髮溫柔惡魔',
@@ -170,6 +175,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/maomao-guarded.png`,
       calm: `${RENDER_BASE}/maomao-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/maomao-sleep.png`,
     renderFraming: { zoom: 1.18, y: 'top' },
     spritePath: `${SPRITE_BASE}/maomao.png`,
     archetypeZh: '冷眼診斷怪才',
@@ -203,6 +209,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/sakiko-guarded.png`,
       calm: `${RENDER_BASE}/sakiko-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/sakiko-sleep.png`,
     renderFraming: { zoom: 1.24, y: 'top', offsetY: '-1.3rem' },
     spritePath: `${SPRITE_BASE}/sakiko.png`,
     archetypeZh: '破碎舞台大小姐',
@@ -229,6 +236,7 @@ export const CharacterVisuals: Record<string, CharacterVisual> = {
       guarded: `${RENDER_BASE}/mahiru-guarded.png`,
       calm: `${RENDER_BASE}/mahiru-calm.png`,
     },
+    sleepRenderPath: `${SLEEP_RENDER_BASE}/mahiru-sleep.png`,
     renderFraming: { zoom: 1.2, y: 'top' },
     spritePath: `${SPRITE_BASE}/mahiru.png`,
     archetypeZh: '溫柔治癒系學生事務助理',

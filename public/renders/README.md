@@ -76,6 +76,20 @@ and `calm`. Scene Mode reads
 when a variant exists, falling back to each character's default render
 otherwise.
 
+Sleep-state illustrations are available under `public/renders/sleep/`:
+
+- `umi-sleep.png`
+- `mahiru-sleep.png`
+- `maomao-sleep.png`
+- `tianze-sleep.png`
+- `ichinose-sleep.png`
+- `sakiko-sleep.png`
+
+These are display-mode assets, not another emotion in the backend model. Scene
+Mode uses them only when a character's current activity/status is classified as
+`resting`, so "sleep" stays a visible availability/behavior state rather than a
+new emotional stat.
+
 The `tired`, `flustered`, `guarded`, and `calm` variants are provisional
 derived assets made from the existing approved render set so the expanded
 palette has non-missing UI assets. They are review-gated and can be replaced by

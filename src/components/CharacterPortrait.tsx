@@ -8,12 +8,14 @@ export function CharacterPortrait({
   showName = true,
   emotion,
   renderOnly = false,
+  mode,
 }: {
   name?: string;
   size?: 'sm' | 'md' | 'lg';
   showName?: boolean;
   emotion?: PortraitEmotion;
   renderOnly?: boolean;
+  mode?: 'sleep';
 }) {
   const visual = characterVisualFor(name);
   const pixelSize = size === 'lg' ? 4 : size === 'md' ? 3 : 2;
@@ -24,12 +26,13 @@ export function CharacterPortrait({
   const portraitCandidates = useMemo(
     () =>
       [
+        size === 'lg' && mode === 'sleep' ? visual?.sleepRenderPath : undefined,
         size === 'lg' ? visual?.renderPaths?.[selectedEmotion] : undefined,
         size === 'lg' ? visual?.renderPath : undefined,
         renderOnly ? undefined : visual?.portraitPaths?.[selectedEmotion],
         renderOnly ? undefined : visual?.portraitPath,
       ].filter((path, index, paths): path is string => !!path && paths.indexOf(path) === index),
-    [renderOnly, selectedEmotion, size, visual],
+    [mode, renderOnly, selectedEmotion, size, visual],
   );
   const [portraitCandidateIndex, setPortraitCandidateIndex] = useState(0);
   const portraitPath = portraitCandidates[portraitCandidateIndex];
@@ -37,14 +40,16 @@ export function CharacterPortrait({
 
   useEffect(() => {
     setPortraitCandidateIndex(0);
-  }, [name, selectedEmotion]);
+  }, [mode, name, selectedEmotion]);
 
   if (size === 'lg') {
     const accent = visual ? `#${visual.accent.toString(16).padStart(6, '0')}` : '#8a6f4d';
     const tint = visual ? `#${visual.tint.toString(16).padStart(6, '0')}` : '#f2d3a1';
     return (
       <div
-        className="character-portrait-card character-portrait-vn"
+        className={`character-portrait-card character-portrait-vn ${
+          mode === 'sleep' ? 'character-portrait-sleep' : ''
+        }`}
         title={visual?.artDirection ?? label}
         style={{
           borderColor: accent,
