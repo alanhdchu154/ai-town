@@ -5637,6 +5637,28 @@ body {
   width: min(12rem, 15vw);
 }
 
+.giis-scene-standee .character-portrait-sleep {
+  align-self: end;
+  height: clamp(11rem, 30vh, 19rem);
+  min-height: clamp(11rem, 30vh, 19rem);
+  place-items: end center;
+}
+
+.giis-scene-standee .character-portrait-sleep .character-portrait-img {
+  background: rgba(8, 13, 27, 0.42);
+  border: 1px solid color-mix(in srgb, var(--portrait-accent, var(--scene-accent, #22d3ee)) 34%, rgba(255, 255, 255, 0.2));
+  border-radius: 18px;
+  box-shadow:
+    0 22px 42px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  height: clamp(9.5rem, 27vh, 17rem);
+  max-width: min(19vw, 17rem);
+  object-fit: cover;
+  object-position: center;
+  overflow: hidden;
+  width: min(19vw, 17rem);
+}
+
 .giis-scene-standee .character-portrait-fallback {
   border-radius: 22px;
   height: clamp(9rem, 28vh, 18rem);
