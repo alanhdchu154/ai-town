@@ -2314,6 +2314,22 @@ export const seedSpontaneousCampusEventTick = internalMutation({
     const clock = clockAt(now, timeZone, worldStartRealDate);
     const presence: AlanPresenceStatus = resolveAlanPlayer(world, descriptions) ? 'online' : 'away';
     const seeded = await maybeSeedSpontaneousEvent(ctx, world, descriptions, clock, presence, now);
+    // Also seed the character life-event thread here. ROOT CAUSE of the dead ①→④ edge:
+    // maybeSeedCampusEventThread (which applies event→emotion) lived ONLY inside
+    // advanceWorldTimeImpl, and that runs only when Alan clicks "自然發展" in the UI — never
+    // on the autonomous loop. So life events (生日→flustered, 破音→guarded…) never fired
+    // while the world ran on its own. Running it on this 45-min cron makes ①→④ actually
+    // contribute (the per-3h de-dup keeps it to ~one fresh nuanced mood per block).
+    await maybeSeedCampusEventThread(
+      ctx,
+      world,
+      descriptions,
+      clock,
+      world.players.map((player) => player.id),
+      presence,
+      [],
+      [],
+    );
     return { seeded };
   },
 });
