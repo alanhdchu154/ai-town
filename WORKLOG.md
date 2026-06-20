@@ -1,6 +1,6 @@
 # WORKLOG - Umi / Codex / CC Current Evidence
 
-Last updated: 2026-06-18 22:32 CDT
+Last updated: 2026-06-19 20:48 CDT
 
 This file is for current coordination only. Completed implementation history was
 removed from the active worklog; use git history and generated reports when
@@ -70,6 +70,61 @@ historical evidence is needed.
 
 ## Current State Snapshot
 
+- 2026-06-19 (cc, data-driven soul-loop analysis + fixes): Pulled live runtime
+  data (emotionChanges, speech introspection, recent conversations) and found the
+  whole cast COLLAPSING into one narrow band: emotions only worried↔smiling (the
+  8-palette unused), flipping every gentle exchange; conversations a mirror
+  "notice your small object → offer to tend it" care-move; inner-wants all
+  "tired / want-to-be-cared-for". Fixes:
+  - **#1 emotion (`c853dfe8` + refine `7df4e3ab`)**: self-exhaustion → `tired`
+    (was collapsing onto worried via bare 累), nuanced states score 2×, and a
+    weighted threshold (>=2) adds inertia so a single mild cue no longer flips the
+    mood. KEEP.
+  - **#3 de-homogenisation (`70666329` + refine `7df4e3ab`)**: `responseMoveLabel`
+    now labels the mirror care-offer move; the response-move guard routes each
+    character OFF it to their own reaction (天澤 tease, 一之瀨 conditional exchange,
+    海 not-now boundary, 真晝 just sit, 貓貓 clinical, 祥子 formal distance). KEEP.
+  - **#2 was WRONG — REVERTED (`c27cdb58` → revert `a3a951b8`).** CORRECTION to the
+    Codex review note below: that "event-name normalization" was a MISDIAGNOSIS.
+    `descriptions.name` is ENGLISH (Umi/Tianze) and the `recentEmotionChanges`
+    query display-converts via `displayNameZh` — so the Chinese I saw was display,
+    not storage; names already matched English-to-English. The added
+    `name = displayNameZh(name)` then broke downstream
+    `characterDevelopmentPlanForEmotion('海')` (keys on English) → every character
+    collapsed to the GENERIC development plan. An up/downstream check caught it.
+    GOTCHA to remember: emotion data is display-converted; do not read the Chinese
+    as the stored value.
+  - **Real ①→④ fix (`0d61f85e`)**: events never shaped the mood not from names but
+    because event & conversation shared priority 3 (the next conversation instantly
+    overwrote any event mood). Events now rank 4 (above conversations) and an
+    event-set mood holds ~90 in-world minutes before a conversation can adjust it.
+    The event pool already carries the missing nuanced emotions (生日→flustered,
+    破音→guarded, 簡報被接住→calm), so events now inject + persist real variety.
+  - Watch next data for: `causeKind: event` appearing in emotionChanges (was 0),
+    nuanced emotions persisting, and less mirror care-move.
+
+- 2026-06-19 20:48 CDT (Codex review of cc code): Reviewed cc's latest
+  committed Underworld repairs on `main`: emotion palette de-flattening +
+  inertia (`c853dfe8`), event-name normalization for event->emotion writes
+  (`c27cdb58`), response-move de-homogenisation (`70666329`), and compaction
+  restore hardening (`c17fdd0e`). Verdict: directionally correct and aligned
+  with v0.1 data collection. Codex accepted the changes with two tiny follow-up
+  patches: self-exhaustion cues now catch common `我很累/真的很累` phrasing, and
+  the response-move guard prompt no longer includes the meta phrase about
+  everyone "collapsing" into one care style, reducing prompt-leak risk while
+  keeping the divergence behavior. Verification: targeted conversation emotion
+  + motif guard tests PASS (67/67), `npx tsc --noEmit --pretty false` PASS,
+  `npm run build` PASS, `git diff --check` PASS.
+- 2026-06-19 20:23 CDT (Codex): Underworld 海 soul/profile was aligned with
+  today's more concrete Central Umi picture. The change is intentionally
+  scoped to Umi's source-of-truth soul doc and runtime GIIS profile: 海 is now
+  framed as Alan's in-world chief-of-staff companion / attention steward, not
+  just a warm coordinator. She should protect Alan's attention, ask what
+  problem a new action solves, why now, what success looks like, and what
+  should stop; she can recommend pursue, plan, defer, or stop. This is a
+  character-direction update, not a new system, provider change, or live Convex
+  profile migration. Verification: `npx tsc --noEmit --pretty false` PASS;
+  `npm run build` PASS.
 - 2026-06-18 22:32 CDT (Central Umi / cc push-safety review): recent
   conversation eval was refreshed locally and reports 12 checked conversations
   with 0 PASS / 4 WARN / 8 FAIL; dominant failures remain mirror/motif
