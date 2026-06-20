@@ -960,12 +960,13 @@ async function updateEmotionByName(
   causeKind: EmotionChangeCauseKind = 'event',
   causeEventId?: string,
 ) {
-  // Normalise the name so BOTH callers match: conversation outcomes pass the Chinese
-  // display name (海/天澤) while character life events pass the English roster name
-  // (Umi/Tianze). The old exact `item.name === name` match silently failed for the
-  // event path — which is why ①→④ (event→emotion) never fired in live data.
-  name = displayNameZh(name);
-  const description = [...descriptions.values()].find((item) => displayNameZh(item.name) === name);
+  // Both callers pass the English roster name (descriptions.name is English, e.g.
+  // 'Umi'/'Tianze'; conversation outcomes and character life events both use it), so
+  // an exact match is correct. Do NOT normalise to the Chinese display name here — the
+  // downstream per-character logic (characterDevelopmentPlanForEmotion, activity/behavior
+  // notes) keys on the English name, so converting silently collapsed it to the generic
+  // plan. The emotionChanges query display-converts for the dashboard instead.
+  const description = [...descriptions.values()].find((item) => item.name === name);
   if (!description) return;
   const profile = await ctx.db
     .query('schoolProfiles')
