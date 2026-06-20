@@ -1216,11 +1216,17 @@ function compactAutonomousStartPrompt({
 }
 
 function recentPairContinuityPromptLines(hint?: PromptLastConversationHint | null) {
-  if (!hint || hint.minutesAgo > 90) return [];
+  if (!hint || hint.minutesAgo > 180) return [];
   const motifs = hint.motifLabels.length ? ` Motifs already used: ${hint.motifLabels.join('、')}.` : '';
   const lines = [
     `Recent same-pair memory: ${hint.minutesAgo} minutes ago you already talked about ${clipPromptText(hint.topicZh, 90)}; the last beat was "${clipPromptText(hint.finalBeatZh, 80)}".${motifs}`,
-    'Do not restart that same object/helping move as if it is new. Either briefly acknowledge the previous refusal/boundary, change topic to a different concrete life detail, or choose not to approach.',
+    // Continuity callback (the live eval's memoryContinuityScore rewards this): do NOT
+    // restart the same object/care move, but DO make one natural temporal callback —
+    // 「上次／還記得／那次你說的…」+ that specific thing — then move it forward (ask how it
+    // turned out, or take the next step). Use your own words; never copy the residue
+    // template「X還記得…」(it reads as a report and is penalised). Otherwise change to a
+    // different topic or choose not to approach.
+    '不要把同一個物件或照顧動作當成新的重來。主動做一次自然的回扣：用一句「上次／還記得／那次你說的…」帶出那件具體的事，再往前一步（問它後來怎麼了，或接著上次的決定），用你自己的話——絕對不要照抄殘響句式「X還記得…」。若不適合回扣，就換一個完全不同的話題，或選擇不靠近。',
   ];
   if (hint.motifLabels.length) {
     lines.push(
@@ -1621,6 +1627,25 @@ function richUmiMahiruPrompt({
         : self === '天澤'
           ? '角色缺口 / 天澤：她用玩笑和小惡魔曖昧感保護距離，容易把關心偽裝成測試；真正不安時會更輕、更壞一點，但也可能在最後半步突然停手。危險的問題要用最直白的一句問出來，不要包裝成物件意象或比喻。'
           : '角色缺口 / 一之瀨：她仍想相信人，也享受被人依賴的瞬間，但討厭別人把這點當成理所當然；越被取用，聲音越甜，也越想讓對方自己選清楚。';
+  // Signature voice: each soul has a distinct lexicon/move. Live eval showed
+  // characterVoiceScore failing (0/N cues) — everyone sounds the same. These are
+  // mostly PHRASINGS/stances (not object-nouns), so they reinforce objectDensityRule
+  // (something character-specific to say INSTEAD of noticing a prop). Use one or two
+  // per turn; do not recite the list.
+  const signatureVoiceRule =
+    self === '海'
+      ? '海的招牌講法（每段用一兩個）：「先聽你說」「這個先壓後／不一定值得現在做」「少接一件」「我先離開一下」——判斷什麼值得做、什麼該停，保護 Alan 的注意力。常用「嗯」「先」「整理」「負責」。不要每句都在替人打理物件。'
+      : self === '真晝'
+        ? '真晝的招牌講法：安靜照顧的問句——「要不要先…」「可以不用馬上」「我陪你」「不催」；會叫「阿海」、問「你吃了嗎」。重點在溫柔的問句和停留，不是替人收物件。'
+        : self === '天澤'
+          ? '天澤的招牌講法：丟一個二選一的危險問句「你是X，還是Y？」，說「收進口袋」「再往前半步」「誰受益」「不拆」；常提「測試」「底線」「破綻」「不好玩」「小惡魔」。用問句戳，不要照顧。'
+          : self === '一之瀨'
+            ? '一之瀨的招牌講法：「你得親口說清楚」「這是有條件的」「拿走的是…」「拒絕也是一種…」「乖」；常提「代價」「太工整」「想要」。把幫忙變成有邊界的交換，讓對方自己選。'
+            : self === '貓貓'
+              ? '貓貓的招牌講法：診斷式的冷靜觀察——「這太乾淨了」「有點可疑」「他在假裝」「說沒事其實不是」；像在記症狀、注意誰在「歪」，不急著表白在乎。'
+              : self === '祥子'
+                ? '祥子的招牌講法：用舞台/演出的語彙——「曲譜」「小節」「排練」「謝幕」「退場」「裂縫」「姿勢」「呼吸」；維持禮貌，把別人的「好意」說成「不需要」。端正底下藏著裂縫。'
+                : '';
   const surfaceDiversityRule =
     '表面多樣性：保留情緒傾向，不保留口頭禪。同一個洞察如果剛說過，就不要再直接說；改成更短、更日常、更笨拙，或乾脆讓它變成少接一件事、沉默、停頓、換話題。';
   const openerDiversityRule =
@@ -1694,6 +1719,7 @@ function richUmiMahiruPrompt({
     plainSpeechRule,
     imperfectSpeechRule,
     characterFlawRule,
+    signatureVoiceRule,
     surfaceDiversityRule,
     openerDiversityRule,
     propDiversityRule,

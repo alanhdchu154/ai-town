@@ -184,7 +184,11 @@ describe('conversation motif guard', () => {
     expect(lines).toContain('Recent same-pair memory');
     expect(lines).toContain('便當盒');
     expect(lines).toContain('Motifs already used: 便當/餐食');
-    expect(lines).toContain('Do not restart that same object/helping move');
+    // Now encourages an explicit continuity callback (memoryContinuityScore) instead of
+    // only forbidding the repeat.
+    expect(lines).toContain('主動做一次自然的回扣');
+    expect(lines).toContain('上次／還記得');
+    expect(lines).toContain('不要照抄殘響句式');
     expect(lines).toContain('Same-pair motif cooldown');
   });
 
