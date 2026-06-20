@@ -1627,6 +1627,8 @@ function richUmiMahiruPrompt({
     '開頭多樣性：整段對話最多一個人用一次「欸」。如果上一句已經用「欸」開頭，你這句絕對不要再用「欸」；直接接內容、叫名字、或沉默半拍。';
   const propDiversityRule =
     '物件多樣性：同一個生活物件不要連續接力。前面提過筆，就別再說筆；提過茶，就別再說茶；提過便當，就別再說便當。換成一句短反應、另一個身體訊號、或一個小交接。';
+  const objectDensityRule =
+    '物件密度上限（最重要的反同質化規則）：不要每句都靠「注意到一個身邊的小物件」開口或回應（筆、傳單、袖口、洗衣籃、杯子、吹風機、外套、紙船、烘乾機…）。最近全班都塌縮成「我注意到你的小東西」這一個動作，這是現在最大的問題。三句話裡至少兩句要完全不碰任何物件，改成談其中一種：對方此刻的狀態或感受、一個計畫或決定、你們之間的關係、今天真的發生的一件事、一個想法、或一句直接說出口的話。物件只在它真的有功能、而且不是你唯一想得到的東西時才提；如果你腦中第一個反應又是某個小物件，請換成上面其中一種。';
   const traditionalOnlyRule =
     '繁中硬規則：禁用簡體字，尤其是「着、饭、还、这、说、听、灯、担、们」。要寫「著、飯、還、這、說、聽、燈、擔、們」。';
   const umiCoordinatorRule =
@@ -1695,6 +1697,7 @@ function richUmiMahiruPrompt({
     surfaceDiversityRule,
     openerDiversityRule,
     propDiversityRule,
+    objectDensityRule,
     traditionalOnlyRule,
     umiCoordinatorRule,
     everydayPilotRule,
