@@ -105,7 +105,22 @@ describe('conversation motif guard', () => {
 
     expect(lines).toContain('response-move guard');
     expect(lines).toContain('分一半');
-    expect(lines).toContain('不要用同一種分擔/接走/扛下來回覆');
+    expect(lines).toContain('不要用同一種動作回覆');
+    expect(lines).toContain('天澤戳一下'); // per-character divergence out of the homogenised care move
+  });
+
+  test('#3 de-homogenisation: detects the mirror "tend your small thing" care-offer move', () => {
+    // Live data: every character mirrored 「我幫你壓平/送/挪你的X」. The guard must catch
+    // it as a repeated move so the next speaker is pushed off it.
+    const lines = motifGuardPromptLinesForTest(
+      ['一之瀨 to 祥子: 傳單邊角翹了，我幫你壓平它，外套也順手送過去好了。'],
+      [],
+      'Tianze',
+      'Ichinose',
+    ).join('\n');
+    expect(lines).toContain('response-move guard');
+    expect(lines).toContain('幫你打理小東西');
+    expect(lines).toContain('塌縮成同一個溫柔照顧的人');
   });
 
   test('keeps Mahiru and Tianze legacy-slot action guidance distinct', () => {

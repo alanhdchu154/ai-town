@@ -1909,8 +1909,8 @@ function propDiversityPromptLines(
   }
   if (guard.previousMove) {
     lines.push(
-      `response-move guard：上一句已經是「${guard.previousMove}」類型，不要用同一種分擔/接走/扛下來回覆。`,
-      '請改成其中一種：拒絕一小部分、縮短任務、轉給明確負責人、安靜停一下、只接受一半、問一個具體問題，或直接結束這輪。',
+      `response-move guard：上一句已經是「${guard.previousMove}」類型，你絕對不要用同一種動作回覆——尤其不要再「注意到對方的小東西、提議幫忙打理」。大家最近都塌縮成同一個溫柔照顧的人，這是現在最大的問題。`,
+      '改成你這個角色真正會做的、跟照顧不一樣的事：天澤戳一下危險的問題或調侃；一之瀨把「幫忙」變成一個有條件的交換、或請對方親口承認想要什麼；海拉回正事、一件小提醒或一句只屬於自己的狀態；真晝不動手、只是安靜陪或回一個「嗯」；貓貓冷靜地指出一個不對勁；祥子保持端正、把距離守住。寧可拒絕、岔開、或安靜收束，也不要再做一次「我幫你弄你的X」。',
     );
   }
   if (guard.roleActionLine) {
@@ -2171,6 +2171,12 @@ function responseMoveLabel(line: string) {
   if (!line.trim()) return '';
   if (/分一半|分給|一起分|半份|一人一半/.test(line)) return '分一半';
   if (/接走|接下|接住|扛下|扛著|硬扛|我來/.test(line)) return '接走/扛下';
+  // The "I noticed your small thing — let me tend it" care-offer. Live data showed
+  // EVERY character mirroring this one move (壓平你的傳單 / 幫你送外套 / 順手挪你的盆栽),
+  // which is the dominant homogenisation loop. Labelling it lets the response-move
+  // guard stop the next speaker from repeating the same shape.
+  if (/幫你(壓|收|挪|送|補|塞|擦|撿|拿|放|遞|蓋|掛|擺|整理|弄|留)|要我幫你|順手(把|替|幫|壓|收|挪|補|送|擦)/.test(line))
+    return '幫你打理小東西';
   if (/交給|交接|負責人|負責|你幫我|幫我/.test(line)) return '交接責任';
   if (/先坐|坐一會|休息|喝水|吃/.test(line)) return '照顧休息';
   return '';
