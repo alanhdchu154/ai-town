@@ -48,6 +48,7 @@ describe('conversation -> emotion (②→④ feedback edge)', () => {
     // "我真的快撐不住了，好累" is the speaker's OWN exhaustion → tired (it used to
     // collapse onto worried via the bare 累). A passing 謝謝 does not flip it back.
     expect(inferEmotionFromConversation('謝謝你，但我真的快撐不住了，好累。')).toBe('tired');
+    expect(inferEmotionFromConversation('我很累，今天真的很累，想休息一下。')).toBe('tired');
     // Concern ABOUT the other person still reads as worried.
     expect(inferEmotionFromConversation('我很擔心你最近壓力太大，別硬撐。')).toBe('worried');
   });

@@ -45,8 +45,9 @@ const EMOTION_CUES: Record<Exclude<ConversationEmotion, 'neutral'> | 'neutral', 
     '扛不動', '喘不過', '不想再開 checklist', '只整理三件', '今天先到這裡',
     // Self-referential exhaustion that real conversations use — these were
     // collapsing onto `worried` (via the bare 累), flattening the palette.
-    '好累', '太累', '有點累', '我累', '撐不住', '撐不下去', '想休息', '想坐下',
-    '喘口氣', '喘一口氣', '沒睡好', '睡不夠', '歇一下', '歇會', '快不行',
+    '好累', '太累', '很累', '真的累', '真的很累', '有點累', '我累', '我很累',
+    '撐不住', '撐不下去', '想休息', '想坐下', '喘口氣', '喘一口氣', '沒睡好',
+    '睡不夠', '歇一下', '歇會', '快不行',
   ],
   flustered: [
     '害羞', '不好意思', '臉紅', '心跳', '慌了一下', '愣住', '喜歡你', '我也喜歡',

@@ -105,7 +105,7 @@ describe('conversation motif guard', () => {
 
     expect(lines).toContain('response-move guard');
     expect(lines).toContain('分一半');
-    expect(lines).toContain('不要用同一種動作回覆');
+    expect(lines).toContain('不要重複同一種照顧動作');
     expect(lines).toContain('天澤戳一下'); // per-character divergence out of the homogenised care move
   });
 
@@ -120,7 +120,8 @@ describe('conversation motif guard', () => {
     ).join('\n');
     expect(lines).toContain('response-move guard');
     expect(lines).toContain('幫你打理小東西');
-    expect(lines).toContain('塌縮成同一個溫柔照顧的人');
+    expect(lines).toContain('不要重複同一種照顧動作');
+    expect(lines).toContain('天澤戳一下危險的問題');
   });
 
   test('keeps Mahiru and Tianze legacy-slot action guidance distinct', () => {
