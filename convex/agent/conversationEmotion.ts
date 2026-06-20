@@ -43,6 +43,10 @@ const EMOTION_CUES: Record<Exclude<ConversationEmotion, 'neutral'> | 'neutral', 
   tired: [
     '疲憊', '睡不', '沒睡', '睡眠', '少接', '先休息', '休息一下', '休息過嗎',
     '扛不動', '喘不過', '不想再開 checklist', '只整理三件', '今天先到這裡',
+    // Self-referential exhaustion that real conversations use — these were
+    // collapsing onto `worried` (via the bare 累), flattening the palette.
+    '好累', '太累', '有點累', '我累', '撐不住', '撐不下去', '想休息', '想坐下',
+    '喘口氣', '喘一口氣', '沒睡好', '睡不夠', '歇一下', '歇會', '快不行',
   ],
   flustered: [
     '害羞', '不好意思', '臉紅', '心跳', '慌了一下', '愣住', '喜歡你', '我也喜歡',
@@ -59,11 +63,24 @@ const EMOTION_CUES: Record<Exclude<ConversationEmotion, 'neutral'> | 'neutral', 
   neutral: ['沒什麼', '平常', '照舊', '先這樣', '就這樣', '結束了', '收好', '整理好'],
 };
 
-function countCues(text: string, cues: string[]): number {
+// The nuanced states drown easily: smiling/worried have broad cue lists, so live
+// data showed ~every change collapsing onto worried↔smiling. Weight the nuanced
+// states 2× so a single specific cue (疲憊 / 心跳 / 保留 / 說開了) surfaces them
+// instead of losing on count to a generic 謝謝/累.
+const NUANCED_EMOTIONS = new Set<ConversationEmotion>(['tired', 'flustered', 'guarded', 'calm']);
+
+function countCues(emotion: ConversationEmotion, text: string, cues: string[]): number {
+  const weight = NUANCED_EMOTIONS.has(emotion) ? 2 : 1;
   let n = 0;
-  for (const cue of cues) if (text.includes(cue)) n += 1;
+  for (const cue of cues) if (text.includes(cue)) n += weight;
   return n;
 }
+
+// Minimum weighted score to MOVE the emotion. Below this the signal is too weak/
+// ambiguous → return null and let the existing mood persist. This is the inertia
+// that stops the worried↔smiling ping-pong on every gentle exchange (a single mild
+// 謝謝 or 累 no longer flips the mood; it takes a clearer signal).
+const EMOTION_CHANGE_THRESHOLD = 2;
 
 // Infer the dominant emotion the conversation left, or null when no clear signal.
 // `text` should combine what was said / the felt summary (transcript + residue +
@@ -72,16 +89,16 @@ function countCues(text: string, cues: string[]): number {
 export function inferEmotionFromConversation(text: string): ConversationEmotion | null {
   if (!text || !text.trim()) return null;
   const scores: Array<[ConversationEmotion, number]> = [
-    ['tired', countCues(text, EMOTION_CUES.tired)],
-    ['flustered', countCues(text, EMOTION_CUES.flustered)],
-    ['guarded', countCues(text, EMOTION_CUES.guarded)],
-    ['worried', countCues(text, EMOTION_CUES.worried)],
-    ['smiling', countCues(text, EMOTION_CUES.smiling)],
-    ['serious', countCues(text, EMOTION_CUES.serious)],
-    ['calm', countCues(text, EMOTION_CUES.calm)],
-    ['neutral', countCues(text, EMOTION_CUES.neutral)],
+    ['tired', countCues('tired', text, EMOTION_CUES.tired)],
+    ['flustered', countCues('flustered', text, EMOTION_CUES.flustered)],
+    ['guarded', countCues('guarded', text, EMOTION_CUES.guarded)],
+    ['worried', countCues('worried', text, EMOTION_CUES.worried)],
+    ['smiling', countCues('smiling', text, EMOTION_CUES.smiling)],
+    ['serious', countCues('serious', text, EMOTION_CUES.serious)],
+    ['calm', countCues('calm', text, EMOTION_CUES.calm)],
+    ['neutral', countCues('neutral', text, EMOTION_CUES.neutral)],
   ];
   const best = scores.reduce((a, b) => (b[1] > a[1] ? b : a));
-  if (best[1] === 0) return null; // no signal at all → don't change the emotion
+  if (best[1] < EMOTION_CHANGE_THRESHOLD) return null;
   return best[0];
 }

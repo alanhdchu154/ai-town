@@ -44,8 +44,20 @@ describe('conversation -> emotion (②→④ feedback edge)', () => {
     expect(inferEmotionFromConversation('   ')).toBeNull();
   });
 
-  test('vulnerability outweighs a passing warm word (worried wins ties up)', () => {
-    // "謝謝" (smiling) + "累/撐不住" (worried x2): worried dominates by count.
-    expect(inferEmotionFromConversation('謝謝你，但我真的快撐不住了，好累。')).toBe('worried');
+  test('self-exhaustion now surfaces as tired, not generic worried (palette de-flattening)', () => {
+    // "我真的快撐不住了，好累" is the speaker's OWN exhaustion → tired (it used to
+    // collapse onto worried via the bare 累). A passing 謝謝 does not flip it back.
+    expect(inferEmotionFromConversation('謝謝你，但我真的快撐不住了，好累。')).toBe('tired');
+    // Concern ABOUT the other person still reads as worried.
+    expect(inferEmotionFromConversation('我很擔心你最近壓力太大，別硬撐。')).toBe('worried');
+  });
+
+  test('a single mild cue no longer moves the mood (inertia / weighted threshold)', () => {
+    // One warm/soft word alone is below the change threshold → null → mood persists,
+    // which stops the worried↔smiling ping-pong on every gentle exchange.
+    expect(inferEmotionFromConversation('謝謝。')).toBeNull();
+    expect(inferEmotionFromConversation('你還好嗎。')).toBeNull();
+    // A clearer two-cue warmth still reads smiling.
+    expect(inferEmotionFromConversation('謝謝你，我們一起去吧。')).toBe('smiling');
   });
 });
