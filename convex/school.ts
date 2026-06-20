@@ -914,11 +914,21 @@ function elapsedWorldMinutesSince(
   return Math.max(0, worldClockMinutes(currentClock) - worldClockMinutes(previousClock));
 }
 
+// Events carry the nuanced emotions conversations rarely produce (生日→flustered,
+// 破音→guarded, 簡報被接住→calm). They used to share priority 3 with conversations, so
+// the very next conversation overwrote them and they never persisted — making ①→④
+// contribute nothing to the palette. Rank events ABOVE conversations so an event-set
+// mood HOLDS for a window and actually colours the next few exchanges.
 function emotionWritePriority(causeKind: EmotionChangeCauseKind) {
-  if (causeKind === 'event' || causeKind === 'conversation') return 3;
+  if (causeKind === 'event') return 4;
+  if (causeKind === 'conversation') return 3;
   if (causeKind === 'pressure') return 1;
   return 0;
 }
+
+// How long an event-set mood resists being overwritten by a conversation (so events
+// shape the mood for roughly an in-world hour-and-a-half, then conversations adjust it).
+const EVENT_EMOTION_HOLD_WORLD_MINUTES = 90;
 
 function shouldApplyEmotionWrite(
   causeKind: EmotionChangeCauseKind,
@@ -931,7 +941,13 @@ function shouldApplyEmotionWrite(
   const incomingPriority = emotionWritePriority(causeKind);
   const previousPriority = emotionWritePriority(lastChange.causeKind);
   if (incomingPriority >= previousPriority) return true;
-  return elapsedMinutes >= LOW_PRIORITY_EMOTION_OVERRIDE_AFTER_WORLD_MINUTES;
+  // A lower-priority write (conversation/pressure) can override an EVENT mood only after
+  // the event hold, so events actually persist instead of being instantly flipped back.
+  const overrideAfter =
+    lastChange.causeKind === 'event'
+      ? EVENT_EMOTION_HOLD_WORLD_MINUTES
+      : LOW_PRIORITY_EMOTION_OVERRIDE_AFTER_WORLD_MINUTES;
+  return elapsedMinutes >= overrideAfter;
 }
 
 export function elapsedWorldMinutesSinceForTest(

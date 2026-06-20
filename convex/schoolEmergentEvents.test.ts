@@ -151,6 +151,18 @@ describe('v0.2 emergent event cause metadata', () => {
     expect(shouldApplyEmotionWriteForTest('decay', testClock(31, 14, 0), oldConversation)).toBe(true);
   });
 
+  test('an event-set mood persists for the 90-min event hold, then a conversation can adjust it', () => {
+    // Events now outrank conversations so the nuanced mood they inject (生日→flustered,
+    // 破音→guarded) actually colours the next exchanges instead of being instantly flipped.
+    const recentEvent = { causeKind: 'event' as const, clock: testClock(31, 10, 0) };
+    expect(shouldApplyEmotionWriteForTest('conversation', testClock(31, 10, 30), recentEvent)).toBe(false);
+    expect(shouldApplyEmotionWriteForTest('conversation', testClock(31, 11, 29), recentEvent)).toBe(false);
+    // After the 90-min hold a conversation may adjust the mood again.
+    expect(shouldApplyEmotionWriteForTest('conversation', testClock(31, 11, 30), recentEvent)).toBe(true);
+    // Another event always overrides immediately (events interchange freely).
+    expect(shouldApplyEmotionWriteForTest('event', testClock(31, 10, 5), recentEvent)).toBe(true);
+  });
+
   test('character development plans turn emotion into bounded behavior color', () => {
     expect(characterDevelopmentPlanForTest('Umi', 'tired', '海縮短了早晨簡報', 'event')).toMatchObject({
       behaviorLeanZh: expect.stringContaining('簡報變短'),
